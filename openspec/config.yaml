@@ -1,0 +1,42 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  Folio: a lightweight, local-first Logseq alternative. Open a local Markdown folder (vault) in the browser; the folder is the database, the app is just a UI + index over it. No backend, no application database.
+
+  Tech stack: Vite 8, React 19, TypeScript 6, vite-plugin-pwa (Workbox generateSW), oxlint. Chromium-first via File System Access API (Chrome, Edge, Brave). Editor: Milkdown (planned, ADR-0008). Search: Fuse.js (planned). All decisions recorded in adr/ (MADR); read adr/README.md and AGENTS.md before proposing.
+
+  Key constraints: keep it small (do not rebuild Logseq, ADR-0006); Markdown files are the source of truth (IndexedDB only caches derived data, ADR-0001/0009); filesystem access goes through a VaultStorage abstraction (ADR-0003); editor and knowledge-management logic stay separate (ADR-0010).
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+rules:
+  proposal:
+    - Use a kebab-case change name (e.g., "add wikilink navigation")
+    - Reference the ADR(s) the change relates to, or note if a new ADR is needed
+    - Always include a "Non-goals" section listing what the change explicitly does NOT do
+    - No backend, no database, no block-based document model unless an ADR changes that
+  design:
+    - Keep the design minimal; one page of detail is usually enough
+    - Filesystem access must go through the VaultStorage abstraction
+    - Editor-specific behavior belongs in the editor layer, knowledge-management logic outside it
+    - Markdown must remain the canonical on-disk representation
+  tasks:
+    - Break tasks into small, verifiable chunks
+    - Each task should be finishable in one sitting
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+operations:
+  apply:
+    guidance:
+      - Run `npm run lint` and `npm run build` before finishing
+      - If the implementation drifts from the plan, use /opsx-update instead of silently deviating
+      - If the change alters an architectural decision, flag it for a new or updated ADR
+      - Keep diffs small and scoped to the change
+  archive:
+    guidance:
+      - Summarize what shipped, what was verified, and any follow-ups
+      - Note whether the change requires an ADR update or extraction
