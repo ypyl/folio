@@ -1,0 +1,12 @@
+.sidebar {
+  background: var(--ivory);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  min-width: 0;
+}
+
+.newPageBtn {
+  width: 100%;
+  margin-bottom: 12px;
+}

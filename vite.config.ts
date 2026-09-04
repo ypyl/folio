@@ -8,13 +8,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg', 'apple-touch-icon.png'],
+      includeAssets: ['folio-mark.svg'],
       manifest: {
         name: 'Folio',
         short_name: 'Folio',
         description: 'A lightweight, local-first alternative to Logseq. Your Markdown folder is the database.',
-        theme_color: '#6366f1',
-        background_color: '#ffffff',
+        theme_color: '#1B365D',
+        background_color: '#f5f4ed',
         display: 'standalone',
         start_url: '/',
         icons: [
