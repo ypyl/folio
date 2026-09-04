@@ -4,6 +4,7 @@ node_modules
 # Build output
 dist
 dist-ssr
+dev-dist
 *.local
 
 # Logs
@@ -37,3 +38,7 @@ Desktop.ini
 
 # Test coverage / reports
 coverage
+.vitest
+
+# Browser automation session artifacts
+.playwright-cli
