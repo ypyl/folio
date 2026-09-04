@@ -27,6 +27,8 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0008](0008-use-milkdown-as-markdown-editor.md) | Use Milkdown as the Markdown editor component | Accepted |
 | [0009](0009-reject-block-based-document-model.md) | Keep Markdown canonical — reject block-based editing | Accepted |
 | [0010](0010-editor-vault-separation.md) | Keep the editor separate from the knowledge-management layer | Accepted |
+| [0011](0011-kami-design-language.md) | Adopt the Kami design language for Folio's visual identity | Accepted |
+| [0012](0012-unified-page-references.md) | Unified page references: tags and wikilinks are the same thing | Accepted |
 
 ## Adding a new ADR
 

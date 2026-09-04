@@ -12,11 +12,15 @@ Wikilinks, backlinks, tags, and search all need to know what pages exist and how
 Maintain an **in-memory index** over the vault, shaped like:
 
 ```ts
+type Link = {
+  target: string       // page title; one namespace, no tags vs pages (ADR-0012)
+  via: 'wikilink' | 'tag'  // lexical form, display only
+}
+
 type Page = {
   path: string
   title: string
-  links: string[]
-  tags: string[]
+  links: Link[]    // every reference target: [[Page]], #word, #[[Page]]
 }
 
 type Graph = {
@@ -31,6 +35,6 @@ type Graph = {
 
 ## Consequences
 
-- Backlinks, tags, and search are answered from memory — no network, no disk latency.
+- Backlinks, tags, and search are answered from memory — no network, no disk latency. Tags are page references (ADR-0012); there is no separate tag index.
 - The index is disposable: it can always be re-derived from the folder.
 - Incremental updates must stay correct when files change externally, so the app must also watch or re-scan for external edits (the File System Access API does not notify automatically).

@@ -9,20 +9,25 @@ Folio deliberately does not rebuild Logseq (ADR-0006). Graph visualizations are 
 
 ## Decision
 
-Keep the UI intentionally small with a **three-pane layout**:
+Keep the UI intentionally small with a **three-pane layout** under a single header row:
 
 ```text
-┌──────────┬────────────────────────┬──────────────┐
-│ Sidebar  │ Main Editor / Page     │ Backlinks    │
-│          │                        │              │
-│ Journal  │ Machine Learning       │ Linked from  │
-│ Pages    │                        │              │
-│ Tags     │ Content...             │ [[AI]]       │
-│ Search   │ [[Neural Networks]]    │ [[Research]] │
-└──────────┴────────────────────────┴──────────────┘
++---------------------------------------------------+
+| Header: brand | search (centered) | storage slot  |
++----------+------------------------+---------------+
+| Sidebar  | Main Editor / Page     | Meta panel    |
+| [New]    |                        | Backlinks     |
+| Journal  |                        | Forwardlinks  |
+| Pages    |                        |               |
++----------+------------------------+---------------+
 ```
 
-Sidebar holds journal, pages, tags, and search. The center pane is the editor/page. The right pane shows backlinks. Do **not** build a graph visualization initially.
+- Sidebar is an accordion: a **New Page** button, a collapsible **Journal** section (holds the calendar), and a collapsible **Pages** section. There is no Tags section: tags are pages (ADR-0012).
+- **Search lives in the header**, centered over the content column — not in the sidebar.
+- The right pane is an accordion of page metadata: **Backlinks** and **Forwardlinks**.
+- Do **not** build a graph visualization initially.
+
+This decision revises the composition described earlier in this ADR (search and tags in the sidebar, backlinks-only right pane) under the unified-page-references model (ADR-0012).
 
 ## Consequences
 
