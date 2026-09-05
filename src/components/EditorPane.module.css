@@ -24,3 +24,16 @@
   font-size: 15px;
   color: var(--stone);
 }
+
+.document {
+  max-width: 720px;
+  padding: 40px 48px 64px;
+}
+
+.title {
+  margin: 0 0 20px;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--near-black);
+  line-height: 1.2;
+}
