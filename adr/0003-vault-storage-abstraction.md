@@ -30,7 +30,7 @@ Tauri
  └── Native filesystem API
 ```
 
-The rest of the application must not care where the files come from.
+The rest of the application must not care where the files come from. The concrete path and I/O contract (list shape, path rules, error stance) is recorded in ADR-0013; the behavior contract lives in the vault-storage spec.
 
 ## Consequences
 

@@ -6,7 +6,7 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
    - Left sidebar is an accordion: top **New Page** button, collapsible **Journal** section (holds the calendar), collapsible **Pages** section.
    - Right panel is an accordion of page meta: **Backlinks** (pages linking to this one), **Forwardlinks** (links this page points to).
 2. [x] **Static navigation** — mock vault with a few sample pages; the sidebar accordion lists pages and journal entries; clicking swaps the editor area content. No filesystem, no persistence, fully clickable in dev.
-3. [ ] **`VaultStorage` interface** — `read / write / delete / list` in `src/vault/`.
+3. [x] **`VaultStorage` interface** — `read / write / delete / list` in `src/vault/`.
 4. [ ] **File System Access implementation** — wrapper around `showDirectoryPicker()` + `FileSystemDirectoryHandle`.
 5. [ ] **Open folder flow** — "Open folder" button wired to the picker; handle persisted in IndexedDB, re-opened on reload. Until a folder is chosen, the mock vault still shows.
 6. [ ] **Scan + parse + index** — walk the folder, extract title / `[[wikilinks]]` / `#tags`, build pages + backlinks + tags maps; sidebar and routing now use real pages when a folder is open; index updates incrementally as files change.

@@ -29,6 +29,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0010](0010-editor-vault-separation.md) | Keep the editor separate from the knowledge-management layer | Accepted |
 | [0011](0011-kami-design-language.md) | Adopt the Kami design language for Folio's visual identity | Accepted |
 | [0012](0012-unified-page-references.md) | Unified page references: tags and wikilinks are the same thing | Accepted |
+| [0013](0013-vault-storage-path-and-io-contract.md) | VaultStorage path and I/O contract | Accepted |
 
 ## Adding a new ADR
 
