@@ -40,3 +40,4 @@ operations:
     guidance:
       - Summarize what shipped, what was verified, and any follow-ups
       - Note whether the change requires an ADR update or extraction
+      - If the change completes a numbered task in PLAN.md, mark that task `[x]` there (e.g., `sed -i 's/^1. \[ \] \*\*UI shell\*\*/1. [x] **UI shell**/' PLAN.md`) and include it in the archive commit
