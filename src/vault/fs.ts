@@ -43,7 +43,8 @@ export function parsePath(path: string): string[] {
  * permission negotiation belongs to the caller (task 5), not here.
  */
 export class FileSystemVaultStorage implements VaultStorage {
-  private readonly root: FileSystemDirectoryHandle
+  /** The underlying Chrome handle; exposed so the caller can persist it (D3). */
+  readonly root: FileSystemDirectoryHandle
 
   constructor(root: FileSystemDirectoryHandle) {
     this.root = root

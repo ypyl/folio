@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import App from './App'
 import { Accordion } from './components/Accordion'
+import { buildTree } from './vault/fakeHandle'
 
 const pane = () => screen.getByRole('main')
 
@@ -96,5 +97,56 @@ describe('static navigation', () => {
     expect(
       screen.getByRole('button', { name: 'Welcome' }).getAttribute('aria-current'),
     ).toBe('page')
+  })
+})
+
+describe('folder rail flow', () => {
+  it('shows the Add folder button in mock state', async () => {
+    render(<App />)
+    expect(await screen.findByRole('button', { name: 'Add folder' })).toBeTruthy()
+  })
+
+  it('adds a picked folder and shows its status in the header slot', async () => {
+    const tree = buildTree({ 'a.md': 'a' })
+    tree.name = 'notes'
+    vi.stubGlobal('showDirectoryPicker', vi.fn(async () => tree as unknown as FileSystemDirectoryHandle))
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    expect(await screen.findByRole('button', { name: 'Open folder notes' })).toBeTruthy()
+    expect(await screen.findByTitle('notes (1 files)')).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('switching folders resets the open page', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Welcome' }))
+    expect(
+      within(pane()).getByRole('heading', { level: 1, name: 'Welcome' }),
+    ).toBeTruthy()
+    const a = buildTree({ 'a.md': 'a' })
+    a.name = 'Work'
+    const b = buildTree({ 'b.md': 'b' })
+    b.name = 'Home'
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi
+        .fn()
+        .mockResolvedValueOnce(a as unknown as FileSystemDirectoryHandle)
+        .mockResolvedValueOnce(b as unknown as FileSystemDirectoryHandle),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    // re-clicking the active folder is not a switch: page stays
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Work' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    // switching to a different folder resets the page
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Work' }))
+    expect(
+      within(pane()).getByText('Your notes appear here.'),
+    ).toBeTruthy()
+    expect(
+      within(pane()).queryByRole('heading', { level: 1, name: 'Welcome' }),
+    ).toBeNull()
+    vi.unstubAllGlobals()
   })
 })

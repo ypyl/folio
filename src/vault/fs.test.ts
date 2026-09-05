@@ -5,116 +5,16 @@ import {
   parsePath,
   pickVaultFolder,
 } from './fs'
+import { buildTree, type FakeTreeNode } from './fakeHandle'
 
-// In-memory fake of the File System Access handle subset the storage uses
-// (D5). Cast into place: the impl types against the real DOM types, the fake
-// implements exactly the calls the impl makes.
+// Fake handle tree lives in fakeHandle.ts (shared with useVault.test.ts);
+// this suite exercises the storage against it (D5). Cast into place: the
+// impl types against the real DOM types, the fake implements exactly the
+// calls the impl makes.
 // ponytail: fake mirrors FSA failure modes (NotFoundError/TypeMismatchError)
 // for the calls the impl depends on; e2e in task 6 is the real-API backstop.
 
-type TreeNode = string | { [name: string]: TreeNode }
-
-class FakeFileHandle {
-  readonly kind = 'file'
-  readonly name: string
-  private content: string
-
-  constructor(
-    name: string,
-    content: string,
-  ) {
-    this.name = name
-    this.content = content
-  }
-
-  async writeContent(content: string): Promise<void> {
-    this.content = content
-  }
-
-  async getFile(): Promise<File> {
-    return new File([this.content], this.name)
-  }
-
-  async createWritable(): Promise<FakeWritableStream> {
-    return new FakeWritableStream(this)
-  }
-}
-
-class FakeWritableStream {
-  private readonly file: FakeFileHandle
-
-  constructor(file: FakeFileHandle) {
-    this.file = file
-  }
-
-  async write(content: string): Promise<void> {
-    await this.file.writeContent(content)
-  }
-  async close(): Promise<void> {}
-}
-
-class FakeDirectoryHandle {
-  readonly kind = 'directory'
-  readonly children = new Map<string, FakeFileHandle | FakeDirectoryHandle>()
-
-  async getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle> {
-    const child = this.children.get(name)
-    if (child instanceof FakeDirectoryHandle) {
-      throw new DOMException('Path is a directory', 'TypeMismatchError')
-    }
-    if (child) return child as unknown as FileSystemFileHandle
-    if (options?.create) {
-      const file = new FakeFileHandle(name, '')
-      this.children.set(name, file)
-      return file as unknown as FileSystemFileHandle
-    }
-    throw new DOMException('File not found', 'NotFoundError')
-  }
-
-  async getDirectoryHandle(
-    name: string,
-    options?: { create?: boolean },
-  ): Promise<FileSystemDirectoryHandle> {
-    const child = this.children.get(name)
-    if (child instanceof FakeFileHandle) {
-      throw new DOMException('Path is a file', 'TypeMismatchError')
-    }
-    if (child) return child as unknown as FileSystemDirectoryHandle
-    if (options?.create) {
-      const dir = new FakeDirectoryHandle()
-      this.children.set(name, dir)
-      return dir as unknown as FileSystemDirectoryHandle
-    }
-    throw new DOMException('Directory not found', 'NotFoundError')
-  }
-
-  /** Manual variant of the DOM's `entries()` (the DOM version needs no `dir` arg). */
-  async *entries(): AsyncGenerator<[string, FakeFileHandle | FakeDirectoryHandle]> {
-    for (const [name, child] of this.children) yield [name, child]
-  }
-
-  async removeEntry(name: string): Promise<void> {
-    if (!this.children.delete(name)) {
-      throw new DOMException('Entry not found', 'NotFoundError')
-    }
-  }
-}
-
-function buildTree(node: TreeNode, dir = new FakeDirectoryHandle()): FakeDirectoryHandle {
-  if (typeof node === 'string') throw new Error('root must be a directory')
-  for (const [name, child] of Object.entries(node)) {
-    if (typeof child === 'string') {
-      dir.children.set(name, new FakeFileHandle(name, child))
-    } else {
-      const sub = new FakeDirectoryHandle()
-      buildTree(child, sub)
-      dir.children.set(name, sub)
-    }
-  }
-  return dir
-}
-
-function fakeVault(tree: TreeNode): FileSystemVaultStorage {
+function fakeVault(tree: FakeTreeNode): FileSystemVaultStorage {
   const root = buildTree(tree)
   return new FileSystemVaultStorage(root as unknown as FileSystemDirectoryHandle)
 }
@@ -227,6 +127,12 @@ describe('FileSystemVaultStorage', () => {
   it('rejects listing a missing directory', async () => {
     await expect(fakeVault(VAULT).list('nope')).rejects.toMatchObject({
       name: 'NotFoundError',
+    })
+  })
+
+  it('rejects listing a file path', async () => {
+    await expect(fakeVault(VAULT).list('welcome.md')).rejects.toMatchObject({
+      name: 'TypeMismatchError',
     })
   })
 

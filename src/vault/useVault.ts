@@ -1,0 +1,198 @@
+import { useEffect, useState } from 'react'
+import { FileSystemVaultStorage, pickVaultFolder } from './fs'
+import {
+  clearVaultHandle,
+  getLastActiveId,
+  listVaultHandles,
+  saveVaultHandle,
+  setLastActiveId,
+} from './handleStore'
+
+// queryPermission/requestPermission were dropped from lib.dom in TS 6;
+// declare the two members this file needs (isSameEntry survives).
+declare global {
+  interface FileSystemHandle {
+    queryPermission(options?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
+    requestPermission(options?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
+  }
+}
+
+// Owns the multi-folder state machine (design.md D2). Boot restores every
+// granted stored folder silently (count only for the last-active one), holds
+// pending-permission folders without storage so their rail entry can re-grant
+// on click, and drops denied ones. All permission paths run inside a user
+// gesture — requestPermission requires one — and never re-pick.
+
+export type VaultStatus = 'restoring' | 'ready'
+export type HandlePermission = 'granted' | 'prompt' | 'denied'
+
+export interface VaultFolder {
+  id: string
+  name: string
+  handle: FileSystemDirectoryHandle
+  permission: HandlePermission
+  storage?: FileSystemVaultStorage
+  fileCount?: number
+}
+
+export function useVault() {
+  const [status, setStatus] = useState<VaultStatus>('restoring')
+  const [folders, setFolders] = useState<VaultFolder[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void restore().then(([restored, active]) => {
+      if (cancelled) return
+      setFolders(restored)
+      setActiveId(active)
+      setStatus('ready')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Activate an existing folder. Granted: switch (loading the count lazily).
+  // Pending: re-grant from the STORED handle; denied/failed re-grant drops the
+  // row and falls back to the picker (delta: denied stored folder).
+  async function activate(id: string): Promise<void> {
+    const target = folders.find((f) => f.id === id)
+    if (!target) return
+    if (target.permission === 'granted') {
+      if (target.fileCount === undefined && target.storage) {
+        const fileCount = (await target.storage.list('')).length
+        upsert(setFolders, { ...target, fileCount })
+      }
+      setActiveId(id)
+      await setLastActiveId(id)
+      return
+    }
+    const permission = await requestPermission(target.handle)
+    if (permission === 'granted') {
+      const open = await openVault(target.handle)
+      upsert(setFolders, { ...target, permission, storage: open.storage, fileCount: open.fileCount })
+      setActiveId(id)
+      await setLastActiveId(id)
+      return
+    }
+    // Denied or failed re-grant: the stored handle is dead.
+    await clearVaultHandle(id)
+    setFolders((prev) => prev.filter((f) => f.id !== id))
+    await openNewFolder(id)
+  }
+
+  // Add a folder from the picker. Re-picking an already-opened folder
+  // activates the existing entry instead of duplicating it (D1 dedup).
+  // excludeId: a just-dropped folder must be re-addable as a fresh row.
+  async function openNewFolder(excludeId?: string): Promise<void> {
+    const handle = await pickFolder()
+    if (!handle) return
+    for (const f of folders) {
+      if (f.id === excludeId) continue
+      if (await sameEntry(f.handle, handle)) {
+        await activate(f.id)
+        return
+      }
+    }
+    const id = crypto.randomUUID()
+    const open = await openVault(handle)
+    await saveVaultHandle({ id, name: handle.name, handle })
+    upsert(setFolders, {
+      id,
+      name: handle.name,
+      handle,
+      permission: 'granted',
+      storage: open.storage,
+      fileCount: open.fileCount,
+    })
+    setActiveId(id)
+    await setLastActiveId(id)
+  }
+
+  return { status, folders, activeId, addFolder: openNewFolder, activate }
+}
+
+// Boot flow: restore every granted stored folder (storage created lazily —
+// the ctor does no IO), list a count only for the folder that becomes active,
+// hold 'prompt' folders for the reconnect click, drop 'denied' ones. The
+// active folder is the last-active one when present, else the first granted.
+async function restore(): Promise<[VaultFolder[], string | null]> {
+  const rows = await listVaultHandles()
+  const lastActiveId = await getLastActiveId()
+  const restored: VaultFolder[] = []
+  for (const row of rows) {
+    const permission = await queryPermission(row.handle)
+    if (permission === 'denied') {
+      await clearVaultHandle(row.id)
+      continue
+    }
+    restored.push(
+      permission === 'granted'
+        ? { id: row.id, name: row.name, handle: row.handle, permission, storage: new FileSystemVaultStorage(row.handle) }
+        : { id: row.id, name: row.name, handle: row.handle, permission },
+    )
+  }
+  const active =
+    restored.find((f) => f.id === lastActiveId)?.id ??
+    restored.find((f) => f.permission === 'granted')?.id ??
+    null
+  if (active) {
+    const folder = restored.find((f) => f.id === active)!
+    if (folder.storage) {
+      const files = await folder.storage.list('')
+      folder.fileCount = files.length
+    }
+  }
+  return [restored, active]
+}
+
+async function openVault(handle: FileSystemDirectoryHandle) {
+  const storage = new FileSystemVaultStorage(handle)
+  const files = await storage.list('')
+  return { storage, fileCount: files.length }
+}
+
+async function pickFolder(): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const storage = await pickVaultFolder()
+    return storage.root
+  } catch {
+    return null // user cancelled the picker; stay in current state
+  }
+}
+
+async function sameEntry(a: FileSystemDirectoryHandle, b: FileSystemDirectoryHandle): Promise<boolean> {
+  // isSameEntry is baseline FSA; skip dedup when a browser lacks it.
+  try {
+    return await a.isSameEntry(b)
+  } catch {
+    return false
+  }
+}
+
+async function queryPermission(handle: FileSystemDirectoryHandle): Promise<HandlePermission> {
+  try {
+    return await handle.queryPermission({ mode: 'readwrite' })
+  } catch {
+    return 'denied'
+  }
+}
+
+async function requestPermission(handle: FileSystemDirectoryHandle): Promise<HandlePermission> {
+  try {
+    return await handle.requestPermission({ mode: 'readwrite' })
+  } catch {
+    return 'denied'
+  }
+}
+
+function upsert(
+  set: (fn: (prev: VaultFolder[]) => VaultFolder[]) => void,
+  folder: VaultFolder,
+): void {
+  set((prev) => {
+    const i = prev.findIndex((f) => f.id === folder.id)
+    return i < 0 ? [...prev, folder] : prev.map((f, j) => (j === i ? folder : f))
+  })
+}
