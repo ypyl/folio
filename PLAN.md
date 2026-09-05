@@ -7,7 +7,7 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
    - Right panel is an accordion of page meta: **Backlinks** (pages linking to this one), **Forwardlinks** (links this page points to).
 2. [x] **Static navigation** — mock vault with a few sample pages; the sidebar accordion lists pages and journal entries; clicking swaps the editor area content. No filesystem, no persistence, fully clickable in dev.
 3. [x] **`VaultStorage` interface** — `read / write / delete / list` in `src/vault/`.
-4. [ ] **File System Access implementation** — wrapper around `showDirectoryPicker()` + `FileSystemDirectoryHandle`.
+4. [x] **File System Access implementation** — wrapper around `showDirectoryPicker()` + `FileSystemDirectoryHandle`.
 5. [ ] **Open folder flow** — "Open folder" button wired to the picker; handle persisted in IndexedDB, re-opened on reload. Until a folder is chosen, the mock vault still shows.
 6. [ ] **Scan + parse + index** — walk the folder, extract title / `[[wikilinks]]` / `#tags`, build pages + backlinks + tags maps; sidebar and routing now use real pages when a folder is open; index updates incrementally as files change.
 7. [ ] **Milkdown editor** — replaces the mock editor; edits real page content; write-through with debounced auto-save; dirty indicator.

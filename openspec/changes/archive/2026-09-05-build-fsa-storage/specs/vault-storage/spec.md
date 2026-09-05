@@ -1,10 +1,8 @@
-# vault-storage Specification
-
 ## Purpose
 
-The transport contract between Folio's knowledge-management core and wherever its Markdown files actually live. `VaultStorage` is the single seam through which the app reads, writes, deletes, and enumerates files in the vault folder, so the core never touches filesystem specifics directly.
+Delta for the `vault-storage` capability: the FSA implementation makes the contract concrete, extends `delete` to directories, and gains a picker-backed factory.
 
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: VaultStorage exposes read, write, delete, and list
 The vault storage SHALL expose four async operations: `read(path)` returning the file's text content, `write(path, content)` creating or overwriting a file, `delete(path)` removing a file, and `list(path)` returning the files reachable under a path.
@@ -33,35 +31,7 @@ The vault storage SHALL expose four async operations: `read(path)` returning the
 - **WHEN** `list` is called with the path of a directory
 - **THEN** it resolves with the files under that directory, still as flat root-relative paths
 
-### Requirement: Paths follow the vault-relative contract
-Vault paths SHALL be vault-root-relative strings using `/` as the separator, with no leading `/`, no `.` or `..` segments, and no absolute paths. The empty string SHALL denote the vault root. `list` SHALL return paths in the same form. Write operations SHALL create any missing parent directories implied by the path.
-
-#### Scenario: Paths are root-relative and slash-separated
-- **WHEN** paths are used in any vault operation
-- **THEN** they are vault-root-relative, `/`-separated, with no leading slash and no `.` or `..` segments
-
-#### Scenario: The empty string is the vault root
-- **WHEN** the empty string is passed as a path
-- **THEN** the operation applies to the vault root
-
-#### Scenario: Invalid paths are rejected
-- **WHEN** a path contains a `..` segment, is absolute, or otherwise violates the path contract
-- **THEN** the operation rejects the call rather than attempting it
-
-#### Scenario: Writing creates missing parent directories
-- **WHEN** `write` is called with a path whose parent directory does not exist
-- **THEN** the parent directories are created and the file is written
-
-### Requirement: Missing files reject instead of returning null
-`read` and `delete` SHALL reject when the target file does not exist, rather than resolving with a sentinel value.
-
-#### Scenario: Reading a missing file rejects
-- **WHEN** `read` is called with the path of a nonexistent file
-- **THEN** the call rejects with an error
-
-#### Scenario: Deleting a missing file rejects
-- **WHEN** `delete` is called with the path of a nonexistent file
-- **THEN** the call rejects with an error
+## ADDED Requirements
 
 ### Requirement: A picker factory produces a VaultStorage for a chosen folder
 A factory operation SHALL open the platform directory picker, and when the user chooses a folder, resolve with a `VaultStorage` whose operations act on that folder's contents. Picking the folder SHALL grant readwrite access for the current session. Permission state after the session ends (reload) is negotiated by the caller, not by the factory or storage.
