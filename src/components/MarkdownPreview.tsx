@@ -1,13 +1,14 @@
 // Throwaway micro-renderer for the static-navigation mock (design decision 4).
 // Shows Markdown loosely until Milkdown becomes the editor (plan task 7).
-// Renders: ATX headings, paragraphs, and page references ([[Page]], #word,
-// #[[Page]]) as inert tag chips. Everything else falls through as text.
+// Renders: ATX headings, paragraphs, and page references (#word, #[[Page]])
+// as inert chips. Everything else, including plain [[Page]] wikilinks, falls
+// through as text.
 
 import type { ReactNode } from 'react'
 import styles from './MarkdownPreview.module.css'
 
-// One reference token covers all three lexical forms (ADR-0012).
-const REF = /\[\[([^\]]+)\]\]|#\[\[([^\]]+)\]\]|#([\w-]+)/g
+// One reference token covers both lexical forms (ADR-0012).
+const REF = /#\[\[([^\]]+)\]\]|#([\w-]+)/g
 
 function inline(text: string, key: number): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -15,7 +16,7 @@ function inline(text: string, key: number): ReactNode[] {
   let i = 0
   for (const m of text.matchAll(REF)) {
     if (m.index! > last) nodes.push(text.slice(last, m.index))
-    const label = m[1] ?? m[2] ?? m[3]
+    const label = m[1] ?? m[2]
     nodes.push(
       <span key={`${key}-${i++}`} className={styles.chip}>
         {label}

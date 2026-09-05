@@ -21,7 +21,7 @@
   margin: 0 2px;
   padding: 1px 8px;
   border-radius: 999px;
-  background: var(--tag-bg);
+  background: var(--chip-bg);
   color: var(--brand);
   font-size: 13px;
   user-select: none;

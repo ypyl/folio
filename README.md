@@ -6,8 +6,7 @@ A lightweight, local-first alternative to Logseq. Your Markdown folder is the da
 
 - Open a local Markdown folder (vault) directly from the browser
 - View and edit `.md` files with auto-save
-- `[[wikilinks]]` and backlinks
-- Tags (`#tag`)
+- Page references (`#word`, `#[[Page]]`) and backlinks
 - Daily journal pages
 - Full-text search
 - Three-pane layout: sidebar, editor, backlinks

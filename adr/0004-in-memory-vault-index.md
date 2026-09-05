@@ -5,7 +5,7 @@
 
 ## Context
 
-Wikilinks, backlinks, tags, and search all need to know what pages exist and how they relate. Storing this in a backend or database contradicts ADR-0001. The folder can be large, so a full rescan on every keystroke is too slow, but the folder is the source of truth and can change outside the app.
+Page references, backlinks, and search all need to know what pages exist and how they relate. Storing this in a backend or database contradicts ADR-0001. The folder can be large, so a full rescan on every keystroke is too slow, but the folder is the source of truth and can change outside the app.
 
 ## Decision
 
@@ -14,13 +14,13 @@ Maintain an **in-memory index** over the vault, shaped like:
 ```ts
 type Link = {
   target: string       // page title; one namespace, no tags vs pages (ADR-0012)
-  via: 'wikilink' | 'tag'  // lexical form, display only
+  via: 'word' | 'bracketed'  // lexical form, display only
 }
 
 type Page = {
   path: string
   title: string
-  links: Link[]    // every reference target: [[Page]], #word, #[[Page]]
+  links: Link[]    // every reference target: #word, #[[Page]]
 }
 
 type Graph = {
@@ -35,6 +35,6 @@ type Graph = {
 
 ## Consequences
 
-- Backlinks, tags, and search are answered from memory — no network, no disk latency. Tags are page references (ADR-0012); there is no separate tag index.
+- Backlinks and search are answered from memory — no network, no disk latency. There is no separate tag index: `#word` and `#[[Page]]` are page references (ADR-0012).
 - The index is disposable: it can always be re-derived from the folder.
 - Incremental updates must stay correct when files change externally, so the app must also watch or re-scan for external edits (the File System Access API does not notify automatically).

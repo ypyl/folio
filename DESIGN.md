@@ -79,8 +79,8 @@ the mnemonic is off-palette, not a shade.
 
 | Token | Hex | Use |
 |---|---|---|
-| `--tag-bg` | `#E4ECF5` | Default tag swatch |
-| `--brand-tint` | `#EEF2F7` | Lightest fill, when a tag must recede |
+| `--chip-bg` | `#E4ECF5` | Default reference chip swatch |
+| `--brand-tint` | `#EEF2F7` | Lightest fill, when a chip must recede |
 
 Use the token, never a hand-mixed `rgba()`. A tint outside these two is a new
 token.
@@ -162,9 +162,9 @@ Two variants only:
 Both: 8px radius, `8px 16px` padding. Hover on primary: `--brand-light`,
 translateY(-1px).
 
-### Tags / badges
+### References / chips
 
-Two tiers, both on registered tokens: default `--tag-bg` on `--brand` text;
+Two tiers, both on registered tokens: default `--chip-bg` on `--brand` text;
 recede `--brand-tint`. Solid hex only, no translucent backgrounds. Start pale;
 "lightest solid wins most of the time."
 

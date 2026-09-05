@@ -14,16 +14,21 @@ describe('MarkdownPreview micro-renderer', () => {
     expect(screen.getByText('Plain paragraph text.')).toBeTruthy()
   })
 
-  it('renders [[Page]] and #tag references as inert chips', () => {
-    render(<MarkdownPreview content={'See [[Inbox]] and #reading'} />)
+  it('renders #word and #[[Page]] references as inert chips', () => {
+    render(<MarkdownPreview content={'See #Inbox and #[[reading list]]'} />)
     expect(screen.getByText('Inbox')).toBeTruthy()
-    expect(screen.getByText('reading')).toBeTruthy()
+    expect(screen.getByText('reading list')).toBeTruthy()
   })
 
-  it('treats a bare #tag line as a paragraph, not a heading', () => {
+  it('treats a bare #word line as a paragraph, not a heading', () => {
     render(<MarkdownPreview content={'#notes #intro'} />)
     expect(screen.queryByRole('heading')).toBeNull()
     expect(screen.getByText('notes')).toBeTruthy()
     expect(screen.getByText('intro')).toBeTruthy()
+  })
+
+  it('renders a plain [[Page]] as literal text, not a chip', () => {
+    render(<MarkdownPreview content={'See [[Inbox]] for details'} />)
+    expect(screen.getByText('See [[Inbox]] for details')).toBeTruthy()
   })
 })
