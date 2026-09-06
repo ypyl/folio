@@ -1,7 +1,8 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditorAdapter } from '../editor/editor'
 import { EditorPane } from './EditorPane'
+import { collectDropFiles, linkForAsset } from './dropAssets'
 
 // Replace the real ProseMirror transport with FakeEditor for component tests
 // (design D1): the pane is tested against the seam contract. Instances are
@@ -27,6 +28,7 @@ function fake(): FakeEditorView {
 
 type FakeEditorView = EditorAdapter & {
   setContents: string[]
+  insertions: string[]
   emitChange: (markdown: string) => void
   destructed: boolean
   mounted: boolean
@@ -122,6 +124,58 @@ describe('EditorPane', () => {
       rerender(<EditorPane key="b.md" page={{ ...page, path: 'b.md' }} initialContent="z" onChange={() => {}} />)
       await act(async () => {})
       expect((screen.getByRole('main') as HTMLElement).scrollTop).toBe(0)
+    })
+  })
+
+  describe('asset drop (asset-drag-drop)', () => {
+    const dt = (files: File[]): DataTransfer =>
+      ({
+        files,
+        items: files.map((f) => ({ kind: 'file', getAsFile: () => f })),
+      }) as unknown as DataTransfer
+
+    it('collects plain files and ignores directories', () => {
+      const f = new File(['x'], 'a.png')
+      const dir = new File([], 'folder')
+      const dt = {
+        items: [
+          { kind: 'file', getAsFile: () => f },
+          { kind: 'file', webkitGetAsEntry: () => ({ isDirectory: true }), getAsFile: () => dir },
+        ],
+      } as unknown as DataTransfer
+      expect(collectDropFiles(dt)).toEqual([f])
+    })
+
+    it.each([
+      ['assets/photo.png', '![photo](assets/photo.png)'],
+      ['assets/photo-1.png', '![photo-1](assets/photo-1.png)'],
+      ['assets/notes.pdf', '[notes](assets/notes.pdf)'],
+      ['assets/IMG.JPG', '![IMG](assets/IMG.JPG)'],
+      ['assets/noext', '[noext](assets/noext)'],
+    ])('linkForAsset(%s) -> %s', (path, expected) => {
+      expect(linkForAsset(path)).toBe(expected)
+    })
+
+    it('inserts one link per landed file at the cursor (image vs plain)', async () => {
+      const onDropFiles = vi.fn(async () => ['assets/a.png', 'assets/b.pdf'])
+      render(
+        <EditorPane page={page} initialContent="x" onChange={() => {}} onDropFiles={onDropFiles} />,
+      )
+      await act(async () => {})
+      fireEvent.drop(screen.getByRole('main'), {
+        dataTransfer: dt([new File(['a'], 'a.png'), new File(['b'], 'b.pdf')]),
+      })
+      await act(async () => {})
+      const editor = fake()
+      expect(editor.insertions).toEqual(['![a](assets/a.png)', '[b](assets/b.pdf)'])
+    })
+
+    it('never calls onDropFiles when no page is open', async () => {
+      const onDropFiles = vi.fn()
+      render(<EditorPane page={null} initialContent="" onChange={() => {}} onDropFiles={onDropFiles} />)
+      fireEvent.drop(screen.getByRole('main'), { dataTransfer: dt([new File(['x'], 'x.png')]) })
+      await act(async () => {})
+      expect(onDropFiles).not.toHaveBeenCalled()
     })
   })
 })

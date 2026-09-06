@@ -11,6 +11,8 @@ export class FakeEditor implements EditorAdapter {
   mounted = false
   /** Every setContent call, in order — lets tests assert what the pane loaded. */
   readonly setContents: string[] = []
+  /** Every insertMarkdown call, in order — lets tests assert what was inserted. */
+  readonly insertions: string[] = []
   private listeners: ((markdown: string) => void)[] = []
 
   async mount(_el: HTMLElement): Promise<void> {
@@ -29,6 +31,11 @@ export class FakeEditor implements EditorAdapter {
 
   getContent(): string {
     return this.content
+  }
+
+  insertMarkdown(markdown: string): void {
+    this.emitChange(this.content + markdown)
+    this.insertions.push(markdown)
   }
 
   onChange(listener: (markdown: string) => void): void {

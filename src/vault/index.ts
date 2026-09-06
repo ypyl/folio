@@ -94,9 +94,12 @@ function carryOver(path: string, lastModified: number, previous: VaultIndex): In
   return previous.graph.pages.get(path)
 }
 
-/** Scan scope (design D4): `.md` file, no hidden path segment. */
+/** Scan scope (design D4): `.md` file, no hidden path segment; the assets
+ *  folder is referenced, never navigated (asset-drag-drop, design D6). */
 export function isPagePath(path: string): boolean {
-  if (!path.toLowerCase().endsWith('.md')) return false
+  const lower = path.toLowerCase()
+  if (lower.startsWith('assets/')) return false
+  if (!lower.endsWith('.md')) return false
   for (const segment of path.split('/')) {
     if (segment.startsWith('.')) return false
   }

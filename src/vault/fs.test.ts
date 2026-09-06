@@ -5,7 +5,7 @@ import {
   parsePath,
   pickVaultFolder,
 } from './fs'
-import { buildTree, type FakeTreeNode } from './fakeHandle'
+import { buildTree, type FakeDirectoryHandle, type FakeTreeNode } from './fakeHandle'
 
 // Fake handle tree lives in fakeHandle.ts (shared with useVault.test.ts);
 // this suite exercises the storage against it (D5). Cast into place: the
@@ -82,6 +82,26 @@ describe('FileSystemVaultStorage', () => {
     const vault = fakeVault(VAULT)
     await vault.write('welcome.md', 'v2')
     await expect(vault.read('welcome.md')).resolves.toBe('v2')
+  })
+
+  it('writes binary blobs byte-for-byte with missing parent dirs created', async () => {
+    const vault = fakeVault(VAULT)
+    const blob = new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' })
+    await vault.writeBinary('assets/photo.png', blob)
+    expect(await vault.list('')).toContain('assets/photo.png')
+    // Byte-exact check goes through the handle (the text read decodes UTF-8, so
+    // arbitrary binary never round-trips the text path — by design, ADR-0001).
+    const root = vault.root as unknown as { children: Map<string, FakeDirectoryHandle> }
+    const assetsDir = root.children.get('assets')!
+    const file = assetsDir.children.get('photo.png') as unknown as { getFile: () => Promise<File> }
+    const bytes = new Uint8Array(await (await file.getFile()).arrayBuffer())
+    expect([...bytes]).toEqual([137, 80, 78, 71])
+  })
+
+  it('writeBinary replaces the file at the given path', async () => {
+    const vault = fakeVault(VAULT)
+    await vault.writeBinary('assets/photo.png', new Blob(['v2']))
+    await expect(vault.read('assets/photo.png')).resolves.toBe('v2')
   })
 
   it('deletes a file', async () => {

@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react'
+import type { DragEvent } from 'react'
 import { FolioMark } from '../FolioMark'
 import type { DraftStatus } from '../editor/drafts'
+import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
 import { SaveIndicator } from './SaveIndicator'
+import { collectDropFiles, linkForAsset } from './dropAssets'
 import styles from './EditorPane.module.css'
 
 // The editor surface for an open page (design D1/D2). The pane owns the DOM
@@ -18,15 +21,19 @@ export function EditorPane({
   onChange,
   saveState = 'clean',
   emptyHint = 'notes',
+  onDropFiles,
 }: {
   page: Page | null
   initialContent: string
   onChange: (markdown: string) => void
   saveState?: DraftStatus
   emptyHint?: 'notes' | 'open-folder'
+  /** Copy dropped files into the vault and resolve with the landed asset paths. */
+  onDropFiles?: (files: File[]) => Promise<string[]>
 }) {
   const paneRef = useRef<HTMLElement>(null)
   const mountRef = useRef<HTMLDivElement>(null)
+  const adapterRef = useRef<EditorAdapter | null>(null)
   const latestProps = useRef({ onChange, initialContent })
   // Keep the mount-captured props fresh without re-running the mount effect:
   // writing a ref in an effect (not during render) is lint-clean.
@@ -51,6 +58,7 @@ export function EditorPane({
     const { onChange, initialContent } = latestProps.current
     let cancelled = false
     const adapter = new MilkdownAdapter()
+    adapterRef.current = adapter
     adapter.onChange((markdown) => onChange(markdown))
     void adapter
       .mount(el)
@@ -63,13 +71,31 @@ export function EditorPane({
       })
     return () => {
       cancelled = true
+      adapterRef.current = null
       void adapter.destroy()
     }
   }, [])
 
+  // Drop hygiene (D5): preventDefault on both pane states so the browser never
+  // navigates to the dropped file; the copy happens only with a page open.
+  const handleDragover = (e: DragEvent<HTMLElement>): void => {
+    e.preventDefault()
+  }
+  const handleDrop = (e: DragEvent<HTMLElement>): void => {
+    e.preventDefault()
+    if (page === null || !onDropFiles) return
+    const files = collectDropFiles(e.dataTransfer)
+    if (files.length === 0) return
+    void onDropFiles(files).then((paths) => {
+      for (const path of paths) {
+        adapterRef.current?.insertMarkdown(linkForAsset(path))
+      }
+    })
+  }
+
   if (page === null) {
     return (
-      <main ref={paneRef} className={styles.pane}>
+      <main ref={paneRef} onDragOver={handleDragover} onDrop={handleDrop} className={styles.pane}>
         <div className={styles.emptyState}>
           <FolioMark className={styles.mark} />
           <p className={styles.tagline}>
@@ -83,7 +109,7 @@ export function EditorPane({
   }
 
   return (
-    <main ref={paneRef} className={styles.pane}>
+    <main ref={paneRef} onDragOver={handleDragover} onDrop={handleDrop} className={styles.pane}>
       <article className={styles.document}>
         <div ref={mountRef} className={styles.editor} />
       </article>

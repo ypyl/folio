@@ -15,6 +15,8 @@ export interface VaultStorage {
   read(path: string): Promise<string>
   /** Create or overwrite the file at `path`, creating missing parent dirs. */
   write(path: string, content: string): Promise<void>
+  /** Create or overwrite the file at `path` with raw bytes, creating missing parent dirs. */
+  writeBinary(path: string, blob: Blob): Promise<void>
   /** Remove the file at `path`. Rejects if missing. */
   delete(path: string): Promise<void>
   /** Resolve with every file under `path` (recursive), as root-relative paths; directories never appear. */

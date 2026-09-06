@@ -24,6 +24,16 @@ describe('isPagePath (scan scope, design D4)', () => {
     expect(isPagePath('.obsidian/plugins/x.md')).toBe(false)
     expect(isPagePath('dir/.spot.md')).toBe(false)
   })
+
+  it('rejects the assets folder at any case', () => {
+    expect(isPagePath('assets/notes.md')).toBe(false)
+    expect(isPagePath('Assets/notes.md')).toBe(false)
+    expect(isPagePath('assets/nested/x.md')).toBe(false)
+  })
+
+  it('a page named assets at root still scans', () => {
+    expect(isPagePath('assets.md')).toBe(true)
+  })
 })
 
 describe('buildIndex', () => {
@@ -157,6 +167,17 @@ describe('refreshIndex (diff-rescan)', () => {
     root.children.delete('Other.md')
     const second = await refreshIndex(storage, first)
     expect(second.graph.pages.has('Other.md')).toBe(false)
+    expect(second.graph.pages.has('Ideas.md')).toBe(true)
+  })
+
+  it('ignores asset files on refresh (scenario: asset write disturbs nothing)', async () => {
+    const root = buildTree({ 'Ideas.md': 'v1 #One' })
+    const storage = vault(root)
+    const first = await buildIndex(storage)
+    // An asset lands under assets/ (the drop-copy flow) — no page appears.
+    await storage.writeBinary('assets/notes.md', new Blob(['not a page']))
+    const second = await refreshIndex(storage, first)
+    expect(second.graph.pages.has('assets/notes.md')).toBe(false)
     expect(second.graph.pages.has('Ideas.md')).toBe(true)
   })
 

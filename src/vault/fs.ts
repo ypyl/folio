@@ -66,6 +66,16 @@ export class FileSystemVaultStorage implements VaultStorage {
     await writable.close()
   }
 
+  async writeBinary(path: string, blob: Blob): Promise<void> {
+    const segments = parsePath(path)
+    if (segments.length === 0) throw new InvalidVaultPathError(path)
+    const parent = await this.resolveDir(segments.slice(0, -1), { create: true })
+    const file = await parent.getFileHandle(lastSegment(segments), { create: true })
+    const writable = await file.createWritable()
+    await writable.write(blob)
+    await writable.close()
+  }
+
   async delete(path: string): Promise<void> {
     const segments = parsePath(path)
     if (segments.length === 0) throw new InvalidVaultPathError(path)

@@ -64,6 +64,31 @@ export class MilkdownAdapter implements EditorAdapter {
     })
   }
 
+  insertMarkdown(markdown: string): void {
+    const editor = this.editor
+    if (!editor) return
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      // Parse the payload as nodes, not literal text: typing `![..](..)` builds a
+      // real image/link node, whereas tr.insertText would insert escaped literal
+      // text that serializes back with `\[`/`\(` escapes and degrades to plain
+      // text on the next reload (ADR-0008 round-trip).
+      const parsed = ctx.get(parserCtx)(markdown)
+      const single = parsed.content.childCount === 1
+      const first = parsed.content.firstChild
+      if (single && first && first.isTextblock) {
+        // Inline payload (single paragraph: an image or link): drop the wrapper
+        // paragraph and insert its inline children so the node lands on the
+        // caret's own line — an empty new line stays the line the image is on.
+        const { from, to } = view.state.selection
+        view.dispatch(view.state.tr.replaceWith(from, to, first.content))
+      } else {
+        const node = single ? first! : parsed
+        view.dispatch(view.state.tr.replaceSelectionWith(node))
+      }
+    })
+  }
+
   getContent(): string {
     return this.latest
   }

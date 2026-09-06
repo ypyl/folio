@@ -24,6 +24,7 @@ vi.mock('./editor/milkdown', async () => {
 
 type FakeView = EditorAdapter & {
   setContents: string[]
+  insertions: string[]
   emitChange: (markdown: string) => void
 }
 
@@ -240,6 +241,34 @@ describe('auto-save (page-editing spec)', () => {
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = tree.children.get('Welcome.md') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('second edit')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('asset drag & drop (page-editing spec)', () => {
+  it('copies a dropped image into assets/ and inserts its link at the cursor', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+
+    const dataTransfer = {
+      files: [new File(['imgbytes'], 'photo.png', { type: 'image/png' })],
+      items: [
+        {
+          kind: 'file',
+          getAsFile: () => new File(['imgbytes'], 'photo.png', { type: 'image/png' }),
+        },
+      ],
+    }
+    fireEvent.drop(pane(), { dataTransfer })
+
+    await waitFor(() =>
+      expect(editor().insertions).toContain('![photo](assets/photo.png)'),
+    )
+    const assetsDir = tree.children.get('assets') as FakeDirectoryHandle
+    expect(assetsDir).toBeTruthy()
+    const file = assetsDir.children.get('photo.png') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('imgbytes')
     vi.unstubAllGlobals()
   })
 })

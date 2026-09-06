@@ -6,6 +6,7 @@ import { MetaPanel } from './components/MetaPanel'
 import { FolderRail } from './components/FolderRail'
 import { DraftStore } from './editor/drafts'
 import { createDebouncedSaver } from './editor/saver'
+import { copyDroppedFiles } from './vault/assets'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import type { IndexPage } from './vault/index'
@@ -139,6 +140,11 @@ function App() {
           initialContent={initialContent}
           onChange={handleEdit}
           saveState={saveState}
+          onDropFiles={
+            activeFolder?.storage
+              ? (files) => copyDroppedFiles(activeFolder.storage!, files)
+              : undefined
+          }
           // While restoring, avoid a one-frame "open a folder" flash; once
           // settled, only an actually usable folder keeps the notes hint.
           emptyHint={status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'}

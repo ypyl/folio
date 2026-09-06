@@ -10,6 +10,8 @@ export interface EditorAdapter {
   destroy(): Promise<void>
   /** Replace the document with the given Markdown (resets to that text). */
   setContent(markdown: string): Promise<void>
+  /** Insert Markdown at the editor's current selection (cursor). */
+  insertMarkdown(markdown: string): void
   /** The editor's current serialized Markdown. */
   getContent(): string
   /** Subscribe to document changes; the callback receives serialized Markdown. */

@@ -18,19 +18,19 @@ function nextMtime(): number {
 export class FakeFileHandle {
   readonly kind = 'file'
   readonly name: string
-  private content: string
+  private content: string | Blob
   lastModified: number
 
   constructor(
     name: string,
-    content: string,
+    content: string | Blob = '',
   ) {
     this.name = name
     this.content = content
     this.lastModified = nextMtime()
   }
 
-  async writeContent(content: string): Promise<void> {
+  async writeContent(content: string | Blob): Promise<void> {
     this.content = content
     this.lastModified = nextMtime()
   }
@@ -51,7 +51,7 @@ class FakeWritableStream {
     this.file = file
   }
 
-  async write(content: string): Promise<void> {
+  async write(content: string | Blob): Promise<void> {
     await this.file.writeContent(content)
   }
   async close(): Promise<void> {}
