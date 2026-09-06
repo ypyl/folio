@@ -8,19 +8,19 @@ auto-save, and backlinks.
 Folio's page references are `#word` or `#[[Page]]` — everything below is plain
 editable text:
 
-- `#Inbox` — a word reference to another page
-- `#[[Reading Log]]` — a bracketed reference (handles spaces and hyphens)
-- `#welcome` — case-insensitive, resolves to this page (self-references excluded
+* `#Inbox` — a word reference to another page
+* `#[[Reading Log]]` — a bracketed reference (handles spaces and hyphens)
+* `#welcome` — case-insensitive, resolves to this page (self-references excluded
   from backlinks)
-- `#missing-topic` — a reference to a page that doesn't exist yet
-- `[[Old Style]]` — double-bracket wikilinks are **not** a reference form; this
+* `#missing-topic` — a reference to a page that doesn't exist yet
+* `[[Old Style]]` — double-bracket wikilinks are **not** a reference form; this
   renders as literal text (ADR-0012)
 
 ## Pages in this vault
 
-- #Inbox — where loose thoughts land
-- #[[Reading Log]] — what I'm reading
-- `Standalone` — a page nothing links to (orphan; its backlinks list stays empty)
+* \#Inbox — where loose thoughts land
+* \#\[\[Reading Log]] — what I'm reading
+* `Standalone` — a page nothing links to (orphan; its backlinks list stays empty)
 
 ## A tiny bit of prose
 

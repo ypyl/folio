@@ -5,8 +5,8 @@ A page with spaces and a hyphen in its name, referenced elsewhere as
 
 ## Currently reading
 
-- *Designing Data-Intensive Applications* — Martin Kleppmann
-- *The Unaccountability Machine* — Dan Davies
+* *Designing Data-Intensive Applications* — Martin Kleppmann
+* *The Unaccountability Machine* — Dan Davies
 
 ## Notes
 
