@@ -1,0 +1,118 @@
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+}
+
+/* ‹ label › as one cluster on the left; Today is pushed to the right edge
+   of the section by its own margin-left: auto. */
+.monthGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.month {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--near-black);
+  white-space: nowrap;
+}
+
+.navBtn {
+  border: none;
+  background: transparent;
+  color: var(--stone);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.navBtn:hover {
+  color: var(--brand);
+}
+
+.todayBtn {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--brand-light);
+  font: inherit;
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.todayBtn:hover {
+  text-decoration: underline;
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 10px;
+  color: var(--stone);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.day {
+  min-height: 28px;
+  border: 1px solid transparent; /* ring space reserved for the open day */
+  border-radius: 6px;
+  background: transparent;
+  color: var(--stone);
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.day:hover {
+  background: var(--warm-sand);
+}
+
+/* A day with a journal file on disk (design D3). */
+.marked {
+  background: var(--brand-tint);
+  color: var(--near-black);
+}
+
+.marked:hover {
+  background: var(--brand-tint);
+}
+
+/* The open day: ring only, marks nothing about file presence. */
+.open {
+  border-color: var(--brand);
+}
+
+/* Today's number emphasized in the accent. */
+.today {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+/* Neighbor-month cells: dimmed but still clickable days (design D2). */
+.dimmed {
+  color: var(--stone);
+  opacity: 0.55;
+}

@@ -188,6 +188,7 @@ function App() {
           journalEntries={journalEntries}
           activePath={activePath}
           onSelect={handleSelect}
+          hasVault={graph !== null}
         />
         <EditorPane
           // Keyed by path: each page gets a fresh editor seeded with its

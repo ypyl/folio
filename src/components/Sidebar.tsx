@@ -1,4 +1,5 @@
 import { Accordion } from './Accordion'
+import { JournalCalendar } from './JournalCalendar'
 import type { Page } from '../page'
 import styles from './Sidebar.module.css'
 
@@ -11,11 +12,14 @@ export function Sidebar({
   journalEntries,
   activePath,
   onSelect,
+  hasVault,
 }: {
   pages: Page[]
   journalEntries: Page[]
   activePath: string | null
   onSelect: (path: string) => void
+  /** A folder is open and indexed; gates the journal calendar (D6). */
+  hasVault: boolean
 }) {
   const renderRow = (page: Page) => (
     <button
@@ -36,7 +40,15 @@ export function Sidebar({
         New Page
       </button>
       <Accordion title="Journal" defaultOpen>
-        <div className={styles.list}>{journalEntries.map(renderRow)}</div>
+        {/* The journal calendar owns the section (journal-calendar D1); it
+            stays hidden until a vault is open (no-inert-grid rule). */}
+        {hasVault && (
+          <JournalCalendar
+            journalEntries={journalEntries}
+            activePath={activePath}
+            onSelect={onSelect}
+          />
+        )}
       </Accordion>
       <Accordion title="Pages" defaultOpen>
         <div className={styles.list}>{pages.map(renderRow)}</div>

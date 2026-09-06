@@ -117,6 +117,23 @@ export function kindOf(path: string): 'journal' | 'page' {
   return path.startsWith('journals/') ? 'journal' : 'page'
 }
 
+const JOURNAL_DATE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/
+
+/** The calendar date ('YYYY-MM-DD') of a journal day path, else null
+ *  (journal-calendar D5). Non-date files under `journals/` have no cell. */
+export function journalDate(path: string): string | null {
+  return JOURNAL_DATE.exec(path)?.[1] ?? null
+}
+
+/** Local 'YYYY-MM-DD' for a Date — built from local year/month/day parts,
+ *  never toISOString(), which shifts the day at local midnight boundaries
+ *  (journal-calendar D5). */
+export function localDayString(date: Date): string {
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${mm}-${dd}`
+}
+
 /** Fold scanned pages into the graph: name resolution + backlinks (D5). */
 function fold(pages: Map<string, IndexPage>): Graph {
   const byName = new Map<string, string>()

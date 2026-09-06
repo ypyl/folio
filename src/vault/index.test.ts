@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './fakeHandle'
 import { FileSystemVaultStorage } from './fs'
-import { buildIndex, isPagePath, refreshIndex, upsertPage } from './index'
+import { buildIndex, isPagePath, journalDate, refreshIndex, upsertPage } from './index'
 
 function vault(tree: FakeDirectoryHandle): FileSystemVaultStorage {
   return new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
@@ -231,4 +231,20 @@ describe('refreshIndex (diff-rescan)', () => {
     expect(first.graph.pages.get('a.md')!.content).toBe('v1')
   })
 
+})
+
+describe('journalDate (calendar day derivation, journal-calendar)', () => {
+  it('extracts the date from a journal day path', () => {
+    expect(journalDate('journals/2026-09-06.md')).toBe('2026-09-06')
+  })
+
+  it('returns null for non-date journal files (no calendar cell)', () => {
+    expect(journalDate('journals/notes.md')).toBeNull()
+    expect(journalDate('journals/2026-09-06-extra.md')).toBeNull()
+  })
+
+  it('returns null for non-journal pages', () => {
+    expect(journalDate('Welcome.md')).toBeNull()
+    expect(journalDate('notes/2026-09-06.md')).toBeNull()
+  })
 })

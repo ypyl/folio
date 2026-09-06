@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 import { Accordion } from './components/Accordion'
+import styles from './components/JournalCalendar.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
 import type { EditorAdapter } from './editor/editor'
@@ -89,6 +90,8 @@ describe('application shell', () => {
   it('shows empty sidebar sections before a folder is opened', () => {
     render(<App />)
     expect(screen.queryByRole('button', { name: 'Welcome' })).toBeNull()
+    // No vault: no journal calendar (ui-shell journal-calendar requirement).
+    expect(screen.queryByRole('button', { name: 'Today' })).toBeNull()
   })
 
   it('renders an Accordion without defaultOpen closed by default', () => {
@@ -104,8 +107,9 @@ describe('navigation over the real index', () => {
     await openFixture()
     expect(await screen.findByRole('button', { name: 'Welcome' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Reading' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '2026-09-02' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '2026-09-04' })).toBeTruthy()
+    // Journal days appear as marked calendar cells, not rows.
+    expect(screen.getByRole('button', { name: 'September 2, 2026' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'September 4, 2026' })).toBeTruthy()
     vi.unstubAllGlobals()
   })
 
@@ -141,7 +145,7 @@ describe('navigation over the real index', () => {
   it('clicking a journal entry opens it like a page', async () => {
     render(<App />)
     await openFixture()
-    fireEvent.click(await screen.findByRole('button', { name: '2026-09-03' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'September 3, 2026' }))
     expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('Sketching how backlinks should behave'),
@@ -332,6 +336,38 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = tree.children.get('architecture.md') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('journal calendar (static-navigation + ui-shell spec)', () => {
+  it('clicking a day without a file opens blank and materializes on first save', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
+    // Step into the fixture's month (September 2026) via a marked day.
+    fireEvent.click(await screen.findByRole('button', { name: 'September 3, 2026' }))
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('Sketching how backlinks should behave'),
+    )
+
+    // An unmarked day in the same month: clicking it opens a blank page and
+    // creates no file (no orphan days for days merely visited).
+    fireEvent.click(screen.getByRole('button', { name: 'September 18, 2026' }))
+    expect(journalsDir.children.get('2026-09-18.md')).toBeUndefined()
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+
+    // Writing into the day reads as a brand-new page, then materializes it.
+    editor().emitChange('Wrote a journal entry')
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toBe('New page: created on first save')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    const file = journalsDir.children.get('2026-09-18.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('Wrote a journal entry')
+
+    // Once the day exists it is marked in the calendar.
+    const day = screen.getByRole('button', { name: 'September 18, 2026' })
+    await waitFor(() => expect(day.classList.contains(styles.marked)).toBe(true))
     vi.unstubAllGlobals()
   })
 })
