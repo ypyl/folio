@@ -16,3 +16,11 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 10. [ ] **Daily journal** — calendar in the Journal section of the left sidebar; clicking a day opens/creates `journals/YYYY-MM-DD.md`, navigate to other days. A day's file materializes only on first write: browsing a day opens an in-memory draft and creates the `.md` only when the user writes content into it (no orphan files for days merely visited).
 11. [ ] **Search** — Fuse.js over the index, results in the sidebar, keyboard shortcut.
 12. [ ] **PWA** — offline-capable precache, installable, icon.
+
+## Later ideas
+
+Undecided ideas, deliberately not scheduled. Revisit when a task touches their area; turn into a numbered task (and an OpenSpec change) only when we commit to building them.
+
+- **Asset rendering** — resolve `assets/` paths in the editor to blob URLs so dropped images actually display (today they show as broken images by design). Also opens click-to-view for non-images.
+- **Orphan asset cleanup** — scan `assets/`, find files no page references, offer removal ("remove unreferenced attachments").
+- **Reference-aware asset deletion** — decide the semantics when a page/asset is deleted: does removing the last reference delete the file? Needs explicit confirmation; today deleting a link leaves the asset on disk (safe default).
