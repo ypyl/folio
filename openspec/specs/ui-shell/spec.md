@@ -58,13 +58,6 @@ The sidebar SHALL start with a New Page button at the top, followed by two colla
 - **WHEN** the shell renders
 - **THEN** the New Page button is the first element of the sidebar, uses the secondary button variant, and is not the only colored element in the viewport
 
-### Requirement: Journal section shows a placeholder, not a calendar
-The Journal section body SHALL show placeholder copy stating that the calendar arrives in a later step. It SHALL NOT render a calendar grid, day marks, or date navigation.
-
-#### Scenario: Journal placeholder
-- **WHEN** the Journal section is open
-- **THEN** its body is placeholder text and no calendar UI is present
-
 ### Requirement: Meta panel is an accordion of page metadata
 The right meta panel SHALL contain two collapsible sections: Backlinks and Forwardlinks. Each section SHALL show placeholder copy while no page is open, and both SHALL open and close independently. When a page is open, each section SHALL list its page rows instead of placeholder copy: Backlinks lists every page that references the open page, Forwardlinks lists every page the open page references, both alphabetically. A section with no matching pages SHALL show empty-state copy. Rows SHALL use the sidebar's row styling and `aria-current` marking for the open page; rows that target a page with no file on disk SHALL be visually dimmed to signal the page is not yet created, and remain clickable. Clicking any row navigates (static-navigation links-pane requirements).
 
@@ -143,3 +136,34 @@ The folder rail SHALL never render a horizontal scrollbar: content wider than th
 - **GIVEN** an open vault with its folder rail rendered
 - **WHEN** the rail's add control and folder entries are laid out
 - **THEN** no horizontal scrollbar appears in the rail, and vertical scrolling of the entry list is unchanged
+
+### Requirement: Journal section shows the journal calendar
+When a vault folder is open, the Journal section body SHALL render a month calendar grid for the vault's journal days. The grid SHALL be Sunday-first with one cell per day, and days that have a journal file in the open vault's index SHALL be marked with a background fill. The first and last weeks' cells that fall outside the displayed month SHALL render dimmed but remain clickable as days. The grid SHALL initially display the month of the currently open day (or the current month when no day is open), SHALL provide previous/next month controls that move the displayed month without opening a day, and opening any day SHALL re-anchor the grid to that day's month. The section SHALL provide a Today control that opens and displays the current day's journal. When no vault folder is open, the Journal section SHALL NOT render the calendar, keeping the section empty.
+
+#### Scenario: Journal calendar marks days with entries
+- **GIVEN** an open vault whose index contains `journals/2026-09-06.md`
+- **WHEN** the Journal section displays September 2026
+- **THEN** the 6th day cell is filled, and empty days are not filled
+
+#### Scenario: Out-of-month days are dimmed but clickable
+- **GIVEN** the calendar displays September 2026 where the 1st is a Tuesday
+- **WHEN** the section renders
+- **THEN** the leading cells (Aug 30, 31) and trailing cells (Oct 1–4) render with the dimmed styling and behave as clickable days
+
+#### Scenario: The grid follows the open day
+- **GIVEN** `journals/2026-08-14.md` is open
+- **WHEN** the Journal section renders or the open day changes
+- **THEN** the grid displays August 2026
+
+#### Scenario: Today opens the current day's journal
+- **WHEN** the user clicks the Today control
+- **THEN** the editor pane opens the current day's journal (creating nothing by itself) and the grid follows that day
+
+#### Scenario: Month controls browse without opening a day
+- **GIVEN** the calendar displays September 2026 with `journals/2026-09-06.md` open
+- **WHEN** the user clicks the previous-month control
+- **THEN** the grid displays August 2026, the editor pane keeps its open day, and clicking a day in the visited month opens that day and re-anchors the grid
+
+#### Scenario: No calendar without a vault
+- **WHEN** no vault folder is open
+- **THEN** the Journal section shows no calendar grid

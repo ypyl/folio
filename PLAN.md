@@ -13,7 +13,7 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 7. [x] **Milkdown editor** — replaces the mock editor; edits real page content; write-through with debounced auto-save; dirty indicator.
 8. [ ] **Asset drag & drop** — drag any file onto the editor; copy it into the vault (`assets/`, unique name on collision), then insert a markdown link (`![name](assets/name.ext)` for images, plain link otherwise) at the cursor position.
 9. [x] **Links pane** — real Backlinks / Forwardlinks from the index in the right accordion, click to navigate.
-10. [ ] **Daily journal** — calendar in the Journal section of the left sidebar; clicking a day opens/creates `journals/YYYY-MM-DD.md`, navigate to other days. A day's file materializes only on first write: browsing a day opens an in-memory draft and creates the `.md` only when the user writes content into it (no orphan files for days merely visited).
+10. [x] **Daily journal** — calendar in the Journal section: Sunday-first month grid, days with files filled, browse months, click a day to open `journals/YYYY-MM-DD.md` (blank until first write, then materialized).
 11. [ ] **Search** — Fuse.js over the index, results in the sidebar, keyboard shortcut.
 12. [ ] **PWA** — offline-capable precache, installable, icon.
 
@@ -24,4 +24,5 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - **Asset rendering** — resolve `assets/` paths in the editor to blob URLs so dropped images actually display (today they show as broken images by design). Also opens click-to-view for non-images.
 - **Orphan asset cleanup** — scan `assets/`, find files no page references, offer removal ("remove unreferenced attachments").
 - **Unlinked references** — pages whose plain body mentions a page name without a link token (Logseq's third list). Needs its own matching semantics (word boundary, case, dash handling) and dedup against real backlinks; deliberately deferred from the links pane to keep that change about the actual link graph.
+- **Non-date journal files in the calendar** — files under `journals/` that aren't `YYYY-MM-DD` (e.g. `journals/notes.md`) render no calendar cell; the calendar replaced the day list that used to surface them. Decide the escape hatch (a small "other journal files" list) when the vault actually has such files.
 - **Reference-aware asset deletion** — decide the semantics when a page/asset is deleted: does removing the last reference delete the file? Needs explicit confirmation; today deleting a link leaves the asset on disk (safe default).
