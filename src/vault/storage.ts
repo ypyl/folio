@@ -19,4 +19,6 @@ export interface VaultStorage {
   delete(path: string): Promise<void>
   /** Resolve with every file under `path` (recursive), as root-relative paths; directories never appear. */
   list(path: string): Promise<string[]>
+  /** Resolve with the last-modified time (ms epoch) of the file at `path`. Rejects if missing. */
+  stat(path: string): Promise<number>
 }

@@ -2,13 +2,12 @@
 // Shows Markdown loosely until Milkdown becomes the editor (plan task 7).
 // Renders: ATX headings, paragraphs, and page references (#word, #[[Page]])
 // as inert chips. Everything else, including plain [[Page]] wikilinks, falls
-// through as text.
+// through as text. References tokenize via the shared regex from the vault
+// parser, so rendering and indexing agree (design D6).
 
 import type { ReactNode } from 'react'
+import { REF } from '../vault/parse'
 import styles from './MarkdownPreview.module.css'
-
-// One reference token covers both lexical forms (ADR-0012).
-const REF = /#\[\[([^\]]+)\]\]|#([\w-]+)/g
 
 function inline(text: string, key: number): ReactNode[] {
   const nodes: ReactNode[] = []

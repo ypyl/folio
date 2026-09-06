@@ -1,6 +1,6 @@
 # ADR-0004: In-memory vault index, rebuilt on open, updated incrementally
 
-- Status: Accepted
+- Status: Accepted (amended 2026-09-05: path-keyed pages, resident content, diff-rescan mechanism)
 - Date: 2026-09-03
 
 ## Context
@@ -13,28 +13,34 @@ Maintain an **in-memory index** over the vault, shaped like:
 
 ```ts
 type Link = {
-  target: string       // page title; one namespace, no tags vs pages (ADR-0012)
+  target: string       // page name; one namespace, no tags vs pages (ADR-0012)
   via: 'word' | 'bracketed'  // lexical form, display only
 }
 
 type Page = {
-  path: string
-  title: string
-  links: Link[]    // every reference target: #word, #[[Page]]
+  path: string         // vault-relative path; the stable identity
+  title: string        // filename stem
+  kind: 'page' | 'journal'
+  links: Link[]        // every reference target: #word, #[[Page]]
+  content: string      // full text, resident in memory
 }
 
 type Graph = {
-  pages: Map<string, Page>
-  backlinks: Map<string, string[]>
+  pages: Map<string, Page>         // keyed by path
+  byName: Map<string, string>      // lowercase name -> path (reference resolution)
+  backlinks: Map<string, string[]> // lowercase target -> referring paths, self excluded
 }
 ```
 
-- Rebuild the index when the vault is opened.
-- Update it **incrementally** when files change.
+- Pages are keyed by **path**, not title (two files can share a case-insensitive name; paths never collide). References resolve through `byName` by lowercased name, first-by-path winning case-only collisions.
+- **Content is resident**: page open, write-through updates, and search answer without folder reads.
+- Rebuild the index when the vault is opened, **diff-rescan on changes**: walk `list('')`, compare a `Map<path, lastModified>` snapshot, re-read only new/changed files, drop removed ones. `VaultStorage` gains a `stat(path)` operation (last-modified time) so the diff never reads unchanged content (ADR-0013 seam).
+- Refresh triggers: window focus, visibility becoming visible, and a visibility-gated periodic timer, bound to the active folder.
 - IndexedDB may optionally cache the index to speed up reopening, but never as the source of truth (ADR-0001).
 
 ## Consequences
 
 - Backlinks and search are answered from memory — no network, no disk latency. There is no separate tag index: `#word` and `#[[Page]]` are page references (ADR-0012).
 - The index is disposable: it can always be re-derived from the folder.
-- Incremental updates must stay correct when files change externally, so the app must also watch or re-scan for external edits (the File System Access API does not notify automatically).
+- Incremental updates stay correct when files change externally: the File System Access API does not notify automatically, so the app re-scans on the refresh triggers above. Staleness is bounded by the trigger gap and self-heals on every trigger; FileSystemObserver was rejected for replacing only the trigger while keeping the diff (ADR-0006).
+- Editor and knowledge-management logic stay separate (ADR-0010): components receive pages via props and never touch storage or the index directly.

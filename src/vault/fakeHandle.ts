@@ -7,10 +7,19 @@
 
 export type FakeTreeNode = string | { [name: string]: FakeTreeNode }
 
+// Deterministic fake mtime: strictly increases on every write, so refresh
+// diff tests can rely on changed files always being detected (task 2.5).
+let fakeMtime = 1
+
+function nextMtime(): number {
+  return fakeMtime++
+}
+
 export class FakeFileHandle {
   readonly kind = 'file'
   readonly name: string
   private content: string
+  lastModified: number
 
   constructor(
     name: string,
@@ -18,14 +27,16 @@ export class FakeFileHandle {
   ) {
     this.name = name
     this.content = content
+    this.lastModified = nextMtime()
   }
 
   async writeContent(content: string): Promise<void> {
     this.content = content
+    this.lastModified = nextMtime()
   }
 
   async getFile(): Promise<File> {
-    return new File([this.content], this.name)
+    return new File([this.content], this.name, { lastModified: this.lastModified })
   }
 
   async createWritable(): Promise<FakeWritableStream> {

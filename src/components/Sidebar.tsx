@@ -3,26 +3,28 @@ import type { Page } from '../page'
 import styles from './Sidebar.module.css'
 
 // Receives page data via props (design decision 3): components never import
-// the mock module directly, so the real index can swap it at App only.
+// the vault directly, so the index can swap per folder at App only. Rows are
+// keyed and tracked by vault-relative path (design D1/D6), not object
+// identity - index pages are re-derived on every refresh.
 export function Sidebar({
   pages,
   journalEntries,
-  active,
+  activePath,
   onSelect,
 }: {
   pages: Page[]
   journalEntries: Page[]
-  active: Page | null
-  onSelect: (page: Page) => void
+  activePath: string | null
+  onSelect: (path: string) => void
 }) {
   const renderRow = (page: Page) => (
     <button
-      key={page.title}
+      key={page.path}
       type="button"
       className={styles.row}
-      data-active={page === active || undefined}
-      aria-current={page === active ? 'page' : undefined}
-      onClick={() => onSelect(page)}
+      data-active={page.path === activePath || undefined}
+      aria-current={page.path === activePath ? 'page' : undefined}
+      onClick={() => onSelect(page.path)}
     >
       <span className={styles.rowText}>{page.title}</span>
     </button>

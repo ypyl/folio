@@ -89,6 +89,14 @@ export class FileSystemVaultStorage implements VaultStorage {
     }
   }
 
+  async stat(path: string): Promise<number> {
+    const segments = parsePath(path)
+    if (segments.length === 0) throw new InvalidVaultPathError(path)
+    const parent = await this.resolveDir(segments.slice(0, -1))
+    const file = await parent.getFileHandle(lastSegment(segments))
+    return (await file.getFile()).lastModified
+  }
+
   private async resolveDir(
     segments: string[],
     options?: { create: boolean },
