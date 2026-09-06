@@ -77,13 +77,34 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
     )
   })
 
-  it('caps a group at PER_GROUP with a note', async () => {
+  it('caps a group in the dropdown and offers the see-all row', async () => {
     const docs: Page[] = []
     for (let i = 0; i < 23; i++) docs.push(page(`p${i}.md`, 'docker body'))
     render(<SearchBox docs={docs} onSelect={() => {}} disabled={false} />)
     await type('docker')
     expect(options()).toHaveLength(20)
-    expect(screen.getByText('Showing up to 20 matches per section.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'See all 23 results' })).toBeTruthy()
+  })
+
+  it('shows the see-all row whenever a query matches', async () => {
+    render(
+      <SearchBox
+        docs={[page('Alpha.md', 'docker one'), page('Beta.md', 'docker two')]}
+        onSelect={() => {}}
+        disabled={false}
+      />,
+    )
+    await type('docker')
+    expect(screen.getByRole('button', { name: 'See all 2 results' })).toBeTruthy()
+  })
+
+  it('hides the see-all row when nothing matches', async () => {
+    render(<SearchBox docs={[page('Welcome.md', 'hello')]} onSelect={() => {}} disabled={false} />)
+    fireEvent.change(input(), { target: { value: 'xyzzy' } })
+    await waitFor(() =>
+      expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy(),
+    )
+    expect(screen.queryByRole('button', { name: /See all/ })).toBeNull()
   })
 
   it('shows the snippet for a title-only match (opening lines)', async () => {
@@ -112,6 +133,43 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
     expect((input() as HTMLInputElement).value).toBe('docker')
     fireEvent.focus(input())
     await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy())
+  })
+
+  it('see-all keeps the query, closes the dropdown, and reports the query up', async () => {
+    const onSeeAll = vi.fn()
+    render(
+      <SearchBox
+        docs={[page('Alpha.md', 'docker one')]}
+        onSelect={() => {}}
+        disabled={false}
+        onSeeAll={onSeeAll}
+      />,
+    )
+    await type('docker')
+    fireEvent.click(screen.getByRole('button', { name: 'See all 1 result' }))
+    expect(onSeeAll).toHaveBeenCalledWith('docker')
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect((input() as HTMLInputElement).value).toBe('docker')
+  })
+
+  it('reports the full uncapped match set on every run', async () => {
+    const onQueryResult = vi.fn()
+    const docs: Page[] = []
+    for (let i = 0; i < 23; i++) docs.push(page(`p${i}.md`, 'docker body'))
+    render(
+      <SearchBox
+        docs={docs}
+        onSelect={() => {}}
+        disabled={false}
+        onQueryResult={onQueryResult}
+      />,
+    )
+    await type('docker')
+    // The dropdown still slices to PER_GROUP; the full list goes up.
+    expect(options()).toHaveLength(20)
+    expect(onQueryResult).toHaveBeenCalled()
+    const last = onQueryResult.mock.calls[onQueryResult.mock.calls.length - 1]
+    expect(last[1]).toHaveLength(23)
   })
 
   it('the clear x resets the query and refocuses the input', async () => {

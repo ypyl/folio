@@ -34,3 +34,4 @@ This decision revises the composition described earlier in this ADR (search and 
 - Ship a useful navigation+editing surface early instead of spending time on visualization.
 - Backlinks provide most of the graph functionality users actually need.
 - Adding a graph view later is possible without invalidating the layout or the index.
+- The main pane can host transient, non-file content modes: the search results view (search-results-view change) renders the full match set in the main column without touching the vault — the same category as a blank, unmaterialized journal day. The three-pane composition itself is unchanged.

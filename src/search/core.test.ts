@@ -7,6 +7,7 @@ import {
   searchDocs,
   snippetSegments,
   termsOf,
+  topPerGroup,
   type SearchDoc,
 } from './core'
 
@@ -71,15 +72,24 @@ describe('searchDocs (AND-term model)', () => {
     expect(results[0].ranges.length).toBeGreaterThan(0)
   })
 
-  it('caps results per group with no spillover between kinds', () => {
+  it('returns the full match set uncapped, kinds in relevance order', () => {
     const docs: SearchDoc[] = []
     for (let i = 0; i < PER_GROUP + 3; i++) docs.push(doc(`p${i}.md`, 'Page', 'docker body'))
     docs.push(doc('2026-09-02.md', '2026-09-02', 'docker', 'journal'))
     const results = searchDocs(fuse(docs), 'docker')
-    const pages = results.filter((r) => r.kind === 'page')
-    const journals = results.filter((r) => r.kind === 'journal')
-    expect(pages).toHaveLength(PER_GROUP)
-    expect(journals).toHaveLength(1)
+    expect(results).toHaveLength(PER_GROUP + 4)
+    expect(results.filter((r) => r.kind === 'page')).toHaveLength(PER_GROUP + 3)
+    expect(results.filter((r) => r.kind === 'journal')).toHaveLength(1)
+  })
+
+  it('topPerGroup slices the first per-group matches of each kind', () => {
+    const docs: SearchDoc[] = []
+    for (let i = 0; i < PER_GROUP + 3; i++) docs.push(doc(`p${i}.md`, 'Page', 'docker body'))
+    docs.push(doc('2026-09-02.md', '2026-09-02', 'docker', 'journal'))
+    const sliced = topPerGroup(searchDocs(fuse(docs), 'docker'))
+    expect(sliced.filter((r) => r.kind === 'page')).toHaveLength(PER_GROUP)
+    expect(sliced.filter((r) => r.kind === 'journal')).toHaveLength(1)
+    expect(sliced).toHaveLength(PER_GROUP + 1)
   })
 
   it('returns nothing for a sub-3-char query', () => {

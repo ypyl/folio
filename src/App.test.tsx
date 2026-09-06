@@ -469,3 +469,123 @@ describe('content search over the real index (search spec)', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('search results view (search-results-view spec)', () => {
+  const search = () => screen.getByLabelText('Search notes') as HTMLInputElement
+  const seeAll = () => screen.getByRole('button', { name: 'See all 4 results' })
+  // The fixture: 'folio' matches Welcome, Inbox, Ideas, Folio (4 pages, no
+  // journal day); 'backlinks' matches Ideas + journals/2026-09-03.md.
+
+  it('opens the full results view from the see-all row', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' }) // index built: search enabled
+    fireEvent.change(search(), { target: { value: 'folio' } })
+    await waitFor(() => expect(seeAll()).toBeTruthy())
+    fireEvent.click(seeAll())
+    // The main pane hosts the results view: query summary, count, no pager.
+    expect(within(pane()).getByText('4 matches')).toBeTruthy()
+    expect(within(pane()).getByRole('button', { name: /^Welcome/ })).toBeTruthy()
+    expect(within(pane()).getByRole('button', { name: /^Inbox/ })).toBeTruthy()
+    expect(within(pane()).getByRole('button', { name: /^Folio/ })).toBeTruthy()
+    expect(within(pane()).queryByRole('button', { name: /Next/ })).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('opens a result from the results view into the editor', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    fireEvent.change(search(), { target: { value: 'folio' } })
+    await waitFor(() => expect(seeAll()).toBeTruthy())
+    fireEvent.click(seeAll())
+    fireEvent.click(within(pane()).getByRole('button', { name: /^Inbox/ }))
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('A place to drop thoughts'),
+    )
+    // The results view is gone; only the editor content remains.
+    expect(within(pane()).queryByText('4 matches')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('the meta panel is empty while the results view is open', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    fireEvent.change(search(), { target: { value: 'folio' } })
+    await waitFor(() => expect(seeAll()).toBeTruthy())
+    fireEvent.click(seeAll())
+    // Page metadata is page-scoped: empty placeholders while browsing.
+    expect(
+      screen.getByText('Pages linking to this one appear once a page is open.'),
+    ).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('returns to results via the dropdown after opening a result', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    fireEvent.change(search(), { target: { value: 'folio' } })
+    await waitFor(() => expect(seeAll()).toBeTruthy())
+    fireEvent.click(seeAll())
+    fireEvent.click(within(pane()).getByRole('button', { name: /^Folio/ }))
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('Notes on building Folio itself'),
+    )
+    // Refocusing the search (query kept) restores the dropdown, and its
+    // see-all row returns to the results view.
+    fireEvent.focus(search())
+    const row = await screen.findByRole('button', { name: 'See all 4 results' })
+    fireEvent.click(row)
+    expect(within(pane()).getByText('4 matches')).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('editing the query while the results view is open re-runs it', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    fireEvent.change(search(), { target: { value: 'folio' } })
+    await waitFor(() => expect(seeAll()).toBeTruthy())
+    fireEvent.click(seeAll())
+    fireEvent.change(search(), { target: { value: 'backlinks' } })
+    // Ideas (page) and journals/2026-09-03.md (journal) both re-run live.
+    await waitFor(() => expect(within(pane()).getByText('2 matches')).toBeTruthy())
+    expect(within(pane()).getByRole('button', { name: /September 3, 2026/ })).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('a query with no matches closes the results view', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    fireEvent.change(search(), { target: { value: 'folio' } })
+    await waitFor(() => expect(seeAll()).toBeTruthy())
+    fireEvent.click(seeAll())
+    fireEvent.change(search(), { target: { value: 'xyzzy' } })
+    // No matches: back to the page pane's empty state; the dropdown shows
+    // its empty state for the query.
+    await waitFor(() =>
+      expect(within(pane()).getByText('Your notes appear here.')).toBeTruthy(),
+    )
+    expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('browsing the results view writes nothing to the vault', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    fireEvent.change(search(), { target: { value: 'folio' } })
+    await waitFor(() => expect(seeAll()).toBeTruthy())
+    fireEvent.click(seeAll())
+    const before = [...tree.children.keys()].sort()
+    fireEvent.keyDown(pane(), { key: 'Escape' })
+    await waitFor(() =>
+      expect(within(pane()).getByText('Your notes appear here.')).toBeTruthy(),
+    )
+    expect([...tree.children.keys()].sort()).toEqual(before)
+    vi.unstubAllGlobals()
+  })
+})

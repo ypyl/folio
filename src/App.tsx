@@ -5,12 +5,14 @@ import { EditorPane } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { FolderRail } from './components/FolderRail'
 import { SearchBox } from './components/SearchBox'
+import { SearchResultsView } from './components/SearchResultsView'
 import { DraftStore } from './editor/drafts'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import { kindOf, stem, type IndexPage } from './vault/index'
+import type { SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
 
@@ -19,9 +21,24 @@ function App() {
   const activeFolder = folders.find((f) => f.id === activeId)
   const { graph, savePage } = useIndex(activeFolder?.storage)
   const [activePath, setActivePath] = useState<string | null>(null)
+  // Pane mode (search-results-view): the main slot hosts either a page (the
+  // editor) or the transient full-results view. ActivePath is untouched in
+  // results mode, so closing it returns to the previously open page.
+  const [mode, setMode] = useState<'page' | 'results'>('page')
+  // Mirror of the latest landed search run (search-results-view): SearchBox
+  // owns the Fuse and the debounce, and reports the uncapped result set up;
+  // this feeds the results pane and stays current for the see-all handoff.
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   // Last content shown for the open path: if the file vanished in a
   // refresh, keep showing it instead of yanking the page (design D6).
   const lastKnown = useRef<IndexPage | null>(null)
+
+  const resetSearch = () => {
+    setSearchQuery('')
+    setSearchResults([])
+    setMode('page')
+  }
 
   // Per-page drafts (design C1): session-scoped edit state; mutations bump
   // a render version so the editor's initial content and the indicator
@@ -36,17 +53,35 @@ function App() {
       // active folder is not a switch, so it keeps the page.
       setActivePath(null)
       lastKnown.current = null
+      resetSearch()
     }
     void activate(id)
   }
 
   const handleSelect = (path: string) => {
+    // Opening anything leaves the results view (search-results-view); the
+    // query stays in the header so the see-all row returns to it later.
+    setMode('page')
     lastKnown.current = null
     setActivePath(path)
     // Baseline the draft against the index's content for this page. An
     // existing draft (unsaved edits from earlier in the session) wins.
     drafts.open(path, graph?.pages.get(path)?.content ?? '')
     setDraftVersion((v) => v + 1)
+  }
+
+  // Every landed run updates the pane's source; a run with no matches leaves
+  // nothing to browse, so the results mode closes back to the open page and
+  // the dropdown shows its empty state (search-results-view spec).
+  const handleQueryResult = (query: string, results: SearchResult[]) => {
+    setSearchQuery(query)
+    setSearchResults(results)
+    if (mode === 'results' && results.length === 0) setMode('page')
+  }
+
+  const handleOpenResults = (query: string) => {
+    setSearchQuery(query)
+    setMode('results')
   }
 
   // The page to show: fresh from the active graph, else the last-known
@@ -183,11 +218,13 @@ function App() {
           // Keyed on the folder so a folder switch remounts the search and
           // resets its query (search-notes: folder-switch reset). Disabled
           // without a vault (no-inert-UI rule).
-          <SearchBox
+        <SearchBox
             key={activeFolder?.id ?? 'none'}
             docs={searchDocs}
             disabled={graph === null}
             onSelect={handleSelect}
+            onQueryResult={handleQueryResult}
+            onSeeAll={handleOpenResults}
           />
         }
       />
@@ -199,6 +236,7 @@ function App() {
           onAdd={() => {
             setActivePath(null)
             lastKnown.current = null
+            resetSearch()
             void addFolder()
           }}
           onActivate={handleActivate}
@@ -210,30 +248,46 @@ function App() {
           onSelect={handleSelect}
           hasVault={graph !== null}
         />
-        <EditorPane
-          // Keyed by path: each page gets a fresh editor seeded with its
-          // draft-or-index content; switching pages remounts it.
-          key={page?.path}
-          page={page}
-          initialContent={initialContent}
-          onChange={handleEdit}
-          saveState={saveState}
-          newPage={newPage}
-          onDropFiles={
-            activeFolder?.storage
-              ? (files) => copyDroppedFiles(activeFolder.storage!, files)
-              : undefined
-          }
-          // While restoring, avoid a one-frame "open a folder" flash; once
-          // settled, only an actually usable folder keeps the notes hint.
-          emptyHint={status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'}
-        />
+        {mode === 'results' ? (
+          <SearchResultsView
+            // Keyed on the query: editing the query while the view is open
+            // remounts it, resetting page and active row to the new set.
+            key={searchQuery}
+            query={searchQuery}
+            results={searchResults}
+            onOpen={handleSelect}
+            onClose={() => setMode('page')}
+          />
+        ) : (
+          <EditorPane
+            // Keyed by path: each page gets a fresh editor seeded with its
+            // draft-or-index content; switching pages remounts it.
+            key={page?.path}
+            page={page}
+            initialContent={initialContent}
+            onChange={handleEdit}
+            saveState={saveState}
+            newPage={newPage}
+            onDropFiles={
+              activeFolder?.storage
+                ? (files) => copyDroppedFiles(activeFolder.storage!, files)
+                : undefined
+            }
+            // While restoring, avoid a one-frame "open a folder" flash; once
+            // settled, only an actually usable folder keeps the notes hint.
+            emptyHint={
+              status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'
+            }
+          />
+        )}
         <MetaPanel
+          // The meta panel is page metadata: empty while the results view
+          // is open (search-results-view design D7).
           /* oxlint-disable-next-line react/refs */
-          pageOpen={page !== null}
-          backlinks={backlinkRows}
-          forwardlinks={forwardlinkRows}
-          activePath={activePath}
+          pageOpen={mode === 'page' && page !== null}
+          backlinks={mode === 'page' ? backlinkRows : []}
+          forwardlinks={mode === 'page' ? forwardlinkRows : []}
+          activePath={mode === 'page' ? activePath : null}
           onSelect={handleSelect}
         />
       </div>

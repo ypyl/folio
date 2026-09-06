@@ -14,7 +14,9 @@ export type SearchDoc = {
   text: string
 }
 
-/** Per-group result cap; groups beyond it are truncated with a note. */
+/** Per-group launcher cap (search-results-view): the dropdown stays a bounded
+ *  launcher; matches beyond the slice remain reachable through the see-all
+ *  row and the full results view. */
 export const PER_GROUP = 20
 
 // Strict threshold: a term must be a near-exact match (still typo-tolerant,
@@ -68,7 +70,9 @@ export function exactRanges(text: string, term: string): SearchRange[] {
 /** AND-term search over a prepared Fuse: every query term must match; per
  *  term, ranges prefer exact occurrences and fall back to Fuse's fuzzy range
  *  only when a term has no exact match (a typo), dropping fragments under 3
- *  chars. Scores sum across terms; results sort best-first, capped per group. */
+ *  chars. Scores sum across terms; results sort best-first, uncapped — the
+ *  launcher dropdown slices per group via topPerGroup, the results view
+ *  paginates the full list. */
 export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[] {
   const terms = termsOf(query)
   if (!terms.length) return []
@@ -102,13 +106,19 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
   const results = [...acc.values()]
     .filter((r) => r._terms === terms.length)
     .sort((a, b) => a.score - b.score || a.path.localeCompare(b.path))
+  return results.map(({ _terms: _dropped, ...rest }) => rest)
+}
+
+/** Per-group slice of a full result set (search-results-view): keeps the
+ *  first `perGroup` matches of each kind in relevance order. The launcher
+ *  dropdown renders this; the full list powers the results view. */
+export function topPerGroup(results: SearchResult[], perGroup: number = PER_GROUP): SearchResult[] {
   const counts = new Map<Page['kind'], number>()
   const out: SearchResult[] = []
   for (const r of results) {
-    if ((counts.get(r.kind) ?? 0) >= PER_GROUP) continue
+    if ((counts.get(r.kind) ?? 0) >= perGroup) continue
     counts.set(r.kind, (counts.get(r.kind) ?? 0) + 1)
-    const { _terms: _dropped, ...rest } = r
-    out.push(rest)
+    out.push(r)
   }
   return out
 }

@@ -1,0 +1,131 @@
+/* Search results view (search-results-view): the full uncapped match list
+   in the main pane. Flat per DESIGN: parchment pane with a compact summary
+   line; rows and group headers mirror the dropdown's typography, with the
+   warm-sand hover and sticky group heads of a browse surface. */
+
+.pane {
+  background: var(--parchment);
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 24px 24px 0;
+}
+
+.query {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--near-black);
+}
+
+.counts {
+  font-size: 13px;
+  color: var(--stone);
+}
+
+.back {
+  margin-left: auto;
+}
+
+.groupHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--parchment);
+  padding: 18px 24px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--stone);
+}
+
+.row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 10px 24px;
+  cursor: pointer;
+  color: var(--near-black);
+}
+
+.row:hover,
+.row.active {
+  background: var(--warm-sand);
+}
+
+.label {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snip {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--stone);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.hit {
+  background: var(--brand-tint);
+  color: var(--near-black);
+  border-radius: 2px;
+}
+
+.empty {
+  padding: 40px 24px;
+  color: var(--stone);
+  font-size: 14px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 16px 24px 28px;
+}
+
+.pageBtn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--ivory);
+  color: var(--dark-warm);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pageBtn:hover:not(:disabled) {
+  border-color: var(--dark-warm);
+}
+
+.pageBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pageBtn.current {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--ivory);
+}

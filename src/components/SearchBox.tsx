@@ -1,27 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Fuse from 'fuse.js'
 import type { Page } from '../page'
-import { journalDate } from '../vault/index'
 import {
   FUSE_OPTIONS,
-  PER_GROUP,
   searchDocs,
   snippetSegments,
+  topPerGroup,
   type SearchResult,
 } from '../search/core'
-import { MONTHS } from './months'
+import { journalLabel } from './months'
 import styles from './SearchBox.module.css'
 
 const DEBOUNCE_MS = 120
-
-/** Pretty label for a journal-day path: "September 2, 2026" via the
- *  calendar's month names. Non-date journal files fall back to the stem. */
-function journalLabel(path: string): string {
-  const date = journalDate(path)
-  if (!date) return path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, '')
-  const [y, m, d] = date.split('-').map(Number)
-  return `${MONTHS[m - 1]} ${d}, ${y}`
-}
 
 function rowLabel(r: SearchResult): string {
   return r.kind === 'journal' ? journalLabel(r.path) : r.title
@@ -35,11 +25,18 @@ export function SearchBox({
   docs,
   onSelect,
   disabled,
+  onQueryResult,
+  onSeeAll,
 }: {
   docs: Page[]
   onSelect: (path: string) => void
   /** No vault open: the input is disabled (no-inert-UI rule). */
   disabled: boolean
+  /** Every landed search run, uncapped (search-results-view): App mirrors
+   *  this to feed the full results pane. */
+  onQueryResult?: (query: string, results: SearchResult[]) => void
+  /** Activation of the pinned see-all row (search-results-view). */
+  onSeeAll?: (query: string) => void
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -61,7 +58,11 @@ export function SearchBox({
     [docs],
   )
 
-  const run = (value: string) => setResults(searchDocs(fuse, value))
+  const run = (value: string) => {
+    const found = searchDocs(fuse, value)
+    setResults(found)
+    onQueryResult?.(value, found)
+  }
 
   const handleChange = (value: string) => {
     setQuery(value)
@@ -107,8 +108,16 @@ export function SearchBox({
     return () => document.removeEventListener('click', onClick)
   }, [])
 
+  const openResults = () => {
+    onSeeAll?.(query)
+    setOpen(false) // keep the query; the see-all row stays in the dropdown
+  }
+
   const shown = open && results !== null
-  const visible = results ?? []
+  // The dropdown stays a bounded launcher: the per-group slice of the full
+  // list (search-results-view); the see-all row hands the rest to the
+  // results view, which paginates the full set.
+  const visible = results === null ? [] : topPerGroup(results)
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       clear()
@@ -117,13 +126,13 @@ export function SearchBox({
     if (!shown || !results) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActive((i) => (results.length ? (i + 1) % results.length : -1))
+      setActive((i) => (visible.length ? (i + 1) % visible.length : -1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActive((i) => (results.length ? (i - 1 + results.length) % results.length : -1))
-    } else if (e.key === 'Enter' && results.length) {
+      setActive((i) => (visible.length ? (i - 1 + visible.length) % visible.length : -1))
+    } else if (e.key === 'Enter' && visible.length) {
       const idx = active >= 0 ? active : 0
-      openPath(results[idx].path)
+      openPath(visible[idx].path)
     }
   }
 
@@ -136,7 +145,6 @@ export function SearchBox({
       items: visible.filter((r) => r.kind === kind),
     }))
     .filter((s) => s.items.length > 0)
-  const capped = sections.some((s) => s.items.length >= PER_GROUP)
 
   return (
     <div ref={rootRef} className={styles.root}>
@@ -172,46 +180,56 @@ export function SearchBox({
         </button>
       </div>
       {shown && (
-        <div id="search-results" className={styles.drop} role="listbox" aria-label="Search results">
-          {sections.length === 0 && (
-            <div className={styles.empty}>{`No matches for \u201C${query.trim()}\u201D.`}</div>
+        <div className={styles.drop}>
+          <div id="search-results" role="listbox" aria-label="Search results">
+            {sections.length === 0 && (
+              <div className={styles.empty}>{`No matches for \u201C${query.trim()}\u201D.`}</div>
+            )}
+            {sections.map((sec) => (
+              <section key={sec.label}>
+                <div className={styles.head}>{sec.label}</div>
+                {sec.items.map((r) => {
+                  const index = visible.indexOf(r)
+                  const segments = snippetSegments(r.text, r.ranges)
+                  return (
+                    <button
+                      key={r.path}
+                      type="button"
+                      role="option"
+                      aria-selected={index === active}
+                      className={`${styles.item}${index === active ? ` ${styles.active}` : ''}`}
+                      onClick={() => openPath(r.path)}
+                      onMouseEnter={() => setActive(index)}
+                    >
+                      <span className={styles.label}>{rowLabel(r)}</span>
+                      {segments.length > 0 && (
+                        <span className={styles.snip}>
+                          {segments.map((s, j) =>
+                            s.hit ? (
+                              <mark key={j} className={styles.hit}>
+                                {s.text}
+                              </mark>
+                            ) : (
+                              <span key={j}>{s.text}</span>
+                            ),
+                          )}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </section>
+            ))}
+          </div>
+          {results !== null && results.length > 0 && (
+            <button
+              type="button"
+              className={styles.more}
+              onClick={openResults}
+            >
+              {`See all ${results.length} ${results.length === 1 ? 'result' : 'results'}`}
+            </button>
           )}
-          {sections.map((sec) => (
-            <section key={sec.label}>
-              <div className={styles.head}>{sec.label}</div>
-              {sec.items.map((r) => {
-                const index = visible.indexOf(r)
-                const segments = snippetSegments(r.text, r.ranges)
-                return (
-                  <button
-                    key={r.path}
-                    type="button"
-                    role="option"
-                    aria-selected={index === active}
-                    className={`${styles.item}${index === active ? ` ${styles.active}` : ''}`}
-                    onClick={() => openPath(r.path)}
-                    onMouseEnter={() => setActive(index)}
-                  >
-                    <span className={styles.label}>{rowLabel(r)}</span>
-                    {segments.length > 0 && (
-                      <span className={styles.snip}>
-                        {segments.map((s, j) =>
-                          s.hit ? (
-                            <mark key={j} className={styles.hit}>
-                              {s.text}
-                            </mark>
-                          ) : (
-                            <span key={j}>{s.text}</span>
-                          ),
-                        )}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </section>
-          ))}
-          {capped && <div className={styles.more}>{`Showing up to ${PER_GROUP} matches per section.`}</div>}
         </div>
       )}
     </div>
