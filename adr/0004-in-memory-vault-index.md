@@ -1,6 +1,6 @@
 # ADR-0004: In-memory vault index, rebuilt on open, updated incrementally
 
-- Status: Accepted (amended 2026-09-05: path-keyed pages, resident content, diff-rescan mechanism)
+- Status: Accepted (amended 2026-09-05: path-keyed pages, resident content, diff-rescan mechanism; amended 2026-09-06: write-through upsert mechanics)
 - Date: 2026-09-03
 
 ## Context
@@ -35,6 +35,7 @@ type Graph = {
 - Pages are keyed by **path**, not title (two files can share a case-insensitive name; paths never collide). References resolve through `byName` by lowercased name, first-by-path winning case-only collisions.
 - **Content is resident**: page open, write-through updates, and search answer without folder reads.
 - Rebuild the index when the vault is opened, **diff-rescan on changes**: walk `list('')`, compare a `Map<path, lastModified>` snapshot, re-read only new/changed files, drop removed ones. `VaultStorage` gains a `stat(path)` operation (last-modified time) so the diff never reads unchanged content (ADR-0013 seam).
+- **Write-through upsert**: the app's own saves run `write(path, content)` → `stat(path)` → rebuild that page (content, `parseLinks`) → re-fold it into `byName`/backlinks → overwrite the snapshot mtime from the stat so the next diff-refresh skips the file it just wrote. Upsert is **non-optimistic**: the graph changes only after the write resolves; a failed write leaves the page and the index unchanged.
 - Refresh triggers: window focus, visibility becoming visible, and a visibility-gated periodic timer, bound to the active folder.
 - IndexedDB may optionally cache the index to speed up reopening, but never as the source of truth (ADR-0001).
 
