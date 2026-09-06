@@ -20,6 +20,14 @@ export class MilkdownAdapter implements EditorAdapter {
   private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
   private destroyed = false
+  // Programmatic-seed bookkeeping (design C2 round-trip normalization): after
+  // setContent the listener emits one markdownUpdated for the doc we just
+  // dispatched. That echo carries no user edit — for a non-canonical file it
+  // re-serializes to a different form than the raw bytes, which would otherwise
+  // mark a freshly-opened page dirty and rewrite it. Suppress it; only a real
+  // change (doc differs from the seed) reaches onChange.
+  private seedMarkdown: string | null = null
+  private expectSeedEcho = false
 
   /** Mount the editor into `el`. The element must stay in the document for
    *  the editor's lifetime. If `destroy()` was called while `create()` was
@@ -31,6 +39,13 @@ export class MilkdownAdapter implements EditorAdapter {
         ctx.set(rootCtx, el)
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
           this.latest = markdown
+          // The first event after a setContent echoes the seeded doc. If it
+          // matches what we dispatched, it is not an edit — drop it. Any other
+          // event (a real keystroke, even one folded into the same debounce
+          // window) differs from the seed and is forwarded.
+          const seedEcho = this.expectSeedEcho && markdown === this.seedMarkdown
+          this.expectSeedEcho = false
+          if (seedEcho) return
           this.changeListener?.(markdown)
         })
       })
@@ -54,14 +69,23 @@ export class MilkdownAdapter implements EditorAdapter {
   }
 
   async setContent(markdown: string): Promise<void> {
-    this.latest = markdown
-    if (!this.editor) return
+    if (!this.editor) {
+      this.latest = markdown
+      return
+    }
+    let canonical: string | null = null
     this.editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
       const doc = ctx.get(parserCtx)(markdown)
       const tr = view.state.tr
       view.dispatch(tr.replaceWith(0, view.state.doc.content.size, doc.content))
+      // Capture the canonical serialization of what we just seeded so the
+      // echoed markdownUpdated can be recognized and suppressed (no user edit).
+      canonical = ctx.get(serializerCtx)(view.state.doc)
     })
+    this.latest = canonical ?? markdown
+    this.seedMarkdown = canonical
+    this.expectSeedEcho = true
   }
 
   insertMarkdown(markdown: string): void {

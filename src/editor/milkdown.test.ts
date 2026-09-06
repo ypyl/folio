@@ -24,6 +24,42 @@ describe('MilkdownAdapter (smoke)', () => {
     el.remove()
   })
 
+  it('does not report the programmatic seed as a change, but reports real edits', async () => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    const changes: string[] = []
+    adapter.onChange((md) => changes.push(md))
+    await adapter.mount(el)
+
+    // Seeding a non-canonical file (CRLF) re-serializes to LF; that echo must
+    // not count as a user edit or it would mark the page dirty and rewrite it
+    // (round-trip normalization, design C2).
+    await adapter.setContent('# Title\r\n\r\nBody\r\n')
+    await new Promise((r) => setTimeout(r, 400))
+    expect(changes).toEqual([])
+    expect(adapter.getContent()).toBe('# Title\n\nBody\n')
+
+    // A real change (a transaction the user would produce) still reaches
+    // onChange.
+    ;(adapter as unknown as {
+      editor: { action: (f: (ctx: unknown) => unknown) => unknown }
+    }).editor.action((ctx) => {
+      const access = ctx as { get: (k: unknown) => unknown }
+      const view = access.get(editorViewCtx) as {
+        state: { tr: { insertText: (t: string) => unknown } }
+        dispatch: (t: unknown) => void
+      }
+      view.dispatch(view.state.tr.insertText('X'))
+    })
+    await new Promise((r) => setTimeout(r, 400))
+    expect(changes.length).toBe(1)
+    expect(changes[0]).toBe('# Title\n\nBodyX\n')
+
+    await adapter.destroy()
+    el.remove()
+  })
+
   it('insertMarkdown inserts text into the document at the selection', async () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
