@@ -55,11 +55,11 @@ When no vault folder is open, the sidebar SHALL render its Journal and Pages sec
 - **THEN** the sidebar shows no rows and the editor pane shows the open-a-folder empty state
 
 ### Requirement: Open page renders title and content
-When a page is open, the editor pane SHALL show the page's title (its filename stem) as a heading and its body in an editable WYSIWYG Markdown surface: ATX headings, paragraphs, and page references in Folio's two forms — `#word` and `#[[Page]]` — appear as plain editable text, not as chips. References SHALL NOT navigate or respond to clicks. Plain `[[Page]]` wikilinks are not a reference form and SHALL render as literal editable text.
+When a page is open, the editor pane SHALL show the page's content in an editable WYSIWYG Markdown surface: ATX headings, paragraphs, and page references in Folio's two forms — `#word` and `#[[Page]]` — appear as plain editable text, not as chips. The pane SHALL NOT render the page title (its filename stem) as a heading; whatever title-like heading the user sees comes from the file's own content. References SHALL NOT navigate or respond to clicks. Plain `[[Page]]` wikilinks are not a reference form and SHALL render as literal editable text.
 
 #### Scenario: Page renders title and markdown body
 - **WHEN** a page is open in the editor pane
-- **THEN** the pane shows the page title as a heading and an editable WYSIWYG body containing the page's Markdown
+- **THEN** the pane shows only the editable WYSIWYG body containing the page's Markdown, with no title heading rendered by the pane itself
 
 #### Scenario: Reference chips are inert
 - **WHEN** the open page's body contains `#word` or `#[[Page]]`
@@ -75,3 +75,17 @@ The meta panel SHALL continue to show placeholder copy in the Backlinks and Forw
 #### Scenario: Meta placeholders persist
 - **WHEN** a page is open
 - **THEN** the Backlinks and Forwardlinks sections still show their placeholder copy
+
+### Requirement: The editor surface fills the pane's width
+The editor pane SHALL let the editor surface use the pane's full width: the content column SHALL NOT be capped to a fixed measure, only padded at the pane's edges. The pane itself continues to take all available space in the workspace layout.
+
+#### Scenario: A wide window fills the editor surface
+- **WHEN** the window is wider than the editor pane's old fixed measure
+- **THEN** the editor surface spans the full width of the pane, bounded only by the pane's edge padding
+
+### Requirement: The pane uses compact top padding above the content
+The pane's content column SHALL start near the pane's top edge: its top padding SHALL be half the side padding, so the editor surface is not pushed down by space once reserved for a title heading.
+
+#### Scenario: An open page starts near the pane's top
+- **WHEN** a page is open in the editor pane
+- **THEN** the editable content begins at the compact top padding, and the side and bottom padding remain unchanged
