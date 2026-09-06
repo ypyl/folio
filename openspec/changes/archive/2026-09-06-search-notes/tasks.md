@@ -1,0 +1,19 @@
+## 1. Search core (pure helpers)
+
+- [x] 1.1 Add `fuse.js` to dependencies and verify `npm install` completes and `npm run build` still passes.
+- [x] 1.2 Implement the pure search math (design: "Search core copied from openspec-viewer"): Fuse options object (keys title w3/text w1, threshold 0.25, ignoreLocation, minMatchCharLength 3), term split (≥3 chars, AND), per-term exact case-insensitive ranges with fuzzy-range fallback (fragments <3 chars dropped), score-sum sort. Verify: `npx vitest run` on new unit tests covers AND semantics, exact-range preference over fuzzy, typo fallback, and ordering.
+- [x] 1.3 Implement snippet segments (match-line window ±2 context lines, hit/non-hit segments) and verify unit tests cover a content match, a title-only match (opening content as snippet), and merging overlapping ranges.
+
+## 2. Search component (input + dropdown)
+
+- [x] 2.1 Create the search component (component + module CSS): input with clear ✕, results dropdown absolute below the input (`top: calc(100% + 6px)`, `width: 100%`, `max-height: min(70vh, 560px)`, scroll, z-index), sticky **Pages / Journal** group headers, pretty journal date labels (reuse the calendar's month/day formatting), snippet rows with highlighted hits, "No matches for "<term>"." empty state, per-group cap (20) with a "showing up to N per section" note. Verify: component tests render groups, pretty journal labels, snippet highlighting, empty state, and cap note; the component memos its Fuse on the `docs` prop identity.
+- [x] 2.2 Action flow: 120ms debounced `input`, min-length-3 gate, outside-click closes keeping the query, refocus re-runs, ✕ clears and refocuses, Escape clears query and closes. Verify: component tests simulate typing, outside clicks, and the ✕ button.
+- [x] 2.3 Keyboard: document-level Cmd/Ctrl+K focuses and selects the input; Arrow Up/Down move an active row (hover moves the active row to it, active resets on query change); Enter opens the active row. Verify: component tests dispatch keydown events for K, arrows, and Enter.
+
+## 3. Wiring into the app
+
+- [x] 3.1 Mount the search component in the header's search cell and pass `docs` (pages + journal entries with content from the graph) and `onSelect` (existing `handleSelect`) from App; change `Header.module.css` input sizing from `min(480px, 100%)` to `min(980px, 100%)` so the box and dropdown span the content column. Verify: `npm run build` passes and an App-level test opens a page by clicking a search result in the fake-handle fixture.
+- [x] 3.2 Disable the input when no vault is open (`graph !== null` gate, mirroring the calendar's no-vault rule), and reset the query on folder switch (remount the component keyed on the active folder id). Verify: App tests assert a disabled input before a folder opens and a cleared query after switching folders.
+- [x] 3.3 Journal days open from search like the calendar opens them: a search result for an existing day opens it through the shared selection path (App-level test asserts the day's content renders in the editor). Note: an absent journal day cannot be searched (spec: unmaterialized pages are not searchable); its blank-page-then-materialize behavior is inherited from the shared selection path and already covered by the calendar test "clicking a day without a file opens blank and materializes on first save".
+- [ ] 3.4 Run full gates: `npm test` (all files, coverage >= 80), `npm run lint` (no new warnings), `npm run build`, `openspec validate --changes`. Verify: all green.
+- [x] 3.5 Dev smoke: `npm run dev`, open the sample vault; type a term → dropdown under the input with Pages/Journal groups, snippets highlighted; Cmd/Ctrl+K focuses; arrows + Enter open a page; journal-day result opens a blank page that materializes on write; Esc clears; no vault → input disabled. Verify: manual.

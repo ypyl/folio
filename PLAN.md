@@ -14,7 +14,7 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 8. [x] **Asset drag & drop** — drag any file onto the editor; copy it into the vault (`assets/`, unique name on collision), then insert a markdown link (`![name](assets/name.ext)` for images, plain link otherwise) at the cursor position.
 9. [x] **Links pane** — real Backlinks / Forwardlinks from the index in the right accordion, click to navigate.
 10. [x] **Daily journal** — calendar in the Journal section: Sunday-first month grid, days with files filled, browse months, click a day to open `journals/YYYY-MM-DD.md` (blank until first write, then materialized).
-11. [ ] **Search** — Fuse.js over the index, results in the sidebar, keyboard shortcut.
+11. [x] **Search** — full-text Fuse.js search in the header with a results dropdown (Pages/Journal groups, match snippets), Cmd/Ctrl+K focus, arrow/Enter navigation.
 12. [x] **PWA** — offline-capable precache, installable, icon.
 
 ## Later ideas
