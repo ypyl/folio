@@ -12,7 +12,7 @@ The Markdown folder is the source of truth. Filesystem access sits behind a `Vau
 
 ## Rules
 
-- **All changes go through OpenSpec.** Features, fixes, docs, refactors: propose → apply → update → archive (`/opsx-propose` first). Never implement directly.
+- **OpenSpec for features and behavior changes.** Any change that adds, redefines, or alters observable app behavior — a new capability or requirement, or a change to how the app renders, routes, writes, or responds (functional or non-functional) — goes propose → apply → update → archive (`/opsx-propose` first); never implement directly. Everything else is done directly, in small self-contained commits: refactors, small fixes, bug fixes that restore already-intended behavior, docs, test-only changes. If a user could notice a different outcome, it's OpenSpec; if it just restores intended behavior or polishes internals, it's direct.
 - **Keep it small.** The simplicity is the product — no backend, no feature creep, no rebuilding Logseq (ADR-0006).
 - **Markdown is canonical.** App state must be derivable from the `.md` files; derived data only in cache (ADR-0001, ADR-0009).
 - **Keep boundaries.** Filesystem access via `VaultStorage`; editor separate from knowledge-management logic (ADR-0003, ADR-0010).

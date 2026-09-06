@@ -13,6 +13,6 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 7. [x] **Milkdown editor** — replaces the mock editor; edits real page content; write-through with debounced auto-save; dirty indicator.
 8. [ ] **Asset drag & drop** — drag any file onto the editor; copy it into the vault (`assets/`, unique name on collision), then insert a markdown link (`![name](assets/name.ext)` for images, plain link otherwise) at the cursor position.
 9. [ ] **Links pane** — real Backlinks / Forwardlinks from the index in the right accordion, click to navigate.
-10. [ ] **Daily journal** — calendar in the Journal section of the left sidebar; clicking a day opens/creates `journals/YYYY-MM-DD.md`, navigate to other days.
+10. [ ] **Daily journal** — calendar in the Journal section of the left sidebar; clicking a day opens/creates `journals/YYYY-MM-DD.md`, navigate to other days. A day's file materializes only on first write: browsing a day opens an in-memory draft and creates the `.md` only when the user writes content into it (no orphan files for days merely visited).
 11. [ ] **Search** — Fuse.js over the index, results in the sidebar, keyboard shortcut.
 12. [ ] **PWA** — offline-capable precache, installable, icon.
