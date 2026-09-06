@@ -127,4 +127,46 @@ describe('useIndex', () => {
     await waitFor(() => expect(result.current.graph?.pages.has('b.md')).toBe(true))
     expect(result.current.graph?.pages.has('a.md')).toBe(false)
   })
+
+  it('savePage writes through and updates the graph immediately', async () => {
+    const tree = buildTree({ 'a.md': 'v1 #One', 'b.md': 'other' })
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.graph?.pages.has('a.md')).toBe(true))
+
+    let ok = false
+    await act(async () => {
+      ok = await result.current.savePage('a.md', 'v2 #New')
+    })
+    expect(ok).toBe(true)
+    // Disk written.
+    expect(await storage.read('a.md')).toBe('v2 #New')
+    // Graph reflects the save without any refresh.
+    expect(result.current.graph?.pages.get('a.md')?.content).toBe('v2 #New')
+    // Backlinks re-derived: New points back to a.md.
+    expect(result.current.graph?.backlinks.get('new')).toEqual(['a.md'])
+  })
+
+  it('savePage reports false on a failed write and leaves the graph unchanged', async () => {
+    const tree = buildTree({ 'a.md': 'v1' })
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.graph?.pages.has('a.md')).toBe(true))
+
+    const file = tree.children.get('a.md') as FakeFileHandle
+    file.createWritable = async () => {
+      throw new DOMException('denied', 'SecurityError')
+    }
+    let ok = true
+    await act(async () => {
+      ok = await result.current.savePage('a.md', 'v2')
+    })
+    expect(ok).toBe(false)
+    expect(result.current.graph?.pages.get('a.md')?.content).toBe('v1')
+  })
+
+  it('a save targeting an idle index reports false', async () => {
+    const { result } = renderHook(() => useIndex(undefined))
+    expect(await result.current.savePage('a.md', 'x')).toBe(false)
+  })
 })

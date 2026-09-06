@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './fakeHandle'
 import { FileSystemVaultStorage } from './fs'
-import { buildIndex, isPagePath, refreshIndex } from './index'
+import { buildIndex, isPagePath, refreshIndex, upsertPage } from './index'
 
 function vault(tree: FakeDirectoryHandle): FileSystemVaultStorage {
   return new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
@@ -159,4 +159,55 @@ describe('refreshIndex (diff-rescan)', () => {
     expect(second.graph.pages.has('Other.md')).toBe(false)
     expect(second.graph.pages.has('Ideas.md')).toBe(true)
   })
+
+  it('upserts a saved page into the index immediately (B1)', async () => {
+    const root = buildTree({ 'a.md': 'v1 #One', 'b.md': 'see #Two' })
+    const storage = vault(root)
+    const first = await buildIndex(storage)
+    const second = await upsertPage(storage, first, 'a.md', 'v2 #One #New')
+    const page = second.graph.pages.get('a.md')!
+    expect(page.content).toBe('v2 #One #New')
+    expect(page.links).toEqual([
+      { target: 'One', via: 'word' },
+      { target: 'New', via: 'word' },
+    ])
+    // Unchanged pages carried over by identity.
+    expect(second.graph.pages.get('b.md')).toBe(first.graph.pages.get('b.md'))
+  })
+
+  it('re-derives backlinks from the saved edit', async () => {
+    const root = buildTree({ 'a.md': 'see #Old', 'b.md': 'other #Old' })
+    const storage = vault(root)
+    const first = await buildIndex(storage)
+    const second = await upsertPage(storage, first, 'a.md', 'see #New')
+    expect(second.graph.backlinks.get('old')).toEqual(['b.md'])
+    expect(second.graph.backlinks.get('new')).toEqual(['a.md'])
+  })
+
+  it('heals the snapshot so the next refresh skips the written file', async () => {
+    const root = buildTree({ 'a.md': 'v1' })
+    const storage = vault(root)
+    const first = await buildIndex(storage)
+    const saved = await upsertPage(storage, first, 'a.md', 'v2')
+    const refreshed = await refreshIndex(storage, saved)
+    // The refresh carried the upserted page by identity — nothing re-read.
+    expect(refreshed.graph.pages.get('a.md')).toBe(saved.graph.pages.get('a.md'))
+    expect(refreshed.snapshot.get('a.md')).toBe(saved.snapshot.get('a.md'))
+  })
+
+  it('a failed write leaves the index unchanged', async () => {
+    const root = buildTree({ 'a.md': 'v1' })
+    const storage = vault(root)
+    const first = await buildIndex(storage)
+    const failWrite = upsertPage(storage, first, 'a.md', 'v2')
+    // Force the filesystem write to reject by removing the file's writable
+    // capability: stub createWritable to throw on the fake.
+    const file = root.children.get('a.md') as FakeFileHandle
+    file.createWritable = async () => {
+      throw new DOMException('denied', 'SecurityError')
+    }
+    await expect(failWrite).rejects.toThrow('denied')
+    expect(first.graph.pages.get('a.md')!.content).toBe('v1')
+  })
+
 })

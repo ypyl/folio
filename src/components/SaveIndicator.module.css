@@ -1,0 +1,11 @@
+.indicator {
+  /* Sticky: pins to the pane's bottom edge while its document scrolls, then
+     settles under the content at the end (design D4). */
+  position: sticky;
+  bottom: 12px;
+  margin-left: 48px; /* aligns with the document's left padding */
+  width: max-content;
+  font-size: 12px;
+  color: var(--stone);
+  pointer-events: none;
+}

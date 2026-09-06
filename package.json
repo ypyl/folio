@@ -12,6 +12,10 @@
     "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
+    "@milkdown/core": "^7.22.1",
+    "@milkdown/plugin-history": "^7.22.1",
+    "@milkdown/plugin-listener": "^7.22.1",
+    "@milkdown/preset-commonmark": "^7.22.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

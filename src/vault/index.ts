@@ -63,6 +63,32 @@ export function refreshIndex(storage: VaultStorage, current: VaultIndex): Promis
   return buildIndex(storage, current)
 }
 
+/** Write-through path for the app's own saves (ADR-0004, design B1): persist
+ *  the page, re-parse it in memory, and heal the mtime snapshot so the next
+ *  diff-rescan skips the file. Non-optimistic by construction — the page
+ *  object changes only after the write resolves, so a failed write leaves
+ *  the index consistent with disk. */
+export async function upsertPage(
+  storage: VaultStorage,
+  current: VaultIndex,
+  path: string,
+  content: string,
+): Promise<VaultIndex> {
+  await storage.write(path, content)
+  const lastModified = await storage.stat(path)
+  const pages = new Map(current.graph.pages)
+  pages.set(path, {
+    path,
+    title: stem(path),
+    kind: kindOf(path),
+    content,
+    links: parseLinks(content),
+  })
+  const snapshot = new Map(current.snapshot)
+  snapshot.set(path, lastModified)
+  return { graph: fold(pages), snapshot }
+}
+
 function carryOver(path: string, lastModified: number, previous: VaultIndex): IndexPage | undefined {
   if (previous.snapshot.get(path) !== lastModified) return undefined
   return previous.graph.pages.get(path)

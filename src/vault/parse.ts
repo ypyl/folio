@@ -1,6 +1,6 @@
 // Pure Markdown page-reference extraction (ADR-0012, page-references spec).
-// No IO. The canonical token regex lives here so rendering (MarkdownPreview)
-// and indexing tokenize identically (design D6).
+// No IO. The canonical token regex lives here so the vault index tokenizes
+// references exactly as the editor preserves them (design D6).
 
 export type Link = {
   target: string // page name, exactly as referenced (trimmed)

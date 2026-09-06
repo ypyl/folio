@@ -1,8 +1,34 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 import { Accordion } from './components/Accordion'
-import { buildTree } from './vault/fakeHandle'
+import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
+import { FileSystemVaultStorage } from './vault/fs'
+import type { EditorAdapter } from './editor/editor'
+
+// Replace the real ProseMirror transport with FakeEditor for App-level tests
+// (design D1). Instances are registered so tests can drive edits and assert
+// what each page's editor was seeded with.
+const editorInstances = vi.hoisted(() => ({ list: [] as EditorAdapter[] }))
+vi.mock('./editor/milkdown', async () => {
+  const { FakeEditor } = await import('./editor/fakeEditor')
+  return {
+    MilkdownAdapter: class extends FakeEditor {
+      constructor() {
+        super()
+        editorInstances.list.push(this)
+      }
+    },
+  }
+})
+
+type FakeView = EditorAdapter & {
+  setContents: string[]
+  emitChange: (markdown: string) => void
+}
+
+// The most recently mounted editor instance.
+const editor = () => editorInstances.list[editorInstances.list.length - 1] as FakeView
 
 const pane = () => screen.getByRole('main')
 
@@ -34,7 +60,7 @@ const FIXTURE = {
   },
 }
 
-async function openFixture(): Promise<void> {
+async function openFixture(): Promise<FakeDirectoryHandle> {
   const tree = buildTree(FIXTURE)
   tree.name = 'notes'
   vi.stubGlobal(
@@ -42,6 +68,8 @@ async function openFixture(): Promise<void> {
     vi.fn(async () => tree as unknown as FileSystemDirectoryHandle),
   )
   fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+  editorInstances.list.length = 0 // fresh editors per test
+  return tree
 }
 
 describe('application shell', () => {
@@ -147,18 +175,67 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders reference chips as inert in the open page', async () => {
+  it('seeds the editor with the open page content (references are plain text)', async () => {
     render(<App />)
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    const chip = within(pane()).getByText('Inbox')
-    fireEvent.click(chip)
-    expect(
-      within(pane()).getByRole('heading', { level: 1, name: 'Welcome' }),
-    ).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'Welcome' }).getAttribute('aria-current'),
-    ).toBe('page')
+    const fake = editor()
+    // The editor is seeded with the page's Markdown, reference tokens intact
+    // as plain editable text (page-editing spec) — no chip rendering.
+    await waitFor(() => expect(fake.setContents[0]).toContain('#Inbox'))
+    expect(fake.setContents[0]).toContain('This is Folio')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('auto-save (page-editing spec)', () => {
+  it('type -> pause -> save writes through and clears the indicator', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('edited welcome body')
+
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toBe('Unsaved changes')
+
+    // After the ~1s debounce the file is written and the indicator clears.
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    const file = tree.children.get('Welcome.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('edited welcome body')
+    vi.unstubAllGlobals()
+  })
+
+  it('leaving a page before the save keeps the draft and restores it on return', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('draft of welcome')
+    fireEvent.click(await screen.findByRole('button', { name: 'Reading' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+
+    // The fresh Welcome editor mounts with the draft, not the indexed content.
+    const reopened = editor()
+    await waitFor(() => expect(reopened.setContents[0]).toBe('draft of welcome'))
+    vi.unstubAllGlobals()
+  })
+
+  it('a failed save keeps the page dirty and re-arms on the next edit', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    const spy = vi
+      .spyOn(FileSystemVaultStorage.prototype, 'write')
+      .mockRejectedValueOnce(new DOMException('denied', 'SecurityError'))
+
+    editor().emitChange('first edit')
+    expect(await screen.findByText('Save failed', {}, { timeout: 3000 })).toBeTruthy()
+    expect(editor()).toBeTruthy()
+
+    spy.mockRestore()
+    editor().emitChange('second edit')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    const file = tree.children.get('Welcome.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('second edit')
     vi.unstubAllGlobals()
   })
 })
