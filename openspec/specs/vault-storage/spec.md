@@ -6,8 +6,8 @@ The transport contract between Folio's knowledge-management core and wherever it
 
 ## Requirements
 
-### Requirement: VaultStorage exposes read, write, delete, and list
-The vault storage SHALL expose four async operations: `read(path)` returning the file's text content, `write(path, content)` creating or overwriting a file, `delete(path)` removing a file, and `list(path)` returning the files reachable under a path.
+### Requirement: VaultStorage exposes read, write, delete, list, and stat
+The vault storage SHALL expose five async operations: `read(path)` returning the file's text content, `write(path, content)` creating or overwriting a file, `delete(path)` removing a file, `list(path)` returning the files reachable under a path, and `stat(path)` returning the file's last-modified time in milliseconds since the epoch.
 
 #### Scenario: Reading a file returns its text content
 - **WHEN** `read` is called with the path of an existing file
@@ -32,6 +32,14 @@ The vault storage SHALL expose four async operations: `read(path)` returning the
 #### Scenario: Listing a directory returns the files beneath it
 - **WHEN** `list` is called with the path of a directory
 - **THEN** it resolves with the files under that directory, still as flat root-relative paths
+
+#### Scenario: Stat returns a file's last-modified time
+- **WHEN** `stat` is called with the path of an existing file
+- **THEN** it resolves with the file's last-modified time as a millisecond timestamp, and the value changes when the file's content is rewritten
+
+#### Scenario: Stat rejects for a missing file
+- **WHEN** `stat` is called with the path of a nonexistent file
+- **THEN** the call rejects with an error
 
 ### Requirement: Paths follow the vault-relative contract
 Vault paths SHALL be vault-root-relative strings using `/` as the separator, with no leading `/`, no `.` or `..` segments, and no absolute paths. The empty string SHALL denote the vault root. `list` SHALL return paths in the same form. Write operations SHALL create any missing parent directories implied by the path.
