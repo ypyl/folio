@@ -47,16 +47,16 @@ The header SHALL show the Folio brand at the left, a search input centered over 
 - **WHEN** a vault is active
 - **THEN** the header slot shows the folder's name and file count and has no behavior that opens a picker, switches folders, or re-grants permission
 
-### Requirement: Sidebar is an accordion with a New Page button
-The sidebar SHALL start with a New Page button at the top, followed by two collapsible sections: Journal and Pages. Both sections SHALL support independent open/close (one section's state does not affect the other), open by default, and expand/collapse without page reloads or JavaScript manipulation of document state. There SHALL be no Tags section and no other sidebar sections.
+### Requirement: Sidebar is an accordion of Journal and Pages sections
+The sidebar SHALL contain exactly two collapsible sections — Journal, then Pages — with no other sections, controls, or buttons above or between them. Both sections SHALL support independent open/close (one section's state does not affect the other), open by default, and expand/collapse without page reloads or JavaScript manipulation of document state. There SHALL be no Tags section and no New Page button.
 
 #### Scenario: Sections open and close independently
 - **WHEN** the user collapses the Pages section while Journal is open
 - **THEN** Pages collapses and Journal remains open
 
-#### Scenario: New Page button is present and quiet
+#### Scenario: The Journal section leads the sidebar
 - **WHEN** the shell renders
-- **THEN** the New Page button is the first element of the sidebar, uses the secondary button variant, and is not the only colored element in the viewport
+- **THEN** the first element of the sidebar is the Journal section, and no button or other control precedes the accordion
 
 ### Requirement: Meta panel is an accordion of page metadata
 The right meta panel SHALL contain two collapsible sections: Backlinks and Forwardlinks. Each section SHALL show placeholder copy while no page is open, and both SHALL open and close independently. When a page is open, each section SHALL list its page rows instead of placeholder copy: Backlinks lists every page that references the open page, Forwardlinks lists every page the open page references, both alphabetically. A section with no matching pages SHALL show empty-state copy. Rows SHALL use the sidebar's row styling and `aria-current` marking for the open page; rows that target a page with no file on disk SHALL be visually dimmed to signal the page is not yet created, and remain clickable. Clicking any row navigates (static-navigation links-pane requirements).
@@ -103,7 +103,7 @@ Every interactive element in the shell SHALL show a visible focus indicator usin
 - **THEN** each element in focus shows a visible brand-colored focus outline
 
 ### Requirement: A folder rail lists opened folders and switches between them
-The shell SHALL render a narrow folder rail as the leading workspace column. The rail SHALL show an add control and one entry per opened folder; the entry for the active folder SHALL be visually distinct. Activating a rail entry SHALL make that folder the active one, and when its stored permission is pending it SHALL request permission for that stored folder instead of opening the picker. Opening the same folder twice through the picker SHALL NOT add a second entry. Switching folders SHALL reset the open page so no page is selected in the newly active folder. The rail SHALL render no folder entries until stored folders have been resolved.
+The shell SHALL render a narrow folder rail as the leading workspace column. The rail SHALL show an add control and one entry per opened folder; the entry for the active folder SHALL be visually distinct. Activating a rail entry SHALL make that folder the active one, and when its stored permission is pending it SHALL request permission for that stored folder instead of opening the picker. Opening the same folder twice through the picker SHALL NOT add a second entry. Switching folders SHALL reset the open page to the newly active folder's today journal note — a blank in-memory page when no file exists yet, materializing on first save. The rail SHALL render no folder entries until stored folders have been resolved.
 
 #### Scenario: The add control opens the picker and lists the folder
 - **WHEN** the user activates the add control and picks a folder
@@ -111,7 +111,7 @@ The shell SHALL render a narrow folder rail as the leading workspace column. The
 
 #### Scenario: Clicking a rail entry switches the active folder
 - **WHEN** the user activates a rail entry that is not the active folder
-- **THEN** that folder becomes the active one and the open page resets to none
+- **THEN** that folder becomes the active one and the open page becomes that folder's today journal note
 
 #### Scenario: The active entry is visually distinct
 - **WHEN** multiple folders are listed
