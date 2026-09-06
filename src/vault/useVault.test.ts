@@ -20,6 +20,9 @@ const store = vi.hoisted(() => {
     setLastActiveId: async (id: string) => {
       lastActive = id
     },
+    clearLastActiveId: async () => {
+      lastActive = null
+    },
     lastActiveId: () => lastActive,
     seed: (name: string, permission: PermissionState, id?: string, h?: FakeDirectoryHandle) => {
       const handle = h ?? fake(name, permission)
@@ -200,5 +203,69 @@ describe('addFolder', () => {
     expect(result.current.activeId).toBe(result.current.folders[0].id)
     expect(store.lastActiveId()).toBe(result.current.folders[0].id)
     vi.unstubAllGlobals()
+  })
+})
+
+describe('closeFolder', () => {
+  it('closes a non-active folder, keeping the active folder and list intact', async () => {
+    store.seed('work', 'granted')
+    store.seed('home', 'granted')
+    store.setLastActiveId('home')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    const work = result.current.folders.find((f) => f.name === 'work')!
+    await act(() => result.current.closeFolder(work.id))
+    expect(result.current.folders.map((f) => f.name)).toEqual(['home'])
+    expect(result.current.activeId).toBe(result.current.folders[0].id)
+    expect(store.lastActiveId()).toBe('home')
+    // the closed folder's handle is gone from the registry
+    expect((await store.listVaultHandles()).some((r) => r.id === work.id)).toBe(false)
+  })
+
+  it('closing the active folder returns home and clears last active', async () => {
+    store.seed('work', 'granted')
+    store.seed('home', 'granted')
+    store.setLastActiveId('work')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    const work = result.current.folders.find((f) => f.name === 'work')!
+    await act(() => result.current.closeFolder(work.id))
+    expect(result.current.activeId).toBeNull()
+    expect(result.current.folders.map((f) => f.name)).toEqual(['home'])
+    expect(store.lastActiveId()).toBeNull()
+    expect((await store.listVaultHandles()).some((r) => r.id === work.id)).toBe(false)
+  })
+
+  it('closing the last folder returns home with nothing listed', async () => {
+    store.seed('work', 'granted')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    await act(() => result.current.closeFolder(result.current.folders[0].id))
+    expect(result.current.activeId).toBeNull()
+    expect(result.current.folders).toEqual([])
+    expect(store.lastActiveId()).toBeNull()
+  })
+
+  it('ignores a close for an unknown id', async () => {
+    store.seed('work', 'granted')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    await act(() => result.current.closeFolder('nope'))
+    expect(result.current.folders.map((f) => f.name)).toEqual(['work'])
+    expect(result.current.activeId).not.toBeNull()
+  })
+})
+
+describe('goHome', () => {
+  it('clears the active folder and last active without removing folders', async () => {
+    store.seed('work', 'granted')
+    store.seed('home', 'granted')
+    store.setLastActiveId('home')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    await act(() => result.current.goHome())
+    expect(result.current.activeId).toBeNull()
+    expect(result.current.folders.map((f) => f.name)).toEqual(['work', 'home'])
+    expect(store.lastActiveId()).toBeNull()
   })
 })

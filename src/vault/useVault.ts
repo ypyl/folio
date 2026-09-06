@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FileSystemVaultStorage, pickVaultFolder } from './fs'
 import {
+  clearLastActiveId,
   clearVaultHandle,
   getLastActiveId,
   listVaultHandles,
@@ -82,6 +83,26 @@ export function useVault() {
     await openNewFolder(id)
   }
 
+  // Close a folder: forget it (rail row + stored handle) and, when it was
+  // active, return home (no active folder, last-active cleared). Closing a
+  // non-active folder only removes its entry and leaves the active folder.
+  async function closeFolder(id: string): Promise<void> {
+    if (!folders.some((f) => f.id === id)) return
+    await clearVaultHandle(id)
+    setFolders((prev) => prev.filter((f) => f.id !== id))
+    if (id === activeId) {
+      setActiveId(null)
+      await clearLastActiveId()
+    }
+  }
+
+  // Return home: make no folder active and clear the last-active pointer so
+  // a reload also opens the empty state. Never forgets a folder.
+  async function goHome(): Promise<void> {
+    setActiveId(null)
+    await clearLastActiveId()
+  }
+
   // Add a folder from the picker. Re-picking an already-opened folder
   // activates the existing entry instead of duplicating it (D1 dedup).
   // excludeId: a just-dropped folder must be re-addable as a fresh row.
@@ -110,7 +131,7 @@ export function useVault() {
     await setLastActiveId(id)
   }
 
-  return { status, folders, activeId, addFolder: openNewFolder, activate }
+  return { status, folders, activeId, addFolder: openNewFolder, activate, closeFolder, goHome }
 }
 
 // Boot flow: restore every granted stored folder (storage created lazily —

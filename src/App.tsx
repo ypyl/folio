@@ -17,7 +17,7 @@ import type { SearchResult } from './search/core'
 const SAVE_DELAY_MS = 1000
 
 function App() {
-  const { status, folders, activeId, addFolder, activate } = useVault()
+  const { status, folders, activeId, addFolder, activate, closeFolder, goHome } = useVault()
   const activeFolder = folders.find((f) => f.id === activeId)
   const { graph, savePage } = useIndex(activeFolder?.storage)
   const [activePath, setActivePath] = useState<string | null>(null)
@@ -246,6 +246,9 @@ function App() {
         // The active folder's count goes live from the index once built;
         // otherwise fall back to the open-time snapshot (design D6).
         fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
+        // The brand returns home (close-folders): no active folder, folders
+        // stay on the rail. The activeFolder?.id effect resets the page.
+        onHome={() => void goHome()}
         search={
           // Keyed on the folder so a folder switch remounts the search and
           // resets its query (search-notes: folder-switch reset). Disabled
@@ -265,6 +268,9 @@ function App() {
           status={status}
           folders={folders}
           activeId={activeId}
+          // Closing a folder forgets it; closing the active one returns home
+          // (close-folders). The activeFolder?.id effect resets the page.
+          onClose={(id) => void closeFolder(id)}
           onAdd={() => {
             setActivePath(null)
             lastKnown.current = null

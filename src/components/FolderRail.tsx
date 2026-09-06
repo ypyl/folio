@@ -7,6 +7,7 @@ interface FolderRailProps {
   activeId: string | null
   onAdd: () => void
   onActivate: (id: string) => void
+  onClose: (id: string) => void
 }
 
 // The leading 56px column of opened folders (D3): an add control at the top,
@@ -14,7 +15,7 @@ interface FolderRailProps {
 // active folder gets a brand ring, a pending-permission folder a hollow
 // (dashed) ring. Kami palette only — the rail must not introduce a second
 // chromatic color (ui-shell spec).
-export function FolderRail({ status, folders, activeId, onAdd, onActivate }: FolderRailProps) {
+export function FolderRail({ status, folders, activeId, onAdd, onActivate, onClose }: FolderRailProps) {
   if (status === 'restoring') return <nav className={styles.rail} aria-label="Open folders" />
   return (
     <nav className={styles.rail} aria-label="Open folders">
@@ -26,19 +27,29 @@ export function FolderRail({ status, folders, activeId, onAdd, onActivate }: Fol
           const active = folder.id === activeId
           const pending = folder.permission !== 'granted'
           return (
-            <button
-              key={folder.id}
-              type="button"
-              className={`${styles.avatar}${active ? ` ${styles.active}` : ''}${pending ? ` ${styles.pending}` : ''}`}
-              onClick={() => onActivate(folder.id)}
-              title={folder.name}
-              aria-label={`Open folder ${folder.name}`}
-              aria-current={active ? 'page' : undefined}
-            >
-              <span className={styles.letter} aria-hidden="true">
-                {(folder.name || '?').charAt(0).toUpperCase()}
-              </span>
-            </button>
+            <div key={folder.id} className={styles.entry}>
+              <button
+                type="button"
+                className={`${styles.avatar}${active ? ` ${styles.active}` : ''}${pending ? ` ${styles.pending}` : ''}`}
+                onClick={() => onActivate(folder.id)}
+                title={folder.name}
+                aria-label={`Open folder ${folder.name}`}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className={styles.letter} aria-hidden="true">
+                  {(folder.name || '?').charAt(0).toUpperCase()}
+                </span>
+              </button>
+              <button
+                type="button"
+                className={styles.close}
+                onClick={() => onClose(folder.id)}
+                title={`Close folder ${folder.name}`}
+                aria-label={`Close folder ${folder.name}`}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
           )
         })}
       </div>

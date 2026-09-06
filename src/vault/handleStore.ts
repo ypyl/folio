@@ -43,6 +43,13 @@ export async function setLastActiveId(id: string): Promise<void> {
   await request(store.put(id, 'lastActiveId'))
 }
 
+/** Clear the last-active pointer so the next boot opens the empty state. */
+export async function clearLastActiveId(): Promise<void> {
+  const store = await openStore('meta', 'readwrite')
+  if (!store) return
+  await request(store.delete('lastActiveId'))
+}
+
 function isFolderRow(row: unknown): row is StoredVaultFolder {
   return (
     typeof row === 'object' &&

@@ -14,6 +14,15 @@
   gap: 10px;
   min-width: 0;
   padding-left: 16px;
+  /* Home control (close-folders): a button, so reset the browser's button
+     chrome and keep the warm-parchment header surface. The global
+     :focus-visible rule supplies the Kami focus outline. */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: inherit;
 }
 
 /* The rail's leading 56px column continues up through the header row so
