@@ -5,3 +5,43 @@
   padding: 16px;
   min-width: 0;
 }
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dark-warm);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--warm-sand);
+}
+
+.row[data-active] {
+  background: var(--brand-tint);
+  color: var(--near-black);
+}
+
+/* An unmaterialized page (no file on disk yet): muted, still clickable. */
+.dimmed {
+  color: var(--stone);
+}
+
+.rowText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

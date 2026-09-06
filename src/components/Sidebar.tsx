@@ -31,7 +31,7 @@ export function Sidebar({
   )
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={styles.sidebar} aria-label="Notes">
       <button type="button" className={`btn-secondary ${styles.newPageBtn}`}>
         New Page
       </button>

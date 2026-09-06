@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { EditorPane } from './components/EditorPane'
-import { MetaPanel } from './components/MetaPanel'
+import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { FolderRail } from './components/FolderRail'
 import { DraftStore } from './editor/drafts'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
-import type { IndexPage } from './vault/index'
+import { kindOf, stem, type IndexPage } from './vault/index'
 
 const SAVE_DELAY_MS = 1000
 
@@ -60,6 +60,27 @@ function App() {
     if (displayed) lastKnown.current = displayed
   }, [displayed])
 
+  // The open page's draft feeds the editor's initial content (existing draft
+  // wins) and the indicator (dirty/saving/failed, else clean).
+  const openDraft = activePath === null ? undefined : drafts.get(activePath)
+
+  // Unmaterialized page (links-pane, D2): a path deliberately opened this
+  // session that has no file on disk, seeded clean from nothing. A path is
+  // new-page iff its draft was seeded from an absent file (`saved === ''`),
+  // which distinguishes it from a page deleted externally after opening. The
+  // blank page disappears the moment its first save lands: `upsertPage`
+  // creates the file and the graph gains the page, so `displayed` resolves
+  // to the real page above. No separate pending-set bookkeeping to leak.
+  const pendingBlank: IndexPage | null =
+    activePath !== null &&
+    graph !== null &&
+    !graph.pages.has(activePath) &&
+    openDraft !== undefined &&
+    openDraft.saved === ''
+      ? { path: activePath, title: stem(activePath), kind: kindOf(activePath), content: '', links: [] }
+      : null
+  const page = displayed ?? pendingBlank
+
   const handleEdit = (markdown: string) => {
     if (activePath === null) return
     if (drafts.edit(activePath, markdown) === 'dirty') {
@@ -95,11 +116,47 @@ function App() {
   }, [activeFolder?.storage, drafts, savePage])
 
   // The open page's draft feeds the editor's initial content (existing draft
-  // wins) and the indicator (dirty/saving/failed, else clean).
-  const page = displayed
-  const openDraft = activePath === null ? undefined : drafts.get(activePath)
+  // wins) and the indicator (dirty/saving/failed, else clean). `page` is
+  // `displayed ?? pendingBlank` (set above): a real graph page, a vanished
+  // page's last-known content, or the blank page for a not-yet-created path.
   const initialContent = openDraft?.content ?? page?.content ?? ''
   const saveState = openDraft?.status ?? 'clean'
+  // A page with no file yet is "new": its save indicator reads as creating it.
+  const newPage = pendingBlank !== null
+
+  // Resolve the open page's place in the link graph (links-pane): backlinks
+  // come from the folded reverse index; forwardlinks resolve each reference
+  // target to a page, or stay unmaterialized when no page exists yet.
+  const backlinkRows: LinkRow[] =
+    graph && page
+      ? (graph.backlinks.get(page.title.toLowerCase()) ?? []).map((path) => {
+          const p = graph.pages.get(path)
+          return { title: p ? p.title : path, path, materialized: true }
+        })
+      : []
+  const forwardlinkRows: LinkRow[] =
+    graph && page
+      ? page.links
+          .map((l) => {
+            const targetPath = graph.byName.get(l.target.toLowerCase())
+            if (targetPath) {
+              const p = graph.pages.get(targetPath)
+              return p
+                ? { title: p.title, path: targetPath, materialized: true }
+                : null
+            }
+            // No page matches the reference: it is unmaterialized. Root pages
+            // materialize as `name.md`, preserving any directory part in
+            // bracketed names.
+            return { title: l.target, path: `${l.target}.md`, materialized: false }
+          })
+          .filter(
+            (r): r is LinkRow =>
+              // A page's link to itself isn't useful navigation (mirrors the
+              // index's backlink self-exclusion).
+              r !== null && r.path !== page.path,
+          )
+      : []
 
   const pages = graph ? [...graph.pages.values()].filter((p) => p.kind === 'page') : []
   const journalEntries = graph
@@ -140,6 +197,7 @@ function App() {
           initialContent={initialContent}
           onChange={handleEdit}
           saveState={saveState}
+          newPage={newPage}
           onDropFiles={
             activeFolder?.storage
               ? (files) => copyDroppedFiles(activeFolder.storage!, files)
@@ -149,7 +207,14 @@ function App() {
           // settled, only an actually usable folder keeps the notes hint.
           emptyHint={status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'}
         />
-        <MetaPanel />
+        <MetaPanel
+          /* oxlint-disable-next-line react/refs */
+          pageOpen={page !== null}
+          backlinks={backlinkRows}
+          forwardlinks={forwardlinkRows}
+          activePath={activePath}
+          onSelect={handleSelect}
+        />
       </div>
     </div>
   )

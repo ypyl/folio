@@ -107,13 +107,13 @@ export function isPagePath(path: string): boolean {
 }
 
 /** Title = filename with the final `.md` removed (design D1). */
-function stem(path: string): string {
+export function stem(path: string): string {
   const name = path.slice(path.lastIndexOf('/') + 1)
   return name.slice(0, -3) // removes '.md'/' .MD' regardless of extension case
 }
 
 /** Kind: journal iff the path starts with the journals directory (F1). */
-function kindOf(path: string): 'journal' | 'page' {
+export function kindOf(path: string): 'journal' | 'page' {
   return path.startsWith('journals/') ? 'journal' : 'page'
 }
 

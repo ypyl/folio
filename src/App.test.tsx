@@ -167,12 +167,32 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
-  it('keeps meta panel placeholders while a page is open', async () => {
+  it("meta panel lists the open page's backlinks and forwardlinks", async () => {
     render(<App />)
     await openFixture()
-    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Folio' }))
+
+    const meta = () => screen.getByRole('complementary', { name: 'Page links' })
+    // Folio is referenced by Inbox and Ideas; it references architecture
+    // (dangling, dimmed), Ideas, and Welcome.
+    await waitFor(() =>
+      expect(within(meta()).getByRole('button', { name: 'Inbox' })).toBeTruthy(),
+    )
+    // Ideas appears in both Folio's backlinks and forwardlinks, so expect at
+    // least one row.
+    expect(within(meta()).getAllByRole('button', { name: 'Ideas' }).length).toBeGreaterThan(0)
+    // Forwardlinks: real target Welcome + dangling architecture (dimmed).
+    expect(within(meta()).getByRole('button', { name: 'Welcome' })).toBeTruthy()
+    const dimmed = within(meta()).getByRole('button', { name: 'architecture' })
+    expect(dimmed.className).toContain('dimmed')
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps placeholder copy while no page is open', async () => {
+    render(<App />)
+    await openFixture()
     expect(
-      screen.getByText('Pages linking to this one appear once a page is open.'),
+      await screen.findByText('Pages linking to this one appear once a page is open.'),
     ).toBeTruthy()
     expect(
       screen.getByText('Links from this page appear once a page is open.'),
@@ -269,6 +289,49 @@ describe('asset drag & drop (page-editing spec)', () => {
     expect(assetsDir).toBeTruthy()
     const file = assetsDir.children.get('photo.png') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('imgbytes')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('links pane navigation (static-navigation + ui-shell spec)', () => {
+  const meta = () => screen.getByRole('complementary', { name: 'Page links' })
+
+  it('clicking a backlink row opens the referring page', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Folio' }))
+    // Folio's backlinks: Inbox and Ideas. Click Ideas to navigate there.
+    fireEvent.click(within(meta()).getAllByRole('button', { name: 'Ideas' })[0])
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('Half-formed thoughts worth keeping'),
+    )
+    expect(
+      screen.getByRole('button', { name: 'Ideas' }).getAttribute('aria-current'),
+    ).toBe('page')
+    vi.unstubAllGlobals()
+  })
+
+  it('a dangling forwardlink opens blank and materializes on first save', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Folio' }))
+    // Folio references #architecture (no such file). Clicking the dimmed row
+    // opens it as a blank in-memory page; no file is created yet.
+    fireEvent.click(
+      await within(meta()).findByRole('button', { name: 'architecture' }),
+    )
+    expect(tree.children.get('architecture.md')).toBeUndefined()
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+
+    // First edit reads as a brand-new page, not an edit to an existing file.
+    editor().emitChange('Notes on how the shell fits together')
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toBe('New page: created on first save')
+
+    // The save materializes the file on disk and clears the indicator.
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    const file = tree.children.get('architecture.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together')
     vi.unstubAllGlobals()
   })
 })

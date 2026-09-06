@@ -21,6 +21,7 @@ export function EditorPane({
   onChange,
   saveState = 'clean',
   emptyHint = 'notes',
+  newPage = false,
   onDropFiles,
 }: {
   page: Page | null
@@ -28,6 +29,8 @@ export function EditorPane({
   onChange: (markdown: string) => void
   saveState?: DraftStatus
   emptyHint?: 'notes' | 'open-folder'
+  /** The open page has no file yet; its first save creates it (links-pane). */
+  newPage?: boolean
   /** Copy dropped files into the vault and resolve with the landed asset paths. */
   onDropFiles?: (files: File[]) => Promise<string[]>
 }) {
@@ -113,7 +116,7 @@ export function EditorPane({
       <article className={styles.document}>
         <div ref={mountRef} className={styles.editor} />
       </article>
-      <SaveIndicator status={saveState} />
+      <SaveIndicator status={saveState} newPage={newPage} />
     </main>
   )
 }

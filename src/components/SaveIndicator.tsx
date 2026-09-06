@@ -10,11 +10,14 @@ const LABELS: Record<Exclude<DraftStatus, 'clean'>, string> = {
   failed: 'Save failed',
 }
 
-export function SaveIndicator({ status }: { status: DraftStatus }) {
+export function SaveIndicator({ status, newPage = false }: { status: DraftStatus; newPage?: boolean }) {
   if (status === 'clean') return null
+  // A page with no file yet creates itself on its first save: say so instead
+  // of implying an edit to an existing file (static-navigation spec).
+  const label = status === 'dirty' && newPage ? 'New page: created on first save' : LABELS[status]
   return (
     <div className={styles.indicator} role="status">
-      {LABELS[status]}
+      {label}
     </div>
   )
 }
