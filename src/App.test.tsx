@@ -5,6 +5,7 @@ import { Accordion } from './components/Accordion'
 import styles from './components/JournalCalendar.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
+import { MONTHS } from './components/months'
 import type { EditorAdapter } from './editor/editor'
 
 // Replace the real ProseMirror transport with FakeEditor for App-level tests
@@ -78,7 +79,6 @@ describe('application shell', () => {
   it('renders the shell chrome with the open-a-folder empty state', async () => {
     render(<App />)
     expect(within(screen.getByRole('banner')).getByText('Folio')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'New Page' })).toBeTruthy()
     expect(screen.getByLabelText('Search notes')).toBeTruthy()
     expect(screen.getByText('Journal')).toBeTruthy()
     expect(screen.getByText('Pages')).toBeTruthy()
@@ -113,10 +113,22 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows the brand empty state with a folder open but nothing selected', async () => {
+  it("opens today's journal when a folder is opened", async () => {
     render(<App />)
-    await openFixture()
-    expect(await screen.findByText('Your notes appear here.')).toBeTruthy()
+    const tree = await openFixture()
+    // The journal is the home (journal-home): opening a folder lands on
+    // today's note — blank here, since the fixture has no file for today —
+    // seeded from nothing, and merely opening creates no file (the
+    // unmaterialized-pages rule).
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
+    const today = new Date()
+    const cell = screen.getByRole('button', {
+      name: `${MONTHS[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`,
+    })
+    expect(cell.getAttribute('aria-current')).toBe('date')
+    const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
+    expect(journalsDir.children.size).toBe(3) // 2026-09-02..04 only
     vi.unstubAllGlobals()
   })
 
@@ -150,6 +162,25 @@ describe('navigation over the real index', () => {
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('Sketching how backlinks should behave'),
     )
+    vi.unstubAllGlobals()
+  })
+
+  it('typing into the auto-opened today note materializes it on save', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
+    const today = new Date()
+    const date = `${today.getFullYear()}-${`${today.getMonth() + 1}`.padStart(2, '0')}-${`${today.getDate()}`.padStart(2, '0')}`
+    expect(journalsDir.children.get(`${date}.md`)).toBeUndefined()
+    // The blank today page reads as a brand-new page; the first save
+    // materializes journals/<today>.md (journal-home unmaterialized rule).
+    editor().emitChange('Started the day in the journal.')
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toBe('New page: created on first save')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    const file = journalsDir.children.get(`${date}.md`) as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('Started the day in the journal.')
     vi.unstubAllGlobals()
   })
 
@@ -378,7 +409,7 @@ describe('folder rail flow', () => {
     expect(await screen.findByRole('button', { name: 'Add folder' })).toBeTruthy()
   })
 
-  it('switching folders resets the open page; re-clicking the active folder keeps it', async () => {
+  it("switching folders resets to the new folder's journal; re-clicking the active folder keeps the page", async () => {
     render(<App />)
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
@@ -401,9 +432,12 @@ describe('folder rail flow', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
     expect(await screen.findByRole('button', { name: 'b' })).toBeTruthy()
 
-    // Switching to a different folder resets the page.
+    // Switching to a different folder resets the open page to the new
+    // folder's today journal (journal-home) — blank here, since Home has no
+    // journals directory.
     fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
-    expect(within(pane()).getByText('Your notes appear here.')).toBeTruthy()
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
     expect(
       within(pane()).queryByRole('heading', { level: 1, name: 'Welcome' }),
     ).toBeNull()
@@ -563,12 +597,14 @@ describe('search results view (search-results-view spec)', () => {
     fireEvent.change(search(), { target: { value: 'folio' } })
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
+    const previous = editor()
     fireEvent.change(search(), { target: { value: 'xyzzy' } })
-    // No matches: back to the page pane's empty state; the dropdown shows
-    // its empty state for the query.
-    await waitFor(() =>
-      expect(within(pane()).getByText('Your notes appear here.')).toBeTruthy(),
-    )
+    // No matches: the results view closes and the previously open page — the
+    // auto-opened blank today journal (journal-home) — shows again; the
+    // dropdown shows its empty state for the query.
+    await waitFor(() => expect(editor()).not.toBe(previous))
+    expect(editor().setContents[0]).toBe('')
+    expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
     expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy()
     vi.unstubAllGlobals()
   })
@@ -581,10 +617,12 @@ describe('search results view (search-results-view spec)', () => {
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
     const before = [...tree.children.keys()].sort()
+    const previous = editor()
     fireEvent.keyDown(pane(), { key: 'Escape' })
-    await waitFor(() =>
-      expect(within(pane()).getByText('Your notes appear here.')).toBeTruthy(),
-    )
+    // Escape closes back to the previously open page (the blank today
+    // journal), and browsing alone writes nothing to the vault.
+    await waitFor(() => expect(editor()).not.toBe(previous))
+    expect(editor().setContents[0]).toBe('')
     expect([...tree.children.keys()].sort()).toEqual(before)
     vi.unstubAllGlobals()
   })

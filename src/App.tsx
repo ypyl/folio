@@ -11,7 +11,7 @@ import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
-import { kindOf, stem, type IndexPage } from './vault/index'
+import { kindOf, localDayString, stem, type IndexPage } from './vault/index'
 import type { SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
@@ -83,6 +83,38 @@ function App() {
     setSearchQuery(query)
     setMode('results')
   }
+
+  // A folder switch resets the open page: the previously open page belongs
+  // to the old folder and must never surface in the new one (journal-home,
+  // spec: ui-shell folder-rail). The rail handler clears it synchronously;
+  // addFolder resolves asynchronously (openNewFolder), so the reset also keys
+  // on folder identity — every switch arrives here with no stale page, letting
+  // the auto-open effect below land on the new folder's today journal once
+  // its graph is ready. Re-activating the same folder keeps the page.
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
+    setActivePath(null)
+    lastKnown.current = null
+    resetSearch()
+  }, [activeFolder?.id])
+
+  // The journal is the home (journal-home, spec: static-navigation today-
+  // journal load): whenever a folder's graph is ready and no page is open —
+  // app boot, a folder switch, or adding a folder — open that folder's today
+  // journal note. Waiting for the graph keeps the seed correct: an existing
+  // today file is never masked by an empty draft (design D1). Re-activating
+  // the already-active folder keeps activePath non-null, so the open page is
+  // preserved. A day with no file stays unmaterialized: the draft seeds from
+  // '' and pendingBlank renders it, materializing on first save like a
+  // calendar day.
+  useEffect(() => {
+    if (graph === null || activePath !== null) return
+    const today = `journals/${localDayString(new Date())}.md`
+    // oxlint-disable-next-line react/set-state-in-effect
+    setActivePath(today)
+    drafts.open(today, graph.pages.get(today)?.content ?? '')
+    setDraftVersion((v) => v + 1)
+  }, [graph, activePath, drafts])
 
   // The page to show: fresh from the active graph, else the last-known
   // content for that path, else nothing. The ref read is the

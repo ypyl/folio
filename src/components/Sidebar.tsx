@@ -36,9 +36,6 @@ export function Sidebar({
 
   return (
     <aside className={styles.sidebar} aria-label="Notes">
-      <button type="button" className={`btn-secondary ${styles.newPageBtn}`}>
-        New Page
-      </button>
       <Accordion title="Journal" defaultOpen>
         {/* The journal calendar owns the section (journal-calendar D1); it
             stays hidden until a vault is open (no-inert-grid rule). */}

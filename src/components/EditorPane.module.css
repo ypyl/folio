@@ -36,6 +36,20 @@
   color: var(--near-black);
 }
 
+/* Empty-page placeholder (journal-home, page-editing spec): an empty doc is a
+   single empty <p>, so the hint renders on its first line via ::before — at
+   the caret line, scrolling with the document. float + height 0 keeps it out
+   of layout and selection. The copy arrives through the inherited
+   --placeholder variable (set by the pane), so it never enters the document
+   or the serialized markdown. */
+.editor[data-empty] :global(.ProseMirror) :global(p:first-child)::before {
+  content: var(--placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--stone);
+}
+
 .editor :global(.ProseMirror) {
   outline: none; /* the caret is the focus indicator for a document surface */
   min-height: 8em;

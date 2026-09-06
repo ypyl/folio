@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import type { DragEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties, DragEvent } from 'react'
 import { FolioMark } from '../FolioMark'
 import type { DraftStatus } from '../editor/drafts'
 import type { EditorAdapter } from '../editor/editor'
@@ -14,6 +14,11 @@ import styles from './EditorPane.module.css'
 // this component by page path, so each page gets a fresh editor seeded with
 // its initial content (draft-or-index), and switching pages remounts rather
 // than mutating a live ProseMirror doc.
+
+// The hint shown at the document start while a page has no content
+// (journal-home, page-editing spec); it lives only in the pane, never in the
+// document or the serialized markdown.
+const PLACEHOLDER = 'Start typing…'
 
 export function EditorPane({
   page,
@@ -44,6 +49,11 @@ export function EditorPane({
     latestProps.current = { onChange, initialContent }
   })
 
+  // Empty-page placeholder (journal-home): seeded from the mount content and
+  // kept current on every edit, so an empty page invites typing and emptying
+  // a page brings the hint back (data-empty gates the CSS ::before).
+  const [isEmpty, setIsEmpty] = useState(initialContent.trim() === '')
+
   // Reset scroll only when the open page actually changes (`path` is the
   // navigation identity, ADR-0013 — the page object reference changes on
   // every index rebuild, which would yank the pane to the top after a save).
@@ -62,7 +72,12 @@ export function EditorPane({
     let cancelled = false
     const adapter = new MilkdownAdapter()
     adapterRef.current = adapter
-    adapter.onChange((markdown) => onChange(markdown))
+    // Placeholder bookkeeping rides the same edit stream that reaches App:
+    // markdown empty ⇒ the doc is empty ⇒ show the hint.
+    adapter.onChange((markdown) => {
+      setIsEmpty(markdown.trim() === '')
+      onChange(markdown)
+    })
     void adapter
       .mount(el)
       .then(() => {
@@ -114,7 +129,16 @@ export function EditorPane({
   return (
     <main ref={paneRef} onDragOver={handleDragover} onDrop={handleDrop} className={styles.pane}>
       <article className={styles.document}>
-        <div ref={mountRef} className={styles.editor} />
+        <div
+          ref={mountRef}
+          className={styles.editor}
+          // Empty pages get an inline hint (journal-home): the CSS ::before on
+          // the empty paragraph reads it through the inheriting
+          // --placeholder variable. Plain attr() would look on the <p> itself,
+          // which Milkdown owns — it never reads ancestor attributes.
+          data-empty={isEmpty || undefined}
+          style={{ '--placeholder': `'${PLACEHOLDER}'` } as CSSProperties}
+        />
       </article>
       <SaveIndicator status={saveState} newPage={newPage} />
     </main>

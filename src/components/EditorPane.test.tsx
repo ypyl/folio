@@ -127,6 +127,42 @@ describe('EditorPane', () => {
     })
   })
 
+  describe('empty-page placeholder (journal-home)', () => {
+    // The pane gates the hint with data-empty; the copy rides the inheriting
+    // --placeholder variable so the CSS ::before on the empty paragraph can
+    // read it (attr() would look on the <p> itself, which Milkdown owns).
+    const editorEl = () =>
+      (screen.getByRole('main') as HTMLElement).querySelector('[data-empty]')
+
+    it('shows the placeholder on an empty page', async () => {
+      render(<EditorPane page={page} initialContent="" onChange={() => {}} />)
+      await act(async () => {})
+      const el = editorEl()
+      expect(el).not.toBeNull()
+      expect(el!.style.getPropertyValue('--placeholder').replace(/^'|'$/g, '')).toBe(
+        'Start typing…',
+      )
+    })
+
+    it('never shows the placeholder on a page with content', async () => {
+      render(<EditorPane page={page} initialContent="# hello" onChange={() => {}} />)
+      await act(async () => {})
+      expect(editorEl()).toBeNull()
+    })
+
+    it('returns the placeholder when all content is deleted', async () => {
+      const onChange = vi.fn()
+      render(<EditorPane page={page} initialContent="v1" onChange={onChange} />)
+      await act(async () => {})
+      expect(editorEl()).toBeNull()
+      await act(async () => {
+        fake().emitChange('')
+      })
+      expect(editorEl()).not.toBeNull()
+      expect(onChange).toHaveBeenCalledWith('')
+    })
+  })
+
   describe('asset drop (asset-drag-drop)', () => {
     const dt = (files: File[]): DataTransfer =>
       ({
