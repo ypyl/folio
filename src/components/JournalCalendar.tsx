@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { Page } from '../page'
 import { journalDate, localDayString } from '../vault/index'
+import { MONTHS } from './months'
 import styles from './JournalCalendar.module.css'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
 
 function monthOf(dateString: string): { year: number; month: number } {
   const [year, month] = dateString.split('-').map(Number)

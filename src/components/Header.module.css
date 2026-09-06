@@ -36,24 +36,11 @@
 
 .search {
   grid-column: 3;
-  width: min(480px, 100%);
+  /* The content column's readable width: the input (and its dropdown) spans
+     the editor column instead of a fixed box, so they align with content
+     beneath (search-notes, ui-shell delta). */
+  width: min(980px, 100%);
   justify-self: center;
-}
-
-.input {
-  display: block;
-  width: 100%;
-  padding: 8px 12px;
-  font: inherit;
-  font-size: 14px;
-  color: var(--near-black);
-  background: var(--ivory);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.input::placeholder {
-  color: var(--stone);
 }
 
 .slot {

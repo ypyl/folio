@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { EditorPane } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { FolderRail } from './components/FolderRail'
+import { SearchBox } from './components/SearchBox'
 import { DraftStore } from './editor/drafts'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
@@ -163,6 +164,14 @@ function App() {
     ? [...graph.pages.values()].filter((p) => p.kind === 'journal')
     : []
 
+  // Search corpus: pages with content from the live graph, memoized on graph
+  // identity so the Fuse inside SearchBox rebuilds on save/refresh (search-
+  // notes, design: Fuse lifecycle).
+  const searchDocs = useMemo(
+    () => (graph ? [...graph.pages.values()] : []),
+    [graph],
+  )
+
   return (
     <div className="app-shell">
       <Header
@@ -170,6 +179,17 @@ function App() {
         // The active folder's count goes live from the index once built;
         // otherwise fall back to the open-time snapshot (design D6).
         fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
+        search={
+          // Keyed on the folder so a folder switch remounts the search and
+          // resets its query (search-notes: folder-switch reset). Disabled
+          // without a vault (no-inert-UI rule).
+          <SearchBox
+            key={activeFolder?.id ?? 'none'}
+            docs={searchDocs}
+            disabled={graph === null}
+            onSelect={handleSelect}
+          />
+        }
       />
       <div className="workspace">
         <FolderRail

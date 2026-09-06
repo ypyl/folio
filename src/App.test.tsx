@@ -410,3 +410,62 @@ describe('folder rail flow', () => {
     vi.unstubAllGlobals()
   })
 })
+describe('content search over the real index (search spec)', () => {
+  it('is disabled before a vault folder opens', () => {
+    render(<App />)
+    expect((screen.getByLabelText('Search notes') as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('opens a page from a search result', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' }) // index built: search is enabled
+    const search = screen.getByLabelText('Search notes') as HTMLInputElement
+    fireEvent.change(search, { target: { value: 'backlinks' } })
+    // 'backlinks' matches Ideas.md (page) and journals/2026-09-03.md (journal).
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(2))
+    fireEvent.click(screen.getByRole('option', { name: /^Ideas/ }))
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('Half-formed thoughts worth keeping'),
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('opens a journal day from a search result like the calendar would', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' }) // index built: search is enabled
+    const search = screen.getByLabelText('Search notes') as HTMLInputElement
+    fireEvent.change(search, { target: { value: 'fresh vault' } })
+    // Only journals/2026-09-02.md holds the phrase; the result is labelled
+    // with the pretty date and opens the day through the shared selection path.
+    const day = await screen.findByRole('option', { name: /September 2, 2026/ })
+    fireEvent.click(day)
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('Started a fresh vault'),
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('switching folders clears the query and closes the dropdown', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' }) // index built: search is enabled
+    const search = screen.getByLabelText('Search notes') as HTMLInputElement
+    fireEvent.change(search, { target: { value: 'backlinks' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0))
+
+    const home = buildTree({ 'b.md': 'b' })
+    home.name = 'Home'
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => home as unknown as FileSystemDirectoryHandle),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
+    // The remounted input (folder-keyed) starts with an empty query.
+    expect((screen.getByLabelText('Search notes') as HTMLInputElement).value).toBe('')
+    expect(screen.queryByRole('listbox')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+})
