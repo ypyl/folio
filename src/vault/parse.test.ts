@@ -52,6 +52,15 @@ describe('parseLinks', () => {
     expect(parseLinks('[[Inbox]] and #tag/word are not references')).toEqual([])
   })
 
+  it('reads editor-serialized bracketed references (commonmark escape)', () => {
+    // Milkdown's serializer escapes `[[` on save, so an editor-authored
+    // `#[[Reading Log]]` lies on disk as `#\[[Reading Log]]`. The index must
+    // tokenize exactly what the editor wrote (design D6).
+    expect(parseLinks('moved items into #\\[\\[Reading Log]].')).toEqual([
+      { target: 'Reading Log', via: 'bracketed' },
+    ])
+  })
+
   it('extracts nothing from plain text', () => {
     expect(parseLinks('no references here')).toEqual([])
   })

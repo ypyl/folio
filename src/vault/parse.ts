@@ -9,8 +9,11 @@ export type Link = {
 
 // One reference token covers both forms. The lookbehind keeps '#tag' inside
 // 'word#tag' (URL fragments etc.) from being read as a reference; the
-// lookahead keeps other tools' '#tag/word' conventions out (ADR-0012).
-export const REF = /(?<![\w])#\[\[([^\]]+)\]\]|(?<![\w])#([\w-]+)(?![\w/-])/g
+// lookahead keeps other tools' '#tag/word' conventions out (ADR-0012). The
+// `\\?` tolerates the commonmark escape the editor's serializer applies to
+// `[[` on save (`#\[[Page]]`), so an editor-authored reference tokenizes
+// exactly as it lies on disk (design D6).
+export const REF = /(?<![\w])#\\?\[\\?\[([^\]]+)\]\]|(?<![\w])#([\w-]+)(?![\w/-])/g
 
 /**
  * Extract every page reference in `content`, in order of appearance.
