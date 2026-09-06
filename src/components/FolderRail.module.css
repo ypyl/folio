@@ -12,6 +12,7 @@
   border-right: 1px solid var(--border);
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   width: 56px;
   box-sizing: border-box;
 }
