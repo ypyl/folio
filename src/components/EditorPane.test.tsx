@@ -132,7 +132,7 @@ describe('EditorPane', () => {
     // --placeholder variable so the CSS ::before on the empty paragraph can
     // read it (attr() would look on the <p> itself, which Milkdown owns).
     const editorEl = () =>
-      (screen.getByRole('main') as HTMLElement).querySelector('[data-empty]')
+      (screen.getByRole('main') as HTMLElement).querySelector<HTMLElement>('[data-empty]')
 
     it('shows the placeholder on an empty page', async () => {
       render(<EditorPane page={page} initialContent="" onChange={() => {}} />)
