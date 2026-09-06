@@ -128,9 +128,11 @@ describe('navigation over the real index', () => {
     const row = await screen.findByRole('button', { name: 'Welcome' })
     fireEvent.click(row)
     expect(screen.queryByText('Your notes appear here.')).toBeNull()
-    expect(
-      within(pane()).getByRole('heading', { level: 1, name: 'Welcome' }),
-    ).toBeTruthy()
+    // The pane shows only the file content: no title heading, editor seeded.
+    expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('Open a note from the sidebar'),
+    )
     expect(row.getAttribute('aria-current')).toBe('page')
     vi.unstubAllGlobals()
   })
@@ -139,9 +141,10 @@ describe('navigation over the real index', () => {
     render(<App />)
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: '2026-09-03' }))
-    expect(
-      within(pane()).getByRole('heading', { level: 1, name: '2026-09-03' }),
-    ).toBeTruthy()
+    expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('Sketching how backlinks should behave'),
+    )
     vi.unstubAllGlobals()
   })
 
@@ -150,9 +153,10 @@ describe('navigation over the real index', () => {
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Reading' }))
-    expect(
-      within(pane()).getByRole('heading', { level: 1, name: 'Reading' }),
-    ).toBeTruthy()
+    expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
+    await waitFor(() =>
+      expect(editor().setContents[0]).toContain('A running list of things to read'),
+    )
     expect(
       screen.getByRole('button', { name: 'Reading' }).getAttribute('aria-current'),
     ).toBe('page')
@@ -250,9 +254,8 @@ describe('folder rail flow', () => {
     render(<App />)
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    expect(
-      within(pane()).getByRole('heading', { level: 1, name: 'Welcome' }),
-    ).toBeTruthy()
+    expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
 
     const home = buildTree({ 'b.md': 'b' })
     home.name = 'Home'
@@ -262,9 +265,9 @@ describe('folder rail flow', () => {
     )
     // Re-clicking the active folder is not a switch: page stays.
     fireEvent.click(await screen.findByRole('button', { name: 'Open folder notes' }))
-    expect(
-      within(pane()).getByRole('heading', { level: 1, name: 'Welcome' }),
-    ).toBeTruthy()
+    // Re-clicking the active folder is not a switch: the same page stays.
+    expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
+    expect(editor().setContents[0]).toContain('This is Folio')
 
     // Adding a second folder is not a switch either.
     fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))

@@ -19,11 +19,14 @@ export class MilkdownAdapter implements EditorAdapter {
   private editor: Editor | null = null
   private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
+  private destroyed = false
 
   /** Mount the editor into `el`. The element must stay in the document for
-   *  the editor's lifetime. */
+   *  the editor's lifetime. If `destroy()` was called while `create()` was
+   *  still in flight (StrictMode remount, fast page switch), the created
+   *  editor is torn down immediately instead of leaking into the DOM. */
   async mount(el: HTMLElement): Promise<void> {
-    this.editor = await Editor.make()
+    const editor = await Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, el)
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
@@ -35,10 +38,16 @@ export class MilkdownAdapter implements EditorAdapter {
       .use(listener)
       .use(history)
       .create()
+    if (this.destroyed) {
+      await editor.destroy()
+      return
+    }
+    this.editor = editor
     this.latest = this.serialize()
   }
 
   async destroy(): Promise<void> {
+    this.destroyed = true
     this.changeListener = null
     await this.editor?.destroy()
     this.editor = null

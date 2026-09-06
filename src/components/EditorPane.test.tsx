@@ -37,13 +37,12 @@ afterEach(() => {
 })
 
 describe('EditorPane', () => {
-  it('renders the title heading and mounts the editor with the initial content', async () => {
+  it('renders only the editor surface with the initial content and no title heading', async () => {
     render(
       <EditorPane page={{ ...page, title: 'Welcome' }} initialContent="# hello" onChange={() => {}} />,
     )
-    expect(
-      within(screen.getByRole('main')).getByRole('heading', { level: 1, name: 'Welcome' }),
-    ).toBeTruthy()
+    // The pane shows the file content only: no page-title heading is rendered.
+    expect(within(screen.getByRole('main')).queryByRole('heading', { level: 1 })).toBeNull()
     await act(async () => {})
     const editor = fake()
     expect(editor.mounted).toBe(true)
@@ -102,6 +101,27 @@ describe('EditorPane', () => {
         <EditorPane page={page} initialContent="v1" onChange={() => {}} saveState="clean" />,
       )
       expect(screen.queryByRole('status')).toBeNull()
+    })
+  })
+
+  describe('pane scroll (fix-editor-scroll-jump)', () => {
+    it('keeps the scroll position when the same page refreshes, resets on page switch', async () => {
+      const a = { ...page, path: 'a.md' }
+      const { rerender } = render(
+        <EditorPane page={a} initialContent="x" onChange={() => {}} />,
+      )
+      await act(async () => {})
+      const pane = screen.getByRole('main') as HTMLElement
+      pane.scrollTop = 400
+
+      // Same path, new object — the post-save index rebuild. Scroll survives.
+      rerender(<EditorPane page={{ ...a, content: 'y' }} initialContent="x" onChange={() => {}} />)
+      expect(pane.scrollTop).toBe(400)
+
+      // A real page switch resets the pane to the top.
+      rerender(<EditorPane key="b.md" page={{ ...page, path: 'b.md' }} initialContent="z" onChange={() => {}} />)
+      await act(async () => {})
+      expect((screen.getByRole('main') as HTMLElement).scrollTop).toBe(0)
     })
   })
 })

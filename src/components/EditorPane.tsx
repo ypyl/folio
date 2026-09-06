@@ -34,9 +34,12 @@ export function EditorPane({
     latestProps.current = { onChange, initialContent }
   })
 
+  // Reset scroll only when the open page actually changes (`path` is the
+  // navigation identity, ADR-0013 — the page object reference changes on
+  // every index rebuild, which would yank the pane to the top after a save).
   useEffect(() => {
     if (paneRef.current) paneRef.current.scrollTop = 0
-  }, [page])
+  }, [page?.path])
 
   // Mount the editor once per page instance (App keys by page path, so the
   // props captured here are this page's). Content is applied after the
@@ -82,7 +85,6 @@ export function EditorPane({
   return (
     <main ref={paneRef} className={styles.pane}>
       <article className={styles.document}>
-        <h1 className={styles.title}>{page.title}</h1>
         <div ref={mountRef} className={styles.editor} />
       </article>
       <SaveIndicator status={saveState} />
