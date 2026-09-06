@@ -11,11 +11,11 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 5. [x] **Open folder flow** — "Open folder" button wired to the picker; handle persisted in IndexedDB, re-opened on reload. Until a folder is chosen, the mock vault still shows.
 6. [x] **Scan + parse + index** — walk the folder, extract title / page references (`#word`, `#[[Page]]`), build pages + backlinks maps; sidebar and routing now use real pages when a folder is open; index updates incrementally as files change.
 7. [x] **Milkdown editor** — replaces the mock editor; edits real page content; write-through with debounced auto-save; dirty indicator.
-8. [ ] **Asset drag & drop** — drag any file onto the editor; copy it into the vault (`assets/`, unique name on collision), then insert a markdown link (`![name](assets/name.ext)` for images, plain link otherwise) at the cursor position.
+8. [x] **Asset drag & drop** — drag any file onto the editor; copy it into the vault (`assets/`, unique name on collision), then insert a markdown link (`![name](assets/name.ext)` for images, plain link otherwise) at the cursor position.
 9. [x] **Links pane** — real Backlinks / Forwardlinks from the index in the right accordion, click to navigate.
 10. [x] **Daily journal** — calendar in the Journal section: Sunday-first month grid, days with files filled, browse months, click a day to open `journals/YYYY-MM-DD.md` (blank until first write, then materialized).
 11. [ ] **Search** — Fuse.js over the index, results in the sidebar, keyboard shortcut.
-12. [ ] **PWA** — offline-capable precache, installable, icon.
+12. [x] **PWA** — offline-capable precache, installable, icon.
 
 ## Later ideas
 
