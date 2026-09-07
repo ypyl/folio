@@ -24,19 +24,28 @@
   white-space: nowrap;
 }
 
+/* Chevrons are squares sized like day cells (28px tall min in the grid):
+   same box, radius, ring space and hover as .day, so the header reads as
+   buttons on the calendar grid. Fixed square — a % of monthGroup would
+   resolve against its own auto width, not the grid. */
 .navBtn {
-  border: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent; /* ring space reserved, like .day */
+  border-radius: 6px;
   background: transparent;
   color: var(--stone);
   font: inherit;
   font-size: 14px;
   line-height: 1;
-  padding: 0 2px;
+  text-align: center;
+  padding: 0;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .navBtn:hover {
-  color: var(--brand);
+  background: var(--warm-sand);
 }
 
 .todayBtn {

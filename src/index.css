@@ -74,7 +74,7 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: 56px 240px minmax(0, 1fr) 220px;
+  grid-template-columns: 56px 264px minmax(0, 1fr) 220px;
   min-height: 0;
 }
 
