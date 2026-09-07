@@ -4,11 +4,13 @@ import {
   FUSE_OPTIONS,
   PER_GROUP,
   exactRanges,
+  firstMatchLine,
   searchDocs,
   snippetSegments,
   termsOf,
   topPerGroup,
   type SearchDoc,
+  type SearchRange,
 } from './core'
 
 function doc(path: string, title: string, text: string, kind: 'page' | 'journal' = 'page'): SearchDoc {
@@ -120,5 +122,32 @@ describe('snippetSegments', () => {
     const text = ['title-only match', 'second line', 'third line', 'fourth'].join('\n')
     const segments = snippetSegments(text, [])
     expect(segments).toEqual([{ text: 'title-only match\nsecond line\nthird line', hit: false }])
+  })
+})
+
+describe('firstMatchLine', () => {
+  it('reports the block anchor of the first text match', () => {
+    const text = '# Title\n\nBody dog here\n\n## More\n'
+    const ranges = exactRanges(text, 'dog') // [14, 17] on line 3
+    expect(firstMatchLine(text, ranges)).toBe(3)
+  })
+
+  it('uses the earliest range when matches span blocks', () => {
+    const text = '# Title\n\nBody dog\n\n## More dog\n'
+    const late: SearchRange = [100, 103]
+    const ranges = [...exactRanges(text, 'dog'), late] // unsorted, late entry
+    expect(firstMatchLine(text, ranges)).toBe(3)
+  })
+
+  it('returns null for a title-only result (no text ranges)', () => {
+    expect(firstMatchLine('some body text', [])).toBeNull()
+  })
+
+  it('matches the sparse signature: a match in a lower block reports its anchor', () => {
+    const text = '# Title\n\nBody\n\n- a\n- b dog\n'
+    // 'dog' is on line 6 (a tight list continuation) and anchors to the
+    // list start at line 5, not to its own line.
+    const ranges = exactRanges(text, 'dog')
+    expect(firstMatchLine(text, ranges)).toBe(5)
   })
 })

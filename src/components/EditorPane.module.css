@@ -69,6 +69,28 @@
 
 .document {
   padding: 16px 48px 64px;
+  position: relative; /* anchoring context for the line-number gutter */
+}
+
+/* Line numbers (line-numbers, DESIGN: metadata level --stone, 12px floor, no
+   decoration). The gutter sits in the document's 48px left margin, flush with
+   the prose edge but inert: pointer-events let every click reach the
+   document, aria-hidden keeps it out of the a11y tree. */
+.gutter {
+  position: absolute;
+  top: 16px;
+  bottom: 64px;
+  left: 0;
+  width: 48px;
+  pointer-events: none;
+}
+
+.gutterNum {
+  position: absolute;
+  right: 16px; /* clear air between the number and the prose edge */
+  font-size: 12px;
+  color: var(--stone);
+  line-height: 1;
 }
 
 /* The Milkdown surface (design D3): thin Kami-token theme over the editor's

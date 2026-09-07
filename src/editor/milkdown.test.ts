@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editorViewCtx, serializerCtx } from '@milkdown/core'
+import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/core'
 import { MilkdownAdapter } from './milkdown'
 
 // jsdom has no IntersectionObserver; the code-block component's node view
@@ -205,6 +205,41 @@ describe('MilkdownAdapter (paste as plain text)', () => {
     await adapter.destroy()
     el.remove()
   })
+
+  it('reports canonical block start lines, live after edits', async () => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    await adapter.mount(el)
+
+    // Seed with a heading, a paragraph, and a tight list, blank-separated:
+    // the anchors are 1, 3, 5 — the list is one block at its start line.
+    await adapter.setContent('# Title\n\nBody\n\n- a\n- b\n')
+    expect(adapter.getBlockLines()).toEqual([1, 3, 5])
+
+    // Inserting a block above shifts every later anchor (2.2): inserting a
+    // fresh paragraph node at doc start pushes the three blocks to 3, 5, 7.
+    ;(adapter as unknown as {
+      editor: { action: (f: (ctx: unknown) => unknown) => unknown }
+    }).editor.action((ctx) => {
+      const access = ctx as { get: (k: unknown) => unknown }
+      const view = access.get(editorViewCtx) as {
+        state: { tr: { insert: (pos: number, node: unknown) => unknown } }
+        dispatch: (t: unknown) => void
+      }
+      const parser = access.get(parserCtx) as (md: string) => {
+        content: { firstChild: unknown }
+      }
+      const para = parser('prelude').content.firstChild
+      view.dispatch(view.state.tr.insert(0, para!))
+    })
+    await new Promise((r) => setTimeout(r, 400))
+    expect(adapter.getContent()).toContain('prelude')
+    expect(adapter.getBlockLines()).toEqual([1, 3, 5, 7])
+
+    await adapter.destroy()
+    el.remove()
+  })
 })
 
 it('insertMarkdown inserts text into the document at the selection', async () => {
@@ -262,6 +297,19 @@ it('insertMarkdown inserts text into the document at the selection', async () =>
     await adapter.setContent(fenced)
     expect(adapter.getContent()).toBe(fenced)
 
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('labels the placeholder block of an empty page as line 1', async () => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    await adapter.mount(el)
+    await adapter.setContent('')
+    // An empty doc re-serializes to no text (no anchors), but its single
+    // placeholder block starts on line 1 (page-editing: placeholder scenario).
+    expect(adapter.getBlockLines()).toEqual([1])
     await adapter.destroy()
     el.remove()
   })

@@ -6,6 +6,7 @@
 import type Fuse from 'fuse.js'
 import { type IFuseOptions } from 'fuse.js'
 import type { Page } from '../page'
+import { blockStartLines } from '../lineAnchors'
 
 export type SearchDoc = {
   path: string
@@ -164,4 +165,20 @@ export function snippetSegments(text: string, ranges: SearchRange[]): Segment[] 
   }
   if (pos < winText.length) segments.push({ text: winText.slice(pos), hit: false })
   return segments
+}
+
+/** The canonical block-anchored line of the first text match (line-numbers):
+ *  the block-start anchor at or above the first range, or null when there is
+ *  no text match (a title-only result). Shares the editor gutter's rule via
+ *  blockStartLines, so a result's line exists in the gutter on open. */
+export function firstMatchLine(text: string, ranges: SearchRange[]): number | null {
+  if (!ranges.length) return null
+  const first = [...ranges].sort((a, b) => a[0] - b[0])[0]
+  const matchLine = text.slice(0, first[0]).split('\n').length // 1-based
+  let anchor: number | null = null
+  for (const line of blockStartLines(text)) {
+    if (line > matchLine) break
+    anchor = line
+  }
+  return anchor
 }

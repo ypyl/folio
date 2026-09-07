@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { snippetSegments, type SearchResult } from '../search/core'
+import { firstMatchLine, snippetSegments, type SearchResult } from '../search/core'
 import { journalLabel } from './months'
 import styles from './SearchResultsView.module.css'
 
@@ -112,6 +112,7 @@ export function SearchResultsView({
       </div>
       {rows.map(({ item, group, header }, i) => {
         const segments = snippetSegments(item.text, item.ranges)
+        const line = firstMatchLine(item.text, item.ranges)
         return (
           <div key={item.path}>
             {header && (
@@ -123,7 +124,10 @@ export function SearchResultsView({
               onClick={() => onOpen(item.path)}
               onMouseEnter={() => setActive(i)}
             >
-              <span className={styles.label}>{rowLabel(item)}</span>
+              <span className={styles.label}>
+                {rowLabel(item)}
+                {line !== null && <span className={styles.line}>{` \u00B7 line ${line}`}</span>}
+              </span>
               {segments.length > 0 && (
                 <span className={styles.snip}>
                   {segments.map((s, j) =>

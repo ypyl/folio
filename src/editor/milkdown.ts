@@ -19,6 +19,7 @@ import {
   codeBlockExtensions,
   codeBlockLanguages,
 } from './codeBlockSetup'
+import { blockStartLines } from '../lineAnchors'
 import type { EditorAdapter } from './editor'
 
 export class MilkdownAdapter implements EditorAdapter {
@@ -156,6 +157,25 @@ export class MilkdownAdapter implements EditorAdapter {
 
   getContent(): string {
     return this.latest
+  }
+
+  /** The canonical start line of each top-level block, in doc order
+   *  (line-numbers, design D1/D2). The shared anchor rule runs over the
+   *  canonical text the adapter already produces; blocks and anchors are
+   *  1:1 in canonical form, so the first N anchors map to the N top-level
+   *  children in order. */
+  getBlockLines(): number[] {
+    const editor = this.editor
+    if (!editor) return []
+    return editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      // An empty document serializes to no text, so the anchor rule yields no
+      // lines — but the doc still holds one (placeholder) block that starts on
+      // line 1. Give that first block its number.
+      const anchors = blockStartLines(this.latest)
+      const lines = anchors.length ? anchors : [1]
+      return lines.slice(0, view.state.doc.childCount)
+    })
   }
 
   onChange(listener: (markdown: string) => void): void {

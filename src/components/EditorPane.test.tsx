@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditorAdapter } from '../editor/editor'
 import { EditorPane } from './EditorPane'
+import styles from './EditorPane.module.css'
 import { collectDropFiles, linkForAsset } from './dropAssets'
 
 // Replace the real ProseMirror transport with FakeEditor for component tests
@@ -72,6 +73,40 @@ describe('EditorPane', () => {
     const editor = fake()
     unmount()
     expect(editor.destructed).toBe(true)
+  })
+
+  it('renders a canonical line number per block in the inert gutter', async () => {
+    const seed = '# Title\n\nBody\n\n- a\n- b\n'
+    render(<EditorPane page={page} initialContent={seed} onChange={() => {}} />)
+    await act(async () => {})
+    const editor = fake()
+    // The gutter numbers come from the shared anchor rule, not the DOM
+    // (jsdom rects are all zero; the numbers themselves are the contract).
+    expect(editor.getBlockLines()).toEqual([1, 3, 5])
+    const gutter = document.querySelector(`.${styles.gutter}`)
+    expect(gutter).not.toBeNull()
+    const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
+    expect(nums).toEqual(['1', '3', '5'])
+  })
+
+  it('re-numbers the gutter when the document changes', async () => {
+    render(<EditorPane page={page} initialContent={'Body'} onChange={() => {}} />)
+    await act(async () => {})
+    const editor = fake()
+    await act(async () => {
+      editor.emitChange('# New\n\nBody')
+    })
+    const gutter = document.querySelector(`.${styles.gutter}`)
+    const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
+    expect(nums).toEqual(['1', '3'])
+  })
+
+  it('shows line 1 for the placeholder block of an empty page', async () => {
+    render(<EditorPane page={page} initialContent={''} onChange={() => {}} />)
+    await act(async () => {})
+    const gutter = document.querySelector(`.${styles.gutter}`)
+    const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
+    expect(nums).toEqual(['1'])
   })
 
   it('shows the empty states without mounting an editor', async () => {

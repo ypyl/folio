@@ -184,6 +184,17 @@ mapping lives in `src/editor/codeBlockSetup.ts` (hex values mirror the tokens
 above, so the two must not drift); blocks without a language stay monochrome
 and show the `Text` label.
 
+### Document line numbers
+
+Quiet gutter along the document's left margin, one number per top-level
+block, 12px `--stone`, right-aligned toward the prose, no border or fill,
+centered on the block's first line. Purely presentational — `pointer-events:
+none`, hidden from the a11y tree. Numbers are block-anchored canonical lines
+(`src/lineAnchors.ts`): blank separators count but aren't shown, a list gets
+one number, code blocks keep their embedded editor's local numbering plus the
+outer block anchor. Addresses follow Folio's canonical form — a legacy page
+with soft-wrapped paragraphs renumbers on its first save.
+
 ### Tables
 
 Editorial: no framed box, no tinted header bar, no vertical rules. Hairline

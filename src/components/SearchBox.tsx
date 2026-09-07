@@ -3,6 +3,7 @@ import Fuse from 'fuse.js'
 import type { Page } from '../page'
 import {
   FUSE_OPTIONS,
+  firstMatchLine,
   searchDocs,
   snippetSegments,
   topPerGroup,
@@ -191,6 +192,7 @@ export function SearchBox({
                 {sec.items.map((r) => {
                   const index = visible.indexOf(r)
                   const segments = snippetSegments(r.text, r.ranges)
+                  const line = firstMatchLine(r.text, r.ranges)
                   return (
                     <button
                       key={r.path}
@@ -201,7 +203,12 @@ export function SearchBox({
                       onClick={() => openPath(r.path)}
                       onMouseEnter={() => setActive(index)}
                     >
-                      <span className={styles.label}>{rowLabel(r)}</span>
+                      <span className={styles.label}>
+                        {rowLabel(r)}
+                        {line !== null && (
+                          <span className={styles.line}>{` \u00B7 line ${line}`}</span>
+                        )}
+                      </span>
                       {segments.length > 0 && (
                         <span className={styles.snip}>
                           {segments.map((s, j) =>

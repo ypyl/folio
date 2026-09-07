@@ -128,6 +128,13 @@
   white-space: nowrap;
 }
 
+.line {
+  /* match address (line-numbers): muted like the snippet, attached to the
+     label so it truncates with it */
+  color: var(--stone);
+  font-weight: 400;
+}
+
 .snip {
   display: -webkit-box;
   -webkit-line-clamp: 3;
