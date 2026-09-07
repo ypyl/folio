@@ -6,6 +6,7 @@
 import {
   Editor,
   editorViewCtx,
+  editorViewOptionsCtx,
   parserCtx,
   rootCtx,
   serializerCtx,
@@ -13,6 +14,11 @@ import {
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
+import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
+import {
+  codeBlockExtensions,
+  codeBlockLanguages,
+} from './codeBlockSetup'
 import type { EditorAdapter } from './editor'
 
 export class MilkdownAdapter implements EditorAdapter {
@@ -37,6 +43,30 @@ export class MilkdownAdapter implements EditorAdapter {
     const editor = await Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, el)
+        // Paste is the clipboard's plain text, verbatim (paste-as-plain-text).
+        // The default ProseMirror path parses the HTML fragment through the
+        // schema's parseDOM and plants invisible bold/italic/code marks and
+        // links that a WYSIWYG view cannot un-format. Inserting the raw text
+        // keeps `**wow**` literal: the serializer escapes markdown-significant
+        // runs (`\*\*wow\*\*`) so a reload re-parses to the same text and the
+        // Markdown stays canonical (ADR-0001). A clipboard with no text
+        // (copied files) falls through to the default handler.
+        ctx.update(editorViewOptionsCtx, (prev) => ({
+          ...prev,
+          handlePaste: (view, event) => {
+            // A paste aimed at a code block belongs to its CodeMirror surface
+            // (code-block-component): CM keeps multiline text and indentation
+            // there. Yield to it; all other pastes stay plain-text below.
+            if (event.target instanceof HTMLElement && event.target.closest('.cm-editor')) {
+              return false
+            }
+            const text = event.clipboardData?.getData('text/plain')
+            if (!text) return false
+            const { from, to } = view.state.selection
+            view.dispatch(view.state.tr.insertText(text, from, to))
+            return true
+          },
+        }))
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
           this.latest = markdown
           // The first event after a setContent echoes the seeded doc. If it
@@ -48,10 +78,21 @@ export class MilkdownAdapter implements EditorAdapter {
           if (seedEcho) return
           this.changeListener?.(markdown)
         })
+        // The component-backed code block (code-block-component): code blocks
+        // are edited inside a CodeMirror surface — the picker gets the
+        // language catalog, the surface gets the extensions (highlighting,
+        // line numbers, completion, folding, search) themed with Folio
+        // tokens (DESIGN.md — Code).
+        ctx.update(codeBlockConfig.key, (prev) => ({
+          ...prev,
+          languages: codeBlockLanguages,
+          extensions: codeBlockExtensions,
+        }))
       })
       .use(commonmark)
       .use(listener)
       .use(history)
+      .use(codeBlockComponent)
       .create()
     if (this.destroyed) {
       await editor.destroy()

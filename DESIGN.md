@@ -175,9 +175,14 @@ dash — that reads like AI default output, not editorial typesetting.
 
 ### Code
 
-Fill only (ivory), no border. Syntax highlighting uses existing tokens only
-(keyword `--brand`, comment `--stone`, string `--olive`, number `--dark-warm`,
-function/class `--near-black`); blocks without a language stay monochrome.
+Component-backed blocks: the code-block component (CodeMirror inside the
+block). A quiet ivory panel — fill only, no border, 8px radius — with a slim
+header row (language label + copy button) and the editor below. Syntax
+highlighting uses existing tokens only: keyword `--brand`, comment `--stone`,
+string `--olive`, number `--dark-warm`, function/class `--near-black`. The
+mapping lives in `src/editor/codeBlockSetup.ts` (hex values mirror the tokens
+above, so the two must not drift); blocks without a language stay monochrome
+and show the `Text` label.
 
 ### Tables
 

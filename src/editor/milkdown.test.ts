@@ -2,6 +2,44 @@ import { describe, expect, it } from 'vitest'
 import { editorViewCtx, serializerCtx } from '@milkdown/core'
 import { MilkdownAdapter } from './milkdown'
 
+// jsdom has no IntersectionObserver; the code-block component's node view
+// creates one on mount and initializes CodeMirror when the observed element
+// intersects. A real IO delivers an initial intersecting entry right after
+// observe(); the stub replicates that so the surface actually mounts.
+if (typeof globalThis.IntersectionObserver === 'undefined') {
+  class NoopIntersectionObserver implements IntersectionObserver {
+    readonly root = null
+    readonly rootMargin = ''
+    readonly thresholds: ReadonlyArray<number> = []
+    readonly scrollMargin = ''
+    private readonly callback: IntersectionObserverCallback
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback
+    }
+    observe(target: Element): void {
+      queueMicrotask(() => {
+        this.callback(
+          [
+            {
+              target,
+              isIntersecting: true,
+              intersectionRatio: 1,
+            } as unknown as IntersectionObserverEntry,
+          ],
+          this,
+        )
+      })
+    }
+    unobserve() {}
+    disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return []
+    }
+  }
+  ;(globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver =
+    NoopIntersectionObserver
+}
+
 // Thin smoke test for the real transport (design D1): the seam contract is
 // fully covered by FakeEditor; this proves ProseMirror boots in jsdom and the
 // setContent/getContent wiring works end to end. Driving real keystrokes is
@@ -60,7 +98,116 @@ describe('MilkdownAdapter (smoke)', () => {
     el.remove()
   })
 
-  it('insertMarkdown inserts text into the document at the selection', async () => {
+// Paste behaves as plain text (paste-as-plain-text): the clipboard contributes
+// only its plain text, verbatim. A real `paste` event is dispatched onto the
+// editor DOM with a faked `clipboardData` (jsdom has no ClipboardEvent data),
+// so the event flows through ProseMirror's own paste pipeline into the
+// adapter's handlePaste prop — these tests exercise the real wiring, not a
+// direct call. Typing is unaffected by construction: the handler bypasses the
+// parser and input rules entirely, and jsdom cannot drive keystrokes
+// (no execCommand), so that regression guard is by review only.
+
+type AdapterEditor = {
+  editor: { action: (f: (ctx: unknown) => unknown) => unknown }
+}
+
+const editorOf = (adapter: MilkdownAdapter) =>
+  (adapter as unknown as AdapterEditor).editor
+
+const serialize = (adapter: MilkdownAdapter): string =>
+  editorOf(adapter).action((ctx) => {
+    const access = ctx as { get: (k: unknown) => unknown }
+    const view = access.get(editorViewCtx) as { state: { doc: unknown } }
+    const serializer = access.get(serializerCtx) as (doc: unknown) => string
+    return serializer(view.state.doc)
+  }) as string
+
+const viewText = (adapter: MilkdownAdapter): string =>
+  editorOf(adapter).action((ctx) => {
+    const access = ctx as { get: (k: unknown) => unknown }
+    const view = access.get(editorViewCtx) as { dom: { textContent: string } }
+    return view.dom.textContent
+  }) as string
+
+const paste = (adapter: MilkdownAdapter, plain: string, html = '') => {
+  editorOf(adapter).action((ctx) => {
+    const access = ctx as { get: (k: unknown) => unknown }
+    const view = access.get(editorViewCtx) as { dom: HTMLElement }
+    const event = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', {
+      value: { getData: (type: string) => (type === 'text/plain' ? plain : html) },
+    })
+    view.dom.dispatchEvent(event)
+  })
+}
+
+const mountForPaste = async () => {
+  const el = document.createElement('div')
+  document.body.appendChild(el)
+  const adapter = new MilkdownAdapter()
+  await adapter.mount(el)
+  return { adapter, el }
+}
+
+describe('MilkdownAdapter (paste as plain text)', () => {
+  it('pastes only the plain text of a formatted web copy', async () => {
+    const { adapter, el } = await mountForPaste()
+    await adapter.setContent('')
+    paste(adapter, 'wow', '<b>wow</b>')
+    const doc = serialize(adapter)
+    expect(doc).toContain('wow')
+    // No strong mark was created from the <b> fragment (a strong mark would
+    // serialize back as unescaped **wow**), and no HTML ever entered the doc.
+    expect(doc).not.toContain('**wow**')
+    expect(doc).not.toMatch(/<[^>]+>/)
+    await adapter.setContent(doc)
+    expect(serialize(adapter)).toBe(doc)
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('keeps the line breaks of a multi-line paste', async () => {
+    const { adapter, el } = await mountForPaste()
+    await adapter.setContent('')
+    paste(adapter, 'line1\nline2')
+    const doc = serialize(adapter)
+    expect(doc).toContain('line1\nline2')
+    // Reopening the saved markdown keeps the same lines.
+    await adapter.setContent(doc)
+    expect(serialize(adapter)).toBe(doc)
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('keeps markdown-looking text literal across save and reopen', async () => {
+    const { adapter, el } = await mountForPaste()
+    await adapter.setContent('')
+    paste(adapter, '**wow**')
+    // The WYSIWYG surface shows the literal characters, not bold text with
+    // the markers hidden.
+    expect(viewText(adapter)).toContain('**wow**')
+    const doc = serialize(adapter)
+    expect(doc).toContain('wow')
+    // Reopen the saved markdown: identical literals, still no bold mark.
+    await adapter.setContent(doc)
+    expect(serialize(adapter)).toBe(doc)
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('changes nothing when the clipboard has no text', async () => {
+    const { adapter, el } = await mountForPaste()
+    await adapter.setContent('existing')
+    paste(adapter, '')
+    // The fall-through path settles asynchronously.
+    await new Promise((r) => setTimeout(r, 150))
+    expect(serialize(adapter)).toBe('existing\n')
+    await adapter.destroy()
+    el.remove()
+  })
+})
+
+it('insertMarkdown inserts text into the document at the selection', async () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     const adapter = new MilkdownAdapter()
@@ -87,6 +234,34 @@ describe('MilkdownAdapter (smoke)', () => {
     await reopened.setContent(doc)
     expect(reopened.getContent()).toBe(doc)
     await reopened.destroy()
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('mounts the code-block surface for a fenced block and round-trips without a seed echo', async () => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    const changes: string[] = []
+    adapter.onChange((md) => changes.push(md))
+    await adapter.mount(el)
+
+    // A fenced block with a language seeds the CodeMirror surface (the
+    // component's node view) and re-serializes to the identical fence.
+    const fenced = '```js\nconst x = 1\n```\n'
+    await adapter.setContent(fenced)
+    await new Promise((r) => setTimeout(r, 400))
+    expect(el.querySelector('.milkdown-code-block .cm-editor')).toBeTruthy()
+    // Mounting the surface is not an edit: the seed echo stays suppressed and
+    // the doc is not rewritten to a different form.
+    expect(changes).toEqual([])
+    expect(adapter.getContent()).toBe(fenced)
+
+    // Reload round-trip: the same fence parses, mounts, and serializes back.
+    await adapter.setContent('')
+    await adapter.setContent(fenced)
+    expect(adapter.getContent()).toBe(fenced)
+
     await adapter.destroy()
     el.remove()
   })

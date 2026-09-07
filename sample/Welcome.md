@@ -26,3 +26,22 @@ editable text:
 
 Keep it small. The folder is the database; the app is just a UI and an index
 over it.
+
+## Code blocks
+
+A fenced block opens a code editing surface with a language picker and syntax
+highlighting. The language stays in the opening fence:
+
+```js
+function greet(name) {
+  return `Hello, ${name}!`
+}
+
+greet('Folio')
+```
+
+A fence without a language stays monochrome:
+
+```
+plain text, no highlighting, no language label
+```

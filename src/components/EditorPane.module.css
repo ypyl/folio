@@ -145,6 +145,144 @@
   padding: 1px 5px;
 }
 
+/* Code blocks (code-block-component): the component wraps the CodeMirror
+   surface in a quiet ivory panel — fill only, no border (DESIGN code). The
+   component emits no <code> inside this panel, so the inline pill rule above
+   cannot reach block code; inline runs elsewhere keep their own style. */
+.editor :global(.milkdown-code-block) {
+  background: var(--ivory); /* quiet filled container, brighter than parchment */
+  border-radius: 8px; /* screen surfaces: 8px and up (DESIGN radius) */
+  margin: 0 0 12px;
+}
+
+.editor :global(.milkdown-code-block .tools) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 0;
+}
+
+.editor :global(.milkdown-code-block .language-button) {
+  background: transparent;
+  border: 0;
+  color: var(--stone); /* tertiary/meta text */
+  display: inline-flex; /* the label and its expand arrow sit on one line */
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap; /* a long language name must not wrap the label */
+}
+
+.editor :global(.milkdown-code-block .language-button:hover) {
+  background: var(--warm-sand); /* interactive secondary surface */
+}
+
+.editor :global(.milkdown-code-block .language-button .expand-icon) {
+  display: none; /* language label only; the button still opens the picker */
+}
+
+.editor :global(.milkdown-code-block .tools-button-group) button {
+  background: transparent;
+  border: 0;
+  color: var(--stone);
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap; /* copy label must not wrap, same as the language label */
+}
+
+.editor :global(.milkdown-code-block .tools-button-group button:hover) {
+  background: var(--warm-sand);
+}
+
+.editor :global(.milkdown-code-block .copy-button .milkdown-icon) {
+  display: none; /* plain "Copy" text, no emoji prefix */
+}
+
+.editor :global(.milkdown-code-block .codemirror-host) {
+  padding: 0 16px 12px;
+  border-radius: 0 0 8px 8px; /* panel bottom corners now the host's */
+}
+
+/* The language picker dropdown (search + list) in the Folio palette. The
+   component feeds left/top via floating-ui but ships no CSS: the dropdown is
+   absolutely positioned here, so the long language list scrolls instead of
+   stretching the page. No positioned ancestor may be added to the block — it
+   would shift the coordinate space floating-ui measured against. */
+.editor :global(.language-picker) {
+  position: absolute; /* floating-ui's left/top apply only to a positioned box */
+  z-index: 10; /* overlay the CodeMirror surface below */
+  min-width: 160px;
+  background: var(--ivory);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --deep-dark at low opacity */
+}
+
+/* The component keeps the picker element around when closed; it is empty
+   then (only the open state fills it), so hide it rather than letting the
+   styled card float over the document. Comments don't break :empty. */
+.editor :global(.language-picker:empty) {
+  display: none;
+}
+
+.editor :global(.language-picker .search-box) {
+  display: flex; /* search icon, input, and clear icon on one row */
+  align-items: center;
+  gap: 4px;
+  margin: 0 4px 4px;
+}
+
+.editor :global(.language-picker .search-icon),
+.editor :global(.language-picker .clear-icon) {
+  color: var(--stone);
+}
+
+.editor :global(.language-picker .search-icon),
+.editor :global(.language-picker .clear-icon) {
+  display: none; /* the search row is a bare input; its icons are redundant */
+}
+
+.editor :global(.language-picker .search-input) {
+  background: var(--warm-sand);
+  border: 0;
+  border-radius: 6px;
+  color: var(--near-black);
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+  padding: 4px 8px;
+}
+
+.editor :global(.language-picker .language-list) {
+  list-style: none;
+  margin: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+}
+
+.editor :global(.language-list-item) {
+  border-radius: 6px;
+  color: var(--near-black);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 3px 8px;
+}
+
+.editor :global(.language-list-item:hover),
+.editor :global(.language-list-item[aria-selected='true']) {
+  background: var(--warm-sand);
+}
+
 .editor :global(blockquote) {
   margin: 0 0 12px;
   border-left: 2px solid var(--border);
