@@ -26,3 +26,10 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - **Unlinked references** — pages whose plain body mentions a page name without a link token (Logseq's third list). Needs its own matching semantics (word boundary, case, dash handling) and dedup against real backlinks; deliberately deferred from the links pane to keep that change about the actual link graph.
 - **Non-date journal files in the calendar** — files under `journals/` that aren't `YYYY-MM-DD` (e.g. `journals/notes.md`) render no calendar cell; the calendar replaced the day list that used to surface them. Decide the escape hatch (a small "other journal files" list) when the vault actually has such files.
 - **Reference-aware asset deletion** — decide the semantics when a page/asset is deleted: does removing the last reference delete the file? Needs explicit confirmation; today deleting a link leaves the asset on disk (safe default).
+
+- padding of blocks in main should be the same from top
+- favority pages (so I can mark todo) and show them at the top
+- order pages by date created in desc: so favorites (ordered in desc when it was marked), than pages ordered by desc when they were edited
+- start adding version -> near the title badge
+- add links as badges in page so they are visible
+- create bottom thin pannel and move status their, also move info from top right corner there

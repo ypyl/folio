@@ -12,9 +12,23 @@ describe('header', () => {
     expect(screen.queryByRole('button', { name: 'Open folder' })).toBeNull()
   })
 
-  it('renders nothing in the slot without an open vault', () => {
+  it('shows the keyboard-shortcuts button without a vault', () => {
     render(<Header />)
+    expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeTruthy()
     expect(screen.queryByTitle(/files/)).toBeNull()
+  })
+
+  it('shows the keyboard-shortcuts button beside the vault status', () => {
+    render(<Header vaultName="notes" fileCount={12} />)
+    expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeTruthy()
+    expect(screen.getByTitle('notes (12 files)')).toBeTruthy()
+  })
+
+  it('the keyboard-shortcuts button fires onHelp', () => {
+    const onHelp = vi.fn()
+    render(<Header onHelp={onHelp} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }))
+    expect(onHelp).toHaveBeenCalled()
   })
 
   it('the brand is a home control that fires onHome', () => {

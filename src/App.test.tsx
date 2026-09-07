@@ -94,6 +94,14 @@ describe('application shell', () => {
     expect(screen.queryByRole('button', { name: 'Today' })).toBeNull()
   })
 
+  it('opens and closes the keyboard-shortcuts dialog from the header', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
   it('renders an Accordion without defaultOpen closed by default', () => {
     const { container } = render(<Accordion title="Collapsible">hidden body</Accordion>)
     const details = container.querySelector('details') as HTMLDetailsElement

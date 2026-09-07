@@ -6,6 +6,7 @@ import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { FolderRail } from './components/FolderRail'
 import { SearchBox } from './components/SearchBox'
 import { SearchResultsView } from './components/SearchResultsView'
+import { ShortcutsDialog } from './components/ShortcutsDialog'
 import { DraftStore } from './editor/drafts'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
@@ -25,6 +26,9 @@ function App() {
   // editor) or the transient full-results view. ActivePath is untouched in
   // results mode, so closing it returns to the previously open page.
   const [mode, setMode] = useState<'page' | 'results'>('page')
+  // Keyboard-shortcuts reference (keyboard-shortcuts-help): the header's `?`
+  // button owns opening; App composes the dialog behind it.
+  const [helpOpen, setHelpOpen] = useState(false)
   // Mirror of the latest landed search run (search-results-view): SearchBox
   // owns the Fuse and the debounce, and reports the uncapped result set up;
   // this feeds the results pane and stays current for the see-all handoff.
@@ -252,6 +256,10 @@ function App() {
         // The active folder's count goes live from the index once built;
         // otherwise fall back to the open-time snapshot (design D6).
         fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
+        // Keyboard-shortcuts reference (keyboard-shortcuts-help): the `?`
+        // button in the slot opens the dialog.
+        onHelp={() => setHelpOpen(true)}
+        helpOpen={helpOpen}
         // The brand returns home (close-folders): no active folder, folders
         // stay on the rail. The activeFolder?.id effect resets the page.
         onHome={() => void goHome()}
@@ -338,6 +346,7 @@ function App() {
           loading={indexing}
         />
       </div>
+      {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
     </div>
   )
 }
