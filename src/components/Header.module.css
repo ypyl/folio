@@ -1,6 +1,6 @@
 .header {
   display: grid;
-  grid-template-columns: 56px 240px minmax(0, 1fr) 220px;
+  grid-template-columns: 56px 264px minmax(0, 1fr) 220px;
   align-items: center;
   padding: 12px 0;
   background: var(--parchment);
@@ -45,10 +45,11 @@
 
 .search {
   grid-column: 3;
-  /* The content column's readable width: the input (and its dropdown) spans
-     the editor column instead of a fixed box, so they align with content
-     beneath (search-notes, ui-shell delta). */
-  width: min(980px, 100%);
+  /* Matches the editor's readable width: the content div under a page
+     (article.document's inner box) is its column minus the 48px side
+     paddings, so centering calc(100% - 96px) lands the input (and its
+     dropdown) exactly on the article's content edges. */
+  width: calc(100% - 96px);
   justify-self: center;
 }
 
