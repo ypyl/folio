@@ -151,3 +151,76 @@ An open page whose content is empty SHALL show a short placeholder hint in the e
 #### Scenario: Emptying the page brings the placeholder back
 - **WHEN** the user deletes all content from a page that had content
 - **THEN** the placeholder hint shows again at the document start
+
+### Requirement: Code blocks are a CodeMirror editing surface
+
+A code block in the editor SHALL render as a dedicated multi-line code editing surface, visually distinct from surrounding prose, backed by an embedded code editor (CodeMirror). The surface SHALL offer a language picker, syntax highlighting, line numbers, and code editing conveniences (auto-completion, folding, search and replace). The block's content and its language SHALL round-trip through the Markdown fence: the canonical file form is unchanged (` ``` ` … ` ``` `, with the chosen language on the opening fence), and reloading a page restores the same content and language. A code block with no language SHALL render monochrome without a language marker.
+
+#### Scenario: Inserting a code block opens the code surface
+
+- **WHEN** the user starts a line with three backticks (typing ` ``` ` followed by space or Enter) or presses `Mod-Alt-c`
+- **THEN** the line becomes a code block rendered as the multi-line code editing surface with the caret inside it
+
+#### Scenario: Multiline content stays inside the block
+
+- **WHEN** the user types several lines inside a code block, pressing Enter between lines
+- **THEN** every new line remains inside the same code block, and the saved Markdown contains those lines between the fence marks
+
+#### Scenario: Language selection round-trips through the fence
+
+- **WHEN** the user chooses a language (for example JavaScript) from the code block's language picker
+- **THEN** the block's tokens are highlighted for that language, and after save the opening fence is written with the language (` ```js `); reopening the page shows the same language already selected
+
+#### Scenario: Existing fenced blocks load into the surface
+
+- **WHEN** the user opens a page whose Markdown contains a fenced code block that carries a language
+- **THEN** the block renders in the code editing surface with that language's highlighting
+
+#### Scenario: A language-less fence renders monochrome
+
+- **WHEN** the user opens a page whose Markdown contains a fenced code block with no language on its opening fence
+- **THEN** the block renders in the code editing surface with monochrome text and no language marker
+
+#### Scenario: Pasting inside a code block is handled by the code surface
+
+- **WHEN** the user pastes multi-line text with indentation while the caret is inside a code block
+- **THEN** the pasted text lands inside the code block with its lines and indentation preserved
+
+#### Scenario: Pasting outside a code block stays plain text
+
+- **WHEN** the user pastes formatted text while the caret is outside any code block
+- **THEN** the existing paste-as-plain-text behavior applies unchanged: only the clipboard's plain text is inserted, verbatim
+
+### Requirement: The editor shows block line numbers
+
+An open page in the editor SHALL display a quiet line-number gutter along the left of the document: one small, dimmed number per top-level block, showing the block's start line in the page's canonical Markdown form. The gutter SHALL be purely presentational — non-interactive, hidden from assistive technology, and free of any effect on editing, selection, or focus. Numbers SHALL be live: they update as the document changes (inserting or deleting lines above renumbers the blocks below). Blank separator lines SHALL be counted in the numbering but not rendered, so the display may read 1, 3, 5. A list SHALL carry a single number at its start rather than one per item. Code blocks SHALL keep their embedded editor's local line numbering and additionally show the block's start number in the outer gutter.
+
+#### Scenario: Numbers appear at block starts
+
+- **WHEN** the user opens a page whose content has several blocks
+- **THEN** each top-level block shows its canonical start line in the left gutter, aligned with the block's first line
+
+#### Scenario: Blank separators count but are not shown
+
+- **WHEN** the page contains blocks separated by blank lines
+- **THEN** the blank lines are counted (so later numbers stay true to the file) but no number is rendered for them
+
+#### Scenario: A list numberes once
+
+- **WHEN** the user views a page with a list of several items
+- **THEN** the list shows one number at its start, never a number per item
+
+#### Scenario: Numbers follow edits
+
+- **WHEN** the user inserts a line above a block in the same document
+- **THEN** the block's and all later blocks' numbers increase accordingly while typing
+
+#### Scenario: The gutter never captures input
+
+- **WHEN** the user clicks or drags over the gutter area
+- **THEN** the click falls through to the document (no selection, focus, or interaction with the numbers)
+
+#### Scenario: The placeholder page shows its first block
+
+- **WHEN** the user opens an empty page showing the typing placeholder
+- **THEN** the gutter shows a single number for the initial empty block
