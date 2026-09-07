@@ -86,6 +86,21 @@ describe('EditorPane', () => {
     expect(instances.list).toHaveLength(0)
   })
 
+  it('shows the loading state instead of the empty hint while the index builds', async () => {
+    render(
+      <EditorPane page={null} loading emptyHint="notes" initialContent="" onChange={() => {}} />,
+    )
+    // The status label is real content; the old hint is gone.
+    expect(screen.getByRole('status').textContent).toBe('Indexing notes…')
+    expect(screen.queryByText('Your notes appear here.')).toBeNull()
+    expect(screen.queryByText('Open a folder to begin.')).toBeNull()
+    // Placeholders are decorative, never read as content.
+    const main = screen.getByRole('main')
+    expect(main.querySelector('[aria-hidden="true"] .skeleton')).not.toBeNull()
+    // No editor is mounted for a placeholder surface.
+    expect(instances.list).toHaveLength(0)
+  })
+
   describe('save indicator (design D4)', () => {
     it.each([
       ['dirty', 'Unsaved changes'],

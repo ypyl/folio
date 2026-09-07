@@ -51,24 +51,38 @@ function LinkList({
 
 // The right meta panel: Backlinks and Forwardlinks. Placeholder copy while no
 // page is open; real, navigable rows (or empty-state copy) once one is
-// (ui-shell spec). Components never import the vault — App supplies rows.
+// (ui-shell spec); skeleton rows while the active folder's index builds
+// (indexing-loading-state). Components never import the vault — App supplies
+// rows.
 export function MetaPanel({
   pageOpen,
   backlinks,
   forwardlinks,
   activePath,
   onSelect,
+  loading = false,
 }: {
   pageOpen: boolean
   backlinks: LinkRow[]
   forwardlinks: LinkRow[]
   activePath: string | null
   onSelect: (path: string) => void
+  /** The active folder's index is building (indexing-loading-state). */
+  loading?: boolean
 }) {
+  // One placeholder line per section (indexing-loading-state): replaces the
+  // placeholder copy at the same height (13px text, 1.5 line-height) so the
+  // panel doesn't jump when the copy renders.
+  const skeletonLine = (
+    <span className={`skeleton ${styles.skeletonLine}`} aria-hidden="true" />
+  )
+
   return (
     <aside className={styles.panel} aria-label="Page links">
       <Accordion title="Backlinks" defaultOpen>
-        {pageOpen ? (
+        {loading ? (
+          skeletonLine
+        ) : pageOpen ? (
           <LinkList
             rows={backlinks}
             activePath={activePath}
@@ -82,7 +96,9 @@ export function MetaPanel({
         )}
       </Accordion>
       <Accordion title="Forwardlinks" defaultOpen>
-        {pageOpen ? (
+        {loading ? (
+          skeletonLine
+        ) : pageOpen ? (
           <LinkList
             rows={forwardlinks}
             activePath={activePath}

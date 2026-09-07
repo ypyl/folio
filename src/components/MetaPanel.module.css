@@ -45,3 +45,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Placeholder line (indexing-loading-state): sized to the placeholder copy
+   it replaces (13px text, 1.5 line-height ≈ 20px tall) so the section
+   doesn't jump when the copy renders. */
+.skeletonLine {
+  width: 60%;
+  height: 20px;
+  border-radius: 4px;
+}

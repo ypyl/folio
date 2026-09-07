@@ -25,6 +25,48 @@
   color: var(--stone);
 }
 
+/* Loading state (indexing-loading-state): replaces the empty hint while the
+   active folder's index builds. Top-left, aligned with the real document
+   surface (same padding as .document). The caption is real text (announced
+   as a status); the lines below are decorative placeholders. */
+.loadingState {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 20px 48px 64px;
+}
+
+.loadingLabel {
+  margin: 0;
+  font-size: 15px;
+  color: var(--stone);
+}
+
+/* Document-mimicking lines: heading then body paragraphs on the 4px grid. */
+.skeletonDoc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.headingLine {
+  width: 45%;
+  height: 22px;
+  margin-bottom: 8px;
+}
+
+.bodyLine {
+  width: 100%;
+  height: 14px;
+}
+
+.bodyLineShort {
+  width: 70%;
+  height: 14px;
+}
+
 .document {
   padding: 20px 48px 64px;
 }

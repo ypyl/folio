@@ -226,6 +226,14 @@ describe('navigation over the real index', () => {
   it('keeps placeholder copy while no page is open', async () => {
     render(<App />)
     await openFixture()
+    // Wait for the vault to be fully open and indexed before returning home:
+    // the open flow is async, and a home click that races it re-triggers
+    // indexing (skeletons), not the settled state this test targets.
+    await screen.findByRole('button', { name: 'Welcome' })
+    // Return home (brand): no active folder, no page open, and not indexing —
+    // the meta panel falls back to its placeholder copy (indexing-loading-
+    // state only swaps in skeleton rows while a folder's index builds).
+    fireEvent.click(screen.getByRole('button', { name: 'Folio, go home' }))
     expect(
       await screen.findByText('Pages linking to this one appear once a page is open.'),
     ).toBeTruthy()

@@ -40,3 +40,46 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Placeholder row (indexing-loading-state): sized to a real page row
+   (6px 8px padding + 14px text = 33px, 6px radius) so the Pages section
+   doesn't jump when the listing renders. */
+.skeletonRow {
+  width: 100%;
+  height: 33px;
+  border-radius: 6px;
+}
+
+/* Journal calendar placeholder (indexing-loading-state): mirrors the real
+   calendar's geometry — month bar, 10px weekday row, 28px day cells on the
+   6px/2px gaps — so the section stays the same size when it renders. */
+.calSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calMonthBar {
+  width: 110px;
+  height: 20px;
+}
+
+.calWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  font-size: 10px;
+  color: var(--stone);
+  text-align: center;
+}
+
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calDay {
+  height: 28px; /* a real day cell is min-height 28 with a 1px ring (border-box) */
+  border-radius: 6px;
+}

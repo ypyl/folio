@@ -27,6 +27,29 @@ describe('MetaPanel', () => {
     ).toBeTruthy()
   })
 
+  it('shows skeleton rows instead of placeholder copy while the index builds', () => {
+    render(
+      <MetaPanel
+        pageOpen={false}
+        backlinks={[]}
+        forwardlinks={[]}
+        activePath={null}
+        onSelect={() => {}}
+        loading
+      />,
+    )
+    // No placeholder copy, no link rows — only decorative skeleton lines.
+    expect(
+      within(meta()).queryByText('Pages linking to this one appear once a page is open.'),
+    ).toBeNull()
+    expect(
+      within(meta()).queryByText('Links from this page appear once a page is open.'),
+    ).toBeNull()
+    expect(within(meta()).queryByRole('button')).toBeNull()
+    // One placeholder line per section, sized like the copy it replaces.
+    expect(meta().querySelectorAll('.skeleton[aria-hidden="true"]').length).toBe(2)
+  })
+
   it("sorts each section's rows alphabetically", () => {
     render(
       <MetaPanel

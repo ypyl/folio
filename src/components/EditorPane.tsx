@@ -26,6 +26,7 @@ export function EditorPane({
   onChange,
   saveState = 'clean',
   emptyHint = 'notes',
+  loading = false,
   newPage = false,
   onDropFiles,
 }: {
@@ -34,6 +35,8 @@ export function EditorPane({
   onChange: (markdown: string) => void
   saveState?: DraftStatus
   emptyHint?: 'notes' | 'open-folder'
+  /** The active folder's index is building (indexing-loading-state). */
+  loading?: boolean
   /** The open page has no file yet; its first save creates it (links-pane). */
   newPage?: boolean
   /** Copy dropped files into the vault and resolve with the landed asset paths. */
@@ -114,14 +117,33 @@ export function EditorPane({
   if (page === null) {
     return (
       <main ref={paneRef} onDragOver={handleDragover} onDrop={handleDrop} className={styles.pane}>
-        <div className={styles.emptyState}>
-          <FolioMark className={styles.mark} />
-          <p className={styles.tagline}>
-            {emptyHint === 'open-folder'
-              ? 'Open a folder to begin.'
-              : 'Your notes appear here.'}
-          </p>
-        </div>
+        {loading ? (
+          // Loading state (indexing-loading-state): body-line placeholders in
+          // place of the empty hint, with an announced in-progress label.
+          // The placeholders are decorative; the caption carries the status.
+          <div className={styles.loadingState}>
+            <div role="status" className={styles.loadingLabel}>
+              Indexing notes…
+            </div>
+            <div className={styles.skeletonDoc} aria-hidden="true">
+              <span className={`skeleton ${styles.headingLine}`} />
+              <span className={`skeleton ${styles.bodyLine}`} />
+              <span className={`skeleton ${styles.bodyLine}`} />
+              <span className={`skeleton ${styles.bodyLineShort}`} />
+              <span className={`skeleton ${styles.bodyLine}`} />
+              <span className={`skeleton ${styles.bodyLineShort}`} />
+            </div>
+          </div>
+        ) : (
+          <div className={styles.emptyState}>
+            <FolioMark className={styles.mark} />
+            <p className={styles.tagline}>
+              {emptyHint === 'open-folder'
+                ? 'Open a folder to begin.'
+                : 'Your notes appear here.'}
+            </p>
+          </div>
+        )}
       </main>
     )
   }

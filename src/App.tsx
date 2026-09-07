@@ -231,6 +231,12 @@ function App() {
     ? [...graph.pages.values()].filter((p) => p.kind === 'journal')
     : []
 
+  // Loading state (indexing-loading-state): while an active folder with
+  // storage is building its index, the graph is null — the panes show
+  // placeholders instead of empty content. No active folder (brand empty
+  // state) and pending-permission folders (no storage) stay outside it.
+  const indexing = graph === null && activeFolder?.storage !== undefined
+
   // Search corpus: pages with content from the live graph, memoized on graph
   // identity so the Fuse inside SearchBox rebuilds on save/refresh (search-
   // notes, design: Fuse lifecycle).
@@ -285,6 +291,7 @@ function App() {
           activePath={activePath}
           onSelect={handleSelect}
           hasVault={graph !== null}
+          loading={indexing}
         />
         {mode === 'results' ? (
           <SearchResultsView
@@ -316,6 +323,7 @@ function App() {
             emptyHint={
               status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'
             }
+            loading={indexing}
           />
         )}
         <MetaPanel
@@ -327,6 +335,7 @@ function App() {
           forwardlinks={mode === 'page' ? forwardlinkRows : []}
           activePath={mode === 'page' ? activePath : null}
           onSelect={handleSelect}
+          loading={indexing}
         />
       </div>
     </div>
