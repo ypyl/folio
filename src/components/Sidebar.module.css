@@ -2,7 +2,7 @@
   background: var(--ivory);
   border-right: 1px solid var(--border);
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px; /* top aligned with the other workspace columns */
   min-width: 0;
 }
 

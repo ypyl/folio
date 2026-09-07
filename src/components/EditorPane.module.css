@@ -35,7 +35,7 @@
   flex-direction: column;
   justify-content: flex-start;
   gap: 16px;
-  padding: 20px 48px 64px;
+  padding: 16px 48px 64px;
 }
 
 .loadingLabel {
@@ -68,7 +68,7 @@
 }
 
 .document {
-  padding: 20px 48px 64px;
+  padding: 16px 48px 64px;
 }
 
 /* The Milkdown surface (design D3): thin Kami-token theme over the editor's
@@ -95,6 +95,13 @@
 .editor :global(.ProseMirror) {
   outline: none; /* the caret is the focus indicator for a document surface */
   min-height: 8em;
+}
+
+/* The document's first block starts at the pane's top padding: its own
+   top margin (headings carry 24px) would push the title below the outboard
+   columns' content, breaking the shared start line. */
+.editor :global(.ProseMirror > :first-child) {
+  margin-top: 0;
 }
 
 .editor :global(p) {
