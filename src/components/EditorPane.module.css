@@ -27,8 +27,8 @@
 
 /* Loading state (indexing-loading-state): replaces the empty hint while the
    active folder's index builds. Top-left, aligned with the real document
-   surface (same padding as .document). The caption is real text (announced
-   as a status); the lines below are decorative placeholders. */
+   surface (same padding as .document). The in-progress status is announced
+   in the status bar; the skeleton lines here are decorative only. */
 .loadingState {
   height: 100%;
   display: flex;
@@ -36,12 +36,6 @@
   justify-content: flex-start;
   gap: 16px;
   padding: 16px 48px 64px;
-}
-
-.loadingLabel {
-  margin: 0;
-  font-size: 15px;
-  color: var(--stone);
 }
 
 /* Document-mimicking lines: heading then body paragraphs on the 4px grid. */

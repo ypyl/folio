@@ -16,6 +16,8 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 10. [x] **Daily journal** — calendar in the Journal section: Sunday-first month grid, days with files filled, browse months, click a day to open `journals/YYYY-MM-DD.md` (blank until first write, then materialized).
 11. [x] **Search** — full-text Fuse.js search in the header with a results dropdown (Pages/Journal groups, match snippets), Cmd/Ctrl+K focus, arrow/Enter navigation.
 12. [x] **PWA** — offline-capable precache, installable, icon.
+13. [x] **File breadcrumb** — the open page's vault-relative path rendered as a segmented, non-interactive breadcrumb at the top of the editor pane (sticky, directories truncate first), so the real file name behind the title is always visible.
+14. [x] **Status bar** — a thin app-level bar below the workspace consolidating all status: the file-path breadcrumb, the save/indexing status text (after the breadcrumb, divider-separated), the vault name · file count, and the `?` help button in the far-right corner (its dialog also closes on outside clicks). The pane's own status layers and the header's right slot are gone.
 
 ## Later ideas
 
@@ -32,6 +34,4 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - order pages by date created in desc: so favorites (ordered in desc when it was marked), than pages ordered by desc when they were edited
 - start adding version -> near the title badge
 - add links as badges in page so they are visible
-- create bottom thin pannel and move status their, also move info from top right corner there
-- add breadcrumb to the top of the content so we will see the actual file name behind the
 - I don't like how shortcut helper popup looks like

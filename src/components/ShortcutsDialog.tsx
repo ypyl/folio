@@ -28,6 +28,12 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose()
       }}
+      // Outside-click dismissal: activating the scrim (the overlay itself)
+      // closes the dialog. Clicks inside the dialog target its children,
+      // so they bubble with a different target and never close it.
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <div
         ref={dialogRef}

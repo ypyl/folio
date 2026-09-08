@@ -1,0 +1,120 @@
+/* App-level status frame (add-status-bar, ui-shell spec): a thin Kami bar
+   below the workspace — stone 12px metadata on parchment, hairline top
+   border, flat, no shadow. Flex layout: the path cluster leads; a vertical
+   hairline separates it from the status cluster, which follows the
+   breadcrumb; the vault stats pin to the far right via an auto margin on
+   the right side (status-bar layout refinement). */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 4px 16px;
+  background: var(--parchment);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--stone);
+}
+
+/* Path group (left): the open page's file path as inert segments. Fits its
+   content (no stretch, no artificial gap between directory text and the
+   trailing separator + file name); on narrow bars the directories ellipsize
+   first and the file name only shrinks when the wrapper is fully collapsed. */
+.path {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.crumbDirs {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumbLast {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumbSep {
+  flex-shrink: 0;
+}
+
+/* Vertical hairline between the breadcrumb and the status cluster. */
+.divider {
+  align-self: stretch;
+  width: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* Status text group: the save/indexing status text, immediately after the
+   breadcrumb, past the divider. */
+.center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.statusText {
+  color: var(--stone);
+  white-space: nowrap;
+}
+
+.help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--warm-sand);
+  color: var(--near-black);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.help:hover {
+  border-color: var(--stone);
+}
+
+/* Vault group (right side): the active vault's name and file count,
+   display-only. The auto left margin absorbs the middle space so the vault
+   and the help button pin to the bar's right edge. */
+.vault {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.vaultStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.vaultName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vaultCount {
+  color: var(--stone);
+  white-space: nowrap;
+}

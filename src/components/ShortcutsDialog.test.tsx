@@ -61,6 +61,23 @@ describe('ShortcutsDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('closes when the scrim outside the dialog is activated', () => {
+    const onClose = vi.fn()
+    render(<ShortcutsDialog onClose={onClose} />)
+    // The overlay (scrim) is the dialog's portal parent.
+    const overlay = screen.getByRole('dialog').parentElement as HTMLElement
+    fireEvent.click(overlay)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not close when a click lands inside the dialog', () => {
+    const onClose = vi.fn()
+    render(<ShortcutsDialog onClose={onClose} />)
+    fireEvent.click(screen.getByRole('dialog'))
+    fireEvent.click(screen.getByRole('heading', { level: 2, name: 'Keyboard shortcuts' }))
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('returns focus to the opener when it closes', () => {
     const { rerender, getByRole } = render(
       <button type="button" id="opener">

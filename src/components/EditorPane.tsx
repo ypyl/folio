@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, DragEvent } from 'react'
 import { FolioMark } from '../FolioMark'
-import type { DraftStatus } from '../editor/drafts'
 import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
-import { SaveIndicator } from './SaveIndicator'
 import { collectDropFiles, linkForAsset } from './dropAssets'
 import styles from './EditorPane.module.css'
 
@@ -40,21 +38,16 @@ export function EditorPane({
   page,
   initialContent,
   onChange,
-  saveState = 'clean',
   emptyHint = 'notes',
   loading = false,
-  newPage = false,
   onDropFiles,
 }: {
   page: Page | null
   initialContent: string
   onChange: (markdown: string) => void
-  saveState?: DraftStatus
   emptyHint?: 'notes' | 'open-folder'
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
-  /** The open page has no file yet; its first save creates it (links-pane). */
-  newPage?: boolean
   /** Copy dropped files into the vault and resolve with the landed asset paths. */
   onDropFiles?: (files: File[]) => Promise<string[]>
 }) {
@@ -193,13 +186,11 @@ export function EditorPane({
     return (
       <main ref={paneRef} onDragOver={handleDragover} onDrop={handleDrop} className={styles.pane}>
         {loading ? (
-          // Loading state (indexing-loading-state): body-line placeholders in
-          // place of the empty hint, with an announced in-progress label.
-          // The placeholders are decorative; the caption carries the status.
+          // Loading state (indexing-loading-state): decorative body-line
+          // placeholders in place of the empty hint. The in-progress
+          // "Indexing notes…" status is announced in the status bar, not here
+          // (add-status-bar); the blocks themselves stay aria-hidden.
           <div className={styles.loadingState}>
-            <div role="status" className={styles.loadingLabel}>
-              Indexing notes…
-            </div>
             <div className={styles.skeletonDoc} aria-hidden="true">
               <span className={`skeleton ${styles.headingLine}`} />
               <span className={`skeleton ${styles.bodyLine}`} />
@@ -240,7 +231,6 @@ export function EditorPane({
           style={{ '--placeholder': `'${PLACEHOLDER}'` } as CSSProperties}
         />
       </article>
-      <SaveIndicator status={saveState} newPage={newPage} />
     </main>
   )
 }

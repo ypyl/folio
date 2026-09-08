@@ -125,8 +125,9 @@ describe('EditorPane', () => {
     render(
       <EditorPane page={null} loading emptyHint="notes" initialContent="" onChange={() => {}} />,
     )
-    // The status label is real content; the old hint is gone.
-    expect(screen.getByRole('status').textContent).toBe('Indexing notes…')
+    // The in-progress status is announced in the status bar, not here
+    // (add-status-bar); the pane keeps only the decorative skeleton lines.
+    expect(screen.queryByRole('status')).toBeNull()
     expect(screen.queryByText('Your notes appear here.')).toBeNull()
     expect(screen.queryByText('Open a folder to begin.')).toBeNull()
     // Placeholders are decorative, never read as content.
@@ -134,26 +135,6 @@ describe('EditorPane', () => {
     expect(main.querySelector('[aria-hidden="true"] .skeleton')).not.toBeNull()
     // No editor is mounted for a placeholder surface.
     expect(instances.list).toHaveLength(0)
-  })
-
-  describe('save indicator (design D4)', () => {
-    it.each([
-      ['dirty', 'Unsaved changes'],
-      ['saving', 'Saving…'],
-      ['failed', 'Save failed'],
-    ] as const)('shows %s as %s', async (status, label) => {
-      render(
-        <EditorPane page={page} initialContent="v1" onChange={() => {}} saveState={status} />,
-      )
-      expect(screen.getByRole('status').textContent).toBe(label)
-    })
-
-    it('shows nothing while clean', async () => {
-      render(
-        <EditorPane page={page} initialContent="v1" onChange={() => {}} saveState="clean" />,
-      )
-      expect(screen.queryByRole('status')).toBeNull()
-    })
   })
 
   describe('pane scroll (fix-editor-scroll-jump)', () => {

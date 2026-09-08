@@ -7,6 +7,7 @@ import { FolderRail } from './components/FolderRail'
 import { SearchBox } from './components/SearchBox'
 import { SearchResultsView } from './components/SearchResultsView'
 import { ShortcutsDialog } from './components/ShortcutsDialog'
+import { StatusBar } from './components/StatusBar'
 import { DraftStore } from './editor/drafts'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
@@ -252,14 +253,6 @@ function App() {
   return (
     <div className="app-shell">
       <Header
-        vaultName={activeFolder?.storage ? activeFolder.name : undefined}
-        // The active folder's count goes live from the index once built;
-        // otherwise fall back to the open-time snapshot (design D6).
-        fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
-        // Keyboard-shortcuts reference (keyboard-shortcuts-help): the `?`
-        // button in the slot opens the dialog.
-        onHelp={() => setHelpOpen(true)}
-        helpOpen={helpOpen}
         // The brand returns home (close-folders): no active folder, folders
         // stay on the rail. The activeFolder?.id effect resets the page.
         onHome={() => void goHome()}
@@ -319,8 +312,6 @@ function App() {
             page={page}
             initialContent={initialContent}
             onChange={handleEdit}
-            saveState={saveState}
-            newPage={newPage}
             onDropFiles={
               activeFolder?.storage
                 ? (files) => copyDroppedFiles(activeFolder.storage!, files)
@@ -346,6 +337,20 @@ function App() {
           loading={indexing}
         />
       </div>
+      <StatusBar
+        pagePath={page?.path ?? null}
+        saveState={saveState}
+        newPage={newPage}
+        indexing={indexing}
+        // The active vault's name and live index-based file count; falls
+        // back to the open-time snapshot while the index builds (design D6).
+        vaultName={activeFolder?.storage ? activeFolder.name : undefined}
+        fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
+        // Keyboard-shortcuts reference (keyboard-shortcuts-help): the `?`
+        // button in the status bar opens the dialog.
+        onHelp={() => setHelpOpen(true)}
+        helpOpen={helpOpen}
+      />
       {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
     </div>
   )
