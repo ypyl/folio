@@ -126,7 +126,8 @@ function App() {
   // usePrevious-style fallback: it only matters on renders already caused
   // by a graph/selection change, so it never needs to trigger one itself.
   // oxlint-disable-next-line react/refs
-  const displayed = activePath === null ? null : (graph?.pages.get(activePath) ?? lastKnown.current ?? null)
+  const displayed =
+    activePath === null ? null : (graph?.pages.get(activePath) ?? lastKnown.current ?? null)
 
   // Remember what we rendered so the vanish case can fall back to it.
   useEffect(() => {
@@ -150,7 +151,14 @@ function App() {
     !graph.pages.has(activePath) &&
     openDraft !== undefined &&
     openDraft.saved === ''
-      ? { path: activePath, title: stem(activePath), kind: kindOf(activePath), content: '', links: [], lastModified: 0 }
+      ? {
+          path: activePath,
+          title: stem(activePath),
+          kind: kindOf(activePath),
+          content: '',
+          links: [],
+          lastModified: 0,
+        }
       : null
   const page = displayed ?? pendingBlank
 
@@ -214,9 +222,7 @@ function App() {
             const targetPath = graph.byName.get(l.target.toLowerCase())
             if (targetPath) {
               const p = graph.pages.get(targetPath)
-              return p
-                ? { title: p.title, path: targetPath, materialized: true }
-                : null
+              return p ? { title: p.title, path: targetPath, materialized: true } : null
             }
             // No page matches the reference: it is unmaterialized. Root pages
             // materialize as `name.md`, preserving any directory part in
@@ -235,9 +241,7 @@ function App() {
   // first in pin order, then the rest by last-modified descending — the
   // pages array was previously order-unspecified (alphabetical by accident).
   const pages = graph ? orderPages(graph.pages.values(), pins).filter((p) => p.kind === 'page') : []
-  const journalEntries = graph
-    ? [...graph.pages.values()].filter((p) => p.kind === 'journal')
-    : []
+  const journalEntries = graph ? [...graph.pages.values()].filter((p) => p.kind === 'journal') : []
 
   // Loading state (indexing-loading-state): while an active folder with
   // storage is building its index, the graph is null — the panes show
@@ -248,10 +252,7 @@ function App() {
   // Search corpus: pages with content from the live graph, memoized on graph
   // identity so the Fuse inside SearchBox rebuilds on save/refresh (search-
   // notes, design: Fuse lifecycle).
-  const searchDocs = useMemo(
-    () => (graph ? [...graph.pages.values()] : []),
-    [graph],
-  )
+  const searchDocs = useMemo(() => (graph ? [...graph.pages.values()] : []), [graph])
 
   return (
     <div className="app-shell">
@@ -263,7 +264,7 @@ function App() {
           // Keyed on the folder so a folder switch remounts the search and
           // resets its query (search-notes: folder-switch reset). Disabled
           // without a vault (no-inert-UI rule).
-        <SearchBox
+          <SearchBox
             key={activeFolder?.id ?? 'none'}
             docs={searchDocs}
             disabled={graph === null}
@@ -323,9 +324,7 @@ function App() {
             }
             // While restoring, avoid a one-frame "open a folder" flash; once
             // settled, only an actually usable folder keeps the notes hint.
-            emptyHint={
-              status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'
-            }
+            emptyHint={status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'}
             loading={indexing}
           />
         )}
@@ -357,7 +356,12 @@ function App() {
         /* oxlint-disable-next-line react/refs */
         pinned={page !== null && pins.includes(page.path)}
         /* oxlint-disable-next-line react/refs */
-        canPin={mode === 'page' && page !== null && page.kind === 'page' && (graph?.pages.has(page.path) ?? false)}
+        canPin={
+          mode === 'page' &&
+          page !== null &&
+          page.kind === 'page' &&
+          (graph?.pages.has(page.path) ?? false)
+        }
         onTogglePin={() => {
           if (page !== null) void togglePin(page.path)
         }}

@@ -15,11 +15,24 @@ interface FolderRailProps {
 // active folder gets a brand ring, a pending-permission folder a hollow
 // (dashed) ring. Kami palette only — the rail must not introduce a second
 // chromatic color (ui-shell spec).
-export function FolderRail({ status, folders, activeId, onAdd, onActivate, onClose }: FolderRailProps) {
+export function FolderRail({
+  status,
+  folders,
+  activeId,
+  onAdd,
+  onActivate,
+  onClose,
+}: FolderRailProps) {
   if (status === 'restoring') return <nav className={styles.rail} aria-label="Open folders" />
   return (
     <nav className={styles.rail} aria-label="Open folders">
-      <button type="button" className={styles.add} onClick={onAdd} title="Add folder" aria-label="Add folder">
+      <button
+        type="button"
+        className={styles.add}
+        onClick={onAdd}
+        title="Add folder"
+        aria-label="Add folder"
+      >
         <span aria-hidden="true">+</span>
       </button>
       <div className={styles.list}>

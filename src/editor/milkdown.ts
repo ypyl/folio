@@ -15,10 +15,7 @@ import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
-import {
-  codeBlockExtensions,
-  codeBlockLanguages,
-} from './codeBlockSetup'
+import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { looksLikeMarkdown } from './markdownLike'
 import { blockStartLines } from '../lineAnchors'
 import type { EditorAdapter } from './editor'
@@ -170,9 +167,7 @@ export class MilkdownAdapter implements EditorAdapter {
       // stray blank line.
       const resolved = view.state.doc.resolve(view.state.selection.from)
       const replaceEmptyParagraph =
-        resolved.parent.isTextblock &&
-        resolved.parent.content.size === 0 &&
-        resolved.depth === 1
+        resolved.parent.isTextblock && resolved.parent.content.size === 0 && resolved.depth === 1
       if (single && first && first.isTextblock) {
         // Inline payload (single paragraph: an image or link): drop the wrapper
         // paragraph and insert its inline children so the node lands on the

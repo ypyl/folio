@@ -85,10 +85,7 @@ function openDb(): Promise<IDBDatabase | null> {
   return dbPromise
 }
 
-async function openStore(
-  name: string,
-  mode: IDBTransactionMode,
-): Promise<IDBObjectStore | null> {
+async function openStore(name: string, mode: IDBTransactionMode): Promise<IDBObjectStore | null> {
   const db = await openDb()
   if (!db) return null
   return db.transaction(name, mode).objectStore(name)

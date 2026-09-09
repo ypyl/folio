@@ -80,17 +80,15 @@ export function Sidebar({
       <Accordion title="Journal" defaultOpen>
         {/* The journal calendar owns the section (journal-calendar D1); it
             stays hidden until a vault is open (no-inert-grid rule). */}
-        {loading ? (
-          journalSkeleton
-        ) : (
-          hasVault && (
-            <JournalCalendar
-              journalEntries={journalEntries}
-              activePath={activePath}
-              onSelect={onSelect}
-            />
-          )
-        )}
+        {loading
+          ? journalSkeleton
+          : hasVault && (
+              <JournalCalendar
+                journalEntries={journalEntries}
+                activePath={activePath}
+                onSelect={onSelect}
+              />
+            )}
       </Accordion>
       <Accordion title="Pages" defaultOpen>
         {loading ? (

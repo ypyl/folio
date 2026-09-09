@@ -164,7 +164,6 @@ export function EditorPane({
     }
   }, [])
 
-
   // Drop hygiene (D5): preventDefault on both pane states so the browser never
   // navigates to the dropped file; the copy happens only with a page open.
   const handleDragover = (e: DragEvent<HTMLElement>): void => {
@@ -204,9 +203,7 @@ export function EditorPane({
           <div className={styles.emptyState}>
             <FolioMark className={styles.mark} />
             <p className={styles.tagline}>
-              {emptyHint === 'open-folder'
-                ? 'Open a folder to begin.'
-                : 'Your notes appear here.'}
+              {emptyHint === 'open-folder' ? 'Open a folder to begin.' : 'Your notes appear here.'}
             </p>
           </div>
         )}

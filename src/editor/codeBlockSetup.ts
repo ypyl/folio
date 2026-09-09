@@ -26,7 +26,12 @@ const folioHighlight = HighlightStyle.define([
   { tag: [tags.string, tags.regexp, tags.special(tags.string)], color: '#504e49' }, // --olive
   { tag: [tags.number, tags.integer, tags.float], color: '#3d3d3a' }, // --dark-warm
   {
-    tag: [tags.function(tags.variableName), tags.className, tags.typeName, tags.definition(tags.variableName)],
+    tag: [
+      tags.function(tags.variableName),
+      tags.className,
+      tags.typeName,
+      tags.definition(tags.variableName),
+    ],
     color: '#141413', // --near-black
   },
 ])

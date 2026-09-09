@@ -17,9 +17,7 @@ describe('parseLinks', () => {
   })
 
   it('keeps hyphenated words as one reference', () => {
-    expect(parseLinks('#reading-list')).toEqual([
-      { target: 'reading-list', via: 'word' },
-    ])
+    expect(parseLinks('#reading-list')).toEqual([{ target: 'reading-list', via: 'word' }])
   })
 
   it('does not treat URL fragments as references', () => {
@@ -27,15 +25,11 @@ describe('parseLinks', () => {
   })
 
   it('collapses duplicate references to the same page', () => {
-    expect(parseLinks('#Folio #Folio #[[Folio]]')).toEqual([
-      { target: 'Folio', via: 'word' },
-    ])
+    expect(parseLinks('#Folio #Folio #[[Folio]]')).toEqual([{ target: 'Folio', via: 'word' }])
   })
 
   it('collapses case variants as the same page, keeping the first form', () => {
-    expect(parseLinks('#Folio #[[folio]]')).toEqual([
-      { target: 'Folio', via: 'word' },
-    ])
+    expect(parseLinks('#Folio #[[folio]]')).toEqual([{ target: 'Folio', via: 'word' }])
   })
 
   it('trims whitespace around bracketed targets', () => {

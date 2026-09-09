@@ -21,10 +21,7 @@ export class FakeFileHandle {
   private content: string | Blob
   lastModified: number
 
-  constructor(
-    name: string,
-    content: string | Blob = '',
-  ) {
+  constructor(name: string, content: string | Blob = '') {
     this.name = name
     this.content = content
     this.lastModified = nextMtime()

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildIndex, refreshIndex, upsertPage, upsertPins, type Graph, type VaultIndex } from './index'
+import {
+  buildIndex,
+  refreshIndex,
+  upsertPage,
+  upsertPins,
+  type Graph,
+  type VaultIndex,
+} from './index'
 import type { VaultStorage } from './storage'
 
 // Binds the active folder's storage to its in-memory graph (design D6).
@@ -18,7 +25,11 @@ export function useIndex(storage: VaultStorage | undefined): {
   // The build result is tagged with the storage it came from and only shown
   // for that storage during render, so a folder switch derives a null graph
   // immediately (no stale flash) without a synchronous reset in the effect.
-  const [built, setBuilt] = useState<{ storage: VaultStorage; graph: Graph; pins: string[] } | null>(null)
+  const [built, setBuilt] = useState<{
+    storage: VaultStorage
+    graph: Graph
+    pins: string[]
+  } | null>(null)
   const graph = built !== null && built.storage === storage ? built.graph : null
   const pins = built !== null && built.storage === storage ? built.pins : []
   const latest = useRef<VaultIndex | null>(null)
@@ -88,9 +99,7 @@ export function useIndex(storage: VaultStorage | undefined): {
   // stable identity and a fresh `storage` closure. Non-optimistic: the graph
   // updates only after the write resolves; a failed write reports false so the
   // caller keeps the page dirty and shows the failure.
-  const savePageRef = useRef<(path: string, content: string) => Promise<boolean>>(
-    async () => false,
-  )
+  const savePageRef = useRef<(path: string, content: string) => Promise<boolean>>(async () => false)
   useEffect(() => {
     const store = storage
     const current = latest.current
@@ -114,8 +123,7 @@ export function useIndex(storage: VaultStorage | undefined): {
   // Stable identity regardless of re-renders (the effect above repoints the
   // underlying ref), so callers can hold this in effect dependencies.
   const savePage = useCallback(
-    (path: string, content: string): Promise<boolean> =>
-      savePageRef.current(path, content),
+    (path: string, content: string): Promise<boolean> => savePageRef.current(path, content),
     [],
   )
 
@@ -148,10 +156,7 @@ export function useIndex(storage: VaultStorage | undefined): {
   })
   // Stable identity regardless of re-renders (the effect above repoints the
   // underlying ref), so callers can hold this in effect dependencies.
-  const togglePin = useCallback(
-    (path: string): Promise<boolean> => togglePinRef.current(path),
-    [],
-  )
+  const togglePin = useCallback((path: string): Promise<boolean> => togglePinRef.current(path), [])
 
   return { graph, pins, savePage, togglePin }
 }

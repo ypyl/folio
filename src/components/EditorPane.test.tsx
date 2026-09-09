@@ -42,7 +42,11 @@ afterEach(() => {
 describe('EditorPane', () => {
   it('renders only the editor surface with the initial content and no title heading', async () => {
     render(
-      <EditorPane page={{ ...page, title: 'Welcome' }} initialContent="# hello" onChange={() => {}} />,
+      <EditorPane
+        page={{ ...page, title: 'Welcome' }}
+        initialContent="# hello"
+        onChange={() => {}}
+      />,
     )
     // The pane shows the file content only: no page-title heading is rendered.
     expect(within(screen.getByRole('main')).queryByRole('heading', { level: 1 })).toBeNull()
@@ -55,9 +59,7 @@ describe('EditorPane', () => {
 
   it('forwards edits to onChange with the serialized markdown', async () => {
     const onChange = vi.fn()
-    render(
-      <EditorPane page={page} initialContent="v1" onChange={onChange} />,
-    )
+    render(<EditorPane page={page} initialContent="v1" onChange={onChange} />)
     await act(async () => {})
     await act(async () => {
       fake().emitChange('# edited')
@@ -66,9 +68,7 @@ describe('EditorPane', () => {
   })
 
   it('destroys the editor on unmount', async () => {
-    const { unmount } = render(
-      <EditorPane page={page} initialContent="v1" onChange={() => {}} />,
-    )
+    const { unmount } = render(<EditorPane page={page} initialContent="v1" onChange={() => {}} />)
     await act(async () => {})
     const editor = fake()
     unmount()
@@ -140,9 +140,7 @@ describe('EditorPane', () => {
   describe('pane scroll (fix-editor-scroll-jump)', () => {
     it('keeps the scroll position when the same page refreshes, resets on page switch', async () => {
       const a = { ...page, path: 'a.md' }
-      const { rerender } = render(
-        <EditorPane page={a} initialContent="x" onChange={() => {}} />,
-      )
+      const { rerender } = render(<EditorPane page={a} initialContent="x" onChange={() => {}} />)
       await act(async () => {})
       const pane = screen.getByRole('main') as HTMLElement
       pane.scrollTop = 400
@@ -152,7 +150,14 @@ describe('EditorPane', () => {
       expect(pane.scrollTop).toBe(400)
 
       // A real page switch resets the pane to the top.
-      rerender(<EditorPane key="b.md" page={{ ...page, path: 'b.md' }} initialContent="z" onChange={() => {}} />)
+      rerender(
+        <EditorPane
+          key="b.md"
+          page={{ ...page, path: 'b.md' }}
+          initialContent="z"
+          onChange={() => {}}
+        />,
+      )
       await act(async () => {})
       expect((screen.getByRole('main') as HTMLElement).scrollTop).toBe(0)
     })
@@ -239,7 +244,9 @@ describe('EditorPane', () => {
 
     it('never calls onDropFiles when no page is open', async () => {
       const onDropFiles = vi.fn()
-      render(<EditorPane page={null} initialContent="" onChange={() => {}} onDropFiles={onDropFiles} />)
+      render(
+        <EditorPane page={null} initialContent="" onChange={() => {}} onDropFiles={onDropFiles} />,
+      )
       fireEvent.drop(screen.getByRole('main'), { dataTransfer: dt([new File(['x'], 'x.png')]) })
       await act(async () => {})
       expect(onDropFiles).not.toHaveBeenCalled()

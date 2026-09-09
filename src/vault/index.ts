@@ -149,7 +149,11 @@ function renderPins(pins: string[]): string {
   return body === '' ? `${PINS_HEADER}\n` : `${PINS_HEADER}\n\n${body}\n`
 }
 
-function carryOver(path: string, lastModified: number, previous: VaultIndex): IndexPage | undefined {
+function carryOver(
+  path: string,
+  lastModified: number,
+  previous: VaultIndex,
+): IndexPage | undefined {
   if (previous.snapshot.get(path) !== lastModified) return undefined
   return previous.graph.pages.get(path)
 }

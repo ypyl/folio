@@ -73,9 +73,7 @@ export function MetaPanel({
   // One placeholder line per section (indexing-loading-state): replaces the
   // placeholder copy at the same height (13px text, 1.5 line-height) so the
   // panel doesn't jump when the copy renders.
-  const skeletonLine = (
-    <span className={`skeleton ${styles.skeletonLine}`} aria-hidden="true" />
-  )
+  const skeletonLine = <span className={`skeleton ${styles.skeletonLine}`} aria-hidden="true" />
 
   return (
     <aside className={styles.panel} aria-label="Page links">
@@ -106,9 +104,7 @@ export function MetaPanel({
             emptyCopy="This page links to nothing."
           />
         ) : (
-          <p className="section-placeholder">
-            Links from this page appear once a page is open.
-          </p>
+          <p className="section-placeholder">Links from this page appear once a page is open.</p>
         )}
       </Accordion>
     </aside>

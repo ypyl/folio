@@ -155,9 +155,7 @@ describe('navigation over the real index', () => {
     expect(screen.queryByText('Your notes appear here.')).toBeNull()
     // The pane shows only the file content: no title heading, editor seeded.
     expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
-    await waitFor(() =>
-      expect(editor().setContents[0]).toContain('Open a note from the sidebar'),
-    )
+    await waitFor(() => expect(editor().setContents[0]).toContain('Open a note from the sidebar'))
     expect(row.getAttribute('aria-current')).toBe('page')
     vi.unstubAllGlobals()
   })
@@ -201,12 +199,10 @@ describe('navigation over the real index', () => {
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('A running list of things to read'),
     )
-    expect(
-      screen.getByRole('button', { name: 'Reading' }).getAttribute('aria-current'),
-    ).toBe('page')
-    expect(
-      screen.getByRole('button', { name: 'Welcome' }).getAttribute('aria-current'),
-    ).toBeNull()
+    expect(screen.getByRole('button', { name: 'Reading' }).getAttribute('aria-current')).toBe(
+      'page',
+    )
+    expect(screen.getByRole('button', { name: 'Welcome' }).getAttribute('aria-current')).toBeNull()
     vi.unstubAllGlobals()
   })
 
@@ -218,9 +214,7 @@ describe('navigation over the real index', () => {
     const meta = () => screen.getByRole('complementary', { name: 'Page links' })
     // Folio is referenced by Inbox and Ideas; it references architecture
     // (dangling, dimmed), Ideas, and Welcome.
-    await waitFor(() =>
-      expect(within(meta()).getByRole('button', { name: 'Inbox' })).toBeTruthy(),
-    )
+    await waitFor(() => expect(within(meta()).getByRole('button', { name: 'Inbox' })).toBeTruthy())
     // Ideas appears in both Folio's backlinks and forwardlinks, so expect at
     // least one row.
     expect(within(meta()).getAllByRole('button', { name: 'Ideas' }).length).toBeGreaterThan(0)
@@ -245,9 +239,7 @@ describe('navigation over the real index', () => {
     expect(
       await screen.findByText('Pages linking to this one appear once a page is open.'),
     ).toBeTruthy()
-    expect(
-      screen.getByText('Links from this page appear once a page is open.'),
-    ).toBeTruthy()
+    expect(screen.getByText('Links from this page appear once a page is open.')).toBeTruthy()
     vi.unstubAllGlobals()
   })
 
@@ -333,9 +325,7 @@ describe('asset drag & drop (page-editing spec)', () => {
     }
     fireEvent.drop(pane(), { dataTransfer })
 
-    await waitFor(() =>
-      expect(editor().insertions).toContain('![photo](assets/photo.png)'),
-    )
+    await waitFor(() => expect(editor().insertions).toContain('![photo](assets/photo.png)'))
     const assetsDir = tree.children.get('assets') as FakeDirectoryHandle
     expect(assetsDir).toBeTruthy()
     const file = assetsDir.children.get('photo.png') as FakeFileHandle
@@ -356,9 +346,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('Half-formed thoughts worth keeping'),
     )
-    expect(
-      screen.getByRole('button', { name: 'Ideas' }).getAttribute('aria-current'),
-    ).toBe('page')
+    expect(screen.getByRole('button', { name: 'Ideas' }).getAttribute('aria-current')).toBe('page')
     vi.unstubAllGlobals()
   })
 
@@ -368,9 +356,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Folio' }))
     // Folio references #architecture (no such file). Clicking the dimmed row
     // opens it as a blank in-memory page; no file is created yet.
-    fireEvent.click(
-      await within(meta()).findByRole('button', { name: 'architecture' }),
-    )
+    fireEvent.click(await within(meta()).findByRole('button', { name: 'architecture' }))
     expect(tree.children.get('architecture.md')).toBeUndefined()
     await waitFor(() => expect(editor().setContents[0]).toBe(''))
 
@@ -454,9 +440,7 @@ describe('folder rail flow', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
     await waitFor(() => expect(editor().setContents[0]).toBe(''))
     expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
-    expect(
-      within(pane()).queryByRole('heading', { level: 1, name: 'Welcome' }),
-    ).toBeNull()
+    expect(within(pane()).queryByRole('heading', { level: 1, name: 'Welcome' })).toBeNull()
     vi.unstubAllGlobals()
   })
 })
@@ -491,9 +475,7 @@ describe('content search over the real index (search spec)', () => {
     // with the pretty date and opens the day through the shared selection path.
     const day = await screen.findByRole('option', { name: /September 2, 2026/ })
     fireEvent.click(day)
-    await waitFor(() =>
-      expect(editor().setContents[0]).toContain('Started a fresh vault'),
-    )
+    await waitFor(() => expect(editor().setContents[0]).toContain('Started a fresh vault'))
     vi.unstubAllGlobals()
   })
 
@@ -550,9 +532,7 @@ describe('search results view (search-results-view spec)', () => {
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
     fireEvent.click(within(pane()).getByRole('button', { name: /^Inbox/ }))
-    await waitFor(() =>
-      expect(editor().setContents[0]).toContain('A place to drop thoughts'),
-    )
+    await waitFor(() => expect(editor().setContents[0]).toContain('A place to drop thoughts'))
     // The results view is gone; only the editor content remains.
     expect(within(pane()).queryByText('4 matches')).toBeNull()
     vi.unstubAllGlobals()
@@ -566,9 +546,7 @@ describe('search results view (search-results-view spec)', () => {
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
     // Page metadata is page-scoped: empty placeholders while browsing.
-    expect(
-      screen.getByText('Pages linking to this one appear once a page is open.'),
-    ).toBeTruthy()
+    expect(screen.getByText('Pages linking to this one appear once a page is open.')).toBeTruthy()
     vi.unstubAllGlobals()
   })
 
@@ -580,9 +558,7 @@ describe('search results view (search-results-view spec)', () => {
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
     fireEvent.click(within(pane()).getByRole('button', { name: /^Folio/ }))
-    await waitFor(() =>
-      expect(editor().setContents[0]).toContain('Notes on building Folio itself'),
-    )
+    await waitFor(() => expect(editor().setContents[0]).toContain('Notes on building Folio itself'))
     // Refocusing the search (query kept) restores the dropdown, and its
     // see-all row returns to the results view.
     fireEvent.focus(search())
@@ -670,9 +646,7 @@ describe('pinned pages (add-pinned-pages)', () => {
 
     // Pin it: the row gains the pinned style and leads the list.
     fireEvent.click(star)
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Unpin Welcome' })).toBeTruthy(),
-    )
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Welcome' })).toBeTruthy())
     expect(pageRowTitles()).toEqual(['Welcome', 'Reading', 'Folio', 'Ideas', 'Inbox'])
     const welcomeRow = screen.getByRole('button', { name: 'Welcome' })
     expect(welcomeRow.getAttribute('data-pinned')).toBe('true')
@@ -683,7 +657,9 @@ describe('pinned pages (add-pinned-pages)', () => {
     // A journal day disables the toggle again.
     fireEvent.click(screen.getByRole('button', { name: 'September 2, 2026' }))
     await waitFor(() =>
-      expect((screen.getByRole('button', { name: /^Pin / }) as HTMLButtonElement).disabled).toBe(true),
+      expect((screen.getByRole('button', { name: /^Pin / }) as HTMLButtonElement).disabled).toBe(
+        true,
+      ),
     )
 
     // Back on Welcome (sidebar row — the meta panel also carries a Welcome

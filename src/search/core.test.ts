@@ -13,7 +13,12 @@ import {
   type SearchRange,
 } from './core'
 
-function doc(path: string, title: string, text: string, kind: 'page' | 'journal' = 'page'): SearchDoc {
+function doc(
+  path: string,
+  title: string,
+  text: string,
+  kind: 'page' | 'journal' = 'page',
+): SearchDoc {
   return { path, title, kind, text }
 }
 
@@ -102,7 +107,9 @@ describe('searchDocs (AND-term model)', () => {
 describe('snippetSegments', () => {
   it('windows around the first match line and marks the hit', () => {
     // 'the docker term here' is line 3; 'docker' sits at 22 (0-based).
-    const text = ['line one', 'line two', 'the docker term here', 'line four', 'line five'].join('\n')
+    const text = ['line one', 'line two', 'the docker term here', 'line four', 'line five'].join(
+      '\n',
+    )
     const segments = snippetSegments(text, [[22, 28]])
     expect(segments.map((s) => s.text).join('')).toContain('docker')
     const marked = segments.find((s) => s.hit)

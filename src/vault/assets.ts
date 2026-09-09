@@ -6,16 +6,11 @@ import type { VaultStorage } from './storage'
  *  stays accurate (D8): monotonic `-1/-2` counters, landed paths only. Files
  *  whose copy fails are omitted — the caller inserts links only for what
  *  landed (spec: failed copies yield no link). */
-export async function copyDroppedFiles(
-  storage: VaultStorage,
-  files: File[],
-): Promise<string[]> {
+export async function copyDroppedFiles(storage: VaultStorage, files: File[]): Promise<string[]> {
   let existing = new Set<string>()
   try {
     // list returns root-relative paths; the uniqueness check is per-basename.
-    existing = new Set(
-      (await storage.list('assets')).map((p) => p.slice(p.lastIndexOf('/') + 1)),
-    )
+    existing = new Set((await storage.list('assets')).map((p) => p.slice(p.lastIndexOf('/') + 1)))
   } catch {
     // assets/ does not exist yet; the first copy creates it.
   }
@@ -38,11 +33,7 @@ export async function copyDroppedFiles(
 
 /** First unused `name`, then `stem-1.ext`, `stem-2.ext`, … across the
  *  existing listing and the names already claimed in this batch. */
-function uniqueAssetName(
-  name: string,
-  existing: Set<string>,
-  claimed: Set<string>,
-): string {
+function uniqueAssetName(name: string, existing: Set<string>, claimed: Set<string>): string {
   if (!existing.has(name) && !claimed.has(name)) return name
   const dot = name.lastIndexOf('.')
   const stem = dot > 0 ? name.slice(0, dot) : name

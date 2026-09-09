@@ -31,7 +31,9 @@ it('StrictMode double-mount leaves exactly one seeded editor', async () => {
 })
 
 it('an immediate page switch while the first mount is initializing leaves one editor', async () => {
-  const { rerender } = render(<EditorPane key="a" page={pageA} initialContent="first page" onChange={() => {}} />)
+  const { rerender } = render(
+    <EditorPane key="a" page={pageA} initialContent="first page" onChange={() => {}} />,
+  )
   // Switch before the first editor's async create() can settle: cleanup's
   // destroy() runs while mount() is still awaiting, which is the race.
   rerender(<EditorPane key="b" page={pageB} initialContent="second page" onChange={() => {}} />)
@@ -41,7 +43,9 @@ it('an immediate page switch while the first mount is initializing leaves one ed
 })
 
 it('unmounting while the first mount is initializing leaves no editor behind', async () => {
-  const { unmount } = render(<EditorPane page={pageA} initialContent="first page" onChange={() => {}} />)
+  const { unmount } = render(
+    <EditorPane page={pageA} initialContent="first page" onChange={() => {}} />,
+  )
   unmount()
   await settle()
   expect(roots()).toBe(0)

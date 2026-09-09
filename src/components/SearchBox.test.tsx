@@ -52,7 +52,11 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
 
   it('labels journal days with their pretty date, not the raw stem', async () => {
     render(
-      <SearchBox docs={[journal('journals/2026-09-02.md', 'docker body')]} onSelect={() => {}} disabled={false} />,
+      <SearchBox
+        docs={[journal('journals/2026-09-02.md', 'docker body')]}
+        onSelect={() => {}}
+        disabled={false}
+      />,
     )
     await type('docker')
     expect(screen.getByText('September 2, 2026')).toBeTruthy()
@@ -61,7 +65,11 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
 
   it('highlights the matched span in the snippet', async () => {
     render(
-      <SearchBox docs={[page('Ops.md', 'We run docker in production daily')]} onSelect={() => {}} disabled={false} />,
+      <SearchBox
+        docs={[page('Ops.md', 'We run docker in production daily')]}
+        onSelect={() => {}}
+        disabled={false}
+      />,
     )
     await type('docker')
     const marks = listbox().querySelectorAll(`mark.${styles.hit}`)
@@ -72,9 +80,7 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
   it('shows an empty state when nothing matches', async () => {
     render(<SearchBox docs={[page('Welcome.md', 'hello')]} onSelect={() => {}} disabled={false} />)
     fireEvent.change(input(), { target: { value: 'xyzzy' } })
-    await waitFor(() =>
-      expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy(),
-    )
+    await waitFor(() => expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy())
   })
 
   it('caps a group in the dropdown and offers the see-all row', async () => {
@@ -101,15 +107,17 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
   it('hides the see-all row when nothing matches', async () => {
     render(<SearchBox docs={[page('Welcome.md', 'hello')]} onSelect={() => {}} disabled={false} />)
     fireEvent.change(input(), { target: { value: 'xyzzy' } })
-    await waitFor(() =>
-      expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy(),
-    )
+    await waitFor(() => expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy())
     expect(screen.queryByRole('button', { name: /See all/ })).toBeNull()
   })
 
   it('shows the snippet for a title-only match (opening lines)', async () => {
     render(
-      <SearchBox docs={[page('Docker.md', 'First line\nSecond line')]} onSelect={() => {}} disabled={false} />,
+      <SearchBox
+        docs={[page('Docker.md', 'First line\nSecond line')]}
+        onSelect={() => {}}
+        disabled={false}
+      />,
     )
     await type('docker')
     expect(within(listbox()).getByText(/First line/)).toBeTruthy()
@@ -118,7 +126,9 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
 
 describe('SearchBox action flow (search spec: debounce, outside click, clear, escape)', () => {
   it('stays hidden until results are computed (no empty-state flash while typing)', async () => {
-    render(<SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />)
+    render(
+      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+    )
     fireEvent.change(input(), { target: { value: 'doc' } })
     expect(screen.queryByRole('listbox')).toBeNull()
     await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy())
@@ -126,7 +136,9 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
   })
 
   it('closes on outside click keeping the query; refocus restores results', async () => {
-    render(<SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />)
+    render(
+      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+    )
     await type('docker')
     fireEvent.click(document.body)
     expect(screen.queryByRole('listbox')).toBeNull()
@@ -157,12 +169,7 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
     const docs: Page[] = []
     for (let i = 0; i < 23; i++) docs.push(page(`p${i}.md`, 'docker body'))
     render(
-      <SearchBox
-        docs={docs}
-        onSelect={() => {}}
-        disabled={false}
-        onQueryResult={onQueryResult}
-      />,
+      <SearchBox docs={docs} onSelect={() => {}} disabled={false} onQueryResult={onQueryResult} />,
     )
     await type('docker')
     // The dropdown still slices to PER_GROUP; the full list goes up.
@@ -173,7 +180,9 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
   })
 
   it('the clear x resets the query and refocuses the input', async () => {
-    render(<SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />)
+    render(
+      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+    )
     await type('docker')
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
     expect((input() as HTMLInputElement).value).toBe('')
@@ -182,7 +191,9 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
   })
 
   it('Escape clears the query and closes', async () => {
-    render(<SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />)
+    render(
+      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+    )
     await type('docker')
     fireEvent.keyDown(input(), { key: 'Escape' })
     expect((input() as HTMLInputElement).value).toBe('')

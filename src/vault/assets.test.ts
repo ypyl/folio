@@ -5,9 +5,7 @@ import { copyDroppedFiles } from './assets'
 import type { VaultStorage } from './storage'
 
 function vault(tree: FakeTreeNode): FileSystemVaultStorage {
-  return new FileSystemVaultStorage(
-    buildTree(tree) as unknown as FileSystemDirectoryHandle,
-  )
+  return new FileSystemVaultStorage(buildTree(tree) as unknown as FileSystemDirectoryHandle)
 }
 
 const file = (name: string): File =>
@@ -30,11 +28,7 @@ describe('copyDroppedFiles', () => {
 
   it('gives same-batch duplicates distinct names', async () => {
     const storage = vault({})
-    const landed = await copyDroppedFiles(storage, [
-      file('a.png'),
-      file('a.png'),
-      file('a.png'),
-    ])
+    const landed = await copyDroppedFiles(storage, [file('a.png'), file('a.png'), file('a.png')])
     expect(landed).toEqual(['assets/a.png', 'assets/a-1.png', 'assets/a-2.png'])
   })
 
@@ -50,10 +44,7 @@ describe('copyDroppedFiles', () => {
       if (calls === 2) throw new Error('boom')
       await original(p, b)
     }
-    const landed = await copyDroppedFiles(storage as VaultStorage, [
-      file('x.png'),
-      file('y.png'),
-    ])
+    const landed = await copyDroppedFiles(storage as VaultStorage, [file('x.png'), file('y.png')])
     expect(landed).toEqual(['assets/x.png'])
     expect(await storage.list('')).not.toContain('assets/y.png')
   })

@@ -19,7 +19,8 @@ const result = (path: string, over: Partial<SearchResult> = {}): SearchResult =>
   ...over,
 })
 
-const page = (n: number): SearchResult => result(`p${n}.md`, { text: 'docker body', ranges: [[0, 6]] })
+const page = (n: number): SearchResult =>
+  result(`p${n}.md`, { text: 'docker body', ranges: [[0, 6]] })
 
 const renderView = (props: Partial<Parameters<typeof SearchResultsView>[0]> = {}) =>
   render(

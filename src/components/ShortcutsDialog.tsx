@@ -1,10 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  SHORTCUTS_DIALOG_ID,
-  SHORTCUT_GROUPS,
-  displayKeys,
-} from './shortcuts'
+import { SHORTCUTS_DIALOG_ID, SHORTCUT_GROUPS, displayKeys } from './shortcuts'
 import styles from './ShortcutsDialog.module.css'
 
 // Keyboard-shortcuts reference (keyboard-shortcuts-help): the header's `?`

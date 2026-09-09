@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  FileSystemVaultStorage,
-  InvalidVaultPathError,
-  parsePath,
-  pickVaultFolder,
-} from './fs'
+import { FileSystemVaultStorage, InvalidVaultPathError, parsePath, pickVaultFolder } from './fs'
 import { buildTree, type FakeDirectoryHandle, type FakeTreeNode } from './fakeHandle'
 
 // Fake handle tree lives in fakeHandle.ts (shared with useVault.test.ts);
@@ -21,9 +16,9 @@ function fakeVault(tree: FakeTreeNode): FileSystemVaultStorage {
 
 const VAULT = {
   'welcome.md': '# Welcome',
-  'journals': {
+  journals: {
     '2026.md': 'year',
-    'deep': { 'x.md': 'x' },
+    deep: { 'x.md': 'x' },
   },
   'tags.md': '#tag',
 }
@@ -32,12 +27,9 @@ describe('parsePath', () => {
   it('maps root to []', () => {
     expect(parsePath('')).toEqual([])
   })
-  it.each(['/lead.slash', 'a/../b', 'a/.', './a', 'a//b', 'a/', '..'])(
-    'rejects %s',
-    (path) => {
-      expect(() => parsePath(path)).toThrow(InvalidVaultPathError)
-    },
-  )
+  it.each(['/lead.slash', 'a/../b', 'a/.', './a', 'a//b', 'a/', '..'])('rejects %s', (path) => {
+    expect(() => parsePath(path)).toThrow(InvalidVaultPathError)
+  })
 })
 
 describe('FileSystemVaultStorage', () => {
@@ -141,7 +133,7 @@ describe('FileSystemVaultStorage', () => {
   })
 
   it('lists an empty directory as []', async () => {
-    await expect(fakeVault({ 'empty': {} }).list('empty')).resolves.toEqual([])
+    await expect(fakeVault({ empty: {} }).list('empty')).resolves.toEqual([])
   })
 
   it('rejects listing a missing directory', async () => {
@@ -170,11 +162,7 @@ describe('FileSystemVaultStorage', () => {
   it.each(['read', 'write', 'delete'] as const)('rejects %s of the root', async (op) => {
     const vault = fakeVault(VAULT)
     const call =
-      op === 'read'
-        ? vault.read('')
-        : op === 'write'
-          ? vault.write('', 'x')
-          : vault.delete('')
+      op === 'read' ? vault.read('') : op === 'write' ? vault.write('', 'x') : vault.delete('')
     await expect(call).rejects.toBeInstanceOf(InvalidVaultPathError)
   })
 })

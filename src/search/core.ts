@@ -49,7 +49,10 @@ export type SearchResult = {
 
 /** Query terms: whitespace-split, terms under 3 characters are noise. */
 export function termsOf(query: string): string[] {
-  return query.trim().split(/\s+/).filter((t) => t.length >= 3)
+  return query
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length >= 3)
 }
 
 /** Case-insensitive exact occurrences of a term in raw text. Used for

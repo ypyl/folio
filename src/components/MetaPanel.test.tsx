@@ -17,7 +17,13 @@ const meta = () => screen.getByRole('complementary', { name: 'Page links' })
 describe('MetaPanel', () => {
   it('shows placeholder copy while no page is open', () => {
     render(
-      <MetaPanel pageOpen={false} backlinks={[]} forwardlinks={[]} activePath={null} onSelect={() => {}} />,
+      <MetaPanel
+        pageOpen={false}
+        backlinks={[]}
+        forwardlinks={[]}
+        activePath={null}
+        onSelect={() => {}}
+      />,
     )
     expect(
       within(meta()).getByText('Pages linking to this one appear once a page is open.'),
@@ -110,7 +116,11 @@ describe('MetaPanel', () => {
         onSelect={() => {}}
       />,
     )
-    expect(within(meta()).getByRole('button', { name: 'Beta' }).getAttribute('aria-current')).toBe('page')
-    expect(within(meta()).getByRole('button', { name: 'Alpha' }).getAttribute('aria-current')).toBeNull()
+    expect(within(meta()).getByRole('button', { name: 'Beta' }).getAttribute('aria-current')).toBe(
+      'page',
+    )
+    expect(
+      within(meta()).getByRole('button', { name: 'Alpha' }).getAttribute('aria-current'),
+    ).toBeNull()
   })
 })

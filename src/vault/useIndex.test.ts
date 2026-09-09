@@ -49,9 +49,7 @@ describe('useIndex', () => {
     await act(async () => {
       window.dispatchEvent(new Event('focus'))
     })
-    await waitFor(() =>
-      expect(result.current.graph?.pages.get('a.md')?.content).toBe('v2 #Two'),
-    )
+    await waitFor(() => expect(result.current.graph?.pages.get('a.md')?.content).toBe('v2 #Two'))
     expect(result.current.graph?.backlinks.get('two')).toEqual(['a.md'])
   })
 
@@ -68,9 +66,7 @@ describe('useIndex', () => {
     await act(async () => {
       document.dispatchEvent(new Event('visibilitychange'))
     })
-    await waitFor(() =>
-      expect(result.current.graph?.pages.get('a.md')?.content).toBe('v2'),
-    )
+    await waitFor(() => expect(result.current.graph?.pages.get('a.md')?.content).toBe('v2'))
   })
 
   it('refreshes on the periodic interval while visible', async () => {
@@ -117,10 +113,9 @@ describe('useIndex', () => {
   it('rebuilds from empty when the storage changes', async () => {
     const treeA = buildTree({ 'a.md': 'A' })
     const treeB = buildTree({ 'b.md': 'B' })
-    const { result, rerender } = renderHook(
-      ({ storage }) => useIndex(storage),
-      { initialProps: { storage: vault(treeA) } },
-    )
+    const { result, rerender } = renderHook(({ storage }) => useIndex(storage), {
+      initialProps: { storage: vault(treeA) },
+    })
     await waitFor(() => expect(result.current.graph?.pages.has('a.md')).toBe(true))
 
     rerender({ storage: vault(treeB) })

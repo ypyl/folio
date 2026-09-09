@@ -307,13 +307,9 @@ describe('orderPages (sidebar list order, design D5)', () => {
   it('skips pins naming no page in the set (self-healing)', () => {
     const a = mk('a.md', 1)
     const b = mk('b.md', 2)
-    expect(orderPages([a, b], ['missing.md', 'a.md']).map((p) => p.path)).toEqual([
-      'a.md',
-      'b.md',
-    ])
+    expect(orderPages([a, b], ['missing.md', 'a.md']).map((p) => p.path)).toEqual(['a.md', 'b.md'])
   })
 })
-
 
 describe('refreshIndex (diff-rescan)', () => {
   it('carries unchanged pages over without re-reading (object identity)', async () => {
@@ -423,7 +419,6 @@ describe('refreshIndex (diff-rescan)', () => {
     await expect(failWrite).rejects.toThrow('denied')
     expect(first.graph.pages.get('a.md')!.content).toBe('v1')
   })
-
 })
 
 describe('journalDate (calendar day derivation, journal-calendar)', () => {

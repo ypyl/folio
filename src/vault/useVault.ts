@@ -72,7 +72,12 @@ export function useVault() {
     const permission = await requestPermission(target.handle)
     if (permission === 'granted') {
       const open = await openVault(target.handle)
-      upsert(setFolders, { ...target, permission, storage: open.storage, fileCount: open.fileCount })
+      upsert(setFolders, {
+        ...target,
+        permission,
+        storage: open.storage,
+        fileCount: open.fileCount,
+      })
       setActiveId(id)
       await setLastActiveId(id)
       return
@@ -150,7 +155,13 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
     }
     restored.push(
       permission === 'granted'
-        ? { id: row.id, name: row.name, handle: row.handle, permission, storage: new FileSystemVaultStorage(row.handle) }
+        ? {
+            id: row.id,
+            name: row.name,
+            handle: row.handle,
+            permission,
+            storage: new FileSystemVaultStorage(row.handle),
+          }
         : { id: row.id, name: row.name, handle: row.handle, permission },
     )
   }
@@ -183,7 +194,10 @@ async function pickFolder(): Promise<FileSystemDirectoryHandle | null> {
   }
 }
 
-async function sameEntry(a: FileSystemDirectoryHandle, b: FileSystemDirectoryHandle): Promise<boolean> {
+async function sameEntry(
+  a: FileSystemDirectoryHandle,
+  b: FileSystemDirectoryHandle,
+): Promise<boolean> {
   // isSameEntry is baseline FSA; skip dedup when a browser lacks it.
   try {
     return await a.isSameEntry(b)

@@ -137,10 +137,12 @@ export function SearchBox({
     }
   }
 
-  const sections = ([
-    ['Pages', 'page'],
-    ['Journal', 'journal'],
-  ] as const)
+  const sections = (
+    [
+      ['Pages', 'page'],
+      ['Journal', 'journal'],
+    ] as const
+  )
     .map(([label, kind]) => ({
       label,
       items: visible.filter((r) => r.kind === kind),
@@ -229,11 +231,7 @@ export function SearchBox({
             ))}
           </div>
           {results !== null && results.length > 0 && (
-            <button
-              type="button"
-              className={styles.more}
-              onClick={openResults}
-            >
+            <button type="button" className={styles.more} onClick={openResults}>
               {`See all ${results.length} ${results.length === 1 ? 'result' : 'results'}`}
             </button>
           )}

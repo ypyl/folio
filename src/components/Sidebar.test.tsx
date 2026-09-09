@@ -2,7 +2,12 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
 
-const journal = { path: 'journals/2026-09-06.md', title: '2026-09-06', kind: 'journal' as const, content: '' }
+const journal = {
+  path: 'journals/2026-09-06.md',
+  title: '2026-09-06',
+  kind: 'journal' as const,
+  content: '',
+}
 const page = { path: 'notes.md', title: 'notes', kind: 'page' as const, content: '' }
 
 function sidebar(loading: boolean) {
@@ -22,7 +27,9 @@ describe('Sidebar', () => {
   it('renders sections and page rows when loaded', () => {
     sidebar(false)
     expect(screen.getByRole('button', { name: 'notes' })).toBeTruthy()
-    expect(within(screen.getByRole('complementary')).getAllByRole('button').length).toBeGreaterThan(0)
+    expect(within(screen.getByRole('complementary')).getAllByRole('button').length).toBeGreaterThan(
+      0,
+    )
   })
 
   it('shows skeleton rows and no page rows while the index builds', () => {
@@ -54,7 +61,7 @@ describe('Sidebar', () => {
 })
 
 describe('Sidebar pinned rows (add-pinned-pages)', () => {
-  const renderRows = (pages: typeof page[], pinnedPaths: string[], onSelect = vi.fn()) =>
+  const renderRows = (pages: (typeof page)[], pinnedPaths: string[], onSelect = vi.fn()) =>
     render(
       <Sidebar
         pages={pages}

@@ -92,18 +92,16 @@ export function StatusBar({
       <div className={styles.path} title={pagePath ?? undefined}>
         {hasDirs && (
           <span className={styles.crumbDirs}>
-            {segments
-              .slice(0, -1)
-              .map((segment, i) => (
-                <Fragment key={`${i}-${segment}`}>
-                  {i > 0 && (
-                    <span className={styles.crumbSep} aria-hidden="true">
-                      /
-                    </span>
-                  )}
-                  {segment}
-                </Fragment>
-              ))}
+            {segments.slice(0, -1).map((segment, i) => (
+              <Fragment key={`${i}-${segment}`}>
+                {i > 0 && (
+                  <span className={styles.crumbSep} aria-hidden="true">
+                    /
+                  </span>
+                )}
+                {segment}
+              </Fragment>
+            ))}
           </span>
         )}
         {hasDirs && (

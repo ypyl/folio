@@ -96,7 +96,11 @@ describe('JournalCalendar grid', () => {
   it('out-of-month cells are dimmed and clickable, hopping the month (D2)', () => {
     const onSelect = vi.fn()
     const { rerender } = render(
-      <JournalCalendar journalEntries={[]} activePath="journals/2026-09-06.md" onSelect={onSelect} />,
+      <JournalCalendar
+        journalEntries={[]}
+        activePath="journals/2026-09-06.md"
+        onSelect={onSelect}
+      />,
     )
     const leading = byDate('August 30, 2026')
     expect(leading.classList.contains(styles.dimmed)).toBe(true)
@@ -104,7 +108,11 @@ describe('JournalCalendar grid', () => {
     expect(onSelect).toHaveBeenCalledWith('journals/2026-08-30.md')
     // Opening the out-of-month day moves the grid into August.
     rerender(
-      <JournalCalendar journalEntries={[]} activePath="journals/2026-08-30.md" onSelect={onSelect} />,
+      <JournalCalendar
+        journalEntries={[]}
+        activePath="journals/2026-08-30.md"
+        onSelect={onSelect}
+      />,
     )
     expect(screen.getByText('August 2026')).toBeTruthy()
   })
@@ -133,7 +141,11 @@ describe('JournalCalendar grid', () => {
   it('opening a day after chevron drift re-anchors the grid to its month', () => {
     const onSelect = vi.fn()
     render(
-      <JournalCalendar journalEntries={[]} activePath="journals/2026-09-06.md" onSelect={onSelect} />,
+      <JournalCalendar
+        journalEntries={[]}
+        activePath="journals/2026-09-06.md"
+        onSelect={onSelect}
+      />,
     )
     expect(screen.getByText('September 2026')).toBeTruthy()
     // Browse away to August without opening anything.
@@ -149,8 +161,18 @@ describe('JournalCalendar grid', () => {
 })
 
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]
 
 function localTodayLabel(): string {

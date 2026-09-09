@@ -108,7 +108,9 @@ export function JournalCalendar({
       </div>
       <div className={styles.weekdays}>
         {WEEKDAYS.map((d, i) => (
-          <span key={i} className={styles.weekday}>{d}</span>
+          <span key={i} className={styles.weekday}>
+            {d}
+          </span>
         ))}
       </div>
       <div className={styles.grid}>

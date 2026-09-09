@@ -2,9 +2,9 @@ import type { VaultStorage } from './storage'
 
 // 'showDirectoryPicker' was removed from lib.dom in TS 6; declare the one
 // member the picker factory needs (Chromium implements the full API).
-declare function showDirectoryPicker(
-  options?: { mode?: 'read' | 'readwrite' },
-): Promise<FileSystemDirectoryHandle>
+declare function showDirectoryPicker(options?: {
+  mode?: 'read' | 'readwrite'
+}): Promise<FileSystemDirectoryHandle>
 
 // File System Access transport for the VaultStorage seam (ADR-0002, ADR-0013).
 // FSA resolves paths one segment at a time: getFileHandle/getDirectoryHandle
@@ -48,7 +48,8 @@ export class FileSystemVaultStorage implements VaultStorage {
 
   constructor(root: FileSystemDirectoryHandle) {
     this.root = root
-  }  async read(path: string): Promise<string> {
+  }
+  async read(path: string): Promise<string> {
     const segments = parsePath(path)
     if (segments.length === 0) throw new InvalidVaultPathError(path) // root is a directory
     const parent = await this.resolveDir(segments.slice(0, -1))

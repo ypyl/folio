@@ -142,7 +142,10 @@ describe('activate', () => {
     h.requestPermission = async () => 'denied'
     store.seed('work', 'prompt', 'work', h)
     const chosen = handle('chosen', 'granted')
-    vi.stubGlobal('showDirectoryPicker', vi.fn(async () => chosen as unknown as FileSystemDirectoryHandle))
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => chosen as unknown as FileSystemDirectoryHandle),
+    )
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.status).toBe('ready'))
     await act(() => result.current.activate('work'))
@@ -155,7 +158,10 @@ describe('activate', () => {
 describe('addFolder', () => {
   it('picks, stores, activates, and persists last active', async () => {
     const chosen = handle('notes', 'granted')
-    vi.stubGlobal('showDirectoryPicker', vi.fn(async () => chosen as unknown as FileSystemDirectoryHandle))
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => chosen as unknown as FileSystemDirectoryHandle),
+    )
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.status).toBe('ready'))
     await act(() => result.current.addFolder())
@@ -169,7 +175,10 @@ describe('addFolder', () => {
   it('keeps previously opened folders when adding', async () => {
     store.seed('work', 'granted')
     const chosen = handle('notes', 'granted')
-    vi.stubGlobal('showDirectoryPicker', vi.fn(async () => chosen as unknown as FileSystemDirectoryHandle))
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => chosen as unknown as FileSystemDirectoryHandle),
+    )
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.status).toBe('ready'))
     await act(() => result.current.addFolder())
@@ -178,9 +187,12 @@ describe('addFolder', () => {
   })
 
   it('does nothing when the picker is cancelled', async () => {
-    vi.stubGlobal('showDirectoryPicker', vi.fn(async () => {
-      throw new DOMException('The user aborted a request.', 'AbortError')
-    }))
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => {
+        throw new DOMException('The user aborted a request.', 'AbortError')
+      }),
+    )
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.status).toBe('ready'))
     await act(() => result.current.addFolder())
@@ -190,14 +202,20 @@ describe('addFolder', () => {
 
   it('dedups a re-picked folder and activates the existing entry', async () => {
     const first = fake('notes', 'granted')
-    vi.stubGlobal('showDirectoryPicker', vi.fn(async () => first as unknown as FileSystemDirectoryHandle))
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => first as unknown as FileSystemDirectoryHandle),
+    )
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.status).toBe('ready'))
     await act(() => result.current.addFolder())
     // re-pick the same physical folder (same _id, fresh handle object)
     const same = fake('notes', 'granted')
     same._id = first._id!
-    vi.stubGlobal('showDirectoryPicker', vi.fn(async () => same as unknown as FileSystemDirectoryHandle))
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => same as unknown as FileSystemDirectoryHandle),
+    )
     await act(() => result.current.addFolder())
     expect(result.current.folders).toHaveLength(1)
     expect(result.current.activeId).toBe(result.current.folders[0].id)
