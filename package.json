@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "fmt": "oxfmt src",
+    "fmt:check": "oxfmt --check src",
     "test": "vitest run --coverage",
     "gen:icons": "node scripts/gen-icons.mjs"
   },
@@ -37,6 +39,7 @@
     "@vitejs/plugin-react": "^6.1.0",
     "@vitest/coverage-istanbul": "^5.0.0",
     "jsdom": "^30.0.1",
+    "oxfmt": "^0.67.0",
     "oxlint": "^1.79.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
