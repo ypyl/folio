@@ -62,7 +62,7 @@
 }
 
 .document {
-  padding: 16px 48px 64px;
+  padding: 4px 32px 4px;
   position: relative; /* anchoring context for the line-number gutter */
 }
 
@@ -73,18 +73,18 @@
 .gutter {
   position: absolute;
   top: 16px;
-  bottom: 64px;
+  bottom: 4px;
   left: 0;
-  width: 48px;
+  width: 32px;
   pointer-events: none;
 }
 
 .gutterNum {
   position: absolute;
-  right: 16px; /* clear air between the number and the prose edge */
-  font-size: 12px;
+  right: 8px; /* clear air between the number and the prose edge */
+  font-size: 10px;
   color: var(--stone);
-  line-height: 1;
+  line-height: 0.8;
 }
 
 /* The Milkdown surface (design D3): thin Kami-token theme over the editor's

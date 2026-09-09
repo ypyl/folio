@@ -4,7 +4,7 @@
   overflow-y: auto;
   /* Top aligned with the other workspace columns; a small left padding so
      rows sit just off the sidebar's edge without reserving a star slot. */
-  padding: 16px 16px 16px 4px;
+  padding: 4px 16px 4px 4px;
   min-width: 0;
 }
 
