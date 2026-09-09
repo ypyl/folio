@@ -18,15 +18,27 @@ Opening a page SHALL put its content in an editable, WYSIWYG Markdown surface in
 - **THEN** the serialized content is Markdown that preserves those edits
 
 ### Requirement: Paste inserts only the plain text of the clipboard
-Pasting into the editor SHALL insert the clipboard's plain text literally at the current selection and SHALL ignore any rich-text or HTML fragment the clipboard carries. Pasted text SHALL NOT be interpreted as Markdown: text that resembles Markdown syntax — `**bold**`, `*italic*`, `` `code` ``, `# heading`, `- list`, bare URLs — SHALL appear as the literal characters pasted and SHALL remain literal after the page is saved and reopened. Line breaks in pasted text SHALL be preserved. Pasting a clipboard that carries no text (for example, copied files) SHALL leave the document unchanged.
+Pasting into the editor SHALL read the clipboard's plain text and SHALL ignore any rich-text or HTML fragment the clipboard carries. When the pasted text resembles a Markdown document — any line that opens a fenced code block, or at least two non-blank lines starting with block-level Markdown markers (ATX heading, blockquote, unordered or ordered list item, table row, thematic break) making up at least half of the non-blank lines — the editor SHALL interpret the pasted text as Markdown: headings, lists, blockquotes, code fences, emphasis, links, and other Markdown constructs SHALL appear as the corresponding blocks and formatting. Otherwise, pasted text SHALL be inserted literally: text that merely contains inline Markdown markers without block structure (such as `**bold**`, `*italic*`, `` `code` ``, or bare URLs) SHALL appear as the literal characters pasted and SHALL remain literal after the page is saved and reopened. Line breaks in pasted text SHALL be preserved. Pressing the paste shortcut with the shift modifier (Mod+Shift+V / Ctrl+Shift+V) SHALL insert the literal text verbatim, bypassing Markdown interpretation. Pasting a clipboard that carries no text (for example, copied files) SHALL leave the document unchanged.
 
 #### Scenario: Pasting formatted web text stays plain
 - **WHEN** the user copies formatted text from a web page (rich HTML with bold, italic, and code runs) and pastes it into an open page
 - **THEN** the pasted text appears as plain text with no bold, italic, code, or link formatting, and the saved Markdown contains no formatting markers for that text
 
+#### Scenario: A Markdown document pastes as structure
+- **WHEN** the user pastes a multi-block Markdown document (a heading, a bullet list, and a fenced code block)
+- **THEN** the editor shows a real heading, a real list, and a real code block, and the saved Markdown contains that structure with no escape backslashes; reopening the page shows the same structure
+
 #### Scenario: Markdown-looking text stays literal
 - **WHEN** the user pastes the text `**wow**` into the editor
 - **THEN** the editor shows the literal characters `**wow**`, the text is not bold, and after the page is saved and reopened the text still appears as the literal characters `**wow**`
+
+#### Scenario: A lone heading line stays literal
+- **WHEN** the user pastes only the single line `# Title` into the editor
+- **THEN** the line is not converted into a heading; it appears as the literal text `# Title` and remains non-heading text after the page is saved and reopened
+
+#### Scenario: A shift-modifier paste forces literal text
+- **WHEN** the user pastes a Markdown document while holding the shift modifier (Mod+Shift+V / Ctrl+Shift+V)
+- **THEN** the text is inserted literally with no Markdown interpretation, and it round-trips like any other literal text (escaped in the saved Markdown, identical after reopen)
 
 #### Scenario: Multi-line paste keeps its line breaks
 - **WHEN** the user pastes text containing multiple lines
@@ -182,7 +194,7 @@ A code block in the editor SHALL render as a dedicated multi-line code editing s
 #### Scenario: Pasting outside a code block stays plain text
 
 - **WHEN** the user pastes formatted text while the caret is outside any code block
-- **THEN** the existing paste-as-plain-text behavior applies unchanged: only the clipboard's plain text is inserted, verbatim
+- **THEN** only the clipboard's plain text is used and rich formatting is ignored; whether that text is interpreted as Markdown is decided by the paste rule (markdown-aware paste), never by the code surface
 
 ### Requirement: The editor shows block line numbers
 

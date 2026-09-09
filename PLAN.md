@@ -35,4 +35,6 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - add links as badges in page so they are visible
 - I don't like how shortcut helper popup looks like
 - add some reasonable limitation to markdown file
-- allow to insert markdown
+
+- help not in the corner lie button and modal window, but like accordion item in the bottom of the right side bar
+- allow to select text on the page and move it to a new page
