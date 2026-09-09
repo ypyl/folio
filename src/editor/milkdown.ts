@@ -19,6 +19,7 @@ import {
   codeBlockExtensions,
   codeBlockLanguages,
 } from './codeBlockSetup'
+import { looksLikeMarkdown } from './markdownLike'
 import { blockStartLines } from '../lineAnchors'
 import type { EditorAdapter } from './editor'
 
@@ -44,27 +45,43 @@ export class MilkdownAdapter implements EditorAdapter {
     const editor = await Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, el)
-        // Paste is the clipboard's plain text, verbatim (paste-as-plain-text).
-        // The default ProseMirror path parses the HTML fragment through the
-        // schema's parseDOM and plants invisible bold/italic/code marks and
-        // links that a WYSIWYG view cannot un-format. Inserting the raw text
-        // keeps `**wow**` literal: the serializer escapes markdown-significant
-        // runs (`\*\*wow\*\*`) so a reload re-parses to the same text and the
-        // Markdown stays canonical (ADR-0001). A clipboard with no text
-        // (copied files) falls through to the default handler.
+        // Paste is markdown-aware (paste-as-markdown): the clipboard's plain
+        // text is inserted either literally or — when it resembles a Markdown
+        // document (looksLikeMarkdown) — parsed into real blocks and
+        // formatting. The default ProseMirror path parses the HTML fragment
+        // through the schema's parseDOM and plants invisible bold/italic/code
+        // marks and links that a WYSIWYG view cannot un-format; reading only
+        // text/plain keeps that pollution out no matter which branch runs.
+        // Literal inserts stay canonical (ADR-0001): the serializer escapes
+        // markdown-significant runs (`\*\*wow\*\*`) so a reload re-parses to
+        // the same text. Mod+Shift+V is the universal "plain text" paste and
+        // forces the literal branch, bypassing the sniff. A clipboard with no
+        // text (copied files) falls through to the default handler.
         ctx.update(editorViewOptionsCtx, (prev) => ({
           ...prev,
           handlePaste: (view, event) => {
             // A paste aimed at a code block belongs to its CodeMirror surface
             // (code-block-component): CM keeps multiline text and indentation
-            // there. Yield to it; all other pastes stay plain-text below.
+            // there. Yield to it; all other pastes follow the paste rule.
             if (event.target instanceof HTMLElement && event.target.closest('.cm-editor')) {
               return false
             }
             const text = event.clipboardData?.getData('text/plain')
             if (!text) return false
-            const { from, to } = view.state.selection
-            view.dispatch(view.state.tr.insertText(text, from, to))
+            // The DOM lib types ClipboardEvent without the modifier keys the
+            // browser actually provides; read them via the shared shape.
+            const mods = event as ClipboardEvent & {
+              shiftKey: boolean
+              ctrlKey: boolean
+              metaKey: boolean
+            }
+            const forceLiteral = mods.shiftKey && (mods.ctrlKey || mods.metaKey)
+            if (forceLiteral || !looksLikeMarkdown(text)) {
+              const { from, to } = view.state.selection
+              view.dispatch(view.state.tr.insertText(text, from, to))
+            } else {
+              this.insertParsedMarkdown(text)
+            }
             return true
           },
         }))
@@ -131,26 +148,66 @@ export class MilkdownAdapter implements EditorAdapter {
   }
 
   insertMarkdown(markdown: string): void {
+    this.insertParsedMarkdown(markdown)
+  }
+
+  /** Parse `markdown` into nodes and replace the selection with them.
+   *  Shared by drops (`insertMarkdown`) and markdown-aware paste; parsing
+   *  builds real nodes, whereas tr.insertText would insert escaped literal
+   *  text that serializes back with `\[`/`\(` escapes and degrades to
+   *  plain text on the next reload (ADR-0008 round-trip). */
+  private insertParsedMarkdown(markdown: string): void {
     const editor = this.editor
     if (!editor) return
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
-      // Parse the payload as nodes, not literal text: typing `![..](..)` builds a
-      // real image/link node, whereas tr.insertText would insert escaped literal
-      // text that serializes back with `\[`/`\(` escapes and degrades to plain
-      // text on the next reload (ADR-0008 round-trip).
       const parsed = ctx.get(parserCtx)(markdown)
       const single = parsed.content.childCount === 1
       const first = parsed.content.firstChild
+      // When the caret sits in an empty top-level paragraph (a fresh page's
+      // placeholder line), insert into its place rather than after it, so a
+      // pasted document starts at the top of the page instead of below a
+      // stray blank line.
+      const resolved = view.state.doc.resolve(view.state.selection.from)
+      const replaceEmptyParagraph =
+        resolved.parent.isTextblock &&
+        resolved.parent.content.size === 0 &&
+        resolved.depth === 1
       if (single && first && first.isTextblock) {
         // Inline payload (single paragraph: an image or link): drop the wrapper
         // paragraph and insert its inline children so the node lands on the
         // caret's own line — an empty new line stays the line the image is on.
         const { from, to } = view.state.selection
         view.dispatch(view.state.tr.replaceWith(from, to, first.content))
+      } else if (single) {
+        if (replaceEmptyParagraph) {
+          view.dispatch(
+            view.state.tr.replaceWith(
+              resolved.before(resolved.depth),
+              resolved.after(resolved.depth),
+              parsed.content,
+            ),
+          )
+        } else {
+          view.dispatch(view.state.tr.replaceSelectionWith(first!))
+        }
       } else {
-        const node = single ? first! : parsed
-        view.dispatch(view.state.tr.replaceSelectionWith(node))
+        // Multi-block payload (a pasted document): replace the selection (or
+        // the empty paragraph it sits in) with the parsed block fragment
+        // (replaceWith accepts a Fragment, same as setContent's seed);
+        // ProseMirror splits surrounding text as needed.
+        const { from, to } = view.state.selection
+        if (replaceEmptyParagraph) {
+          view.dispatch(
+            view.state.tr.replaceWith(
+              resolved.before(resolved.depth),
+              resolved.after(resolved.depth),
+              parsed.content,
+            ),
+          )
+        } else {
+          view.dispatch(view.state.tr.replaceWith(from, to, parsed.content))
+        }
       }
     })
   }

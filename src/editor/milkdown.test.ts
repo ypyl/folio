@@ -98,14 +98,16 @@ describe('MilkdownAdapter (smoke)', () => {
     el.remove()
   })
 
-// Paste behaves as plain text (paste-as-plain-text): the clipboard contributes
-// only its plain text, verbatim. A real `paste` event is dispatched onto the
-// editor DOM with a faked `clipboardData` (jsdom has no ClipboardEvent data),
-// so the event flows through ProseMirror's own paste pipeline into the
+// Paste follows the paste rule (paste-as-markdown): the clipboard contributes
+// only its plain text — HTML fragments are ignored — and the text is inserted
+// literally unless it resembles a Markdown document, in which case it is
+// parsed into real blocks and formatting. A real `paste` event is dispatched
+// onto the editor DOM with a faked `clipboardData` (jsdom has no ClipboardEvent
+// data), so the event flows through ProseMirror's own paste pipeline into the
 // adapter's handlePaste prop — these tests exercise the real wiring, not a
 // direct call. Typing is unaffected by construction: the handler bypasses the
-// parser and input rules entirely, and jsdom cannot drive keystrokes
-// (no execCommand), so that regression guard is by review only.
+// input rules entirely, and jsdom cannot drive keystrokes (no execCommand), so
+// that regression guard is by review only.
 
 type AdapterEditor = {
   editor: { action: (f: (ctx: unknown) => unknown) => unknown }
@@ -129,7 +131,12 @@ const viewText = (adapter: MilkdownAdapter): string =>
     return view.dom.textContent
   }) as string
 
-const paste = (adapter: MilkdownAdapter, plain: string, html = '') => {
+const paste = (
+  adapter: MilkdownAdapter,
+  plain: string,
+  html = '',
+  mods: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean } = {},
+) => {
   editorOf(adapter).action((ctx) => {
     const access = ctx as { get: (k: unknown) => unknown }
     const view = access.get(editorViewCtx) as { dom: HTMLElement }
@@ -137,6 +144,9 @@ const paste = (adapter: MilkdownAdapter, plain: string, html = '') => {
     Object.defineProperty(event, 'clipboardData', {
       value: { getData: (type: string) => (type === 'text/plain' ? plain : html) },
     })
+    for (const [key, value] of Object.entries(mods)) {
+      Object.defineProperty(event, key, { value })
+    }
     view.dom.dispatchEvent(event)
   })
 }
@@ -149,7 +159,7 @@ const mountForPaste = async () => {
   return { adapter, el }
 }
 
-describe('MilkdownAdapter (paste as plain text)', () => {
+describe('MilkdownAdapter (paste)', () => {
   it('pastes only the plain text of a formatted web copy', async () => {
     const { adapter, el } = await mountForPaste()
     await adapter.setContent('')
@@ -202,6 +212,109 @@ describe('MilkdownAdapter (paste as plain text)', () => {
     // The fall-through path settles asynchronously.
     await new Promise((r) => setTimeout(r, 150))
     expect(serialize(adapter)).toBe('existing\n')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('pastes a markdown document as real structure', async () => {
+    const { adapter, el } = await mountForPaste()
+    await adapter.setContent('')
+    paste(
+      adapter,
+      [
+        '# Sample Markdown',
+        '',
+        '- Item one',
+        '- Item two',
+        '- Item three',
+        '',
+        '```js',
+        'const x = 1',
+        '```',
+      ].join('\n'),
+    )
+    const doc = serialize(adapter)
+    // Real structure, not escaped literals: heading, list, and fence nodes,
+    // and the document starts at the heading — the empty placeholder
+    // paragraph is replaced, not left behind. (Tight lists re-serialize with
+    // `*` — normalization, not escapes.)
+    expect(doc.startsWith('# Sample Markdown')).toBe(true)
+    expect(doc).toContain('Item one')
+    expect(doc).toContain('```js')
+    expect(doc).not.toContain('\\#')
+    expect(doc).not.toContain('\\-')
+    // The fenced block mounts the code surface.
+    await new Promise((r) => setTimeout(r, 200))
+    expect(el.querySelector('.milkdown-code-block .cm-editor')).toBeTruthy()
+    // Saving and reopening yields the same structure (spec: a Markdown
+    // document pastes as structure).
+    await adapter.setContent(doc)
+    expect(serialize(adapter)).toBe(doc)
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('keeps a lone heading line literal across save and reopen', async () => {
+    const { adapter, el } = await mountForPaste()
+    await adapter.setContent('')
+    paste(adapter, '# Title')
+    // The WYSIWYG shows the literal characters; no heading block exists.
+    expect(viewText(adapter)).toContain('# Title')
+    const doc = serialize(adapter)
+    expect(doc).toContain('\\# Title')
+    expect(doc).not.toMatch(/^# Title/m)
+    // Reopen: identical literal text, still not a heading (spec: a lone
+    // heading line stays literal).
+    await adapter.setContent(doc)
+    expect(serialize(adapter)).toBe(doc)
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('forces literal text with the shift modifier (Mod+Shift+V)', async () => {
+    const { adapter, el } = await mountForPaste()
+    await adapter.setContent('')
+    // This text WOULD parse as Markdown (heading + list); the modifier must
+    // short-circuit the sniff and take the literal path (spec: a
+    // shift-modifier paste forces literal text).
+    paste(adapter, '# Heading\n- item', '', { ctrlKey: true, shiftKey: true })
+    const doc = serialize(adapter)
+    expect(doc).toContain('\\# Heading')
+    expect(doc).toContain('\\- item')
+    await adapter.setContent(doc)
+    expect(serialize(adapter)).toBe(doc)
+    // The meta variant behaves the same.
+    await adapter.setContent('')
+    paste(adapter, '# Heading2\n- item2', '', { metaKey: true, shiftKey: true })
+    expect(serialize(adapter)).toContain('\\# Heading2')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('keeps a paste aimed at a code block on the code surface', async () => {
+    const { adapter, el } = await mountForPaste()
+    const fenced = '```js\nconst x = 1\n```\n'
+    await adapter.setContent(fenced)
+    await new Promise((r) => setTimeout(r, 200))
+    const cm = el.querySelector('.cm-editor')
+    expect(cm).toBeTruthy()
+    // A markdown-lookalike paste aimed at the code surface must not route
+    // through markdown interpretation: the handler yields to CodeMirror, so
+    // no heading/list is created and the fence stays the document's first
+    // block (spec: pasting inside a code block is handled by the code
+    // surface). What CM does with the clipboard text is its own domain;
+    // jsdom pins the routing boundary only.
+    const event = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        getData: (type: string) => (type === 'text/plain' ? '# Heading\n- item' : ''),
+      },
+    })
+    ;(cm as HTMLElement).dispatchEvent(event)
+    await new Promise((r) => setTimeout(r, 300))
+    const doc = serialize(adapter)
+    expect(doc.startsWith('```')).toBe(true)
+    expect(doc).toContain('```js')
     await adapter.destroy()
     el.remove()
   })
