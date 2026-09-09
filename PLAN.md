@@ -18,6 +18,8 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 12. [x] **PWA** — offline-capable precache, installable, icon.
 13. [x] **File breadcrumb** — the open page's vault-relative path rendered as a segmented, non-interactive breadcrumb at the top of the editor pane (sticky, directories truncate first), so the real file name behind the title is always visible.
 14. [x] **Status bar** — a thin app-level bar below the workspace consolidating all status: the file-path breadcrumb, the save/indexing status text (after the breadcrumb, divider-separated), the vault name · file count, and the `?` help button in the far-right corner (its dialog also closes on outside clicks). The pane's own status layers and the header's right slot are gone.
+15. [x] **Line numbers** — the editor gutter numbers each block's first line (sparse signature: 1, 3, 5; lists get one number), and search results show `· line N` for text matches, so a highlighted match is easy to locate in the document.
+16. [x] **Pinned pages** — star the open page from the status bar's leading corner (enabled for pages only; journal days, unmaterialized pages, and search results disable it): pins persist as an ordered list in the vault's hidden `.folio/pins.md` (ADR-0015), pinned pages lead the Pages section in pin order with a bolder title style, and the remaining pages sort by last-edited descending.
 
 ## Later ideas
 
@@ -29,9 +31,8 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - **Non-date journal files in the calendar** — files under `journals/` that aren't `YYYY-MM-DD` (e.g. `journals/notes.md`) render no calendar cell; the calendar replaced the day list that used to surface them. Decide the escape hatch (a small "other journal files" list) when the vault actually has such files.
 - **Reference-aware asset deletion** — decide the semantics when a page/asset is deleted: does removing the last reference delete the file? Needs explicit confirmation; today deleting a link leaves the asset on disk (safe default).
 
-- add number for lines in editor and add number of lines to search -> so it is easy to find highlighted text
-- favority pages (so I can mark todo) and show them at the top
-- order pages by date created in desc: so favorites (ordered in desc when it was marked), than pages ordered by desc when they were edited
 - start adding version -> near the title badge
 - add links as badges in page so they are visible
 - I don't like how shortcut helper popup looks like
+- add some reasonable limitation to markdown file
+- allow to insert markdown
