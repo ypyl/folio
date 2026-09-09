@@ -7,7 +7,7 @@ import type { Page } from '../page'
 import { parseLinks, type Link } from './parse'
 import type { VaultStorage } from './storage'
 
-export type IndexPage = Page & { links: Link[] }
+export type IndexPage = Page & { links: Link[]; lastModified: number }
 
 export type Graph = {
   /** Pages keyed by vault-relative path (design D1). */
@@ -18,11 +18,18 @@ export type Graph = {
   backlinks: Map<string, string[]>
 }
 
+/** The vault's hidden pin meta file (design D1): an ordered list of page
+ *  paths, most recently pinned first. Its dot-directory keeps it out of the
+ *  page index and search (isPagePath excludes hidden segments). */
+export const PINS_PATH = '.folio/pins.md'
+
 /** A built index plus the mtime snapshot it was derived from (design D3). */
 export type VaultIndex = {
   graph: Graph
   /** path -> lastModified at scan time, for the next diff. */
   snapshot: Map<string, number>
+  /** Ordered pinned page paths from the meta file, most recently pinned first. */
+  pins: string[]
 }
 
 /** Full or incremental scan (design D3): with `previous` given, only files
@@ -52,9 +59,34 @@ export async function buildIndex(
       kind: kindOf(path),
       content,
       links: parseLinks(content),
+      lastModified,
     })
   }
-  return { graph: fold(pages), snapshot }
+  const pins = await readPins(storage, previous, snapshot)
+  return { graph: fold(pages), snapshot, pins }
+}
+
+/** Read the pins meta file into the index (design D1/D3). A missing file is
+ *  the empty list — `VaultStorage.read`/`stat` reject on missing paths
+ *  (ADR-0013), so absence must be caught, not propagated. The file's mtime
+ *  joins the snapshot, so refresh re-reads pins only when the file changed
+ *  (external edits reach the index on the app's scan, like page changes). */
+async function readPins(
+  storage: VaultStorage,
+  previous: VaultIndex | undefined,
+  snapshot: Map<string, number>,
+): Promise<string[]> {
+  let mtime: number
+  try {
+    mtime = await storage.stat(PINS_PATH)
+  } catch {
+    return [] // no meta file: nothing pinned
+  }
+  snapshot.set(PINS_PATH, mtime)
+  if (previous && previous.snapshot.get(PINS_PATH) === mtime) {
+    return previous.pins
+  }
+  return parsePins(await storage.read(PINS_PATH))
 }
 
 /** Incremental rescan of the same folder (task 2.4): diffs against the
@@ -83,10 +115,38 @@ export async function upsertPage(
     kind: kindOf(path),
     content,
     links: parseLinks(content),
+    lastModified,
   })
   const snapshot = new Map(current.snapshot)
   snapshot.set(path, lastModified)
-  return { graph: fold(pages), snapshot }
+  return { graph: fold(pages), snapshot, pins: current.pins }
+}
+
+/** Write-through for pin edits (design D1/D3), mirroring upsertPage: write
+ *  the meta file, re-read its mtime, and heal the snapshot so the next
+ *  diff-rescan skips it. Non-optimistic by construction — the pins change in
+ *  memory only after the write resolves, so a failed write leaves the index
+ *  consistent with disk. */
+export async function upsertPins(
+  storage: VaultStorage,
+  current: VaultIndex,
+  pins: string[],
+): Promise<VaultIndex> {
+  await storage.write(PINS_PATH, renderPins(pins))
+  const lastModified = await storage.stat(PINS_PATH)
+  const snapshot = new Map(current.snapshot)
+  snapshot.set(PINS_PATH, lastModified)
+  return { graph: current.graph, snapshot, pins }
+}
+
+const PINS_HEADER = '# Pinned pages - order is pin order, most recent first'
+
+/** The on-disk form of the pins list (design D1): a markdown header, then
+ *  one `- <path>` line per pin. An empty list still writes the header so the
+ *  file is a stable, parseable artifact (parsePins ignores it). */
+function renderPins(pins: string[]): string {
+  const body = pins.map((pin) => `- ${pin}`).join('\n')
+  return body === '' ? `${PINS_HEADER}\n` : `${PINS_HEADER}\n\n${body}\n`
 }
 
 function carryOver(path: string, lastModified: number, previous: VaultIndex): IndexPage | undefined {
@@ -104,6 +164,44 @@ export function isPagePath(path: string): boolean {
     if (segment.startsWith('.')) return false
   }
   return true
+}
+
+/** Parse the pins meta file: an ordered list of page paths (design D1).
+ *  Header comments (`# ...`), blank lines, and lines that are not valid page
+ *  paths are ignored; a leading `- ` list marker is stripped. Order is
+ *  preserved — the file's line order IS the pin order (most recent first). */
+export function parsePins(content: string): string[] {
+  const pins: string[] = []
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim()
+    if (line === '' || line.startsWith('#')) continue
+    const candidate = line.startsWith('-') ? line.slice(1).trim() : line
+    if (isPagePath(candidate)) pins.push(candidate)
+  }
+  return pins
+}
+
+/** Order the sidebar Pages list (design D5, static-navigation delta): pinned
+ *  pages first in pin order (most recently pinned first), then the remaining
+ *  pages by last-modified descending — path-ascending tiebreak for a stable
+ *  listing. Pins naming no page in the set are skipped (self-healing: a
+ *  deleted page's pin stays in the file but renders nowhere). */
+export function orderPages(pages: Iterable<IndexPage>, pins: string[]): IndexPage[] {
+  const byPath = new Map<string, IndexPage>()
+  for (const page of pages) byPath.set(page.path, page)
+  const pinned = new Set(pins)
+  const pinnedRows: IndexPage[] = []
+  const shown = new Set<string>()
+  for (const path of pins) {
+    const page = byPath.get(path)
+    if (page && !shown.has(page.path)) {
+      pinnedRows.push(page)
+      shown.add(page.path)
+    }
+  }
+  const rest = [...byPath.values()].filter((page) => !pinned.has(page.path))
+  rest.sort((a, b) => b.lastModified - a.lastModified || a.path.localeCompare(b.path))
+  return [...pinnedRows, ...rest]
 }
 
 /** Title = filename with the final `.md` removed (design D1). */

@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import type { DraftStatus } from '../editor/drafts'
 import { SHORTCUTS_DIALOG_ID } from './shortcuts'
+import { StarIcon } from './StarIcon'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
@@ -9,7 +10,7 @@ import styles from './StatusBar.module.css'
 // button (center), and the active vault's name and file count (right). The
 // bar sits outside all pane scroll regions, so its content never scrolls.
 // Groups empty when their content has no source; the help button is the only
-// action in the bar.
+// non-pin action in the bar.
 
 // Save-state copy (moved from the pane's SaveIndicator, page-editing spec):
 // muted text, never a badge.
@@ -17,6 +18,14 @@ const SAVE_LABELS: Record<Exclude<DraftStatus, 'clean'>, string> = {
   dirty: 'Unsaved changes',
   saving: 'Saving…',
   failed: 'Save failed',
+}
+
+// The pin toggle's label stem: the open page's filename without .md (the
+// journal date reads naturally too); a placeholder when no page is open.
+function pinName(pagePath: string | null): string {
+  if (pagePath === null) return 'page'
+  const name = pagePath.slice(pagePath.lastIndexOf('/') + 1)
+  return name.replace(/\.md$/i, '')
 }
 
 export function StatusBar({
@@ -28,6 +37,9 @@ export function StatusBar({
   fileCount,
   onHelp,
   helpOpen,
+  pinned = false,
+  canPin = false,
+  onTogglePin,
 }: {
   /** The open page's vault-relative path, or null when no page is open. */
   pagePath: string | null
@@ -42,6 +54,13 @@ export function StatusBar({
   onHelp?: () => void
   /** Whether the shortcuts dialog is open (button's aria-expanded state). */
   helpOpen?: boolean
+  /** The open page is pinned (add-pinned-pages). */
+  pinned?: boolean
+  /** The star is usable: a file-backed page is open — not a journal day, an
+   *  unmaterialized page, or the results view. */
+  canPin?: boolean
+  /** Toggles the open page's pin from the bar's leading star. */
+  onTogglePin?: () => void
 }) {
   const segments = pagePath?.split('/') ?? []
   const hasDirs = segments.length > 1
@@ -57,6 +76,19 @@ export function StatusBar({
 
   return (
     <footer className={styles.bar}>
+      {onTogglePin && (
+        <button
+          type="button"
+          className={`${styles.pin}${pinned ? ` ${styles.pinActive}` : ''}`}
+          onClick={onTogglePin}
+          disabled={!canPin}
+          aria-pressed={pinned}
+          aria-label={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
+          title={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
+        >
+          <StarIcon filled={pinned} className={styles.pinIcon} />
+        </button>
+      )}
       <div className={styles.path} title={pagePath ?? undefined}>
         {hasDirs && (
           <span className={styles.crumbDirs}>

@@ -195,6 +195,20 @@ one number, code blocks keep their embedded editor's local numbering plus the
 outer block anchor. Addresses follow Folio's canonical form — a legacy page
 with soft-wrapped paragraphs renumbers on its first save.
 
+### Pin star (row icon + status-bar toggle)
+
+The pin toggle lives in the **status bar's leading corner**, before the
+file path — a 24px square button showing a 14px star: filled `--brand`
+(ink-blue) when the open page is pinned, outline `--stone` otherwise.
+Disabled state (journal day, unmaterialized page, results view) is a dimmed
+down-level star; the button carries `aria-pressed`, the glyph is
+`aria-hidden`.
+
+In the Pages list, pinned rows are marked by the **row's own style** — a
+bolder, near-black title (plus `data-pinned`) — never an icon or extra
+control. A second chromatic color must not appear (Kami rule); the status
+bar's star glyph is `src/components/StarIcon.tsx`.
+
 ### Tables
 
 Editorial: no framed box, no tinted header bar, no vertical rules. Hairline

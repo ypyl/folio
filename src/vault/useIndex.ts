@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildIndex, refreshIndex, upsertPage, type Graph, type VaultIndex } from './index'
+import { buildIndex, refreshIndex, upsertPage, upsertPins, type Graph, type VaultIndex } from './index'
 import type { VaultStorage } from './storage'
 
 // Binds the active folder's storage to its in-memory graph (design D6).
@@ -11,13 +11,16 @@ const REFRESH_INTERVAL_MS = 30_000
 
 export function useIndex(storage: VaultStorage | undefined): {
   graph: Graph | null
+  pins: string[]
   savePage: (path: string, content: string) => Promise<boolean>
+  togglePin: (path: string) => Promise<boolean>
 } {
   // The build result is tagged with the storage it came from and only shown
   // for that storage during render, so a folder switch derives a null graph
   // immediately (no stale flash) without a synchronous reset in the effect.
-  const [built, setBuilt] = useState<{ storage: VaultStorage; graph: Graph } | null>(null)
+  const [built, setBuilt] = useState<{ storage: VaultStorage; graph: Graph; pins: string[] } | null>(null)
   const graph = built !== null && built.storage === storage ? built.graph : null
+  const pins = built !== null && built.storage === storage ? built.pins : []
   const latest = useRef<VaultIndex | null>(null)
   const inflight = useRef(false)
   // Generation counter: bumped when the storage changes, so an in-flight save
@@ -40,7 +43,7 @@ export function useIndex(storage: VaultStorage | undefined): {
       .then((index) => {
         if (cancelled) return
         latest.current = index
-        setBuilt({ storage: store, graph: index.graph })
+        setBuilt({ storage: store, graph: index.graph, pins: index.pins })
       })
       .catch(() => {
         // Permission/folder failures keep the current state (no error UI).
@@ -57,7 +60,7 @@ export function useIndex(storage: VaultStorage | undefined): {
         const next = await refreshIndex(store, current)
         if (cancelled) return
         latest.current = next
-        setBuilt({ storage: store, graph: next.graph })
+        setBuilt({ storage: store, graph: next.graph, pins: next.pins })
       } finally {
         inflight.current = false
       }
@@ -101,7 +104,7 @@ export function useIndex(storage: VaultStorage | undefined): {
         // to touch — drop the result instead of corrupting it.
         if (genAtStart !== generation.current) return true
         latest.current = next
-        setBuilt({ storage: store, graph: next.graph })
+        setBuilt({ storage: store, graph: next.graph, pins: next.pins })
         return true
       } catch {
         return false
@@ -116,7 +119,39 @@ export function useIndex(storage: VaultStorage | undefined): {
     [],
   )
 
-  return { graph,
-    savePage,
-  }
+  // Write-through pin toggle (design D1/D3), same shape as savePage: flip
+  // membership, prepend on pin (most recently pinned first), persist via
+  // upsertPins, non-optimistic — a failed write reports false and the pins
+  // stay as they were.
+  const togglePinRef = useRef<(path: string) => Promise<boolean>>(async () => false)
+  useEffect(() => {
+    const store = storage
+    togglePinRef.current = async (path: string): Promise<boolean> => {
+      const current = latest.current
+      if (!store || !current) return false
+      const genAtStart = generation.current
+      try {
+        const pinned = current.pins.includes(path)
+        const nextPins = pinned ? current.pins.filter((p) => p !== path) : [path, ...current.pins]
+        const next = await upsertPins(store, current, nextPins)
+        // A folder switch while the write was in flight: the pins file was
+        // written into that folder, but the new folder's index is not ours
+        // to touch — drop the result instead of corrupting it.
+        if (genAtStart !== generation.current) return true
+        latest.current = next
+        setBuilt({ storage: store, graph: next.graph, pins: next.pins })
+        return true
+      } catch {
+        return false
+      }
+    }
+  })
+  // Stable identity regardless of re-renders (the effect above repoints the
+  // underlying ref), so callers can hold this in effect dependencies.
+  const togglePin = useCallback(
+    (path: string): Promise<boolean> => togglePinRef.current(path),
+    [],
+  )
+
+  return { graph, pins, savePage, togglePin }
 }

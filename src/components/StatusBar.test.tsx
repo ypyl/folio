@@ -128,4 +128,46 @@ describe('StatusBar', () => {
       expect(buttons[0].getAttribute('aria-label')).toBe('Keyboard shortcuts')
     })
   })
+
+  describe('pin toggle (add-pinned-pages)', () => {
+    it('is absent without a toggle handler', () => {
+      render(<StatusBar pagePath="a.md" />)
+      expect(screen.queryByRole('button', { name: /^Pin / })).toBeNull()
+    })
+
+    it('leads the bar before the path group', () => {
+      const { container } = render(<StatusBar pagePath="a.md" onTogglePin={() => {}} />)
+      const pin = container.querySelector(`.${styles.pin}`)
+      const path = container.querySelector(`.${styles.path}`)
+      const result = pin!.compareDocumentPosition(path!)
+      expect(result & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('is disabled when the open surface cannot be pinned (journal day, no file)', () => {
+      render(<StatusBar pagePath="journals/2026-09-09.md" onTogglePin={() => {}} />)
+      const pin = screen.getByRole('button', { name: 'Pin 2026-09-09' }) as HTMLButtonElement
+      expect(pin.disabled).toBe(true)
+    })
+
+    it('is enabled for a pinnable page and reports the unpinned state', () => {
+      render(<StatusBar pagePath="a.md" canPin onTogglePin={() => {}} />)
+      const pin = screen.getByRole('button', { name: 'Pin a' }) as HTMLButtonElement
+      expect(pin.disabled).toBe(false)
+      expect(pin.getAttribute('aria-pressed')).toBe('false')
+    })
+
+    it('reads as unpin with aria-pressed true when the page is pinned', () => {
+      render(<StatusBar pagePath="a.md" canPin pinned onTogglePin={() => {}} />)
+      const pin = screen.getByRole('button', { name: 'Unpin a' }) as HTMLButtonElement
+      expect(pin.disabled).toBe(false)
+      expect(pin.getAttribute('aria-pressed')).toBe('true')
+    })
+
+    it('activates the handler on click', () => {
+      const onTogglePin = vi.fn()
+      render(<StatusBar pagePath="a.md" canPin onTogglePin={onTogglePin} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Pin a' }))
+      expect(onTogglePin).toHaveBeenCalledTimes(1)
+    })
+  })
 })

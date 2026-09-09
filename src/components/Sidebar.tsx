@@ -12,6 +12,7 @@ export function Sidebar({
   journalEntries,
   activePath,
   onSelect,
+  pinnedPaths = [],
   hasVault,
   loading = false,
 }: {
@@ -19,23 +20,34 @@ export function Sidebar({
   journalEntries: Page[]
   activePath: string | null
   onSelect: (path: string) => void
+  /** Pinned page paths, in pin order (most recently pinned first); pinned
+   *  rows render a non-interactive star marker (add-pinned-pages). */
+  pinnedPaths?: string[]
   /** A folder is open and indexed; gates the journal calendar (D6). */
   hasVault: boolean
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
 }) {
-  const renderRow = (page: Page) => (
-    <button
-      key={page.path}
-      type="button"
-      className={styles.row}
-      data-active={page.path === activePath || undefined}
-      aria-current={page.path === activePath ? 'page' : undefined}
-      onClick={() => onSelect(page.path)}
-    >
-      <span className={styles.rowText}>{page.title}</span>
-    </button>
-  )
+  const pinnedSet = new Set(pinnedPaths)
+
+  // Pinned rows are marked by the row's own style (bolder title) — no icon
+  // and no extra control; the toggle lives in the status bar (design D6).
+  const renderRow = (page: Page) => {
+    const isPinned = pinnedSet.has(page.path)
+    return (
+      <button
+        key={page.path}
+        type="button"
+        className={`${styles.row}${isPinned ? ` ${styles.rowPinned}` : ''}`}
+        data-pinned={isPinned || undefined}
+        data-active={page.path === activePath || undefined}
+        aria-current={page.path === activePath ? 'page' : undefined}
+        onClick={() => onSelect(page.path)}
+      >
+        <span className={styles.rowText}>{page.title}</span>
+      </button>
+    )
+  }
 
   // Placeholder rows (indexing-loading-state): decorative, never read as
   // content; sized to the real rows they replace (6px 8px padding + 14px

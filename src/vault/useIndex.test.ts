@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FakeFileHandle, buildTree } from './fakeHandle'
+import { FakeFileHandle, FakeDirectoryHandle, buildTree } from './fakeHandle'
 import { FileSystemVaultStorage } from './fs'
 import { useIndex } from './useIndex'
 
@@ -168,5 +168,78 @@ describe('useIndex', () => {
   it('a save targeting an idle index reports false', async () => {
     const { result } = renderHook(() => useIndex(undefined))
     expect(await result.current.savePage('a.md', 'x')).toBe(false)
+  })
+})
+
+describe('useIndex pins (add-pinned-pages)', () => {
+  it('exposes the pins read from the vault meta file', async () => {
+    const tree = buildTree({ 'a.md': 'a', '.folio': { 'pins.md': '- a.md\n' } })
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.graph?.pages.has('a.md')).toBe(true))
+    expect(result.current.pins).toEqual(['a.md'])
+  })
+
+  it('togglePin pins (prepend) and unpins through the meta file', async () => {
+    const tree = buildTree({ 'a.md': 'a', 'b.md': 'b' })
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.graph?.pages.has('a.md')).toBe(true))
+
+    expect(result.current.pins).toEqual([])
+    let ok = false
+    await act(async () => {
+      ok = await result.current.togglePin('a.md')
+    })
+    expect(ok).toBe(true)
+    // Most recently pinned first.
+    await act(async () => {
+      await result.current.togglePin('b.md')
+    })
+    expect(result.current.pins).toEqual(['b.md', 'a.md'])
+    // Persisted on disk, header + list line.
+    expect(await storage.read('.folio/pins.md')).toContain('- b.md')
+
+    await act(async () => {
+      await result.current.togglePin('b.md')
+    })
+    expect(result.current.pins).toEqual(['a.md'])
+    expect(await storage.read('.folio/pins.md')).not.toContain('- b.md')
+  })
+
+  it('togglePin is referentially stable across renders', async () => {
+    const tree = buildTree({ 'a.md': 'a' })
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.graph?.pages.has('a.md')).toBe(true))
+    const first = result.current.togglePin
+    await act(async () => {
+      await result.current.togglePin('a.md')
+    })
+    expect(result.current.togglePin).toBe(first)
+  })
+
+  it('togglePin reports false on a failed write and leaves pins unchanged', async () => {
+    const tree = buildTree({ 'a.md': 'a', '.folio': { 'pins.md': '- a.md\n' } })
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.graph?.pages.has('a.md')).toBe(true))
+
+    const folio = tree.children.get('.folio') as FakeDirectoryHandle
+    const pinsFile = folio.children.get('pins.md') as FakeFileHandle
+    pinsFile.createWritable = async () => {
+      throw new DOMException('denied', 'SecurityError')
+    }
+    let ok = true
+    await act(async () => {
+      ok = await result.current.togglePin('a.md') // would unpin
+    })
+    expect(ok).toBe(false)
+    expect(result.current.pins).toEqual(['a.md'])
+  })
+
+  it('togglePin against an idle index reports false', async () => {
+    const { result } = renderHook(() => useIndex(undefined))
+    expect(await result.current.togglePin('a.md')).toBe(false)
   })
 })

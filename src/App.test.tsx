@@ -643,3 +643,64 @@ describe('search results view (search-results-view spec)', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('pinned pages (add-pinned-pages)', () => {
+  // The five fixture page rows in the Pages section, in DOM order (scoped to
+  // the sidebar — the header brand is also a button named 'Folio').
+  const pageRowTitles = () =>
+    within(screen.getByRole('complementary', { name: 'Notes' }))
+      .getAllByRole('button')
+      .map((b) => (b.textContent ?? '').trim())
+      .filter((t) => ['Welcome', 'Inbox', 'Ideas', 'Folio', 'Reading'].includes(t))
+
+  it('pins the open page from the status bar (pages only), persists, and unpins', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const storage = new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
+    await screen.findByRole('button', { name: 'Welcome' })
+
+    // The landing is today's journal (a journal day): the toggle is disabled.
+    const journalPin = screen.getByRole('button', { name: /^Pin / }) as HTMLButtonElement
+    expect(journalPin.disabled).toBe(true)
+
+    // Open a real page: the status-bar toggle enables.
+    fireEvent.click(screen.getByRole('button', { name: 'Welcome' }))
+    const star = (await screen.findByRole('button', { name: 'Pin Welcome' })) as HTMLButtonElement
+    expect(star.disabled).toBe(false)
+
+    // Pin it: the row gains the pinned style and leads the list.
+    fireEvent.click(star)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Unpin Welcome' })).toBeTruthy(),
+    )
+    expect(pageRowTitles()).toEqual(['Welcome', 'Reading', 'Folio', 'Ideas', 'Inbox'])
+    const welcomeRow = screen.getByRole('button', { name: 'Welcome' })
+    expect(welcomeRow.getAttribute('data-pinned')).toBe('true')
+    expect(welcomeRow.querySelector('svg')).toBeNull() // no icon on the row
+    // The pin persists in the vault meta file, not the app.
+    expect(await storage.read('.folio/pins.md')).toContain('- Welcome.md')
+
+    // A journal day disables the toggle again.
+    fireEvent.click(screen.getByRole('button', { name: 'September 2, 2026' }))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: /^Pin / }) as HTMLButtonElement).disabled).toBe(true),
+    )
+
+    // Back on Welcome (sidebar row — the meta panel also carries a Welcome
+    // forwardlink row while the journal is open), unpinning restores edit
+    // order and clears the marker.
+    fireEvent.click(
+      within(screen.getByRole('complementary', { name: 'Notes' })).getByRole('button', {
+        name: 'Welcome',
+      }),
+    )
+    const unpin = await screen.findByRole('button', { name: 'Unpin Welcome' })
+    fireEvent.click(unpin)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Pin Welcome' })).toBeTruthy())
+    expect(pageRowTitles()).toEqual(['Reading', 'Folio', 'Ideas', 'Inbox', 'Welcome'])
+    const welcomeRow2 = screen.getByRole('button', { name: 'Welcome' })
+    expect(welcomeRow2.getAttribute('data-pinned')).toBeNull()
+    expect(welcomeRow2.className).not.toContain('rowPinned')
+    vi.unstubAllGlobals()
+  })
+})

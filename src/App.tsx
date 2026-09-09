@@ -13,7 +13,7 @@ import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
-import { kindOf, localDayString, stem, type IndexPage } from './vault/index'
+import { kindOf, localDayString, orderPages, stem, type IndexPage } from './vault/index'
 import type { SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
@@ -21,7 +21,7 @@ const SAVE_DELAY_MS = 1000
 function App() {
   const { status, folders, activeId, addFolder, activate, closeFolder, goHome } = useVault()
   const activeFolder = folders.find((f) => f.id === activeId)
-  const { graph, savePage } = useIndex(activeFolder?.storage)
+  const { graph, savePage, pins, togglePin } = useIndex(activeFolder?.storage)
   const [activePath, setActivePath] = useState<string | null>(null)
   // Pane mode (search-results-view): the main slot hosts either a page (the
   // editor) or the transient full-results view. ActivePath is untouched in
@@ -150,7 +150,7 @@ function App() {
     !graph.pages.has(activePath) &&
     openDraft !== undefined &&
     openDraft.saved === ''
-      ? { path: activePath, title: stem(activePath), kind: kindOf(activePath), content: '', links: [] }
+      ? { path: activePath, title: stem(activePath), kind: kindOf(activePath), content: '', links: [], lastModified: 0 }
       : null
   const page = displayed ?? pendingBlank
 
@@ -231,7 +231,10 @@ function App() {
           )
       : []
 
-  const pages = graph ? [...graph.pages.values()].filter((p) => p.kind === 'page') : []
+  // Ordered pages for the sidebar (add-pinned-pages, design D5): pinned
+  // first in pin order, then the rest by last-modified descending — the
+  // pages array was previously order-unspecified (alphabetical by accident).
+  const pages = graph ? orderPages(graph.pages.values(), pins).filter((p) => p.kind === 'page') : []
   const journalEntries = graph
     ? [...graph.pages.values()].filter((p) => p.kind === 'journal')
     : []
@@ -291,6 +294,7 @@ function App() {
           journalEntries={journalEntries}
           activePath={activePath}
           onSelect={handleSelect}
+          pinnedPaths={pins}
           hasVault={graph !== null}
           loading={indexing}
         />
@@ -346,6 +350,17 @@ function App() {
         // back to the open-time snapshot while the index builds (design D6).
         vaultName={activeFolder?.storage ? activeFolder.name : undefined}
         fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
+        // Pin toggle (add-pinned-pages): enabled only for a file-backed
+        // page — not a journal day, an unmaterialized page, or the results
+        // view. `page` derives from the lastKnown ref (existing react/refs
+        // quirk, suppressed as on the MetaPanel props below).
+        /* oxlint-disable-next-line react/refs */
+        pinned={page !== null && pins.includes(page.path)}
+        /* oxlint-disable-next-line react/refs */
+        canPin={mode === 'page' && page !== null && page.kind === 'page' && (graph?.pages.has(page.path) ?? false)}
+        onTogglePin={() => {
+          if (page !== null) void togglePin(page.path)
+        }}
         // Keyboard-shortcuts reference (keyboard-shortcuts-help): the `?`
         // button in the status bar opens the dialog.
         onHelp={() => setHelpOpen(true)}
