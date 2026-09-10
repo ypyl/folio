@@ -37,6 +37,14 @@ export function parsePath(path: string): string[] {
   return segments
 }
 
+/** parsePath for a path that must name a file: the vault root is a directory,
+ *  so a root path (no segments) is invalid (ADR-0013). */
+function parseFilePath(path: string): string[] {
+  const segments = parsePath(path)
+  if (segments.length === 0) throw new InvalidVaultPathError(path)
+  return segments
+}
+
 /**
  * VaultStorage over a FileSystemDirectoryHandle. Assumes a granted handle
  * (D2): the picker grants readwrite for the session, and reload-restore
@@ -50,16 +58,14 @@ export class FileSystemVaultStorage implements VaultStorage {
     this.root = root
   }
   async read(path: string): Promise<string> {
-    const segments = parsePath(path)
-    if (segments.length === 0) throw new InvalidVaultPathError(path) // root is a directory
+    const segments = parseFilePath(path)
     const parent = await this.resolveDir(segments.slice(0, -1))
     const file = await parent.getFileHandle(lastSegment(segments))
     return (await file.getFile()).text()
   }
 
   async write(path: string, content: string): Promise<void> {
-    const segments = parsePath(path)
-    if (segments.length === 0) throw new InvalidVaultPathError(path)
+    const segments = parseFilePath(path)
     const parent = await this.resolveDir(segments.slice(0, -1), { create: true })
     const file = await parent.getFileHandle(lastSegment(segments), { create: true })
     const writable = await file.createWritable()
@@ -68,8 +74,7 @@ export class FileSystemVaultStorage implements VaultStorage {
   }
 
   async writeBinary(path: string, blob: Blob): Promise<void> {
-    const segments = parsePath(path)
-    if (segments.length === 0) throw new InvalidVaultPathError(path)
+    const segments = parseFilePath(path)
     const parent = await this.resolveDir(segments.slice(0, -1), { create: true })
     const file = await parent.getFileHandle(lastSegment(segments), { create: true })
     const writable = await file.createWritable()
@@ -78,8 +83,7 @@ export class FileSystemVaultStorage implements VaultStorage {
   }
 
   async delete(path: string): Promise<void> {
-    const segments = parsePath(path)
-    if (segments.length === 0) throw new InvalidVaultPathError(path)
+    const segments = parseFilePath(path)
     const parent = await this.resolveDir(segments.slice(0, -1))
     await parent.removeEntry(lastSegment(segments), { recursive: true })
   }
@@ -101,8 +105,7 @@ export class FileSystemVaultStorage implements VaultStorage {
   }
 
   async stat(path: string): Promise<number> {
-    const segments = parsePath(path)
-    if (segments.length === 0) throw new InvalidVaultPathError(path)
+    const segments = parseFilePath(path)
     const parent = await this.resolveDir(segments.slice(0, -1))
     const file = await parent.getFileHandle(lastSegment(segments))
     return (await file.getFile()).lastModified
@@ -124,8 +127,8 @@ function lastSegment(segments: string[]): string {
   return segments[segments.length - 1]
 }
 
-/** Open the OS directory picker with readwrite access; the chosen folder becomes the vault. */
-export async function pickVaultFolder(): Promise<FileSystemVaultStorage> {
-  const handle = await showDirectoryPicker({ mode: 'readwrite' })
-  return new FileSystemVaultStorage(handle)
+/** Open the OS directory picker with readwrite access; resolves with the
+ *  chosen folder handle, which becomes the vault. */
+export async function pickVaultFolder(): Promise<FileSystemDirectoryHandle> {
+  return showDirectoryPicker({ mode: 'readwrite' })
 }

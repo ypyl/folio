@@ -168,15 +168,15 @@ describe('FileSystemVaultStorage', () => {
 })
 
 describe('pickVaultFolder', () => {
-  it('returns a storage bound to the picked folder', async () => {
-    const root = buildTree(VAULT)
+  it('resolves with the picked folder handle', async () => {
+    const picked = buildTree(VAULT)
     vi.stubGlobal(
       'showDirectoryPicker',
-      vi.fn(async () => root as unknown as FileSystemDirectoryHandle),
+      vi.fn(async () => picked as unknown as FileSystemDirectoryHandle),
     )
     try {
-      const vault = await pickVaultFolder()
-      await expect(vault.read('welcome.md')).resolves.toBe('# Welcome')
+      const root = await pickVaultFolder()
+      expect(root).toBe(picked as unknown as FileSystemDirectoryHandle)
     } finally {
       vi.unstubAllGlobals()
     }

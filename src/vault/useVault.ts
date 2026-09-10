@@ -25,7 +25,7 @@ declare global {
 // gesture — requestPermission requires one — and never re-pick.
 
 export type VaultStatus = 'restoring' | 'ready'
-export type HandlePermission = 'granted' | 'prompt' | 'denied'
+type HandlePermission = 'granted' | 'prompt' | 'denied'
 
 export interface VaultFolder {
   id: string
@@ -166,17 +166,13 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
     )
   }
   const active =
-    restored.find((f) => f.id === lastActiveId)?.id ??
-    restored.find((f) => f.permission === 'granted')?.id ??
+    restored.find((f) => f.id === lastActiveId) ??
+    restored.find((f) => f.permission === 'granted') ??
     null
-  if (active) {
-    const folder = restored.find((f) => f.id === active)!
-    if (folder.storage) {
-      const files = await folder.storage.list('')
-      folder.fileCount = files.length
-    }
+  if (active?.storage) {
+    active.fileCount = (await active.storage.list('')).length
   }
-  return [restored, active]
+  return [restored, active?.id ?? null]
 }
 
 async function openVault(handle: FileSystemDirectoryHandle) {
@@ -187,8 +183,7 @@ async function openVault(handle: FileSystemDirectoryHandle) {
 
 async function pickFolder(): Promise<FileSystemDirectoryHandle | null> {
   try {
-    const storage = await pickVaultFolder()
-    return storage.root
+    return await pickVaultFolder()
   } catch {
     return null // user cancelled the picker; stay in current state
   }
