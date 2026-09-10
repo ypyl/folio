@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Page } from '../page'
 import { journalDate, localDayString } from '../vault/index'
-import { MONTHS } from './months'
+import { dayLabel, monthYearLabel } from './months'
 import styles from './JournalCalendar.module.css'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -28,7 +28,7 @@ function cellsFor(year: number, month: number): DayCell[] {
     const d = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + i)
     cells.push({
       date: localDayString(d),
-      label: `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`,
+      label: dayLabel(d),
       inMonth: d.getMonth() === month,
     })
   }
@@ -92,7 +92,7 @@ export function JournalCalendar({
           >
             {'\u2039'}
           </button>
-          <span className={styles.month}>{`${MONTHS[view.month]} ${view.year}`}</span>
+          <span className={styles.month}>{monthYearLabel(view.year, view.month)}</span>
           <button
             type="button"
             className={styles.navBtn}

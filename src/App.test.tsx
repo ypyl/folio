@@ -5,7 +5,7 @@ import { Accordion } from './components/Accordion'
 import styles from './components/JournalCalendar.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
-import { MONTHS } from './components/months'
+import { dayLabel } from './components/months'
 import type { EditorAdapter } from './editor/editor'
 
 // Replace the real ProseMirror transport with FakeEditor for App-level tests
@@ -138,7 +138,7 @@ describe('navigation over the real index', () => {
     expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
     const today = new Date()
     const cell = screen.getByRole('button', {
-      name: `${MONTHS[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`,
+      name: dayLabel(today),
     })
     expect(cell.getAttribute('aria-current')).toBe('date')
     const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
