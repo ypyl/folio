@@ -23,6 +23,10 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 17. [x] **Right panel help** — the keyboard-shortcuts reference leaves the status bar's `?` button and its modal, becoming the right panel's last collapsible section: collapsed by default, with its summary row anchored to the panel's bottom edge and the list expanding in place above it. The status bar is left display-only apart from the pin star. The panel widens from 220px to 280px, with the workspace and header columns sharing `:root` custom properties so they cannot drift. The heading-level row collapses to one `Ctrl+Alt+1..6` range chord, kept honest by the live-keymap drift guard that now covers levels 1-6.
 18. [x] **Reference badges** — references (`#word`, `#[[Page]]`) render as clickable chips over their literal text in the editor; a plain click or `Mod+Enter` opens the target, resolving like the links pane (an existing page, or a blank one created on first save). The badge depends only on the document, so moving the caret never repaints it, references inside code spans or fences are left alone.
 
+19. [x] **Reference completion** — typing `#` or `#[[` in the editor offers the vault's own pages in a popup (prefix match first, then a word start, pinned and recently edited first, capped at 8 rows, journals included). The first row is active, `Enter`/`Tab` accept, `ArrowUp`/`ArrowDown` move, `Escape` dismisses, and nothing is claimed while the popup is hidden, so `Mod+Enter` still opens the literal reference at the caret. Accepting writes one canonical token in the page's on-disk casing, in the form the trigger used (brackets stay brackets; a spaced name escalates to `#[[...]]`), as an ordinary edit that saves and undoes like typing. Measured at 0.24 ms per keystroke at 10k pages, and only while the popup is visible.
+
+20. [x] **Bound the editor's per-keystroke work** — the line-number gutter measured and wrote each block in turn, so every style write invalidated the layout the next block's read forced: 1.5 s of blocked main thread on a 1500-block page once typing paused, and the same again on every reflow. It now measures every block in one pass and writes every number after (`src/editor/gutter.ts`), which took that update to 8 ms with the numbers in identical positions. Reference badges stopped rescanning the whole document on every change, dropping that scan from 4.3 ms at 5000 blocks to 0.025 ms for the block an edit touched. Keystroke latency in a long page is unchanged by either fix: what remains is browser-side (style, layout, and accessibility work on a large contenteditable), not app JS.
+
 ## Later ideas
 
 Undecided ideas, deliberately not scheduled. Revisit when a task touches their area; turn into a numbered task (and an OpenSpec change) only when we commit to building them.
@@ -36,6 +40,8 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - start adding version -> near the title badge
 - add some reasonable limitation to markdown file
 
+- the document-proportional cost of typing in a long page is browser-side, not app JS (measured: ~100 ms of app JS against 480 ms of wall time for a 53-character burst at 1500 blocks, frame gaps holding at 60 fps, and `content-visibility`/`contain` hints making it worse). Needs renderer-level profiling before it can be scoped.
+
 - allow to select text on the page and move it to a new page
 
-- add quick help to select already existing page (or journal page) when user start typing #... or #[[...]]
+- actually apply keystroke when user click on it in shortkut window

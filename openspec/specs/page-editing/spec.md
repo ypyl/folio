@@ -53,7 +53,7 @@ Pasting into the editor SHALL read the clipboard's plain text and SHALL ignore a
 - **THEN** the text becomes bold as today; typing behavior is unaffected by this change
 
 ### Requirement: References render as clickable badges
-In the editor, references in Folio's two forms — `#word` and `#[[Page]]` — SHALL render as visible badges: a chip-styled inline mark (chip background, brand-colored text, pointer cursor) covering the reference's literal text, visually distinct from surrounding prose. The text SHALL remain ordinary editable text: the badge is presentational, introduces no node of its own, and editing it edits the underlying Markdown directly. The badge's appearance SHALL NOT depend on the caret or focus — a reference SHALL look the same whether or not its block is being edited, and moving the caret SHALL NOT repaint it. No badge SHALL render for a reference token inside an inline code span or a fenced code block. Plain `[[Page]]` wikilinks SHALL render as literal editable text with no badge.
+In the editor, references in Folio's two forms — `#word` and `#[[Page]]` — SHALL render as visible badges: a chip-styled inline mark (chip background, brand-colored text, pointer cursor) covering the reference's literal text, visually distinct from surrounding prose. The text SHALL remain ordinary editable text: the badge is presentational, introduces no node of its own, and editing it edits the underlying Markdown directly. The badge's appearance SHALL NOT depend on the caret or focus — a reference SHALL look the same whether or not its block is being edited, and moving the caret SHALL NOT repaint it. No badge SHALL render for a reference token inside an inline code span or a fenced code block. Plain `[[Page]]` wikilinks SHALL render as literal editable text with no badge. Badge work SHALL be scoped to the edit: the badge set SHALL be carried forward across a document change and recomputed only for the blocks that change touches, so a keystroke's badge cost grows with the edited blocks and SHALL NOT grow with the number of blocks in the page.
 
 #### Scenario: A reference renders as a visible badge
 - **WHEN** the editor body contains `#Inbox` or `#[[reading list]]`
@@ -74,6 +74,18 @@ In the editor, references in Folio's two forms — `#word` and `#[[Page]]` — S
 #### Scenario: A plain wikilink stays literal
 - **WHEN** the editor body contains `[[Inbox]]`
 - **THEN** it appears as literal editable text with no badge
+
+#### Scenario: Editing one block leaves the others badged
+- **WHEN** a page has references in several blocks and the user edits a block that has none
+- **THEN** every other block keeps its badge unchanged
+
+#### Scenario: A structural edit keeps both sides badged
+- **WHEN** the user inserts a block boundary next to a reference, or splits a paragraph so a reference ends up in a different block
+- **THEN** every block that holds a reference shows the correct badge after the edit
+
+#### Scenario: Badge cost follows the edit, not the page
+- **WHEN** a page holds many blocks and the user types inside one of them
+- **THEN** the badge work per keystroke is bounded by the blocks that edit touched and does not scale with the page's block count, as measured by the instrumentation in the change's design
 
 ### Requirement: Opening a reference from the editor
 The editor SHALL open a reference's target page when the user plain-clicks the reference's badge, or presses Mod+Enter (Cmd/Ctrl+Enter) with the caret inside a reference. Opening SHALL resolve the reference's name to a page exactly as the links panel does: the existing page when one matches, otherwise a blank page that materializes on first save. Activating a reference to the page already open SHALL NOT navigate. The keyboard shortcut SHALL be listed in the app's keyboard-shortcuts reference.
@@ -228,38 +240,39 @@ A code block in the editor SHALL render as a dedicated multi-line code editing s
 - **THEN** only the clipboard's plain text is used and rich formatting is ignored; whether that text is interpreted as Markdown is decided by the paste rule (markdown-aware paste), never by the code surface
 
 ### Requirement: The editor shows block line numbers
-
-An open page in the editor SHALL display a quiet line-number gutter along the left of the document: one small, dimmed number per top-level block, showing the block's start line in the page's canonical Markdown form. The gutter SHALL be purely presentational — non-interactive, hidden from assistive technology, and free of any effect on editing, selection, or focus. Numbers SHALL be live: they update as the document changes (inserting or deleting lines above renumbers the blocks below). Blank separator lines SHALL be counted in the numbering but not rendered, so the display may read 1, 3, 5. A list SHALL carry a single number at its start rather than one per item. Code blocks SHALL keep their embedded editor's local line numbering and additionally show the block's start number in the outer gutter.
+An open page in the editor SHALL display a quiet line-number gutter along the left of the document: one small, dimmed number per top-level block, showing the block's start line in the page's canonical Markdown form. The gutter SHALL be purely presentational — non-interactive, hidden from assistive technology, and free of any effect on editing, selection, or focus. Numbers SHALL be live: they update as the document changes (inserting or deleting lines above renumbers the blocks below). Blank separator lines SHALL be counted in the numbering but not rendered, so the display may read 1, 3, 5. A list SHALL carry a single number at its start rather than one per item. Code blocks SHALL keep their embedded editor's local line numbering and additionally show the block's start number in the outer gutter. Renumbering SHALL be a single pass: an update SHALL read the document's layout in one batch and write the numbers in another, never interleaving a layout read with a style write per block, so an update's cost grows with the block count rather than with its square.
 
 #### Scenario: Numbers appear at block starts
-
 - **WHEN** the user opens a page whose content has several blocks
 - **THEN** each top-level block shows its canonical start line in the left gutter, aligned with the block's first line
 
 #### Scenario: Blank separators count but are not shown
-
 - **WHEN** the page contains blocks separated by blank lines
 - **THEN** the blank lines are counted (so later numbers stay true to the file) but no number is rendered for them
 
 #### Scenario: A list numberes once
-
 - **WHEN** the user views a page with a list of several items
 - **THEN** the list shows one number at its start, never a number per item
 
 #### Scenario: Numbers follow edits
-
 - **WHEN** the user inserts a line above a block in the same document
 - **THEN** the block's and all later blocks' numbers increase accordingly while typing
 
 #### Scenario: The gutter never captures input
-
 - **WHEN** the user clicks or drags over the gutter area
 - **THEN** the click falls through to the document (no selection, focus, or interaction with the numbers)
 
 #### Scenario: The placeholder page shows its first block
-
 - **WHEN** the user opens an empty page showing the typing placeholder
 - **THEN** the gutter shows a single number for the initial empty block
+
+#### Scenario: A long page updates without stalling
+- **WHEN** an edit lands in a page that holds many blocks
+- **THEN** the gutter shows the new numbers and positions without a main-thread stall that grows with the square of the block count, as measured by the instrumentation in the change's design
+
+#### Scenario: A reflow re-measures in one pass
+- **WHEN** the pane is resized or fonts load so the blocks move
+- **THEN** every number re-aligns with its block in a single measurement pass
 
 ### Requirement: The status bar shows the open page's file path
 An open page SHALL have its file path displayed in the status bar, rendered as a breadcrumb of non-interactive segments — `notes / Deep / 2026.md` — with the `.md` extension kept on the final segment. The breadcrumb SHALL be purely informational: its segments SHALL NOT be links, SHALL NOT navigate, and SHALL NOT copy anything. It SHALL display the page's path regardless of whether the file exists yet (a not-yet-created page shows the path its first save will create), and SHALL NOT indicate the file's existence, save state, or staleness. An empty page SHALL show the same breadcrumb. The breadcrumb SHALL appear only when a page is open; without a page — on empty, indexing, or search-results surfaces — the path group SHALL be empty.
@@ -295,3 +308,102 @@ The app SHALL surface the open page's save state in the status bar: no save stat
 #### Scenario: The save status never scrolls away
 - **WHEN** the user scrolls a long open page while a save is in flight
 - **THEN** the "Saving…" status stays visible in the status bar rather than scrolling with the document
+
+### Requirement: Typing a reference offers existing matching pages
+While the caret sits at the end of an in-progress reference token in the open page (`#` followed by word characters, or `#[[` followed by text), the editor SHALL offer a popup listing candidate pages whose names match the typed text. Candidates SHALL be existing pages only, listed in the app's page order (pinned pages first, then most recently modified), capped at a small fixed number of rows. A candidate matches when its name starts with the typed text, or when one of its words (delimited by space, `-`, or `_`) starts with it; matching SHALL be case-insensitive and SHALL NOT match a fragment inside a word. Journal pages SHALL be candidates like any other page. Each row SHALL show the page's name exactly as it exists on disk.
+
+The popup SHALL NOT appear when the typed text is empty, when no candidate matches, when the reference being typed sits inside an inline code span or a fenced code block, or when the caret is not at the end of the token (for example inside an existing `#[[reading list]]`, or after a `/` that closes the word form).
+
+#### Scenario: Typing a reference prefix lists matching pages
+- **WHEN** the user types `#rea` in an open page and pages named `reading` and `reading list` exist
+- **THEN** both appear as rows, and the page matching the typed prefix most recently (pinned first, then last modified) is the first row
+
+#### Scenario: A word inside a name matches
+- **WHEN** the user types `#[[list` and a page named `reading list` exists
+- **THEN** `reading list` appears as a row
+
+#### Scenario: Journal days are candidates
+- **WHEN** the user types `#2026` and journal days under `journals/` exist for that year
+- **THEN** those days appear as rows showing their date names (`2026-09-10`), with no journal-specific styling or section header
+
+#### Scenario: Rows show the on-disk name
+- **WHEN** the vault holds `Reading.md` and the user types `#read`
+- **THEN** the row reads `Reading` and not `read`
+
+#### Scenario: A name containing a space completes from either trigger
+- **WHEN** the user types `#reading` and picks the page `reading list`
+- **THEN** the in-progress token is replaced by `#[[reading list]]`
+
+#### Scenario: A bare `#` opens nothing
+- **WHEN** the user types `#` at the start of a line, before typing any name character
+- **THEN** no popup appears, and typing a space next still produces a Markdown heading
+
+#### Scenario: No matches means no popup
+- **WHEN** the user types `#zzz` and no page name matches
+- **THEN** no popup appears and the editor behaves as it does today
+
+#### Scenario: Code is never completed
+- **WHEN** the caret is inside an inline code span or a fenced code block and the text contains `#rea`
+- **THEN** no popup appears
+
+#### Scenario: A caret inside a token is not completed
+- **WHEN** the caret sits inside `#[[reading list]]` rather than at its end, or after `#tag/`
+- **THEN** no popup appears
+
+### Requirement: The completion popup is keyboard-navigable
+The first row SHALL be active as soon as the popup appears. `ArrowDown` and `ArrowUp` SHALL move the active row, wrapping at the ends. `Enter` and `Tab` SHALL accept the active row. `Escape` SHALL dismiss the popup. The popup SHALL claim only these unmodified keys, and only while it is visible; while the popup is not visible every keybinding SHALL behave exactly as it does without reference completion. Keys with a modifier (`Ctrl`, `Cmd`, `Alt`) and `Shift+Tab` SHALL NOT be claimed, so `Mod+Enter` keeps activating the reference at the caret. Accepting or dismissing SHALL keep that token text from reopening the popup until the text changes. The popup SHALL hide when the editor loses focus.
+
+#### Scenario: Arrow keys move the active row
+- **WHEN** three rows are shown and the user presses `ArrowDown` twice, then `ArrowUp` once
+- **THEN** the active row is the second row, and pressing `ArrowUp` again wraps to the last
+
+#### Scenario: Type and Enter accepts the first row
+- **WHEN** the user types `#rea` and presses `Enter`
+- **THEN** the best matching row is accepted and the paragraph is not split
+
+#### Scenario: Tab accepts the active row
+- **WHEN** the popup is visible and the user presses `Tab`
+- **THEN** the active row is accepted and focus stays in the editor
+
+#### Scenario: Escape dismisses without accepting
+- **WHEN** the popup is visible and the user presses `Escape`
+- **THEN** the popup closes, the typed text is unchanged, and the popup does not reopen while that same token text remains
+
+#### Scenario: A dismissed token reopens after an edit
+- **WHEN** the user dismisses the popup for `#rea` and then types another character
+- **THEN** the popup may appear again for the new token text
+
+#### Scenario: With the popup hidden, editor keys are unchanged
+- **WHEN** no popup is visible and the user presses `Enter`, `Tab`, or `ArrowDown`
+- **THEN** the paragraph is split, the list item is indented, or the caret moves, exactly as without this change
+
+#### Scenario: Modified keys are never claimed
+- **WHEN** the popup is visible and the user presses `Mod+Enter`
+- **THEN** the reference at the caret is activated as before, and the popup does not accept a row
+
+#### Scenario: Losing focus hides the popup
+- **WHEN** the popup is visible and the user clicks the sidebar
+- **THEN** the popup is hidden
+
+### Requirement: Accepting a candidate writes the reference and saves it normally
+Accepting a row SHALL replace the in-progress token with the complete reference token for the picked page, in the page's on-disk casing, keeping the form the user was typing (a `#[[` trigger inserts the bracketed form; a `#` trigger inserts `#name`, escalating to `#[[name]]` when the name is not a single word). The caret SHALL land immediately after the inserted token, with no trailing space added. The insertion SHALL be one edit that reaches the page's draft and the debounced save like any other edit, so it round-trips to Markdown and is undoable. Focus and the document selection SHALL remain in the editor.
+
+#### Scenario: Picking a word name inserts the word form
+- **WHEN** the user types `#read` and accepts the page `reading`
+- **THEN** the page contains `#reading` and the caret sits after it
+
+#### Scenario: A bracketed trigger keeps its brackets
+- **WHEN** the user types `#[[read` and accepts the page `reading`
+- **THEN** the page contains `#[[reading]]`
+
+#### Scenario: The picked name uses its on-disk casing
+- **WHEN** the user types `#read` and accepts the page `Reading`
+- **THEN** the page contains `#Reading`
+
+#### Scenario: The insertion saves and round-trips
+- **WHEN** the user accepts a row and waits for the debounced save
+- **THEN** the file on disk contains the reference token, reopening the page shows the same token, and a single undo reverts the insertion
+
+#### Scenario: Focus stays in the editor
+- **WHEN** the user accepts a row with `Enter`, or picks a row with the mouse
+- **THEN** the editor keeps focus, the caret is after the inserted token, and the page is not navigated
