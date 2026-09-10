@@ -123,6 +123,7 @@ function App() {
   // by a graph/selection change, so it never needs to trigger one itself.
   // oxlint-disable-next-line react/refs
   const displayed =
+    // oxlint-disable-next-line react/refs
     activePath === null ? null : (graph?.pages.get(activePath) ?? lastKnown.current ?? null)
 
   // Remember what we rendered so the vanish case can fall back to it.
@@ -130,8 +131,7 @@ function App() {
     if (displayed) lastKnown.current = displayed
   }, [displayed])
 
-  // The open page's draft feeds the editor's initial content (existing draft
-  // wins) and the indicator (dirty/saving/failed, else clean).
+  // The open page's draft, if this session has one for it.
   const openDraft = activePath === null ? undefined : drafts.get(activePath)
 
   // Unmaterialized page (links-pane, D2): a path deliberately opened this
@@ -351,13 +351,14 @@ function App() {
         // quirk, suppressed as on the MetaPanel props below).
         /* oxlint-disable-next-line react/refs */
         pinned={page !== null && pins.includes(page.path)}
-        /* oxlint-disable-next-line react/refs */
+        /* oxlint-disable react/refs */
         canPin={
           mode === 'page' &&
           page !== null &&
           page.kind === 'page' &&
           (graph?.pages.has(page.path) ?? false)
         }
+        /* oxlint-enable react/refs */
         onTogglePin={() => {
           if (page !== null) void togglePin(page.path)
         }}

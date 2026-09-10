@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import type { DraftStatus } from '../editor/drafts'
+import { stem } from '../vault/index'
 import { StarIcon } from './StarIcon'
 import styles from './StatusBar.module.css'
 
@@ -24,9 +25,7 @@ const SAVE_LABELS: Record<Exclude<DraftStatus, 'clean'>, string> = {
 // The pin toggle's label stem: the open page's filename without .md (the
 // journal date reads naturally too); a placeholder when no page is open.
 function pinName(pagePath: string | null): string {
-  if (pagePath === null) return 'page'
-  const name = pagePath.slice(pagePath.lastIndexOf('/') + 1)
-  return name.replace(/\.md$/i, '')
+  return pagePath === null ? 'page' : stem(pagePath)
 }
 
 export function StatusBar({

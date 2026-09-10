@@ -127,7 +127,7 @@ export function topPerGroup(results: SearchResult[], perGroup: number = PER_GROU
   return out
 }
 
-export type Segment = { text: string; hit: boolean }
+type Segment = { text: string; hit: boolean }
 
 /** A window (±2 lines) around the first match line, split into hit/non-hit
  *  segments. With no ranges (a title-only match) the page's first three lines
@@ -145,15 +145,11 @@ export function snippetSegments(text: string, ranges: SearchRange[]): Segment[] 
     else merged.push([a, b])
   }
   if (!merged.length) return []
-  const starts = [0]
-  for (let i = 0; i < text.length; i++) if (text[i] === '\n') starts.push(i + 1)
-  let line = 0
-  while (line < starts.length - 1 && starts[line + 1] <= merged[0][0]) line++
+  const line = text.slice(0, merged[0][0]).split('\n').length - 1
   const winStartLine = Math.max(0, line - 2)
   const winEndLine = Math.min(lines.length - 1, line + 2)
-  const winStart = starts[winStartLine]
-  const winEnd = starts[winEndLine] + lines[winEndLine].length
-  const winText = text.slice(winStart, winEnd)
+  const winStart = lines.slice(0, winStartLine).reduce((n, l) => n + l.length + 1, 0)
+  const winText = lines.slice(winStartLine, winEndLine + 1).join('\n')
   const winRanges = merged
     .map(([a, b]): SearchRange => [a - winStart, b - winStart])
     .filter(([a, b]) => b > 0 && a < winText.length)

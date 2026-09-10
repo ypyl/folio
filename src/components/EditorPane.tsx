@@ -55,12 +55,6 @@ export function EditorPane({
   const mountRef = useRef<HTMLDivElement>(null)
   const gutterRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<EditorAdapter | null>(null)
-  const latestProps = useRef({ onChange, initialContent })
-  // Keep the mount-captured props fresh without re-running the mount effect:
-  // writing a ref in an effect (not during render) is lint-clean.
-  useEffect(() => {
-    latestProps.current = { onChange, initialContent }
-  })
 
   // Empty-page placeholder (journal-home): seeded from the mount content and
   // kept current on every edit, so an empty page invites typing and emptying
@@ -120,13 +114,16 @@ export function EditorPane({
   }
 
   // Mount the editor once per page instance (App keys by page path, so the
-  // props captured here are this page's). Content is applied after the
-  // editor exists (mount -> setContent). The cleanup tears it down, so a
-  // remount (page switch or React StrictMode) starts clean.
+  // props captured here are this page's for the editor's whole life). Content
+  // is applied after the editor exists (mount -> setContent). The cleanup
+  // tears it down, so a remount (page switch or React StrictMode) starts
+  // clean. Re-running on `onChange`'s per-render identity would remount the
+  // editor mid-edit, and its behavior keys off the stable page path anyway,
+  // so the dep list below is deliberately empty.
+  /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
     const el = mountRef.current
     if (!el) return
-    const { onChange, initialContent } = latestProps.current
     let cancelled = false
     const adapter = new MilkdownAdapter()
     adapterRef.current = adapter
@@ -163,6 +160,7 @@ export function EditorPane({
       void adapter.destroy()
     }
   }, [])
+  /* oxlint-enable react/exhaustive-deps */
 
   // Drop hygiene (D5): preventDefault on both pane states so the browser never
   // navigates to the dropped file; the copy happens only with a page open.
