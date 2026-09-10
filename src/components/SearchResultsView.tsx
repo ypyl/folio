@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { firstMatchLine, snippetSegments, type SearchResult } from '../search/core'
-import { journalLabel } from './months'
+import { rowLabel } from './months'
 import styles from './SearchResultsView.module.css'
 
 /** Match-list page size (search-results-view): bounded DOM per page instead
  *  of virtualization; short match sets get a single page and no pager. */
 export const RESULTS_PER_PAGE = 50
-
-function rowLabel(r: SearchResult): string {
-  return r.kind === 'journal' ? journalLabel(r.path) : r.title
-}
 
 // The full, uncapped match list in the main pane (search-results-view):
 // Pages then Journal groups with sticky headers, match snippets, and a
@@ -78,16 +74,6 @@ export function SearchResultsView({
       const idx = active >= 0 ? active : 0
       onOpen(slice[idx].item.path)
     }
-  }
-
-  if (total === 0) {
-    // Unreachable from the see-all row (it needs matches); defensive rest
-    // state in case App ever renders the view empty.
-    return (
-      <main ref={rootRef} tabIndex={-1} className={styles.pane} onKeyDown={onKeyDown}>
-        <p className={styles.empty}>{`No matches for \u201C${query.trim()}\u201D.`}</p>
-      </main>
-    )
   }
 
   return (

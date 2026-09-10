@@ -62,11 +62,6 @@ describe('SearchResultsView listing (search-results-view spec: full set, groups)
     expect(within(main()).getAllByText('docker').length).toBeGreaterThan(0)
     expect(within(main()).getByText('1 match')).toBeTruthy()
   })
-
-  it('renders an empty state if handed no results (defensive)', () => {
-    renderView({ results: [] })
-    expect(within(main()).getByText('No matches for \u201Cdocker\u201D.')).toBeTruthy()
-  })
 })
 
 describe('SearchResultsView pagination (search-results-view spec: paginated list)', () => {

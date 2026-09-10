@@ -95,12 +95,6 @@
   border-radius: 2px;
 }
 
-.empty {
-  padding: 40px 24px;
-  color: var(--stone);
-  font-size: 14px;
-}
-
 .pager {
   display: flex;
   align-items: center;

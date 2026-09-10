@@ -9,14 +9,10 @@ import {
   topPerGroup,
   type SearchResult,
 } from '../search/core'
-import { journalLabel } from './months'
+import { rowLabel } from './months'
 import styles from './SearchBox.module.css'
 
 const DEBOUNCE_MS = 120
-
-function rowLabel(r: SearchResult): string {
-  return r.kind === 'journal' ? journalLabel(r.path) : r.title
-}
 
 /** Header content search (search-notes): owns the input, clear ✕, and the
  *  results dropdown below it. Dumb and prop-driven like every component —

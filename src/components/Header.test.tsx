@@ -12,7 +12,7 @@ describe('header', () => {
     expect(onHome).toHaveBeenCalled()
   })
 
-  it('the brand is clickable and the slot is empty', () => {
+  it('keeps no help button or vault status in the header', () => {
     const onHome = vi.fn()
     render(<Header onHome={onHome} />)
     // The header no longer owns the vault status or the help button — those

@@ -25,13 +25,12 @@ declare global {
 // gesture — requestPermission requires one — and never re-pick.
 
 export type VaultStatus = 'restoring' | 'ready'
-type HandlePermission = 'granted' | 'prompt' | 'denied'
 
 export interface VaultFolder {
   id: string
   name: string
   handle: FileSystemDirectoryHandle
-  permission: HandlePermission
+  permission: PermissionState
   storage?: FileSystemVaultStorage
   fileCount?: number
 }
@@ -185,7 +184,7 @@ async function openVault(handle: FileSystemDirectoryHandle) {
   return { storage, fileCount: files.length }
 }
 
-async function queryPermission(handle: FileSystemDirectoryHandle): Promise<HandlePermission> {
+async function queryPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
   try {
     return await handle.queryPermission({ mode: 'readwrite' })
   } catch {
@@ -193,7 +192,7 @@ async function queryPermission(handle: FileSystemDirectoryHandle): Promise<Handl
   }
 }
 
-async function requestPermission(handle: FileSystemDirectoryHandle): Promise<HandlePermission> {
+async function requestPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
   try {
     return await handle.requestPermission({ mode: 'readwrite' })
   } catch {

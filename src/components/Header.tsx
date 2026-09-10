@@ -29,7 +29,6 @@ export function Header({ search, onHome }: HeaderProps) {
         <span className={styles.name}>Folio</span>
       </button>
       <div className={styles.search}>{search}</div>
-      <div className={styles.slot} />
     </header>
   )
 }

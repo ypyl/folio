@@ -31,3 +31,12 @@ export function journalLabel(path: string): string {
   const [y, m, d] = date.split('-').map(Number)
   return dayLabel(new Date(y, m - 1, d))
 }
+
+/** Row label for a search result: the pretty journal day, else the title. */
+export function rowLabel(result: {
+  kind: 'page' | 'journal'
+  title: string
+  path: string
+}): string {
+  return result.kind === 'journal' ? journalLabel(result.path) : result.title
+}
