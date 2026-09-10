@@ -5,6 +5,7 @@ Loose notes, captured fast. Triaged later.
 * Idea: make the three-pane layout resizable (see #Welcome for scope notes)
 * Question: should #\[\[Reading Log]] entries get a rating field?
 * Bookmark: a good article on local-first software
+* \#Inbox
 
 ## Quick capture
 

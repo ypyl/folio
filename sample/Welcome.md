@@ -16,6 +16,8 @@ no badge.
   excluded from backlinks)
 * \#missing-topic — a reference to a page that doesn't exist yet; opening it
   starts a blank page
+
+  <br />
 * `[[Old Style]]` — double-bracket wikilinks are **not** a reference form; this
   renders as literal text with no badge (ADR-0012)
 
