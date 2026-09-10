@@ -37,6 +37,7 @@ export const SHORTCUT_GROUPS: { heading: string; items: ShortcutItem[] }[] = [
       { label: 'Outdent list item', keys: ['Shift-Tab', 'Mod-['] },
       { label: 'Line break', keys: ['Shift-Enter'] },
       { label: 'Paste as plain text', keys: ['Shift-Mod-v'] },
+      { label: 'Open reference', keys: ['Mod-Enter'] },
     ],
   },
   {

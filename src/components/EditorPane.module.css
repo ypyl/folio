@@ -162,6 +162,23 @@
   text-decoration: none;
 }
 
+/* Reference badges (add-reference-badges): a presentational chip over the
+   literal `#word` / `#[[Page]]` text, clickable to open the target (plain
+   click, or Mod+Enter with the caret inside). The text stays selectable — only
+   the paint changes. There is deliberately no caret/selection rule: the badge
+   is a function of the document, so it never repaints as the caret moves. */
+.editor :global(.ref) {
+  background: var(--chip-bg);
+  color: var(--brand);
+  border-radius: 4px;
+  padding: 0 3px; /* horizontal only: the badge must not change line height */
+  cursor: pointer;
+}
+
+.editor :global(.ref:hover) {
+  background: var(--brand-tint); /* hover lightens (DESIGN links) */
+}
+
 .editor :global(code) {
   background: var(--inline-code-bg); /* fill only, no border (DESIGN code) */
   border-radius: 4px;

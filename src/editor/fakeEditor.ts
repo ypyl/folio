@@ -15,6 +15,7 @@ export class FakeEditor implements EditorAdapter {
   /** Every insertMarkdown call, in order — lets tests assert what was inserted. */
   readonly insertions: string[] = []
   private listeners: ((markdown: string) => void)[] = []
+  private referenceListeners: ((target: string) => void)[] = []
   private host: HTMLElement | null = null
 
   /** Mirror the editor's top-level block DOM so pane tests can measure the
@@ -39,6 +40,7 @@ export class FakeEditor implements EditorAdapter {
   async destroy(): Promise<void> {
     this.destructed = true
     this.listeners = []
+    this.referenceListeners = []
   }
 
   async setContent(markdown: string): Promise<void> {
@@ -65,6 +67,15 @@ export class FakeEditor implements EditorAdapter {
 
   onChange(listener: (markdown: string) => void): void {
     this.listeners.push(listener)
+  }
+
+  onReferenceClick(listener: (target: string) => void): void {
+    this.referenceListeners.push(listener)
+  }
+
+  /** Test hook: simulate activating a reference badge. */
+  emitReferenceClick(target: string): void {
+    for (const listener of this.referenceListeners) listener(target)
   }
 
   /** Test hook: simulate a user edit producing `markdown`. */

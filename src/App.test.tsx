@@ -28,6 +28,7 @@ type FakeView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
   emitChange: (markdown: string) => void
+  emitReferenceClick: (target: string) => void
 }
 
 // The most recently mounted editor instance.
@@ -249,13 +250,13 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
-  it('seeds the editor with the open page content (references are plain text)', async () => {
+  it('seeds the editor with the open page content (reference tokens intact)', async () => {
     render(<App />)
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
     const fake = editor()
-    // The editor is seeded with the page's Markdown, reference tokens intact
-    // as plain editable text (page-editing spec) — no chip rendering.
+    // The editor is seeded with the page's Markdown; reference tokens stay
+    // literal text in the document (the badge is a decoration, not a node).
     await waitFor(() => expect(fake.setContents[0]).toContain('#Inbox'))
     expect(fake.setContents[0]).toContain('This is Folio')
     vi.unstubAllGlobals()
@@ -683,6 +684,52 @@ describe('pinned pages (add-pinned-pages)', () => {
     const welcomeRow2 = screen.getByRole('button', { name: 'Welcome' })
     expect(welcomeRow2.getAttribute('data-pinned')).toBeNull()
     expect(welcomeRow2.className).not.toContain('rowPinned')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('reference badges (add-reference-badges)', () => {
+  it('clicking a reference badge opens its target page', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('#Inbox'))
+
+    // Welcome references #Inbox, an existing page: activating the badge
+    // resolves the name and opens Inbox.
+    editor().emitReferenceClick('Inbox')
+    await waitFor(() => expect(editor().setContents[0]).toContain('A place to drop thoughts'))
+    expect(screen.getByRole('button', { name: 'Inbox' }).getAttribute('aria-current')).toBe('page')
+    vi.unstubAllGlobals()
+  })
+
+  it('clicking a reference to a missing page opens a blank page', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('#notes'))
+
+    // #notes has no file: the badge opens a blank page and creates nothing
+    // until the first save (the Forwardlinks rule).
+    editor().emitReferenceClick('notes')
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    expect(tree.children.get('notes.md')).toBeUndefined()
+    vi.unstubAllGlobals()
+  })
+
+  it('a self-reference does not navigate', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+
+    const before = editor().setContents.length
+    editor().emitReferenceClick('Welcome')
+    // Still on Welcome: no remount, no new editor instance.
+    expect(screen.getByRole('button', { name: 'Welcome' }).getAttribute('aria-current')).toBe(
+      'page',
+    )
+    expect(editor().setContents).toHaveLength(before)
     vi.unstubAllGlobals()
   })
 })

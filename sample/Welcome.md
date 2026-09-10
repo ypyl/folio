@@ -5,16 +5,19 @@ auto-save, and backlinks.
 
 ## How references work
 
-Folio's page references are `#word` or `#[[Page]]` — everything below is plain
-editable text:
+Folio's page references are `#word` or `#[[Page]]`. A reference shows as a badge
+in the page: click it to open the target, or put the caret inside it and press
+Ctrl/Cmd+Enter. Reference syntax written in a code span stays literal and gets
+no badge.
 
-* `#Inbox` — a word reference to another page
-* `#[[Reading Log]]` — a bracketed reference (handles spaces and hyphens)
-* `#welcome` — case-insensitive, resolves to this page (self-references excluded
-  from backlinks)
-* `#missing-topic` — a reference to a page that doesn't exist yet
+* \#Inbox — a word reference to another page
+* \#\[\[Reading Log]] — a bracketed reference (handles spaces and hyphens)
+* \#Welcome — case-insensitive, resolves to this page (self-references are
+  excluded from backlinks)
+* \#missing-topic — a reference to a page that doesn't exist yet; opening it
+  starts a blank page
 * `[[Old Style]]` — double-bracket wikilinks are **not** a reference form; this
-  renders as literal text (ADR-0012)
+  renders as literal text with no badge (ADR-0012)
 
 ## Pages in this vault
 

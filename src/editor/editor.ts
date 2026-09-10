@@ -18,4 +18,7 @@ export interface EditorAdapter {
   getBlockLines(): number[]
   /** Subscribe to document changes; the callback receives serialized Markdown. */
   onChange(listener: (markdown: string) => void): void
+  /** Subscribe to reference activation (badge click or Mod+Enter); the callback
+   *  receives the target page name, never a resolved path (ADR-0010). */
+  onReferenceClick(listener: (target: string) => void): void
 }

@@ -71,6 +71,18 @@ function App() {
     setDraftVersion((v) => v + 1)
   }
 
+  // Opening a reference badge (add-reference-badges): resolve the name exactly
+  // as the Forwardlinks panel does — the existing page, else a blank page at
+  // `name.md` that materializes on first save — skip a link back to the open
+  // page, and route through handleSelect. Resolution stays here, never in the
+  // editor (ADR-0010).
+  const handleOpenReference = (target: string) => {
+    if (!graph) return
+    const path = graph.byName.get(target.toLowerCase()) ?? `${target}.md`
+    if (path === activePath) return
+    handleSelect(path)
+  }
+
   // Every landed run updates the pane's source; a run with no matches leaves
   // nothing to browse, so the results mode closes back to the open page and
   // the dropdown shows its empty state (search-results-view spec).
@@ -313,6 +325,7 @@ function App() {
             page={page}
             initialContent={initialContent}
             onChange={handleEdit}
+            onOpenReference={handleOpenReference}
             onDropFiles={
               activeFolder?.storage
                 ? (files) => copyDroppedFiles(activeFolder.storage!, files)

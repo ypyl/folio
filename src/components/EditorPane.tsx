@@ -41,6 +41,7 @@ export function EditorPane({
   emptyHint = 'notes',
   loading = false,
   onDropFiles,
+  onOpenReference,
 }: {
   page: Page | null
   initialContent: string
@@ -50,6 +51,8 @@ export function EditorPane({
   loading?: boolean
   /** Copy dropped files into the vault and resolve with the landed asset paths. */
   onDropFiles?: (files: File[]) => Promise<string[]>
+  /** Open the page a reference badge points at (add-reference-badges). */
+  onOpenReference?: (target: string) => void
 }) {
   const paneRef = useRef<HTMLElement>(null)
   const mountRef = useRef<HTMLDivElement>(null)
@@ -113,6 +116,14 @@ export function EditorPane({
     })
   }
 
+  // Reference activation reads through a ref: the mount effect runs once, but
+  // App's handler is recreated as the graph changes (every save), and a badge
+  // click must resolve against the live graph, not the mount-time one.
+  const openReferenceRef = useRef(onOpenReference)
+  useEffect(() => {
+    openReferenceRef.current = onOpenReference
+  })
+
   // Mount the editor once per page instance (App keys by page path, so the
   // props captured here are this page's for the editor's whole life). Content
   // is applied after the editor exists (mount -> setContent). The cleanup
@@ -134,6 +145,7 @@ export function EditorPane({
       onChange(markdown)
       updateGutter()
     })
+    adapter.onReferenceClick((target) => openReferenceRef.current?.(target))
     void adapter
       .mount(el)
       .then(() => {

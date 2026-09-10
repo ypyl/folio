@@ -62,6 +62,23 @@ describe('MilkdownAdapter (smoke)', () => {
     el.remove()
   })
 
+  it('renders reference badges as decorations and keeps the text literal', async () => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    await adapter.mount(el)
+    await adapter.setContent('See #Inbox and #[[reading list]] now.\n')
+    // The badge is presentational: a `.ref` span wraps the literal token while
+    // the document keeps the text (design D1).
+    const badges = el.querySelectorAll('.ref')
+    expect(badges).toHaveLength(2)
+    expect(badges[0].textContent).toBe('#Inbox')
+    expect(badges[1].textContent).toBe('#[[reading list]]')
+    expect(adapter.getContent()).toContain('#Inbox')
+    await adapter.destroy()
+    el.remove()
+  })
+
   it('does not report the programmatic seed as a change, but reports real edits', async () => {
     const el = document.createElement('div')
     document.body.appendChild(el)

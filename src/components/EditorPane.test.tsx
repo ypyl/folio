@@ -31,6 +31,7 @@ type FakeEditorView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
   emitChange: (markdown: string) => void
+  emitReferenceClick: (target: string) => void
   destructed: boolean
   mounted: boolean
 }
@@ -65,6 +66,23 @@ describe('EditorPane', () => {
       fake().emitChange('# edited')
     })
     expect(onChange).toHaveBeenCalledWith('# edited')
+  })
+
+  it('forwards a reference activation to onOpenReference with its target', async () => {
+    const onOpenReference = vi.fn()
+    render(
+      <EditorPane
+        page={page}
+        initialContent="See #Inbox"
+        onChange={() => {}}
+        onOpenReference={onOpenReference}
+      />,
+    )
+    await act(async () => {})
+    await act(async () => {
+      fake().emitReferenceClick('Inbox')
+    })
+    expect(onOpenReference).toHaveBeenCalledWith('Inbox')
   })
 
   it('destroys the editor on unmount', async () => {

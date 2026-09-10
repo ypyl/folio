@@ -24,6 +24,7 @@
   --border-soft: #e5e3d8;
 
   /* Chromatic tints */
+  --chip-bg: #e4ecf5;
   --brand-tint: #eef2f7;
 
   /* Workspace columns (ui-shell): shared by the workspace and header grids so

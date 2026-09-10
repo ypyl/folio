@@ -17,6 +17,7 @@ import { commonmark } from '@milkdown/preset-commonmark'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { looksLikeMarkdown } from './markdownLike'
+import { referenceBadges } from './referenceBadges'
 import { blockStartLines } from '../lineAnchors'
 import type { EditorAdapter } from './editor'
 
@@ -24,6 +25,7 @@ export class MilkdownAdapter implements EditorAdapter {
   private editor: Editor | null = null
   private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
+  private referenceClickListener: ((target: string) => void) | null = null
   private destroyed = false
   // Programmatic-seed bookkeeping (design C2 round-trip normalization): after
   // setContent the listener emits one markdownUpdated for the doc we just
@@ -108,6 +110,11 @@ export class MilkdownAdapter implements EditorAdapter {
       .use(listener)
       .use(history)
       .use(codeBlockComponent)
+      // Reference badges (add-reference-badges): inline decorations over
+      // `#word` / `#[[Page]]`, and a click / Mod+Enter path that reports the
+      // target across the seam. The listener is read at activation time, so
+      // onReferenceClick may be attached after mount.
+      .use(referenceBadges((target) => this.referenceClickListener?.(target)))
       .create()
     if (this.destroyed) {
       await editor.destroy()
@@ -120,6 +127,7 @@ export class MilkdownAdapter implements EditorAdapter {
   async destroy(): Promise<void> {
     this.destroyed = true
     this.changeListener = null
+    this.referenceClickListener = null
     await this.editor?.destroy()
     this.editor = null
   }
@@ -231,6 +239,10 @@ export class MilkdownAdapter implements EditorAdapter {
 
   onChange(listener: (markdown: string) => void): void {
     this.changeListener = listener
+  }
+
+  onReferenceClick(listener: (target: string) => void): void {
+    this.referenceClickListener = listener
   }
 
   /** Current document serialized to Markdown, read imperatively. */

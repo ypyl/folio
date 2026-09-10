@@ -6,6 +6,7 @@
 import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest'
 import { headingKeymap, strongKeymap } from '@milkdown/preset-commonmark'
 import { MilkdownAdapter } from '../editor/milkdown'
+import { REFERENCE_OPEN_SHORTCUT } from '../editor/referenceBadges'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
 
 describe('displayKeys', () => {
@@ -82,6 +83,14 @@ describe('sheet vs editor bindings', () => {
     expect(binding.ToggleBold.shortcuts).toContain('Mod-b')
     expect(sheetItem('Bold')?.keys).toContain('Mod-b')
     expect(displayKeys('Mod-b')).toMatch(/^(Ctrl|Cmd)\+B$/)
+  })
+
+  it('the sheet Open reference row matches the badge binding', () => {
+    // The badge plugin binds this chord (referenceBadges); the sheet must list
+    // the same one so the reference stays discoverable.
+    expect(REFERENCE_OPEN_SHORTCUT).toBe('Mod-Enter')
+    expect(sheetItem('Open reference')?.keys).toEqual([REFERENCE_OPEN_SHORTCUT])
+    expect(displayKeys(REFERENCE_OPEN_SHORTCUT)).toMatch(/^(Ctrl|Cmd)\+Enter$/)
   })
 
   it('the sheet heading range matches every live heading binding', () => {
