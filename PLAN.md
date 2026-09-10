@@ -37,3 +37,5 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - add some reasonable limitation to markdown file
 
 - allow to select text on the page and move it to a new page
+
+- add quick help to select already existing page (or journal page) when user start typing #... or #[[...]]
