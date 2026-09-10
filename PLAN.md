@@ -31,7 +31,7 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - **Orphan asset cleanup** — scan `assets/`, find files no page references, offer removal ("remove unreferenced attachments").
 - **Unlinked references** — pages whose plain body mentions a page name without a link token (Logseq's third list). Needs its own matching semantics (word boundary, case, dash handling) and dedup against real backlinks; deliberately deferred from the links pane to keep that change about the actual link graph.
 - **Non-date journal files in the calendar** — files under `journals/` that aren't `YYYY-MM-DD` (e.g. `journals/notes.md`) render no calendar cell; the calendar replaced the day list that used to surface them. Decide the escape hatch (a small "other journal files" list) when the vault actually has such files.
-- **Reference-aware asset deletion** — decide the semantics when a page/asset is deleted: does removing the last reference delete the file? Needs explicit confirmation; today deleting a link leaves the asset on disk (safe default).
+- **Reference-aware asset deletion** — **won't do** (decided 2026-09-10). Deleting a link stays non-destructive: the asset remains on disk, and the app never scans references to decide whether to delete a file. No reference-aware cleanup and no deletion prompts; the safe default is the decision, not an open question.
 
 - start adding version -> near the title badge
 - add some reasonable limitation to markdown file
