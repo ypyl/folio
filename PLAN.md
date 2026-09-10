@@ -20,6 +20,7 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 14. [x] **Status bar** — a thin app-level bar below the workspace consolidating all status: the file-path breadcrumb, the save/indexing status text (after the breadcrumb, divider-separated), the vault name · file count, and the `?` help button in the far-right corner (its dialog also closes on outside clicks). The pane's own status layers and the header's right slot are gone.
 15. [x] **Line numbers** — the editor gutter numbers each block's first line (sparse signature: 1, 3, 5; lists get one number), and search results show `· line N` for text matches, so a highlighted match is easy to locate in the document.
 16. [x] **Pinned pages** — star the open page from the status bar's leading corner (enabled for pages only; journal days, unmaterialized pages, and search results disable it): pins persist as an ordered list in the vault's hidden `.folio/pins.md` (ADR-0015), pinned pages lead the Pages section in pin order with a bolder title style, and the remaining pages sort by last-edited descending.
+17. [x] **Right panel help** — the keyboard-shortcuts reference leaves the status bar's `?` button and its modal, becoming the right panel's last collapsible section: collapsed by default, with its summary row anchored to the panel's bottom edge and the list expanding in place above it. The status bar is left display-only apart from the pin star. The panel widens from 220px to 280px, with the workspace and header columns sharing `:root` custom properties so they cannot drift. The heading-level row collapses to one `Ctrl+Alt+1..6` range chord, kept honest by the live-keymap drift guard that now covers levels 1-6.
 
 ## Later ideas
 
@@ -33,8 +34,6 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 
 - start adding version -> near the title badge
 - add links as badges in page so they are visible
-- I don't like how shortcut helper popup looks like
 - add some reasonable limitation to markdown file
 
-- help not in the corner lie button and modal window, but like accordion item in the bottom of the right side bar
 - allow to select text on the page and move it to a new page
