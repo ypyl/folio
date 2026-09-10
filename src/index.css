@@ -12,8 +12,6 @@
   --ivory: #faf9f5;
   --inline-code-bg: #f0eee6;
   --warm-sand: #e8e6dc;
-  --dark-surface: #30302e;
-  --deep-dark: #141413;
 
   /* Text — four levels, warm undertones */
   --near-black: #141413;
@@ -26,12 +24,7 @@
   --border-soft: #e5e3d8;
 
   /* Chromatic tints */
-  --chip-bg: #e4ecf5;
   --brand-tint: #eef2f7;
-
-  /* One sanctioned exception (breaking-change badges only) */
-  --breaking-bg: #f0e0d8;
-  --breaking-fg: #8b4513;
 
   /* Workspace columns (ui-shell): shared by the workspace and header grids so
      the header stays aligned with the panes beneath it. */
