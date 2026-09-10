@@ -13,7 +13,7 @@ export type Link = {
 // `\\?` tolerates the commonmark escape the editor's serializer applies to
 // `[[` on save (`#\[[Page]]`), so an editor-authored reference tokenizes
 // exactly as it lies on disk (design D6).
-export const REF = /(?<![\w])#\\?\[\\?\[([^\]]+)\]\]|(?<![\w])#([\w-]+)(?![\w/-])/g
+const REF = /(?<![\w])#\\?\[\\?\[([^\]]+)\]\]|(?<![\w])#([\w-]+)(?![\w/-])/g
 
 /**
  * Extract every page reference in `content`, in order of appearance.

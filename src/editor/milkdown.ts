@@ -30,9 +30,9 @@ export class MilkdownAdapter implements EditorAdapter {
   // dispatched. That echo carries no user edit — for a non-canonical file it
   // re-serializes to a different form than the raw bytes, which would otherwise
   // mark a freshly-opened page dirty and rewrite it. Suppress it; only a real
-  // change (doc differs from the seed) reaches onChange.
+  // change (doc differs from the seed) reaches onChange. The seed is cleared
+  // by the first update, so it only ever holds a pending echo.
   private seedMarkdown: string | null = null
-  private expectSeedEcho = false
 
   /** Mount the editor into `el`. The element must stay in the document for
    *  the editor's lifetime. If `destroy()` was called while `create()` was
@@ -88,8 +88,8 @@ export class MilkdownAdapter implements EditorAdapter {
           // matches what we dispatched, it is not an edit — drop it. Any other
           // event (a real keystroke, even one folded into the same debounce
           // window) differs from the seed and is forwarded.
-          const seedEcho = this.expectSeedEcho && markdown === this.seedMarkdown
-          this.expectSeedEcho = false
+          const seedEcho = markdown === this.seedMarkdown
+          this.seedMarkdown = null
           if (seedEcho) return
           this.changeListener?.(markdown)
         })
@@ -141,7 +141,6 @@ export class MilkdownAdapter implements EditorAdapter {
     })
     this.latest = canonical ?? markdown
     this.seedMarkdown = canonical
-    this.expectSeedEcho = true
   }
 
   insertMarkdown(markdown: string): void {

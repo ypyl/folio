@@ -7,7 +7,6 @@ import {
   journalDate,
   orderPages,
   parsePins,
-  refreshIndex,
   upsertPage,
   upsertPins,
   type IndexPage,
@@ -181,7 +180,7 @@ describe('pins in the index (design D1/D3)', () => {
     const tree = buildTree({ 'a.md': 'a', '.folio': { 'pins.md': '- a.md\n' } })
     const storage = vault(tree)
     const first = await buildIndex(storage)
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     expect(second.pins).toBe(first.pins)
   })
 
@@ -193,7 +192,7 @@ describe('pins in the index (design D1/D3)', () => {
       'pins.md',
     ) as FakeFileHandle
     await pinsFile.writeContent('- b.md\n- a.md\n')
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     expect(second.pins).toEqual(['b.md', 'a.md'])
   })
 
@@ -207,7 +206,7 @@ describe('pins in the index (design D1/D3)', () => {
     expect(next.pins).toEqual(['b.md', 'a.md'])
     expect(await storage.read('.folio/pins.md')).toContain('- b.md')
     // Snapshot healed: the next refresh carries pins by identity.
-    const refreshed = await refreshIndex(storage, next)
+    const refreshed = await buildIndex(storage, next)
     expect(refreshed.pins).toBe(next.pins)
     // A pin edit never disturbs page records.
     expect(refreshed.graph.pages.get('a.md')).toBe(first.graph.pages.get('a.md'))
@@ -259,7 +258,7 @@ describe('page last-modified time (add-pinned-pages)', () => {
     const tree = buildTree({ 'a.md': 'v1' })
     const storage = vault(tree)
     const first = await buildIndex(storage)
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     expect(second.graph.pages.get('a.md')!.lastModified).toBe(
       first.graph.pages.get('a.md')!.lastModified,
     )
@@ -311,12 +310,12 @@ describe('orderPages (sidebar list order, design D5)', () => {
   })
 })
 
-describe('refreshIndex (diff-rescan)', () => {
+describe('buildIndex (diff-rescan)', () => {
   it('carries unchanged pages over without re-reading (object identity)', async () => {
     const tree = buildTree({ 'Ideas.md': 'v1 #One', 'Other.md': 'still' })
     const storage = vault(tree)
     const first = await buildIndex(storage)
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     expect(second.graph.pages.get('Other.md')).toBe(first.graph.pages.get('Other.md'))
     expect(second.graph.pages.get('Ideas.md')).toBe(first.graph.pages.get('Ideas.md'))
   })
@@ -326,7 +325,7 @@ describe('refreshIndex (diff-rescan)', () => {
     const storage = vault(root)
     const first = await buildIndex(storage)
     root.children.set('New.md', new FakeFileHandle('New.md', 'hello #Two'))
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     expect(second.graph.pages.has('New.md')).toBe(true)
     expect(second.graph.backlinks.get('two')).toEqual(['New.md'])
   })
@@ -337,7 +336,7 @@ describe('refreshIndex (diff-rescan)', () => {
     const first = await buildIndex(storage)
     const ideas = root.children.get('Ideas.md') as FakeFileHandle
     await ideas.writeContent('v2 #One #Three')
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     const page = second.graph.pages.get('Ideas.md')!
     expect(page.content).toBe('v2 #One #Three')
     expect(page.links).toEqual([
@@ -354,7 +353,7 @@ describe('refreshIndex (diff-rescan)', () => {
     const storage = vault(root)
     const first = await buildIndex(storage)
     root.children.delete('Other.md')
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     expect(second.graph.pages.has('Other.md')).toBe(false)
     expect(second.graph.pages.has('Ideas.md')).toBe(true)
   })
@@ -365,7 +364,7 @@ describe('refreshIndex (diff-rescan)', () => {
     const first = await buildIndex(storage)
     // An asset lands under assets/ (the drop-copy flow) — no page appears.
     await storage.writeBinary('assets/notes.md', new Blob(['not a page']))
-    const second = await refreshIndex(storage, first)
+    const second = await buildIndex(storage, first)
     expect(second.graph.pages.has('assets/notes.md')).toBe(false)
     expect(second.graph.pages.has('Ideas.md')).toBe(true)
   })
@@ -399,7 +398,7 @@ describe('refreshIndex (diff-rescan)', () => {
     const storage = vault(root)
     const first = await buildIndex(storage)
     const saved = await upsertPage(storage, first, 'a.md', 'v2')
-    const refreshed = await refreshIndex(storage, saved)
+    const refreshed = await buildIndex(storage, saved)
     // The refresh carried the upserted page by identity — nothing re-read.
     expect(refreshed.graph.pages.get('a.md')).toBe(saved.graph.pages.get('a.md'))
     expect(refreshed.snapshot.get('a.md')).toBe(saved.snapshot.get('a.md'))

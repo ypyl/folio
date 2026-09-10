@@ -21,7 +21,7 @@ export type Graph = {
 /** The vault's hidden pin meta file (design D1): an ordered list of page
  *  paths, most recently pinned first. Its dot-directory keeps it out of the
  *  page index and search (isPagePath excludes hidden segments). */
-export const PINS_PATH = '.folio/pins.md'
+const PINS_PATH = '.folio/pins.md'
 
 /** A built index plus the mtime snapshot it was derived from (design D3). */
 export type VaultIndex = {
@@ -87,12 +87,6 @@ async function readPins(
     return previous.pins
   }
   return parsePins(await storage.read(PINS_PATH))
-}
-
-/** Incremental rescan of the same folder (task 2.4): diffs against the
- *  current index's snapshot, re-reading only new or changed files. */
-export function refreshIndex(storage: VaultStorage, current: VaultIndex): Promise<VaultIndex> {
-  return buildIndex(storage, current)
 }
 
 /** Write-through path for the app's own saves (ADR-0004, design B1): persist

@@ -6,7 +6,7 @@
 // macOS. Lives outside the component so ShortcutsList stays pure-component
 // (fast-refresh) and tests can import the data directly.
 
-export interface ShortcutItem {
+interface ShortcutItem {
   label: string
   keys: string[]
 }

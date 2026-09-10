@@ -6,10 +6,8 @@
 
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
-import { EditorView, keymap } from '@codemirror/view'
-import { defaultKeymap } from '@codemirror/commands'
+import { EditorView, basicSetup } from 'codemirror'
 import { tags } from '@lezer/highlight'
-import { basicSetup } from 'codemirror'
 
 // The language catalog fed to the component's language picker. Full
 // @codemirror/language-data list (as the component docs show); each language
@@ -56,7 +54,6 @@ const folioTheme = EditorView.theme({
 // the Folio tokens.
 export const codeBlockExtensions: import('@codemirror/state').Extension[] = [
   basicSetup,
-  keymap.of(defaultKeymap),
   syntaxHighlighting(folioHighlight),
   folioTheme,
 ]

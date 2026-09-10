@@ -6,7 +6,7 @@
 // store requires a bump; the upgrade also clears the legacy single 'vault'
 // row from the open-folder-flow era.
 
-export interface StoredVaultFolder {
+interface StoredVaultFolder {
   id: string
   name: string
   handle: FileSystemDirectoryHandle
@@ -15,8 +15,8 @@ export interface StoredVaultFolder {
 export async function listVaultHandles(): Promise<StoredVaultFolder[]> {
   const store = await openStore('handles', 'readonly')
   if (!store) return []
-  const rows = (await request(store.getAll())) as unknown[]
-  return rows.filter(isFolderRow)
+  // Rows are written only by saveVaultHandle below; the stored shape is ours.
+  return request(store.getAll())
 }
 
 export async function saveVaultHandle(row: StoredVaultFolder): Promise<void> {
@@ -48,15 +48,6 @@ export async function clearLastActiveId(): Promise<void> {
   const store = await openStore('meta', 'readwrite')
   if (!store) return
   await request(store.delete('lastActiveId'))
-}
-
-function isFolderRow(row: unknown): row is StoredVaultFolder {
-  return (
-    typeof row === 'object' &&
-    row !== null &&
-    typeof (row as { id?: unknown }).id === 'string' &&
-    typeof (row as { handle?: unknown }).handle === 'object'
-  )
 }
 
 let dbPromise: Promise<IDBDatabase | null> | null = null

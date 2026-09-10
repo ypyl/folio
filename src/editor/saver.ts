@@ -5,7 +5,7 @@
 // become clean before the flush (an undo back to the saved text) are skipped
 // by the caller's compare-skip in the save function.
 
-export type SaveFn = (path: string, content: string) => Promise<boolean>
+type SaveFn = (path: string, content: string) => Promise<boolean>
 
 export function createDebouncedSaver(save: SaveFn, delay: number) {
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -35,5 +35,5 @@ export function createDebouncedSaver(save: SaveFn, delay: number) {
     pending.clear()
   }
 
-  return { schedule, flush, dispose }
+  return { schedule, dispose }
 }
