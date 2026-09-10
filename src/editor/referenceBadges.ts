@@ -1,4 +1,5 @@
-// Reference badges (add-reference-badges, design D1/D2/D5): a ProseMirror
+// Reference badges (add-reference-badges, design D1/D2/D5; incremental
+// invalidation from bound-editor-per-keystroke-work, design D1): a ProseMirror
 // inline decoration over every page reference token in the open page, plus the
 // click/keyboard path that opens the target. The badge is presentational —
 // the document keeps the literal `#word` / `#[[Page]]` text — so Markdown stays
@@ -8,8 +9,15 @@
 
 import { $prose } from '@milkdown/utils'
 import type { Node as ProseNode } from '@milkdown/prose/model'
-import type { EditorState } from '@milkdown/prose/state'
+import type { EditorState, Transaction } from '@milkdown/prose/state'
 import { Plugin, PluginKey } from '@milkdown/prose/state'
+import {
+  AddMarkStep,
+  RemoveMarkStep,
+  ReplaceAroundStep,
+  ReplaceStep,
+} from '@milkdown/prose/transform'
+import type { Step } from '@milkdown/prose/transform'
 import type { EditorView } from '@milkdown/prose/view'
 import { Decoration, DecorationSet } from '@milkdown/prose/view'
 import { findReferenceRanges } from '../vault/parse'
@@ -24,33 +32,155 @@ export type ReferenceRef = {
   target: string
 }
 
+/** A range of whole top-level blocks (design D1). */
+export type BlockRange = {
+  from: number
+  to: number
+}
+
 type ReferenceState = {
   decorations: DecorationSet
   refs: ReferenceRef[]
 }
 
-const referenceKey = new PluginKey<ReferenceState>('folioReferenceBadges')
+/** What a scan produced: the decorations to add, and the refs they cover. */
+export type ScanResult = {
+  marks: Decoration[]
+  refs: ReferenceRef[]
+}
 
-/** Build the badge decorations and clickable spans for a document. Skips
- *  inline code (the `code` mark) and fenced code (`code_block` subtrees): a
- *  reference token inside code is code, not a link. */
-export function buildReferenceState(doc: ProseNode): ReferenceState {
+export const referenceKey = new PluginKey<ReferenceState>('folioReferenceBadges')
+
+/**
+ * Every reference in `doc`, or in one range of whole top-level blocks (design
+ * D1). Skips inline code (the `code` mark) and fenced code (`code_block`
+ * subtrees): a reference token inside code is code, not a link.
+ */
+export function scanReferences(doc: ProseNode, range?: BlockRange): ScanResult {
   const refs: ReferenceRef[] = []
   const marks: Decoration[] = []
-  doc.descendants((node, pos) => {
+  const visit = (node: ProseNode, pos: number): boolean | undefined => {
     if (node.type.name === 'code_block') return false
     if (!node.isText || node.text == null) return
     // Milkdown's commonmark preset names the inline-code mark `inlineCode`.
     if (node.marks.some((mark) => mark.type.name === 'inlineCode')) return
-    for (const range of findReferenceRanges(node.text)) {
-      const from = pos + range.from
-      const to = pos + range.to
-      refs.push({ from, to, target: range.target })
+    for (const found of findReferenceRanges(node.text)) {
+      const from = pos + found.from
+      const to = pos + found.to
+      refs.push({ from, to, target: found.target })
       marks.push(Decoration.inline(from, to, { class: 'ref' }))
     }
     return
-  })
+  }
+  if (range) doc.nodesBetween(range.from, range.to, visit)
+  else doc.descendants(visit)
+  return { marks, refs }
+}
+
+/** The badge decorations and clickable spans for a whole document. */
+export function buildReferenceState(doc: ProseNode): ReferenceState {
+  const { marks, refs } = scanReferences(doc)
   return { decorations: DecorationSet.create(doc, marks), refs }
+}
+
+/**
+ * The whole top-level block containing `pos`, or both neighbours when `pos`
+ * sits between blocks: an inserted boundary changes the text on either side.
+ */
+function blockRangeAt(doc: ProseNode, pos: number): BlockRange {
+  const at = doc.resolve(Math.max(0, Math.min(pos, doc.content.size)))
+  if (at.depth >= 1) return { from: at.before(1), to: at.after(1) }
+  const before = at.nodeBefore
+  const after = at.nodeAfter
+  return {
+    from: before ? at.pos - before.nodeSize : at.pos,
+    to: after ? at.pos + after.nodeSize : at.pos,
+  }
+}
+
+function spanning(a: BlockRange, b: BlockRange): BlockRange {
+  return { from: Math.min(a.from, b.from), to: Math.max(a.to, b.to) }
+}
+
+function overlapping(a: BlockRange, b: BlockRange): boolean {
+  return a.from < b.to && b.from < a.to
+}
+
+/**
+ * The positions a step rewrote, or null for a step that cannot move or retype
+ * text. Mark steps count: toggling inline code changes whether a token is a
+ * reference without changing a single character (design D1).
+ */
+function stepRange(step: Step): { from: number; to: number } | null {
+  if (step instanceof ReplaceStep || step instanceof ReplaceAroundStep) {
+    return { from: step.from, to: step.to }
+  }
+  if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) {
+    return { from: step.from, to: step.to }
+  }
+  return null
+}
+
+/**
+ * The whole top-level blocks a transaction touched, as ranges in the document
+ * it produced. Expanding each step to whole blocks is what makes structural
+ * edits safe: a split or a join rewrites the text nodes on both sides of the
+ * boundary, and a reference can move between blocks (design D1).
+ */
+export function affectedRanges(tr: Transaction): BlockRange[] {
+  const ranges: BlockRange[] = []
+  tr.steps.forEach((step, index) => {
+    const touched = stepRange(step)
+    if (!touched) return
+    // A step's positions are in the coordinates of the document before it ran,
+    // so map them forward through the rest of the transaction (including the
+    // step's own map, which turns the replaced range into the inserted one).
+    const rest = tr.mapping.slice(index)
+    ranges.push(
+      spanning(
+        blockRangeAt(tr.doc, rest.map(touched.from, -1)),
+        blockRangeAt(tr.doc, rest.map(touched.to, 1)),
+      ),
+    )
+  })
+  // Merge overlaps so a block is never scanned twice in one transaction.
+  const merged: BlockRange[] = []
+  for (const range of ranges.sort((a, b) => a.from - b.from)) {
+    const last = merged[merged.length - 1]
+    if (last && range.from <= last.to) merged[merged.length - 1] = spanning(last, range)
+    else merged.push(range)
+  }
+  return merged
+}
+
+/**
+ * Carry the badges forward and rescan only what the edit touched: map the
+ * existing set and refs through the transaction, drop the ones inside the
+ * affected ranges, and rescan those blocks (design D1). A keystroke inside one
+ * paragraph therefore costs one paragraph, not the document.
+ */
+function rescan(
+  tr: Transaction,
+  prev: ReferenceState,
+  scan: (doc: ProseNode, range?: BlockRange) => ScanResult,
+): ReferenceState {
+  const ranges = affectedRanges(tr)
+  let decorations = prev.decorations.map(tr.mapping, tr.doc)
+  const refs = prev.refs
+    .map((ref) => ({
+      from: tr.mapping.map(ref.from, -1),
+      to: tr.mapping.map(ref.to, 1),
+      target: ref.target,
+    }))
+    .filter((ref) => !ranges.some((range) => overlapping(ref, range)))
+  for (const range of ranges) {
+    const found = decorations.find(range.from, range.to)
+    if (found.length) decorations = decorations.remove(found)
+    const { marks, refs: scanned } = scan(tr.doc, range)
+    if (marks.length) decorations = decorations.add(tr.doc, marks)
+    refs.push(...scanned)
+  }
+  return { decorations, refs }
 }
 
 /** The reference whose range contains a document position, if any. */
@@ -67,25 +197,31 @@ function isOpenChord(event: KeyboardEvent): boolean {
 export type ReferencePluginOptions = {
   /** Called with the target when a badge is clicked or Mod+Enter is pressed. */
   onActivate?: (target: string) => void
-  /** Document scan, injectable for tests. Defaults to buildReferenceState. */
-  scan?: (doc: ProseNode) => ReferenceState
+  /** Document scan, injectable for tests. Called with a block range for an
+   *  incremental rescan, or without one for the whole document. */
+  scan?: (doc: ProseNode, range?: BlockRange) => ScanResult
 }
 
 /** The plain ProseMirror plugin: decorations from document content only, plus
  *  the click and Mod+Enter activations. Decorations never depend on the
  *  selection or focus, so caret moves recompute nothing and repaint nothing
- *  (design D2/D4). */
+ *  (design D2/D4). A document change rescans only the blocks it touched
+ *  (bound-editor-per-keystroke-work, design D1). */
 export function createReferencePlugin(
   options: ReferencePluginOptions = {},
 ): Plugin<ReferenceState> {
-  const scan = options.scan ?? buildReferenceState
+  const scan = options.scan ?? scanReferences
+  const build = (doc: ProseNode): ReferenceState => {
+    const { marks, refs } = scan(doc)
+    return { decorations: DecorationSet.create(doc, marks), refs }
+  }
   return new Plugin<ReferenceState>({
     key: referenceKey,
     state: {
-      init: (_config, state) => scan(state.doc),
-      // The badge is a function of the document: a selection-only or focus
-      // transaction leaves the set untouched (no rescan, same object).
-      apply: (tr, value) => (tr.docChanged ? scan(tr.doc) : value),
+      init: (_config, state) => build(state.doc),
+      // A selection-only or focus transaction leaves the set untouched (no
+      // rescan, same object); a document change rescans what it touched.
+      apply: (tr, value) => (tr.docChanged ? rescan(tr, value, scan) : value),
     },
     props: {
       decorations: (state: EditorState) => referenceKey.getState(state)?.decorations ?? null,

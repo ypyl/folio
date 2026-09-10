@@ -7,8 +7,15 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Node as ProseNode } from '@milkdown/prose/model'
 import { Schema } from '@milkdown/prose/model'
 import { EditorState, TextSelection } from '@milkdown/prose/state'
-import type { EditorView } from '@milkdown/prose/view'
-import { buildReferenceState, createReferencePlugin } from './referenceBadges'
+import type { Decoration, DecorationSet, EditorView } from '@milkdown/prose/view'
+import {
+  buildReferenceState,
+  createReferencePlugin,
+  referenceAt,
+  scanReferences,
+  type BlockRange,
+  type ReferenceRef,
+} from './referenceBadges'
 
 const schema = new Schema({
   nodes: {
@@ -63,7 +70,7 @@ describe('buildReferenceState', () => {
 
 describe('createReferencePlugin', () => {
   it('does not rescan the document on a selection-only transaction', () => {
-    const scan = vi.fn(buildReferenceState)
+    const scan = vi.fn(scanReferences)
     const plugin = createReferencePlugin({ scan })
     let state = EditorState.create({
       schema,
@@ -127,5 +134,215 @@ describe('createReferencePlugin', () => {
         ctrlKey: false,
       } as KeyboardEvent),
     ).toBe(false)
+  })
+})
+
+// Incremental invalidation (bound-editor-per-keystroke-work, design D1): the
+// badge set is carried across a change and only the blocks the edit touched are
+// rescanned. The from-scratch scan stays the reference implementation, so the
+// property test below compares the two after every edit.
+describe('badge invalidation scope', () => {
+  /** Blocks of a document, in order, with their ranges. */
+  const blocksOf = (d: ProseNode): { from: number; to: number }[] => {
+    const blocks: { from: number; to: number }[] = []
+    d.forEach((_node, offset) => {
+      blocks.push({ from: offset, to: offset + _node.nodeSize })
+    })
+    return blocks
+  }
+
+  it('rescans only the block an edit touched', () => {
+    const ranges: (BlockRange | undefined)[] = []
+    const scan = vi.fn((d: ProseNode, range?: BlockRange) => {
+      ranges.push(range)
+      return scanReferences(d, range)
+    })
+    const blocks = Array.from({ length: 40 }, (_, i) =>
+      para(text(i === 20 ? 'Target #note here' : `Paragraph ${i} of the page`)),
+    )
+    const d = doc(...blocks)
+    const plugin = createReferencePlugin({ scan })
+    let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
+    ranges.length = 0
+
+    // Type one character inside paragraph 5.
+    const at = blocksOf(d)[5].from + 3
+    state = state.apply(state.tr.insertText('x', at))
+
+    expect(ranges).toHaveLength(1)
+    expect(ranges[0]).toEqual(blocksOf(state.doc)[5])
+    // ...and the reference further down the page is still badged from the map.
+    const refs = plugin.getState(state)!.refs
+    expect(refs.map((ref) => ref.target)).toEqual(['note'])
+  })
+
+  it('covers both sides of a structural edit', () => {
+    const ranges: (BlockRange | undefined)[] = []
+    const scan = vi.fn((d: ProseNode, range?: BlockRange) => {
+      ranges.push(range)
+      return scanReferences(d, range)
+    })
+    const d = doc(para(text('before')), para(text('after #Inbox')))
+    const plugin = createReferencePlugin({ scan })
+    let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
+    ranges.length = 0
+
+    // Split the first paragraph at its end: both the old and the new block
+    // count as touched, because the boundary rewrites the text around it.
+    const splitAt = blocksOf(d)[0].to - 1
+    state = state.apply(state.tr.split(splitAt))
+
+    expect(state.doc.childCount).toBe(3)
+    expect(ranges).toHaveLength(1)
+    expect(ranges[0]).toEqual({
+      from: blocksOf(state.doc)[0].from,
+      to: blocksOf(state.doc)[1].to,
+    })
+  })
+
+  it('rescans when inline code is toggled, since the text did not change', () => {
+    const ranges: (BlockRange | undefined)[] = []
+    const scan = vi.fn((d: ProseNode, range?: BlockRange) => {
+      ranges.push(range)
+      return scanReferences(d, range)
+    })
+    const d = doc(para(text('See #Inbox now')))
+    const plugin = createReferencePlugin({ scan })
+    let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
+    expect(plugin.getState(state)!.refs).toHaveLength(1)
+    ranges.length = 0
+
+    state = state.apply(state.tr.addMark(5, 11, schema.marks.inlineCode.create()))
+
+    expect(ranges).toHaveLength(1)
+    expect(plugin.getState(state)!.refs).toEqual([])
+    expect(plugin.getState(state)!.decorations.find()).toEqual([])
+  })
+})
+
+describe('activation after an edit', () => {
+  const chord = {
+    key: 'Enter',
+    ctrlKey: true,
+    metaKey: false,
+    shiftKey: false,
+    altKey: false,
+  } as KeyboardEvent
+
+  it('keeps a mapped reference activatable at every caret boundary', () => {
+    const onActivate = vi.fn()
+    const plugin = createReferencePlugin({ onActivate })
+    let state = EditorState.create({
+      schema,
+      doc: doc(para(text('See #Inbox now')), para(text('other'))),
+      plugins: [plugin],
+    })
+    // An edit in the following block maps the reference's positions rather than
+    // rescanning them.
+    state = state.apply(state.tr.insertText('z', state.doc.content.size - 2))
+    const ref = plugin.getState(state)!.refs[0]
+    expect(state.doc.textBetween(ref.from, ref.to)).toBe('#Inbox')
+
+    for (const at of [ref.from, ref.from + 3, ref.to]) {
+      state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, at)))
+      expect(referenceAt(plugin.getState(state)!.refs, at)?.target).toBe('Inbox')
+      onActivate.mockClear()
+      expect(plugin.props.handleKeyDown?.call(plugin, viewOf(state), chord)).toBe(true)
+      expect(onActivate).toHaveBeenCalledWith('Inbox')
+    }
+  })
+
+  it('activates a reference whose own block was rescanned', () => {
+    const onActivate = vi.fn()
+    const plugin = createReferencePlugin({ onActivate })
+    let state = EditorState.create({
+      schema,
+      doc: doc(para(text('See #Inbox now'))),
+      plugins: [plugin],
+    })
+    const before = plugin.getState(state)!.refs[0]
+    state = state.apply(state.tr.insertText('x', before.from + 1))
+
+    const ref = plugin.getState(state)!.refs[0]
+    expect(state.doc.textBetween(ref.from, ref.to)).toBe('#xInbox')
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, ref.to)))
+    expect(plugin.props.handleKeyDown?.call(plugin, viewOf(state), chord)).toBe(true)
+    expect(onActivate).toHaveBeenCalledWith('xInbox')
+  })
+})
+
+describe('incremental badges match a full scan', () => {
+  const blockTops = (d: ProseNode): number[] => {
+    const starts: number[] = []
+    d.forEach((_node, offset) => starts.push(offset))
+    return starts
+  }
+
+  const summarize = (state: { decorations: DecorationSet; refs: ReferenceRef[] }) => ({
+    marks: state.decorations
+      .find()
+      .map((mark: Decoration) => `${mark.from}-${mark.to}:${String(mark.spec.class)}`)
+      .sort(),
+    refs: state.refs.map((ref) => `${ref.from}-${ref.to}:${ref.target}`).sort(),
+  })
+
+  it('agrees with buildReferenceState after every edit in a randomized run', () => {
+    // A tiny deterministic generator, so a failure reproduces exactly.
+    let seed = 20260910
+    const next = (bound: number) => {
+      seed = (seed * 1103515245 + 12345) % 2147483648
+      return seed % bound
+    }
+
+    const initial = doc(
+      para(text('Intro with #intro and #[[two words]]')),
+      para(text('plain paragraph')),
+      para(inlineCode('#coded')),
+      fenced('#fenced'),
+      para(text('another #ref here')),
+      para(text('the last paragraph')),
+    )
+    const plugin = createReferencePlugin()
+    let state = EditorState.create({ schema, doc: initial, plugins: [plugin] })
+
+    const textPositions = () => {
+      const out: number[] = []
+      state.doc.descendants((node, pos) => {
+        if (node.isText && node.text) for (let i = 0; i <= node.text.length; i++) out.push(pos + i)
+      })
+      return out
+    }
+
+    for (let step = 0; step < 60; step++) {
+      const positions = textPositions()
+      const pick = positions[next(positions.length)]
+      const choice = next(7)
+      const tr = state.tr
+      if (choice === 0) tr.insertText('#', pick)
+      else if (choice === 1) tr.insertText('x', pick)
+      else if (choice === 2 && pick + 1 <= state.doc.content.size) tr.delete(pick, pick + 1)
+      else if (choice === 3) tr.split(pick)
+      else if (choice === 4) {
+        tr.addMark(
+          pick,
+          Math.min(pick + 2, state.doc.content.size),
+          schema.marks.inlineCode.create(),
+        )
+      } else if (choice === 5) {
+        const tops = blockTops(state.doc)
+        if (tops.length > 2) {
+          const index = next(tops.length - 2) + 1
+          tr.delete(tops[index], tops[index + 1])
+        }
+      } else {
+        const tops = blockTops(state.doc)
+        if (tops.length > 2) {
+          const index = next(tops.length - 2) + 1
+          tr.join(tops[index])
+        }
+      }
+      state = state.apply(tr)
+      expect(summarize(plugin.getState(state)!)).toEqual(summarize(buildReferenceState(state.doc)))
+    }
   })
 })
