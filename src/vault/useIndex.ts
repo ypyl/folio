@@ -99,8 +99,9 @@ export function useIndex(storage: VaultStorage | undefined): {
 /**
  * A write-through action over the active index: `write` persists the change,
  * then the result is published as the new index and the call reports success.
- * Kept in a ref (repointed every render) so the returned function has a stable
- * identity while still seeing the current storage and index.
+ * The returned function is stable per storage (every dep below is stable), so
+ * callers can hold it in effect dependencies; the index is read from the ref at
+ * call time, so a write always sees the latest one.
  */
 function useWriteThrough<A extends unknown[]>(
   write: (storage: VaultStorage, current: VaultIndex, ...args: A) => Promise<VaultIndex>,
@@ -109,28 +110,30 @@ function useWriteThrough<A extends unknown[]>(
   generation: RefObject<number>,
   setBuilt: (built: Built) => void,
 ): (...args: A) => Promise<boolean> {
-  const ref = useRef<(...args: A) => Promise<boolean>>(async () => false)
-  useEffect(() => {
-    const store = storage
-    const current = latest.current
-    ref.current = async (...args: A): Promise<boolean> => {
-      if (!store || !current) return false
+  return useCallback(
+    async (...args: A): Promise<boolean> => {
+      const current = latest.current
+      if (!storage || !current) return false
       const genAtStart = generation.current
       try {
-        const next = await write(store, current, ...args)
+        const next = await write(storage, current, ...args)
         // A folder switch while the write was in flight: the change landed in
         // that folder, but the new folder's index is not ours to touch — drop
         // the result instead of corrupting it.
         if (genAtStart !== generation.current) return true
+        // The index ref is written after the write resolves; mutation from a
+        // callback is exactly the intended write-through (the rule targets
+        // render-time mutation and cannot see the await boundary).
+        /* oxlint-disable-next-line react/immutability */
         latest.current = next
-        setBuilt({ storage: store, graph: next.graph, pins: next.pins })
+        setBuilt({ storage, graph: next.graph, pins: next.pins })
         return true
       } catch {
         return false
       }
-    }
-  })
-  return useCallback((...args: A) => ref.current(...args), [])
+    },
+    [write, storage, latest, generation, setBuilt],
+  )
 }
 
 /** Pin toggle as a write-through: flip membership, prepend on pin (most

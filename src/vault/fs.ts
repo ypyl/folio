@@ -51,8 +51,8 @@ function parseFilePath(path: string): string[] {
  * permission negotiation belongs to the caller (task 5), not here.
  */
 export class FileSystemVaultStorage implements VaultStorage {
-  /** The underlying Chrome handle; exposed so the caller can persist it (D3). */
-  readonly root: FileSystemDirectoryHandle
+  /** The underlying Chrome handle. */
+  private readonly root: FileSystemDirectoryHandle
 
   constructor(root: FileSystemDirectoryHandle) {
     this.root = root
@@ -65,20 +65,20 @@ export class FileSystemVaultStorage implements VaultStorage {
   }
 
   async write(path: string, content: string): Promise<void> {
-    const segments = parseFilePath(path)
-    const parent = await this.resolveDir(segments.slice(0, -1), { create: true })
-    const file = await parent.getFileHandle(lastSegment(segments), { create: true })
-    const writable = await file.createWritable()
-    await writable.write(content)
-    await writable.close()
+    await this.writeFile(path, content)
   }
 
   async writeBinary(path: string, blob: Blob): Promise<void> {
+    await this.writeFile(path, blob)
+  }
+
+  /** Create or overwrite the file at `path` with text or raw bytes. */
+  private async writeFile(path: string, data: string | Blob): Promise<void> {
     const segments = parseFilePath(path)
     const parent = await this.resolveDir(segments.slice(0, -1), { create: true })
     const file = await parent.getFileHandle(lastSegment(segments), { create: true })
     const writable = await file.createWritable()
-    await writable.write(blob)
+    await writable.write(data)
     await writable.close()
   }
 

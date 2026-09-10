@@ -112,11 +112,15 @@ export function useVault() {
   // activates the existing entry instead of duplicating it (D1 dedup).
   // excludeId: a just-dropped folder must be re-addable as a fresh row.
   async function openNewFolder(excludeId?: string): Promise<void> {
-    const handle = await pickFolder()
-    if (!handle) return
+    let handle: FileSystemDirectoryHandle
+    try {
+      handle = await pickVaultFolder()
+    } catch {
+      return // user cancelled the picker; stay in current state
+    }
     for (const f of folders) {
       if (f.id === excludeId) continue
-      if (await sameEntry(f.handle, handle)) {
+      if (await f.handle.isSameEntry(handle)) {
         await activate(f.id)
         return
       }
@@ -179,26 +183,6 @@ async function openVault(handle: FileSystemDirectoryHandle) {
   const storage = new FileSystemVaultStorage(handle)
   const files = await storage.list('')
   return { storage, fileCount: files.length }
-}
-
-async function pickFolder(): Promise<FileSystemDirectoryHandle | null> {
-  try {
-    return await pickVaultFolder()
-  } catch {
-    return null // user cancelled the picker; stay in current state
-  }
-}
-
-async function sameEntry(
-  a: FileSystemDirectoryHandle,
-  b: FileSystemDirectoryHandle,
-): Promise<boolean> {
-  // isSameEntry is baseline FSA; skip dedup when a browser lacks it.
-  try {
-    return await a.isSameEntry(b)
-  } catch {
-    return false
-  }
 }
 
 async function queryPermission(handle: FileSystemDirectoryHandle): Promise<HandlePermission> {

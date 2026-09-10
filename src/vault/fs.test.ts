@@ -77,14 +77,14 @@ describe('FileSystemVaultStorage', () => {
   })
 
   it('writes binary blobs byte-for-byte with missing parent dirs created', async () => {
-    const vault = fakeVault(VAULT)
+    const root = buildTree(VAULT)
+    const vault = new FileSystemVaultStorage(root as unknown as FileSystemDirectoryHandle)
     const blob = new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' })
     await vault.writeBinary('assets/photo.png', blob)
     expect(await vault.list('')).toContain('assets/photo.png')
     // Byte-exact check goes through the handle (the text read decodes UTF-8, so
     // arbitrary binary never round-trips the text path — by design, ADR-0001).
-    const root = vault.root as unknown as { children: Map<string, FakeDirectoryHandle> }
-    const assetsDir = root.children.get('assets')!
+    const assetsDir = root.children.get('assets') as FakeDirectoryHandle
     const file = assetsDir.children.get('photo.png') as unknown as { getFile: () => Promise<File> }
     const bytes = new Uint8Array(await (await file.getFile()).arrayBuffer())
     expect([...bytes]).toEqual([137, 80, 78, 71])

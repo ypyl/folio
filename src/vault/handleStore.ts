@@ -3,8 +3,7 @@
 // last-active id — both survive reloads while the picker's session grant does
 // not. jsdom has no IndexedDB, so every call is null/no-op safe there (D6);
 // the real round-trip is covered by task-6 e2e. Version 2: adding the `meta`
-// store requires a bump; the upgrade also clears the legacy single 'vault'
-// row from the open-folder-flow era.
+// store requires a bump.
 
 interface StoredVaultFolder {
   id: string
@@ -63,10 +62,6 @@ function openDb(): Promise<IDBDatabase | null> {
         }
         if (!open.result.objectStoreNames.contains('meta')) {
           open.result.createObjectStore('meta')
-        }
-        // Legacy single-vault row from build-open-folder-flow.
-        if (open.result.objectStoreNames.contains('handles')) {
-          open.transaction?.objectStore('handles').delete('vault')
         }
       }
       open.onsuccess = () => resolve(open.result)
