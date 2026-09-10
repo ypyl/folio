@@ -4,7 +4,9 @@ import { FolioMark } from '../FolioMark'
 import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
+import type { Suggestion } from '../vault/suggest'
 import { collectDropFiles, linkForAsset } from './dropAssets'
+import { updateGutterDom } from '../editor/gutter'
 import styles from './EditorPane.module.css'
 
 // The editor surface for an open page (design D1/D2). The pane owns the DOM
@@ -24,16 +26,6 @@ const PLACEHOLDER = 'Start typing…'
 // are dimmed 12px markers in the document's left margin, inert to input, and
 // recentered on every edit / reflow.
 
-/** First text node inside a block (for its first line box), else null. */
-function firstTextNode(node: Node): Node | null {
-  if (node.nodeType === Node.TEXT_NODE) return node
-  for (const child of node.childNodes) {
-    const hit = firstTextNode(child)
-    if (hit) return hit
-  }
-  return null
-}
-
 export function EditorPane({
   page,
   initialContent,
@@ -42,6 +34,7 @@ export function EditorPane({
   loading = false,
   onDropFiles,
   onOpenReference,
+  suggest,
 }: {
   page: Page | null
   initialContent: string
@@ -53,6 +46,9 @@ export function EditorPane({
   onDropFiles?: (files: File[]) => Promise<string[]>
   /** Open the page a reference badge points at (add-reference-badges). */
   onOpenReference?: (target: string) => void
+  /** Completion candidates for the reference being typed
+   *  (add-reference-autocomplete); the app answers by page name. */
+  suggest?: (query: string) => Suggestion[]
 }) {
   const paneRef = useRef<HTMLElement>(null)
   const mountRef = useRef<HTMLDivElement>(null)
@@ -71,49 +67,22 @@ export function EditorPane({
     if (paneRef.current) paneRef.current.scrollTop = 0
   }, [page?.path])
 
-  // Gutter (line-numbers, design D3): render one dimmed number per top-level
-  // block at its canonical start line (adapter.getBlockLines), centered on
-  // the block's first text line. Imperative — the numbers are presentation
-  // only; React owns their container, this owns their content and position.
+  // Gutter (line-numbers, design D3): one dimmed number per top-level block at
+  // its canonical start line (adapter.getBlockLines), centred on the block's
+  // first text line. The placement lives in editor/gutter.ts, which measures
+  // every block before writing any number so an update costs one layout instead
+  // of one per block (bound-editor-per-keystroke-work, design D2).
   const updateGutter = () => {
     const host = gutterRef.current
     const el = mountRef.current
     const adapter = adapterRef.current
     if (!host || !el || !adapter) return
-    const lines = adapter.getBlockLines()
-    const blocks = el.querySelectorAll('.ProseMirror > *')
-    host.replaceChildren()
-    const hostRect = host.getBoundingClientRect()
-    blocks.forEach((block, i) => {
-      const line = lines[i]
-      if (line === undefined) return
-      const blockRect = block.getBoundingClientRect()
-      // Code blocks (the component's .milkdown-code-block wrapper) are tall
-      // panels: pin the number to the block's top edge, not to a code line
-      // mid-panel (it would read as "middle of the block"). Prose blocks
-      // stay centered on their first text line.
-      const isCodeBlock = block.classList.contains('milkdown-code-block')
-      let top = blockRect.top - hostRect.top
-      if (!isCodeBlock) {
-        // The block's first text line: more accurate than the block box (a
-        // heading's glyphs sit inside a taller line box). Empty blocks (the
-        // placeholder page) fall back to the block box.
-        const text = firstTextNode(block)
-        const lineRect = text
-          ? (() => {
-              const range = document.createRange()
-              range.selectNodeContents(text)
-              return range.getClientRects()[0] ?? blockRect
-            })()
-          : blockRect
-        top = lineRect.top - hostRect.top + (lineRect.height - 12) / 2
-      }
-      const span = document.createElement('span')
-      span.textContent = String(line)
-      span.className = styles.gutterNum
-      span.style.top = `${top}px`
-      host.appendChild(span)
-    })
+    updateGutterDom(
+      host,
+      [...el.querySelectorAll('.ProseMirror > *')],
+      adapter.getBlockLines(),
+      styles.gutterNum,
+    )
   }
 
   // Reference activation reads through a ref: the mount effect runs once, but
@@ -122,6 +91,13 @@ export function EditorPane({
   const openReferenceRef = useRef(onOpenReference)
   useEffect(() => {
     openReferenceRef.current = onOpenReference
+  })
+
+  // Same reason for the completion source: the app's pool is replaced on every
+  // save, and the editor mounts once per page.
+  const suggestRef = useRef(suggest)
+  useEffect(() => {
+    suggestRef.current = suggest
   })
 
   // Mount the editor once per page instance (App keys by page path, so the
@@ -146,6 +122,7 @@ export function EditorPane({
       updateGutter()
     })
     adapter.onReferenceClick((target) => openReferenceRef.current?.(target))
+    adapter.setSuggestionSource((query) => suggestRef.current?.(query) ?? [])
     void adapter
       .mount(el)
       .then(() => {

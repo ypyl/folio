@@ -13,6 +13,7 @@ import { copyDroppedFiles } from './vault/assets'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import { kindOf, localDayString, orderPages, stem, type IndexPage } from './vault/index'
+import { candidateNames, suggestPages, type Suggestion } from './vault/suggest'
 import type { SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
@@ -262,6 +263,17 @@ function App() {
   // notes, design: Fuse lifecycle).
   const searchDocs = useMemo(() => (graph ? [...graph.pages.values()] : []), [graph])
 
+  // Reference-completion pool (add-reference-autocomplete, design D2/D8): the
+  // index's resolvable names in page order, rebuilt only when the graph or the
+  // pins change, never per keystroke. The editor asks this through the adapter.
+  const suggestPool = useMemo(() => (graph ? candidateNames(graph, pins) : []), [graph, pins])
+  const suggest = useMemo(
+    () =>
+      (query: string): Suggestion[] =>
+        suggestPages(query, suggestPool),
+    [suggestPool],
+  )
+
   return (
     <div className="app-shell">
       <Header
@@ -326,6 +338,7 @@ function App() {
             initialContent={initialContent}
             onChange={handleEdit}
             onOpenReference={handleOpenReference}
+            suggest={suggest}
             onDropFiles={
               activeFolder?.storage
                 ? (files) => copyDroppedFiles(activeFolder.storage!, files)

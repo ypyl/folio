@@ -1,0 +1,42 @@
+/* Reference-completion popup (add-reference-autocomplete, design D5, DESIGN.md).
+   Mirrors the pane's language picker (`EditorPane.module.css`) so the editor's
+   two floating surfaces read as one treatment: the fill carries the surface, no
+   border, 8px radius, whisper shadow. Visibility is the element's `hidden`
+   attribute, so nothing here sets `display`. */
+.popup {
+  position: fixed;
+  z-index: 20; /* above the language picker's 10 */
+  min-width: 140px;
+  max-width: 360px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--ivory);
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --deep-dark at low opacity */
+}
+
+.row {
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--near-black);
+  font-size: 13px;
+  line-height: 18px;
+  /* One line per row: a wrapped name would break the row cap and the popup
+     height, and a long name has to stay readable next to its match. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none; /* a mousedown must not start a text selection */
+}
+
+.active {
+  background: var(--warm-sand);
+}
+
+/* The matched span, same two declarations as the search dropdown's hit mark so
+   a match looks the same wherever it is highlighted. */
+.hit {
+  border-radius: 2px;
+  background: var(--brand-tint);
+  color: var(--near-black);
+}

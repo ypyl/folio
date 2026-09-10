@@ -5,6 +5,7 @@
 
 import type { EditorAdapter } from './editor'
 import { blockStartLines } from '../lineAnchors'
+import type { Suggestion } from '../vault/suggest'
 
 export class FakeEditor implements EditorAdapter {
   content = ''
@@ -16,6 +17,7 @@ export class FakeEditor implements EditorAdapter {
   readonly insertions: string[] = []
   private listeners: ((markdown: string) => void)[] = []
   private referenceListeners: ((target: string) => void)[] = []
+  private suggestionSources: ((query: string) => Suggestion[])[] = []
   private host: HTMLElement | null = null
 
   /** Mirror the editor's top-level block DOM so pane tests can measure the
@@ -41,6 +43,7 @@ export class FakeEditor implements EditorAdapter {
     this.destructed = true
     this.listeners = []
     this.referenceListeners = []
+    this.suggestionSources = []
   }
 
   async setContent(markdown: string): Promise<void> {
@@ -71,6 +74,15 @@ export class FakeEditor implements EditorAdapter {
 
   onReferenceClick(listener: (target: string) => void): void {
     this.referenceListeners.push(listener)
+  }
+
+  setSuggestionSource(source: (query: string) => Suggestion[]): void {
+    this.suggestionSources.push(source)
+  }
+
+  /** Test hook: what the adapter would offer for `query` right now. */
+  suggest(query: string): Suggestion[] {
+    return this.suggestionSources.at(-1)?.(query) ?? []
   }
 
   /** Test hook: simulate activating a reference badge. */

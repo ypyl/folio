@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditorAdapter } from '../editor/editor'
+import type { Suggestion } from '../vault/suggest'
 import { EditorPane } from './EditorPane'
 import styles from './EditorPane.module.css'
 import { collectDropFiles, linkForAsset } from './dropAssets'
@@ -34,6 +35,7 @@ type FakeEditorView = EditorAdapter & {
   emitReferenceClick: (target: string) => void
   destructed: boolean
   mounted: boolean
+  suggest: (query: string) => Suggestion[]
 }
 
 afterEach(() => {
@@ -83,6 +85,36 @@ describe('EditorPane', () => {
       fake().emitReferenceClick('Inbox')
     })
     expect(onOpenReference).toHaveBeenCalledWith('Inbox')
+  })
+
+  // The adapter mounts once, so the pane hands the source over through a ref and
+  // the live one is the app's current pool (add-reference-autocomplete, D8).
+  it('gives the editor the completion source, keeping it current across renders', async () => {
+    const first = (): Suggestion[] => [{ name: 'reading', path: 'reading.md', match: [0, 4] }]
+    const second = (): Suggestion[] => [
+      { name: 'reading list', path: 'reading list.md', match: [0, 4] },
+    ]
+    const { rerender } = render(
+      <EditorPane page={page} initialContent="" onChange={() => {}} suggest={first} />,
+    )
+    await act(async () => {})
+    expect(
+      fake()
+        .suggest('read')
+        .map((row) => row.name),
+    ).toEqual(['reading'])
+    rerender(<EditorPane page={page} initialContent="" onChange={() => {}} suggest={second} />)
+    expect(
+      fake()
+        .suggest('read')
+        .map((row) => row.name),
+    ).toEqual(['reading list'])
+  })
+
+  it('offers nothing when the app supplies no completion source', async () => {
+    render(<EditorPane page={page} initialContent="" onChange={() => {}} />)
+    await act(async () => {})
+    expect(fake().suggest('read')).toEqual([])
   })
 
   it('destroys the editor on unmount', async () => {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/core'
+import type { EditorState, Transaction } from '@milkdown/prose/state'
+import { TextSelection } from '@milkdown/prose/state'
 import { MilkdownAdapter } from './milkdown'
 
 // jsdom has no IntersectionObserver; the code-block component's node view
@@ -447,5 +449,115 @@ describe('MilkdownAdapter (smoke)', () => {
     expect(adapter.getBlockLines()).toEqual([1])
     await adapter.destroy()
     el.remove()
+  })
+
+  // Reference completion end to end through the real transport
+  // (add-reference-autocomplete, task 7.1): a real ProseMirror view, the real
+  // plugin, the real popup element, and a real keydown event routed by
+  // ProseMirror's own DOM listener. The caret is placed by a transaction rather
+  // than by keystrokes, which jsdom cannot produce (no execCommand).
+  describe('MilkdownAdapter (reference completion)', () => {
+    type RealView = {
+      state: EditorState
+      dispatch: (tr: Transaction) => void
+      dom: HTMLElement
+      coordsAtPos: (pos: number) => { left: number; right: number; top: number; bottom: number }
+    }
+
+    const viewOf = (adapter: MilkdownAdapter): RealView =>
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        return access.get(editorViewCtx)
+      }) as RealView
+
+    const mountWithSuggestions = async () => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const adapter = new MilkdownAdapter()
+      adapter.setSuggestionSource((query) =>
+        query === 're' ? [{ name: 'reading', path: 'Reading.md', match: [0, 2] }] : [],
+      )
+      await adapter.mount(el)
+      const view = viewOf(adapter)
+      // jsdom has no layout, so the caret measurement the popup positions
+      // itself with is stubbed; the unstubbed failure path hides the popup
+      // (covered by the plugin's own tests).
+      view.coordsAtPos = () => ({ left: 10, right: 11, top: 20, bottom: 30 })
+      // The popup shows only while the editor holds focus, which jsdom cannot
+      // give a contenteditable.
+      view.dom.dispatchEvent(new FocusEvent('focus'))
+      return { adapter, el, view }
+    }
+
+    /** Put the caret at the end of the document's only line, as typing would. */
+    const caretToEnd = (view: RealView) => {
+      const end = view.state.doc.content.size - 1
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)))
+    }
+
+    it('offers candidates while a reference is typed and inserts the token on Enter', async () => {
+      const { adapter, el, view } = await mountWithSuggestions()
+      const changes: string[] = []
+      adapter.onChange((md) => changes.push(md))
+      await adapter.setContent('See #re\n')
+      caretToEnd(view)
+
+      const popup = el.querySelector('[role="listbox"]') as HTMLElement
+      expect(popup).toBeTruthy()
+      expect(popup.hidden).toBe(false)
+      expect([...popup.querySelectorAll('[role="option"]')].map((n) => n.textContent)).toEqual([
+        'reading',
+      ])
+      expect(popup.querySelector('mark')?.textContent).toBe('re')
+
+      // A real keydown on the editable root, routed by ProseMirror's listener.
+      const enter = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      })
+      view.dom.dispatchEvent(enter)
+      expect(enter.defaultPrevented).toBe(true)
+      expect(serialize(adapter)).toContain('#reading')
+      expect(view.state.selection.from).toBe(view.state.doc.content.size - 1)
+      // The popup consumed the key, so the paragraph did not split: this is the
+      // observable difference between "the picker took Enter" and "the editor
+      // took Enter" (both prevent the browser default).
+      expect(view.state.doc.childCount).toBe(1)
+      expect(popup.hidden).toBe(true)
+
+      // The insertion is an ordinary edit: it reaches the change stream that
+      // feeds the draft and the debounced save.
+      await new Promise((r) => setTimeout(r, 400))
+      expect(changes.at(-1)).toContain('#reading')
+
+      await adapter.destroy()
+      // Nothing of the popup survives the editor (StrictMode remounts the pane
+      // while its host stays in the DOM).
+      expect(el.querySelector('[role="listbox"]')).toBeNull()
+      el.remove()
+    })
+
+    it('leaves Enter to the editor when the popup has nothing to offer', async () => {
+      const { adapter, el, view } = await mountWithSuggestions()
+      await adapter.setContent('See #zz\n')
+      caretToEnd(view)
+      const popup = el.querySelector('[role="listbox"]') as HTMLElement
+      expect(popup.hidden).toBe(true)
+
+      // With no popup, Enter belongs to the editor again: the paragraph splits
+      // as before this feature and nothing is completed.
+      const enter = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      })
+      const blocksBefore = view.state.doc.childCount
+      view.dom.dispatchEvent(enter)
+      expect(view.state.doc.childCount).toBe(blocksBefore + 1)
+      expect(serialize(adapter)).not.toContain('#reading')
+      await adapter.destroy()
+      el.remove()
+    })
   })
 })

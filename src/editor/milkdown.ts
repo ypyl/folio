@@ -18,7 +18,9 @@ import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-b
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { looksLikeMarkdown } from './markdownLike'
 import { referenceBadges } from './referenceBadges'
+import { referenceSuggest } from './referenceSuggest'
 import { blockStartLines } from '../lineAnchors'
+import type { Suggestion } from '../vault/suggest'
 import type { EditorAdapter } from './editor'
 
 export class MilkdownAdapter implements EditorAdapter {
@@ -26,6 +28,9 @@ export class MilkdownAdapter implements EditorAdapter {
   private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
   private referenceClickListener: ((target: string) => void) | null = null
+  /** Completion candidates, read through a getter at query time: the app
+   *  replaces its pool on every save, and the adapter mounts once. */
+  private suggestSource: ((query: string) => Suggestion[]) | null = null
   private destroyed = false
   // Programmatic-seed bookkeeping (design C2 round-trip normalization): after
   // setContent the listener emits one markdownUpdated for the doc we just
@@ -115,6 +120,9 @@ export class MilkdownAdapter implements EditorAdapter {
       // target across the seam. The listener is read at activation time, so
       // onReferenceClick may be attached after mount.
       .use(referenceBadges((target) => this.referenceClickListener?.(target)))
+      // Reference completion (add-reference-autocomplete): the popup and its
+      // keys, fed by the app's candidate source through the getter above.
+      .use(referenceSuggest((query) => this.suggestSource?.(query) ?? []))
       .create()
     if (this.destroyed) {
       await editor.destroy()
@@ -128,6 +136,7 @@ export class MilkdownAdapter implements EditorAdapter {
     this.destroyed = true
     this.changeListener = null
     this.referenceClickListener = null
+    this.suggestSource = null
     await this.editor?.destroy()
     this.editor = null
   }
@@ -243,6 +252,10 @@ export class MilkdownAdapter implements EditorAdapter {
 
   onReferenceClick(listener: (target: string) => void): void {
     this.referenceClickListener = listener
+  }
+
+  setSuggestionSource(source: (query: string) => Suggestion[]): void {
+    this.suggestSource = source
   }
 
   /** Current document serialized to Markdown, read imperatively. */

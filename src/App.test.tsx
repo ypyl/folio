@@ -24,11 +24,28 @@ vi.mock('./editor/milkdown', async () => {
   }
 })
 
+// The completion pool must be rebuilt when the index changes and never per
+// keystroke or page switch (add-reference-autocomplete, design D2/D8). Counting
+// candidateNames calls is the direct evidence, so the real implementation is
+// wrapped rather than replaced.
+const candidateCalls = vi.hoisted(() => ({ count: 0 }))
+vi.mock('./vault/suggest', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./vault/suggest')>()
+  return {
+    ...actual,
+    candidateNames: (...args: Parameters<typeof actual.candidateNames>) => {
+      candidateCalls.count += 1
+      return actual.candidateNames(...args)
+    },
+  }
+})
+
 type FakeView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string) => void
+  suggest: (query: string) => import('./vault/suggest').Suggestion[]
 }
 
 // The most recently mounted editor instance.
@@ -73,6 +90,11 @@ async function openFixture(): Promise<FakeDirectoryHandle> {
   )
   fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
   editorInstances.list.length = 0 // fresh editors per test
+  // The folder opens onto today's journal (journal-home). Wait for that
+  // auto-open to land before handing control back: a click that arrives inside
+  // its window is overwritten by the pending effect, and the test then inspects
+  // the journal's editor instead of the page it just opened.
+  await waitFor(() => expect(editor()).toBeTruthy())
   return tree
 }
 
@@ -308,6 +330,12 @@ describe('auto-save (page-editing spec)', () => {
 
     spy.mockRestore()
     editor().emitChange('second edit')
+    // The re-armed edit shows as dirty before it saves. Observing that status
+    // first is what makes the wait below wait: on its own, "no status" is also
+    // true before React has rendered the edit, so it could pass on a clean pane
+    // and the file assertion would then read the pre-edit content.
+    const retry = await screen.findByRole('status')
+    expect(retry.textContent).toBe('Unsaved changes')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = tree.children.get('Welcome.md') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('second edit')
@@ -408,6 +436,33 @@ describe('journal calendar (static-navigation + ui-shell spec)', () => {
     // Once the day exists it is marked in the calendar.
     const day = screen.getByRole('button', { name: 'September 18, 2026' })
     await waitFor(() => expect(day.classList.contains(styles.marked)).toBe(true))
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('reference completion', () => {
+  it('feeds the editor from the live index, rebuilding on save only', async () => {
+    render(<App />)
+    await openFixture()
+    // The app's pool reaches the editor through the seam.
+    await waitFor(() =>
+      expect(
+        editor()
+          .suggest('Read')
+          .map((row) => row.name),
+      ).toContain('Reading'),
+    )
+
+    // A keystroke and a page switch only touch drafts and routing: no rebuild.
+    const afterOpen = candidateCalls.count
+    editor().emitChange('Edited the today note')
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    expect(candidateCalls.count).toBe(afterOpen)
+
+    // The debounced save lands, the index is replaced, and the pool is rebuilt.
+    await waitFor(() => expect(candidateCalls.count).toBeGreaterThan(afterOpen), {
+      timeout: 3000,
+    })
     vi.unstubAllGlobals()
   })
 })

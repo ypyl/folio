@@ -42,6 +42,73 @@ export function findReferenceRanges(content: string): ReferenceRange[] {
   return ranges
 }
 
+// Word form: what `REF` accepts between '#' and the caret. A name is only
+// word-shaped if the same class accepts the whole name (referenceToken).
+const WORD_FORM = /^[\w-]*$/
+const WORD_NAME = /^[\w-]+$/
+// `REF`'s trailing guards, mirrored: a reference ends where the next character
+// cannot extend it. A closing bracket is the bracketed form's version of the
+// same guard (see referenceTrigger).
+const WORD_TAIL = /[\w/-]/
+const CLOSING_BRACKET = /\]/
+
+/**
+ * The reference being typed at the caret, or null (add-reference-autocomplete,
+ * design D1). `before`/`after` are the textblock's text on either side of the
+ * caret; `from`/`to` are the token's offsets in `before`. The trigger is the
+ * longest token prefix `REF` would accept, so the popup's replace range is
+ * exactly the text the user is typing.
+ */
+export type ReferenceTrigger = {
+  kind: 'word' | 'bracketed'
+  /** Raw token text from '#' through the caret: `#rea`, `#[[read`. */
+  text: string
+  /** The typed name fragment: `rea`, `read`. Never empty. */
+  query: string
+  from: number
+  to: number
+}
+
+/**
+ * Detect an in-progress reference token ending at the caret. Returns null when
+ * there is none, when the caret is not at the token's end (completing there
+ * would leave the rest of the token behind), and for a bare `#` or `#[[` with
+ * nothing typed yet (design D1: no empty query, so a Markdown heading being
+ * typed never flashes a popup).
+ */
+export function referenceTrigger(before: string, after: string): ReferenceTrigger | null {
+  // Backwards to the last '#', not forwards from the first: with two openers on
+  // one line (`#[[a #[[b`) the one being typed is the last one.
+  const hash = before.lastIndexOf('#')
+  if (hash === -1) return null
+  // `REF`'s lookbehind (?<![\w]): a '#tag' inside a word is not a reference.
+  if (hash > 0 && /\w/.test(before[hash - 1])) return null
+  const rest = before.slice(hash + 1)
+  const text = before.slice(hash)
+  if (rest.startsWith('[[')) {
+    const query = rest.slice(2)
+    // A ']' in the typed text means the token is closed or the caret sits
+    // inside it; a ']' after the caret would be left behind by the
+    // replacement. Both are debris, so neither is a trigger.
+    if (query === '' || query.includes(']') || CLOSING_BRACKET.test(after)) return null
+    return { kind: 'bracketed', text, query, from: hash, to: before.length }
+  }
+  if (rest === '' || !WORD_FORM.test(rest)) return null
+  if (WORD_TAIL.test(after[0] ?? '')) return null
+  return { kind: 'word', text, query: rest, from: hash, to: before.length }
+}
+
+/**
+ * The reference token to write for `name` (add-reference-autocomplete, design
+ * D3): the trigger's form decides, so a `#[[` trigger never loses its brackets,
+ * and a `#` trigger falls back to brackets when the name is not a single word.
+ * "Word" is exactly `REF`'s `[\w-]+` (ASCII letters, digits, `_`, `-`), so the
+ * result always tokenizes back to this same name.
+ */
+export function referenceToken(name: string, form: 'word' | 'bracketed'): string {
+  return form === 'word' && WORD_NAME.test(name) ? `#${name}` : `#[[${name}]]`
+}
+
 /**
  * Extract every page reference in `content`, in order of appearance.
  * Repeated references to the same page (case-insensitive, per the
