@@ -45,3 +45,5 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - allow to select text on the page and move it to a new page
 
 - actually apply keystroke when user click on it in shortkut window
+
+- when reference is only one in line, even clikcing on the end of the line -> navigates to the page referenced by link
