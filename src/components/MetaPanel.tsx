@@ -1,4 +1,5 @@
 import { Accordion } from './Accordion'
+import { ShortcutsList } from './ShortcutsList'
 import styles from './MetaPanel.module.css'
 
 // One link row in the meta panel (links-pane). `path` is the target's
@@ -49,11 +50,12 @@ function LinkList({
   )
 }
 
-// The right meta panel: Backlinks and Forwardlinks. Placeholder copy while no
-// page is open; real, navigable rows (or empty-state copy) once one is
-// (ui-shell spec); skeleton rows while the active folder's index builds
-// (indexing-loading-state). Components never import the vault — App supplies
-// rows.
+// The right meta panel: Backlinks, Forwardlinks, and the keyboard-shortcuts
+// reference. Placeholder copy while no page is open; real, navigable rows (or
+// empty-state copy) once one is (ui-shell spec); skeleton rows while the
+// active folder's index builds (indexing-loading-state). Components never
+// import the vault — App supplies rows. The shortcuts reference is
+// content-only and renders in every state (move-help-to-right-panel).
 export function MetaPanel({
   pageOpen,
   backlinks,
@@ -76,7 +78,7 @@ export function MetaPanel({
   const skeletonLine = <span className={`skeleton ${styles.skeletonLine}`} aria-hidden="true" />
 
   return (
-    <aside className={styles.panel} aria-label="Page links">
+    <aside className={styles.panel} aria-label="Page sidebar">
       <Accordion title="Backlinks" defaultOpen>
         {loading ? (
           skeletonLine
@@ -106,6 +108,15 @@ export function MetaPanel({
         ) : (
           <p className="section-placeholder">Links from this page appear once a page is open.</p>
         )}
+      </Accordion>
+      {/* Keyboard-shortcuts reference (move-help-to-right-panel): the panel's
+          last section. Its collapsed row is anchored to the panel's bottom
+          edge (the `footer` class) so it stays reachable however long the
+          link sections get. Opened, it expands in place — the panel keeps
+          scrolling as a single region. It renders in every state, so it needs
+          neither `pageOpen` nor `loading`. */}
+      <Accordion title="Keyboard shortcuts" className={styles.footer}>
+        <ShortcutsList />
       </Accordion>
     </aside>
   )

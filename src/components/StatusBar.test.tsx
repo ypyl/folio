@@ -5,7 +5,8 @@ import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell/page-editing specs): the
 // crumb and save-state scenarios moved here from the editor pane, plus the
-// indexing label, vault info, and help-button contract.
+// indexing label, vault info, and pin toggle. Display-only apart from the pin
+// star — move-help-to-right-panel removed the help button and its modal.
 
 describe('StatusBar', () => {
   describe('path group (file breadcrumb)', () => {
@@ -87,8 +88,8 @@ describe('StatusBar', () => {
       const status = screen.getByTitle('notes (12 files)')
       expect(status.textContent).toContain('notes')
       expect(status.textContent).toContain('· 12')
-      // Display-only: no folder button, no actions on the vault text.
-      expect(container.querySelectorAll('button')).toHaveLength(1) // only the help button
+      // Display-only: no folder button, no controls on the vault text.
+      expect(container.querySelectorAll('button')).toHaveLength(0)
     })
 
     it('leaves the vault group empty without a vault', () => {
@@ -97,35 +98,23 @@ describe('StatusBar', () => {
     })
   })
 
-  describe('help button', () => {
-    it('is present in every state, including the empty state', () => {
-      const { rerender } = render(<StatusBar pagePath={null} />)
-      expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeTruthy()
+  describe('no help control (move-help-to-right-panel)', () => {
+    it('holds no help button in any state', () => {
+      const { container, rerender } = render(<StatusBar pagePath={null} />)
+      expect(container.querySelector('button')).toBeNull()
       rerender(<StatusBar pagePath="a.md" saveState="saving" vaultName="notes" fileCount={1} />)
-      expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeTruthy()
-    })
-
-    it('fires onHelp and keeps the dialog aria wiring', () => {
-      const onHelp = vi.fn()
-      render(<StatusBar pagePath="a.md" onHelp={onHelp} helpOpen />)
-      const button = screen.getByRole('button', { name: 'Keyboard shortcuts' })
-      expect(button.getAttribute('aria-expanded')).toBe('true')
-      expect(button.getAttribute('aria-controls')).toBeTruthy()
-      fireEvent.click(button)
-      expect(onHelp).toHaveBeenCalled()
+      expect(container.querySelector('button')).toBeNull()
     })
   })
 
   describe('the bar performs no actions', () => {
-    it('exposes no control other than the help button', () => {
+    it('exposes no control of its own', () => {
       const { container } = render(
         <StatusBar pagePath="notes/a.md" saveState="saving" vaultName="notes" fileCount={3} />,
       )
-      // Breadcrumb segments and vault text are not interactive; the bar's
-      // only button is the help control.
-      const buttons = container.querySelectorAll('button')
-      expect(buttons).toHaveLength(1)
-      expect(buttons[0].getAttribute('aria-label')).toBe('Keyboard shortcuts')
+      // Breadcrumb segments and the vault text are not interactive. The bar's
+      // only control is the pin star, which App opts into (add-pinned-pages).
+      expect(container.querySelectorAll('button')).toHaveLength(0)
     })
   })
 

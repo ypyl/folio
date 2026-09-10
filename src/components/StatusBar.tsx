@@ -1,16 +1,17 @@
 import { Fragment } from 'react'
 import type { DraftStatus } from '../editor/drafts'
-import { SHORTCUTS_DIALOG_ID } from './shortcuts'
 import { StarIcon } from './StarIcon'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
 // thin bar below the workspace holding every piece of status — the open
-// page's file path (left), save/indexing status plus the question-mark help
-// button (center), and the active vault's name and file count (right). The
-// bar sits outside all pane scroll regions, so its content never scrolls.
-// Groups empty when their content has no source; the help button is the only
-// non-pin action in the bar.
+// page's file path (left), save/indexing status (center), and the active
+// vault's name and file count (right). The bar sits outside all pane scroll
+// regions, so its content never scrolls. Groups empty when their content has
+// no source. Its only control is the pin star (add-pinned-pages) in the
+// leading corner; the status groups themselves are display-only. The
+// question-mark help button and its modal lived here until
+// move-help-to-right-panel moved the reference into the right panel.
 
 // Save-state copy (moved from the pane's SaveIndicator, page-editing spec):
 // muted text, never a badge.
@@ -35,8 +36,6 @@ export function StatusBar({
   indexing = false,
   vaultName,
   fileCount,
-  onHelp,
-  helpOpen,
   pinned = false,
   canPin = false,
   onTogglePin,
@@ -50,10 +49,6 @@ export function StatusBar({
   indexing?: boolean
   vaultName?: string
   fileCount?: number
-  /** Opens the keyboard-shortcuts reference (keyboard-shortcuts-help). */
-  onHelp?: () => void
-  /** Whether the shortcuts dialog is open (button's aria-expanded state). */
-  helpOpen?: boolean
   /** The open page is pinned (add-pinned-pages). */
   pinned?: boolean
   /** The star is usable: a file-backed page is open — not a journal day, an
@@ -130,19 +125,6 @@ export function StatusBar({
           </span>
         ) : null}
       </div>
-      {/* The help button is the bar's only control; it lives in the far right
-          corner, after the vault stats (status-bar layout refinement). */}
-      <button
-        type="button"
-        className={styles.help}
-        onClick={onHelp}
-        aria-expanded={helpOpen ?? false}
-        aria-controls={SHORTCUTS_DIALOG_ID}
-        aria-label="Keyboard shortcuts"
-        title="Keyboard shortcuts"
-      >
-        ?
-      </button>
     </footer>
   )
 }

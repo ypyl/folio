@@ -94,12 +94,18 @@ describe('application shell', () => {
     expect(screen.queryByRole('button', { name: 'Today' })).toBeNull()
   })
 
-  it('opens and closes the keyboard-shortcuts dialog from the header', async () => {
-    render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })
-    fireEvent.keyDown(dialog, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  it('keeps the keyboard-shortcuts reference in the right panel, with no dialog', async () => {
+    const { container } = render(<App />)
+    // The shell holds no help affordance and no modal surface anywhere.
+    expect(container.querySelector('button[aria-label="Keyboard shortcuts"]')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // The reference is the panel's last section, collapsed until opened.
+    const summary = await screen.findByText('Keyboard shortcuts')
+    const section = summary.closest('details') as HTMLDetailsElement
+    expect(section.open).toBe(false)
+    fireEvent.click(summary)
+    expect(section.open).toBe(true)
+    expect(screen.getByText('Bold')).toBeTruthy()
   })
 
   it('renders an Accordion without defaultOpen closed by default', () => {
@@ -211,7 +217,7 @@ describe('navigation over the real index', () => {
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Folio' }))
 
-    const meta = () => screen.getByRole('complementary', { name: 'Page links' })
+    const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
     // Folio is referenced by Inbox and Ideas; it references architecture
     // (dangling, dimmed), Ideas, and Welcome.
     await waitFor(() => expect(within(meta()).getByRole('button', { name: 'Inbox' })).toBeTruthy())
@@ -335,7 +341,7 @@ describe('asset drag & drop (page-editing spec)', () => {
 })
 
 describe('links pane navigation (static-navigation + ui-shell spec)', () => {
-  const meta = () => screen.getByRole('complementary', { name: 'Page links' })
+  const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
 
   it('clicking a backlink row opens the referring page', async () => {
     render(<App />)

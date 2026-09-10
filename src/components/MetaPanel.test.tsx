@@ -12,7 +12,7 @@ const row = (path: string, materialized = true): LinkRow => ({
   materialized,
 })
 
-const meta = () => screen.getByRole('complementary', { name: 'Page links' })
+const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
 
 describe('MetaPanel', () => {
   it('shows placeholder copy while no page is open', () => {
@@ -122,5 +122,67 @@ describe('MetaPanel', () => {
     expect(
       within(meta()).getByRole('button', { name: 'Alpha' }).getAttribute('aria-current'),
     ).toBeNull()
+  })
+})
+
+// Keyboard-shortcuts reference (move-help-to-right-panel): the panel's last
+// section, content-only, present in every state.
+describe('keyboard-shortcuts section', () => {
+  const panel = (props: { pageOpen?: boolean; loading?: boolean } = {}) => (
+    <MetaPanel
+      pageOpen={props.pageOpen ?? false}
+      backlinks={[]}
+      forwardlinks={[]}
+      activePath={null}
+      onSelect={() => {}}
+      loading={props.loading}
+    />
+  )
+
+  it('is the panel\u2019s last section and starts collapsed', () => {
+    const { container } = render(panel())
+    const sections = container.querySelectorAll('details')
+    expect(sections).toHaveLength(3)
+    const last = sections[2] as HTMLDetailsElement
+    expect(last.open).toBe(false)
+    expect(last.querySelector('summary')?.textContent).toBe('Keyboard shortcuts')
+    // Nothing follows it.
+    expect(container.querySelectorAll('details')[2].nextElementSibling).toBeNull()
+  })
+
+  it('shows the reference in every panel state', () => {
+    // Brand empty state and search-results surfaces both reach the panel with
+    // no page open; the index-building state adds loading.
+    const states = [
+      { pageOpen: false, loading: false },
+      { pageOpen: false, loading: true },
+      { pageOpen: true, loading: false },
+    ]
+    for (const state of states) {
+      const { unmount } = render(panel(state))
+      expect(within(meta()).getByText('Keyboard shortcuts')).toBeTruthy()
+      expect(within(meta()).getByText('Bold')).toBeTruthy()
+      unmount()
+    }
+  })
+
+  it('anchors the collapsed row to the panel\u2019s bottom', () => {
+    // jsdom has no layout, so this pins the wiring (the placement class on the
+    // last section) rather than the sticky behavior — the browser check in the
+    // change's final task covers where the row actually lands.
+    const { container } = render(panel())
+    const sections = container.querySelectorAll('details')
+    expect(sections[2].className).toContain(styles.footer)
+    expect(sections[0].className).not.toContain(styles.footer)
+  })
+
+  it('opens independently of the link sections', () => {
+    const { container } = render(panel({ pageOpen: true }))
+    const sections = container.querySelectorAll('details')
+    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, false])
+    fireEvent.click(within(meta()).getByText('Keyboard shortcuts'))
+    expect(sections[2].open).toBe(true)
+    // Opening the reference leaves the link sections as they were.
+    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, true])
   })
 })

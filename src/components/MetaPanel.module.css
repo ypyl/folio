@@ -4,6 +4,25 @@
   overflow-y: auto;
   padding: 4px 16px 4px 4px; /* top aligned with the other workspace columns */
   min-width: 0;
+  /* Column layout so the reference's collapsed row can sit at the bottom edge
+     (move-help-to-right-panel). Section heights stay content-based. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bottom-anchored keyboard-shortcuts section: `margin-top: auto` puts the
+   collapsed row at the panel's bottom edge while the page-metadata sections
+   are short; `position: sticky` keeps it there once they are long enough to
+   scroll. The fill is the panel's own surface, so rows pass beneath it
+   cleanly — Kami allows no shadow on a surface that does not float. Opened,
+   the section is an ordinary in-flow block: the panel stays one scroll
+   container, with no second scrolling area and no height cap. */
+.footer {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: var(--ivory);
+  flex-shrink: 0;
 }
 
 .list {

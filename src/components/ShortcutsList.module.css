@@ -1,0 +1,73 @@
+/* Keyboard-shortcuts reference body (move-help-to-right-panel). Moved
+   unchanged from the deleted ShortcutsDialog stylesheet: quiet list rows with
+   a hairline rule and Kami-token key chips (--warm-sand fill, --border
+   hairline, 4px radius). No restyle — only .row gained wrap behavior so a
+   row degrades to two lines instead of overflowing the panel column. */
+
+.group {
+  margin-top: 14px;
+}
+
+/* No leading gap: the accordion body already pads below the summary, and a
+   heading-style gap there would push the first group away from its own
+   disclosure (DESIGN.md proximity rule). */
+.group:first-child {
+  margin-top: 0;
+}
+
+.groupHeading {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--olive);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The row is a label plus its key chips. It wraps as a safety net: the panel
+   column fits every row at its default width, so wrapping only happens if a
+   label or a wider font fallback pushes a row past the edge. The auto left
+   margin keeps chips right-aligned when they land on their own line. */
+.row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  color: var(--near-black);
+  font-size: 14px;
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.kbd {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--warm-sand);
+  color: var(--near-black);
+  font-family: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}

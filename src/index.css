@@ -33,6 +33,12 @@
   --breaking-bg: #f0e0d8;
   --breaking-fg: #8b4513;
 
+  /* Workspace columns (ui-shell): shared by the workspace and header grids so
+     the header stays aligned with the panes beneath it. */
+  --rail-w: 56px;
+  --sidebar-w: 264px;
+  --panel-w: 280px;
+
   /* Smooth native details open/close (Chromium 129+; instant toggle otherwise) */
   interpolate-size: allow-keywords;
 }
@@ -74,7 +80,7 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: 56px 264px minmax(0, 1fr) 220px;
+  grid-template-columns: var(--rail-w) var(--sidebar-w) minmax(0, 1fr) var(--panel-w);
   min-height: 0;
 }
 

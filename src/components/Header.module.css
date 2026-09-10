@@ -1,6 +1,6 @@
 .header {
   display: grid;
-  grid-template-columns: 56px 264px minmax(0, 1fr) 220px;
+  grid-template-columns: var(--rail-w) var(--sidebar-w) minmax(0, 1fr) var(--panel-w);
   align-items: center;
   padding: 12px 0;
   background: var(--parchment);

@@ -115,30 +115,9 @@
   white-space: nowrap;
 }
 
-.help {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--warm-sand);
-  color: var(--near-black);
-  font: inherit;
-  font-size: 12px;
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.help:hover {
-  border-color: var(--stone);
-}
-
 /* Vault group (right side): the active vault's name and file count,
    display-only. The auto left margin absorbs the middle space so the vault
-   and the help button pin to the bar's right edge. */
+   pins to the bar's right edge. */
 .vault {
   display: flex;
   align-items: center;
