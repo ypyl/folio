@@ -21,6 +21,7 @@ One feature at a time, no waterfall. After every step the app builds and runs. W
 15. [x] **Line numbers** — the editor gutter numbers each block's first line (sparse signature: 1, 3, 5; lists get one number), and search results show `· line N` for text matches, so a highlighted match is easy to locate in the document.
 16. [x] **Pinned pages** — star the open page from the status bar's leading corner (enabled for pages only; journal days, unmaterialized pages, and search results disable it): pins persist as an ordered list in the vault's hidden `.folio/pins.md` (ADR-0015), pinned pages lead the Pages section in pin order with a bolder title style, and the remaining pages sort by last-edited descending.
 17. [x] **Right panel help** — the keyboard-shortcuts reference leaves the status bar's `?` button and its modal, becoming the right panel's last collapsible section: collapsed by default, with its summary row anchored to the panel's bottom edge and the list expanding in place above it. The status bar is left display-only apart from the pin star. The panel widens from 220px to 280px, with the workspace and header columns sharing `:root` custom properties so they cannot drift. The heading-level row collapses to one `Ctrl+Alt+1..6` range chord, kept honest by the live-keymap drift guard that now covers levels 1-6.
+18. [x] **Reference badges** — references (`#word`, `#[[Page]]`) render as clickable chips over their literal text in the editor; a plain click or `Mod+Enter` opens the target, resolving like the links pane (an existing page, or a blank one created on first save). The badge depends only on the document, so moving the caret never repaints it, references inside code spans or fences are left alone.
 
 ## Later ideas
 
@@ -33,7 +34,6 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - **Reference-aware asset deletion** — decide the semantics when a page/asset is deleted: does removing the last reference delete the file? Needs explicit confirmation; today deleting a link leaves the asset on disk (safe default).
 
 - start adding version -> near the title badge
-- add links as badges in page so they are visible
 - add some reasonable limitation to markdown file
 
 - allow to select text on the page and move it to a new page
