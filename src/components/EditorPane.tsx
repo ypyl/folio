@@ -95,7 +95,7 @@ export function EditorPane({
         // The block's first text line: more accurate than the block box (a
         // heading's glyphs sit inside a taller line box). Empty blocks (the
         // placeholder page) fall back to the block box.
-        const text = block.querySelector('*') ? firstTextNode(block) : null
+        const text = firstTextNode(block)
         const lineRect = text
           ? (() => {
               const range = document.createRange()

@@ -17,16 +17,11 @@ export function linkForAsset(path: string): string {
 /** Plain File entries from a drop; dropped directories are ignored (D3). */
 export function collectDropFiles(dt: DataTransfer): File[] {
   const files: File[] = []
-  const items = dt.items
-  if (items) {
-    for (const item of items) {
-      if (item.kind !== 'file') continue
-      if (item.webkitGetAsEntry?.()?.isDirectory) continue
-      const f = item.getAsFile()
-      if (f) files.push(f)
-    }
-  } else {
-    for (const f of dt.files) files.push(f)
+  for (const item of dt.items) {
+    if (item.kind !== 'file') continue
+    if (item.webkitGetAsEntry?.()?.isDirectory) continue
+    const f = item.getAsFile()
+    if (f) files.push(f)
   }
   return files
 }

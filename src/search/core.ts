@@ -114,13 +114,13 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
 }
 
 /** Per-group slice of a full result set (search-results-view): keeps the
- *  first `perGroup` matches of each kind in relevance order. The launcher
+ *  first PER_GROUP matches of each kind in relevance order. The launcher
  *  dropdown renders this; the full list powers the results view. */
-export function topPerGroup(results: SearchResult[], perGroup: number = PER_GROUP): SearchResult[] {
+export function topPerGroup(results: SearchResult[]): SearchResult[] {
   const counts = new Map<Page['kind'], number>()
   const out: SearchResult[] = []
   for (const r of results) {
-    if ((counts.get(r.kind) ?? 0) >= perGroup) continue
+    if ((counts.get(r.kind) ?? 0) >= PER_GROUP) continue
     counts.set(r.kind, (counts.get(r.kind) ?? 0) + 1)
     out.push(r)
   }
