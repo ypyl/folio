@@ -93,6 +93,17 @@ describe('sheet vs editor bindings', () => {
     expect(displayKeys(REFERENCE_OPEN_SHORTCUT)).toMatch(/^(Ctrl|Cmd)\+Enter$/)
   })
 
+  it('the sheet lists the code-block exit and convert shortcuts', () => {
+    // The code-block component owns these: Mod-Enter runs exitCode, and a
+    // Backspace at offset 0 of a one-line block converts it to a paragraph
+    // (verified in the running app, not in the ProseMirror keymap ctx).
+    expect(sheetItem('Exit code block')?.keys).toEqual(['Mod-Enter'])
+    expect(sheetItem('Cancel code block')?.keys).toEqual(['Backspace'])
+    expect(displayKeys('Mod-Enter')).toMatch(/^(Ctrl|Cmd)\+Enter$/)
+    // Mod-Enter is context-dependent: it is listed under each action it serves.
+    expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
+  })
+
   it('the sheet heading range matches every live heading binding', () => {
     const binding = ctxGet<Record<string, { shortcuts: string }>>(headingKeymap.key)
 

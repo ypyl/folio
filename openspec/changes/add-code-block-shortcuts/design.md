@@ -22,7 +22,7 @@ See proposal.md — Why. Constraints that shape the approach:
 
 **D1 — ADD to `ui-shell`; do not rewrite the enumeration requirement.** The new listing is a new concern, so the delta adds a focused requirement ("The keyboard-shortcuts reference covers leaving a code block") rather than replacing the large enumeration block. Alternative: MODIFY the enumeration to insert "code block exit and removal" into its list. Rejected: it forces copying the whole requirement-plus-scenarios block and would make this change overlap the un-archived `add-reference-badges` row edit, for no behavioral gain.
 
-**D2 — Two rows, context in the label.** `Exit code block` → `Mod-Enter`; `Code block to paragraph (at start)` → `Backspace`. The panel has no note row, so the condition lives in the label. Alternative: a generic "Code block" row with both chords. Rejected: it hides which chord does what and reads as two ways to create a block.
+**D2 — Two rows, action in the label.** `Exit code block` → `Mod-Enter`; `Cancel code block` → `Backspace`. The panel has no note row, so the action is the label. `Cancel code block` is short enough to sit on one line with its key chip at the panel's width, which the longer earlier name (`Code block to paragraph (at start)`) did not. Alternative: a generic "Code block" row with both chords. Rejected: it hides which chord does what and reads as two ways to create a block.
 
 **D3 — Duplicate `Mod-Enter` is intentional.** The chord is listed once as "Open reference" and once as "Exit code block". The two apply in mutually exclusive contexts (caret in a reference vs. caret in a code block), and the sheet is a per-action reference, not a keyboard map. Hiding one would make a real, useful chord undiscoverable.
 

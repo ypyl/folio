@@ -6,7 +6,8 @@ The Keyboard shortcuts panel tells users how to create a code block (`Ctrl/Cmd+A
 
 - The Keyboard shortcuts reference gains two rows:
   - **Exit code block** → `Mod-Enter` (`Ctrl/Cmd+Enter`)
-  - **Code block to paragraph (at start)** → `Backspace`
+  - **Cancel code block** → `Backspace`
+- The three code-block rows stay grouped together in action order — **Code block**, **Exit code block**, **Cancel code block** — and each keeps its label and key on one line at the panel's width.
 - `Mod-Enter` now appears twice in the sheet — once as **Open reference** (`add-reference-badges`), once as **Exit code block**. This is intentional and accurate: the chord is context-dependent (inside a reference vs. inside a code block), and the two can never apply at the same time.
 - Extend the shortcuts drift guard (`src/components/shortcuts.test.ts`) to cover the new rows.
 

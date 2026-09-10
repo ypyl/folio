@@ -33,6 +33,8 @@ export const SHORTCUT_GROUPS: { heading: string; items: ShortcutItem[] }[] = [
       { label: 'Bullet list', keys: ['Mod-Alt-8'] },
       { label: 'Blockquote', keys: ['Mod-Shift-b'] },
       { label: 'Code block', keys: ['Mod-Alt-c'] },
+      { label: 'Exit code block', keys: ['Mod-Enter'] },
+      { label: 'Cancel code block', keys: ['Backspace'] },
       { label: 'Indent list item', keys: ['Tab', 'Mod-]'] },
       { label: 'Outdent list item', keys: ['Shift-Tab', 'Mod-['] },
       { label: 'Line break', keys: ['Shift-Enter'] },
