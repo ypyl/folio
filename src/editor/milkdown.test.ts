@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/core'
 import type { EditorState, Transaction } from '@milkdown/prose/state'
-import { TextSelection } from '@milkdown/prose/state'
-import { MilkdownAdapter } from './milkdown'
+import { AllSelection, TextSelection } from '@milkdown/prose/state'
+import type { Node as ProseNode } from '@milkdown/prose/model'
+import { FOLIO_CLIPBOARD_FLAVOR, MilkdownAdapter } from './milkdown'
 
 // jsdom has no IntersectionObserver; the code-block component's node view
 // creates one on mount and initializes CodeMirror when the observed element
@@ -156,17 +157,50 @@ describe('MilkdownAdapter (smoke)', () => {
     plain: string,
     html = '',
     mods: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean } = {},
+    flavor = '',
   ) => {
     editorOf(adapter).action((ctx) => {
       const access = ctx as { get: (k: unknown) => unknown }
       const view = access.get(editorViewCtx) as { dom: HTMLElement }
       const event = new Event('paste', { bubbles: true, cancelable: true })
       Object.defineProperty(event, 'clipboardData', {
-        value: { getData: (type: string) => (type === 'text/plain' ? plain : html) },
+        value: {
+          getData: (type: string) =>
+            type === FOLIO_CLIPBOARD_FLAVOR ? flavor : type === 'text/plain' ? plain : html,
+        },
       })
       for (const [key, value] of Object.entries(mods)) {
         Object.defineProperty(event, key, { value })
       }
+      view.dom.dispatchEvent(event)
+    })
+  }
+
+  // Select the whole document and copy it, capturing every flavor the copy
+  // handlers write. ProseMirror's own copy handler runs first and clears the
+  // data; the adapter's flavor listener is on the mount root and runs after.
+  const selectAllAndCopy = (
+    adapter: MilkdownAdapter,
+    captured: Record<string, string>,
+    type: 'copy' | 'cut' = 'copy',
+  ) => {
+    editorOf(adapter).action((ctx) => {
+      const access = ctx as { get: (k: unknown) => unknown }
+      const view = access.get(editorViewCtx) as {
+        state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+        dispatch: (t: unknown) => void
+        dom: HTMLElement
+      }
+      view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
+      const event = new Event(type, { bubbles: true, cancelable: true })
+      Object.defineProperty(event, 'clipboardData', {
+        value: {
+          clearData: () => {},
+          setData: (type: string, value: string) => {
+            captured[type] = value
+          },
+        },
+      })
       view.dom.dispatchEvent(event)
     })
   }
@@ -307,6 +341,86 @@ describe('MilkdownAdapter (smoke)', () => {
       await adapter.setContent('')
       paste(adapter, '# Heading2\n- item2', '', { metaKey: true, shiftKey: true })
       expect(serialize(adapter)).toContain('\\# Heading2')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('copies the selection as canonical Markdown under the private flavor', async () => {
+      const { adapter, el } = await mountForPaste()
+      await adapter.setContent('# Title\n\nBody **bold**\n\n- a\n- b\n')
+      const captured: Record<string, string> = {}
+      selectAllAndCopy(adapter, captured)
+      // The flavor is the same canonical form the page saves (ADR-0001).
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toBe(serialize(adapter))
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toContain('# Title')
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toContain('**bold**')
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toContain('* a')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('writes nothing to the private flavor for an empty selection', async () => {
+      const { adapter, el } = await mountForPaste()
+      await adapter.setContent('# Title\n')
+      const captured: Record<string, string> = {}
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { dom: HTMLElement }
+        const event = new Event('copy', { bubbles: true, cancelable: true })
+        Object.defineProperty(event, 'clipboardData', {
+          value: {
+            clearData: () => {},
+            setData: (type: string, value: string) => {
+              captured[type] = value
+            },
+          },
+        })
+        view.dom.dispatchEvent(event)
+      })
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toBeUndefined()
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('carries the selection on cut before it is removed', async () => {
+      const { adapter, el } = await mountForPaste()
+      await adapter.setContent('## Budget\n\nBody\n')
+      const captured: Record<string, string> = {}
+      selectAllAndCopy(adapter, captured, 'cut')
+      // The flavor is written from the capture-phase snapshot, before the
+      // built-in cut handler deletes the selection and clears the clipboard.
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toContain('## Budget')
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toContain('Body')
+      // The cut removed the text from the document.
+      expect(serialize(adapter).trim()).toBe('')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('parses the private flavor unconditionally, keeping block shapes', async () => {
+      const { adapter, el } = await mountForPaste()
+      // A lone heading would fail the markdown-likeness rule as plain text; the
+      // flavor bypasses the rule and must keep the heading, not demote it.
+      await adapter.setContent('')
+      paste(adapter, '', '', {}, '# Title')
+      expect(serialize(adapter).trim()).toBe('# Title')
+      // An inline run round-trips as formatting, not as literal markers.
+      await adapter.setContent('')
+      paste(adapter, '', '', {}, '**bold**')
+      expect(serialize(adapter).trim()).toBe('**bold**')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('forces literal plain text even when the private flavor is present', async () => {
+      const { adapter, el } = await mountForPaste()
+      await adapter.setContent('')
+      // The flavor says "# Title"; the shift modifier must ignore it and insert
+      // the plain text verbatim (spec: force-literal).
+      paste(adapter, '# Heading\n- item', '', { ctrlKey: true, shiftKey: true }, '# Title')
+      const doc = serialize(adapter)
+      expect(doc).toContain('\\# Heading')
+      expect(doc).not.toContain('# Title')
       await adapter.destroy()
       el.remove()
     })

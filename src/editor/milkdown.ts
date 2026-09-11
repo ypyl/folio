@@ -14,6 +14,7 @@ import {
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
+import type { Slice } from '@milkdown/prose/model'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { looksLikeMarkdown } from './markdownLike'
@@ -22,6 +23,11 @@ import { referenceSuggest } from './referenceSuggest'
 import { blockStartLines } from '../lineAnchors'
 import type { Suggestion } from '../vault/suggest'
 import type { EditorAdapter } from './editor'
+
+/** Private clipboard flavor carrying the selection's canonical Markdown
+ *  (copy-as-markdown), so the app's own paste restores structure without the
+ *  markdown-likeness gate. External targets never see it. */
+export const FOLIO_CLIPBOARD_FLAVOR = 'application/x-folio-markdown'
 
 export class MilkdownAdapter implements EditorAdapter {
   private editor: Editor | null = null
@@ -40,6 +46,12 @@ export class MilkdownAdapter implements EditorAdapter {
   // change (doc differs from the seed) reaches onChange. The seed is cleared
   // by the first update, so it only ever holds a pending echo.
   private seedMarkdown: string | null = null
+  // Copy/cut flavor wiring (copy-as-markdown): the listener lives on the mount
+  // root, not in handleDOMEvents, because ProseMirror's own copy handler runs
+  // after custom handlers and calls clipboardData.clearData(); a listener on an
+  // ancestor runs after it, so the flavor written here survives.
+  private copyRoot: HTMLElement | null = null
+  private copyHandlers: Array<{ handler: (event: Event) => void; capture: boolean }> = []
 
   /** Mount the editor into `el`. The element must stay in the document for
    *  the editor's lifetime. If `destroy()` was called while `create()` was
@@ -70,8 +82,6 @@ export class MilkdownAdapter implements EditorAdapter {
             if (event.target instanceof HTMLElement && event.target.closest('.cm-editor')) {
               return false
             }
-            const text = event.clipboardData?.getData('text/plain')
-            if (!text) return false
             // The DOM lib types ClipboardEvent without the modifier keys the
             // browser actually provides; read them via the shared shape.
             const mods = event as ClipboardEvent & {
@@ -80,6 +90,19 @@ export class MilkdownAdapter implements EditorAdapter {
               metaKey: boolean
             }
             const forceLiteral = mods.shiftKey && (mods.ctrlKey || mods.metaKey)
+            // The app's own clipboard (copy-as-markdown): canonical Markdown
+            // under the private flavor is parsed unconditionally, so a selection
+            // copied or cut in the editor round-trips whatever its shape. The
+            // force-literal shortcut still wins and inserts plain text verbatim.
+            const flavor = forceLiteral
+              ? null
+              : event.clipboardData?.getData(FOLIO_CLIPBOARD_FLAVOR)
+            if (flavor) {
+              this.insertParsedMarkdown(flavor)
+              return true
+            }
+            const text = event.clipboardData?.getData('text/plain')
+            if (!text) return false
             if (forceLiteral || !looksLikeMarkdown(text)) {
               const { from, to } = view.state.selection
               view.dispatch(view.state.tr.insertText(text, from, to))
@@ -130,6 +153,38 @@ export class MilkdownAdapter implements EditorAdapter {
     }
     this.editor = editor
     this.latest = this.serialize()
+    // Copy/cut carries the selection as canonical Markdown under a private
+    // flavor (copy-as-markdown). text/plain and text/html are left exactly as
+    // ProseMirror sets them; only the extra flavor is added. The snapshot runs
+    // in the capture phase because ProseMirror's own cut handler deletes the
+    // selection, and the write runs in the bubble phase because that handler
+    // also calls clipboardData.clearData(); the mount root is an ancestor of
+    // the editable root, so it sees both phases.
+    let pendingFlavor: string | null = null
+    const snapshotFlavor = () => {
+      pendingFlavor = null
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        const { from, to } = view.state.selection
+        if (from === to) return
+        const markdown = this.serializeSlice(view.state.doc.slice(from, to))
+        if (markdown !== '') pendingFlavor = markdown
+      })
+    }
+    const writeFlavor = (event: Event) => {
+      if (!pendingFlavor) return
+      ;(event as ClipboardEvent).clipboardData?.setData(FOLIO_CLIPBOARD_FLAVOR, pendingFlavor)
+      pendingFlavor = null
+    }
+    this.copyRoot = el
+    this.copyHandlers = [
+      { handler: snapshotFlavor, capture: true },
+      { handler: writeFlavor, capture: false },
+    ]
+    for (const { handler, capture } of this.copyHandlers) {
+      el.addEventListener('copy', handler, capture)
+      el.addEventListener('cut', handler, capture)
+    }
   }
 
   async destroy(): Promise<void> {
@@ -137,6 +192,14 @@ export class MilkdownAdapter implements EditorAdapter {
     this.changeListener = null
     this.referenceClickListener = null
     this.suggestSource = null
+    if (this.copyRoot) {
+      for (const { handler, capture } of this.copyHandlers) {
+        this.copyRoot.removeEventListener('copy', handler, capture)
+        this.copyRoot.removeEventListener('cut', handler, capture)
+      }
+      this.copyRoot = null
+      this.copyHandlers = []
+    }
     await this.editor?.destroy()
     this.editor = null
   }
@@ -184,10 +247,13 @@ export class MilkdownAdapter implements EditorAdapter {
       const resolved = view.state.doc.resolve(view.state.selection.from)
       const replaceEmptyParagraph =
         resolved.parent.isTextblock && resolved.parent.content.size === 0 && resolved.depth === 1
-      if (single && first && first.isTextblock) {
+      if (single && first && first.isTextblock && first.type.name === 'paragraph') {
         // Inline payload (single paragraph: an image or link): drop the wrapper
         // paragraph and insert its inline children so the node lands on the
         // caret's own line — an empty new line stays the line the image is on.
+        // A single non-paragraph textblock (a heading) keeps its block form
+        // (copy-as-markdown): dropping its wrapper would demote it to a
+        // paragraph. A single fenced block likewise stays a block.
         const { from, to } = view.state.selection
         view.dispatch(view.state.tr.replaceWith(from, to, first.content))
       } else if (single) {
@@ -266,6 +332,20 @@ export class MilkdownAdapter implements EditorAdapter {
       const view = ctx.get(editorViewCtx)
       const serializer = ctx.get(serializerCtx)
       return serializer(view.state.doc)
+    })
+  }
+
+  /** Canonical Markdown for a document slice (copy-as-markdown), produced by
+   *  the same serializer that saves pages (ADR-0001). The slice's content is
+   *  wrapped in a doc node so a whole-selection slice serializes exactly as it
+   *  would on disk. */
+  private serializeSlice(slice: Slice): string {
+    const editor = this.editor
+    if (!editor || slice.size === 0) return ''
+    return editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const serializer = ctx.get(serializerCtx)
+      return serializer(view.state.schema.topNodeType.create(null, slice.content))
     })
   }
 }
