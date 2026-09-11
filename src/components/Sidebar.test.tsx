@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
+import styles from './Sidebar.module.css'
+import type { Page } from '../page'
 
 const journal = {
   path: 'journals/2026-09-06.md',
@@ -9,6 +11,18 @@ const journal = {
   content: '',
 }
 const page = { path: 'notes.md', title: 'notes', kind: 'page' as const, content: '' }
+
+const manyPages = (count: number): Page[] =>
+  Array.from({ length: count }, (_, i) => ({
+    path: `p${i}.md`,
+    title: `p${i}`,
+    kind: 'page' as const,
+    content: '',
+  }))
+
+// The section body for a title, so a test can say which list it means.
+const section = (title: string) =>
+  within((screen.getByText(title) as HTMLElement).closest('details') as HTMLElement)
 
 function sidebar(loading: boolean) {
   return render(
@@ -22,6 +36,10 @@ function sidebar(loading: boolean) {
     />,
   )
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('Sidebar', () => {
   it('renders sections and page rows when loaded', () => {
@@ -57,6 +75,183 @@ describe('Sidebar', () => {
       />,
     )
     expect(screen.getByRole('button', { name: 'notes' })).toBeTruthy()
+  })
+})
+
+describe('Sidebar navigation controls (add-history-navigation)', () => {
+  const renderControls = (
+    canBack: boolean,
+    canForward: boolean,
+    onBack = vi.fn(),
+    onForward = vi.fn(),
+  ) => {
+    render(
+      <Sidebar
+        pages={[page]}
+        journalEntries={[journal]}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+        canBack={canBack}
+        canForward={canForward}
+        onBack={onBack}
+        onForward={onForward}
+      />,
+    )
+    return { onBack, onForward }
+  }
+
+  it('leads the sidebar, above the sections, as one sticky row', () => {
+    renderControls(false, false)
+    const aside = screen.getByRole('complementary')
+    const controls = aside.firstElementChild as HTMLElement
+    expect(controls.className).toContain(styles.controls)
+    expect(controls.querySelectorAll('button')).toHaveLength(2)
+    // The row precedes the sections, and the Journal section still leads them.
+    const next = controls.nextElementSibling as HTMLElement
+    expect(next.tagName).toBe('DETAILS')
+    expect(next.querySelector('summary')?.textContent).toBe('Journal')
+    // The sidebar holds no History section any more.
+    expect(screen.queryByText('History')).toBeNull()
+  })
+
+  it('names each control for assistive technology', () => {
+    renderControls(true, true)
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Forward' })).toBeTruthy()
+  })
+
+  it('disables a control with nowhere to step', () => {
+    renderControls(false, true)
+    expect((screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    )
+  })
+
+  it('calls the handler for the direction it represents', () => {
+    const { onBack, onForward } = renderControls(true, true)
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalledTimes(1)
+    expect(onForward).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Forward' }))
+    expect(onForward).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Sidebar windowed listing (add-history-navigation)', () => {
+  // jsdom reports no layout, so the test supplies the geometry a browser would:
+  // a viewport height, a scroll position, and the listing's offset inside the
+  // container (which stays put while the container scrolls). The frame is stubbed
+  // synchronous so a scroll recomputes inside the event.
+  beforeEach(() => {
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0)
+      return 1
+    })
+  })
+
+  const rectAt = (top: number) =>
+    ({ top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top }) as DOMRect
+
+  const renderWindowed = (
+    pages: Page[],
+    activePath: string | null = null,
+    { clientHeight = 600, listOffset = 200, pinnedPaths = [] as string[] } = {},
+  ) => {
+    render(
+      <Sidebar
+        pages={pages}
+        journalEntries={[]}
+        activePath={activePath}
+        onSelect={() => {}}
+        pinnedPaths={pinnedPaths}
+        hasVault
+      />,
+    )
+    const aside = screen.getByRole('complementary')
+    const list = aside.querySelector('ul') as HTMLUListElement
+    Object.defineProperty(aside, 'clientHeight', { value: clientHeight, configurable: true })
+    Object.defineProperty(aside, 'scrollTop', { value: 0, writable: true, configurable: true })
+    Object.defineProperty(aside, 'getBoundingClientRect', {
+      value: () => rectAt(0),
+      configurable: true,
+    })
+    Object.defineProperty(list, 'getBoundingClientRect', {
+      value: () => rectAt(listOffset - aside.scrollTop),
+      configurable: true,
+    })
+    fireEvent.scroll(aside) // pick up the stubbed geometry
+    return { aside, list }
+  }
+
+  const scrollTo = (aside: HTMLElement, scrollTop: number) => {
+    aside.scrollTop = scrollTop
+    fireEvent.scroll(aside)
+  }
+
+  const rowTitles = () =>
+    section('Pages')
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+
+  it('renders a bounded number of rows however long the listing is', () => {
+    renderWindowed(manyPages(10_000))
+    const titles = rowTitles()
+    expect(titles.length).toBeLessThan(50)
+    // The listing starts below the sections, so its first row is still rendered.
+    expect(titles[0]).toBe('p0')
+    // The spacers stand in for the rest, so the listing's scroll extent is the
+    // whole listing rather than the rendered slice.
+    const gaps = section('Pages')
+      .getAllByRole('presentation', { hidden: true })
+      .reduce((sum, el) => sum + Number.parseInt((el as HTMLElement).style.height, 10), 0)
+    expect(gaps).toBeGreaterThan(0)
+    expect(gaps + titles.length * 35).toBe(10_000 * 35)
+  })
+
+  it('renders the rows around a deep scroll position', () => {
+    const { aside } = renderWindowed(manyPages(10_000))
+    scrollTo(aside, 1000 * 35)
+    const titles = rowTitles()
+    expect(titles).toContain('p1000')
+    expect(titles).not.toContain('p0')
+  })
+
+  it('reports each row position and the listing size to assistive technology', () => {
+    renderWindowed(manyPages(1000))
+    const rows = section('Pages').getAllByRole('button')
+    const first = rows[0].closest('li') as HTMLElement
+    expect(first.getAttribute('aria-setsize')).toBe('1000')
+    expect(first.getAttribute('aria-posinset')).toBe('1')
+    const second = rows[1].closest('li') as HTMLElement
+    expect(second.getAttribute('aria-posinset')).toBe('2')
+  })
+
+  it('renders the open page row even when it is outside the window', () => {
+    const pages = manyPages(1000)
+    renderWindowed(pages, pages[900].path)
+    const active = screen.getByRole('button', { name: 'p900' })
+    expect(active.getAttribute('aria-current')).toBe('page')
+    // And it sits at its real position, not next to the rendered window.
+    expect((active.closest('li') as HTMLElement).getAttribute('aria-posinset')).toBe('901')
+  })
+
+  it('renders every row when the listing fits the viewport', () => {
+    renderWindowed(manyPages(5), null, { listOffset: 0 })
+    expect(rowTitles()).toEqual(['p0', 'p1', 'p2', 'p3', 'p4'])
+    expect(section('Pages').queryAllByRole('presentation', { hidden: true })).toHaveLength(0)
+  })
+
+  it('follows the order it is given, pinned rows first', () => {
+    const pages = manyPages(1000)
+    // What App hands over after orderPages: the pinned page leads the listing.
+    const ordered = [pages[900], ...pages.filter((p) => p.path !== pages[900].path)]
+    renderWindowed(ordered, null, { pinnedPaths: [pages[900].path] })
+    const titles = rowTitles()
+    expect(titles[0]).toBe('p900')
+    expect(titles[1]).toBe('p0')
+    expect(screen.getByRole('button', { name: 'p900' }).getAttribute('data-pinned')).toBe('true')
   })
 })
 

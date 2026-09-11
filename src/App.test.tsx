@@ -57,6 +57,22 @@ vi.mock('./components/shortcuts', async (importOriginal) => {
   }
 })
 
+// The sidebar is memoized so a keystroke in the open page does not re-create a
+// row per page in the vault (add-page-history, design D8). The calendar inside
+// it is the render proxy: dayLabel runs once per rendered day cell, so counting
+// its calls shows whether the sidebar re-rendered at all.
+const dayLabelCalls = vi.hoisted(() => ({ count: 0 }))
+vi.mock('./components/months', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./components/months')>()
+  return {
+    ...actual,
+    dayLabel: (date: Date) => {
+      dayLabelCalls.count += 1
+      return actual.dayLabel(date)
+    },
+  }
+})
+
 type FakeView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
@@ -70,6 +86,13 @@ type FakeView = EditorAdapter & {
 const editor = () => editorInstances.list[editorInstances.list.length - 1] as FakeView
 
 const pane = () => screen.getByRole('main')
+
+// Page rows live in the Pages section, and the header's brand is also a button
+// named 'Folio', so a row query says which section it means. Sections are
+// `details` elements whose summary carries the title.
+const section = (title: string) =>
+  within((screen.getByText(title) as HTMLElement).closest('details') as HTMLElement)
+const pagesSection = () => section('Pages')
 
 // Test fixture: the former mock-vault content lifted into real .md files
 // (the promised scan/index fixture). 5 pages + 3 journals = 8 files.
@@ -246,10 +269,13 @@ describe('navigation over the real index', () => {
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('A running list of things to read'),
     )
-    expect(screen.getByRole('button', { name: 'Reading' }).getAttribute('aria-current')).toBe(
-      'page',
-    )
-    expect(screen.getByRole('button', { name: 'Welcome' }).getAttribute('aria-current')).toBeNull()
+    expect(
+      pagesSection().getByRole('button', { name: 'Reading' }).getAttribute('aria-current'),
+    ).toBe('page')
+    // Only the open page is marked: the other row keeps its plain state.
+    expect(
+      pagesSection().getByRole('button', { name: 'Welcome' }).getAttribute('aria-current'),
+    ).toBeNull()
     vi.unstubAllGlobals()
   })
 
@@ -326,7 +352,8 @@ describe('auto-save (page-editing spec)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
     editor().emitChange('draft of welcome')
     fireEvent.click(await screen.findByRole('button', { name: 'Reading' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    // Welcome now sits in the trail too, so name the Pages row.
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
 
     // The fresh Welcome editor mounts with the draft, not the indexed content.
     const reopened = editor()
@@ -742,14 +769,9 @@ describe('pinned pages (add-pinned-pages)', () => {
       ),
     )
 
-    // Back on Welcome (sidebar row — the meta panel also carries a Welcome
-    // forwardlink row while the journal is open), unpinning restores edit
-    // order and clears the marker.
-    fireEvent.click(
-      within(screen.getByRole('complementary', { name: 'Notes' })).getByRole('button', {
-        name: 'Welcome',
-      }),
-    )
+    // Back on Welcome (the Pages row — the meta panel's forwardlinks also
+    // carry a Welcome row), unpinning restores edit order and clears the marker.
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
     const unpin = await screen.findByRole('button', { name: 'Unpin Welcome' })
     fireEvent.click(unpin)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Pin Welcome' })).toBeTruthy())
@@ -867,6 +889,137 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     expect(editor().getContent()).toBe('a different body')
     expect(displayKeyCalls.count).toBe(before)
 
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('history navigation (add-history-navigation spec)', () => {
+  const nav = () => screen.getByRole('complementary', { name: 'Notes' })
+  const back = () => nav().querySelector<HTMLButtonElement>('button[aria-label="Back"]')!
+  const forward = () => nav().querySelector<HTMLButtonElement>('button[aria-label="Forward"]')!
+  // The page the sidebar marks as open.
+  const openRow = () =>
+    pagesSection()
+      .getAllByRole('button')
+      .find((b) => b.getAttribute('aria-current') === 'page')?.textContent
+
+  it('offers nowhere to step at the start of a session', async () => {
+    render(<App />)
+    await openFixture()
+    // The journal the app opened by itself is the trail's only entry.
+    expect(back().disabled).toBe(true)
+    expect(forward().disabled).toBe(true)
+    vi.unstubAllGlobals()
+  })
+
+  it('steps back and forward through the pages opened, without adding entries', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
+    await waitFor(() => expect(openRow()).toBe('Reading'))
+    expect(back().disabled).toBe(false)
+    expect(forward().disabled).toBe(true)
+
+    fireEvent.click(back())
+    await waitFor(() => expect(openRow()).toBe('Welcome'))
+    expect(forward().disabled).toBe(false)
+
+    fireEvent.click(forward())
+    await waitFor(() => expect(openRow()).toBe('Reading'))
+
+    // The step added no entry: stepping back again reaches Welcome (an
+    // appended entry would have made Back land on Reading itself).
+    fireEvent.click(back())
+    await waitFor(() => expect(openRow()).toBe('Welcome'))
+    expect(forward().disabled).toBe(false)
+    vi.unstubAllGlobals()
+  })
+
+  it('discards what was ahead when a new page opens', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Folio' }))
+    fireEvent.click(back()) // back to Reading
+    await waitFor(() => expect(openRow()).toBe('Reading'))
+    expect(forward().disabled).toBe(false)
+
+    // A fresh navigation from a backed-out position starts a new line.
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Inbox' }))
+    await waitFor(() => expect(openRow()).toBe('Inbox'))
+    expect(forward().disabled).toBe(true)
+    fireEvent.click(back())
+    await waitFor(() => expect(openRow()).toBe('Reading'))
+    fireEvent.click(forward())
+    await waitFor(() => expect(openRow()).toBe('Inbox'))
+    vi.unstubAllGlobals()
+  })
+
+  it('clears the trail when the folder changes', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
+    await waitFor(() => expect(back().disabled).toBe(false))
+
+    const home = buildTree({ 'b.md': 'b' })
+    home.name = 'Home'
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => home as unknown as FileSystemDirectoryHandle),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    await screen.findByRole('button', { name: 'b' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+
+    // The new folder's own today journal is the trail, and nothing from the
+    // previous vault can be reached any more.
+    expect(back().disabled).toBe(true)
+    expect(forward().disabled).toBe(true)
+    vi.unstubAllGlobals()
+  })
+
+  it('records navigation without writing anything to the vault', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
+    const before = [...tree.children.keys()].sort()
+    const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Folio' }))
+    // Folio references #architecture, which has no file: opening it creates a
+    // blank page, and mere recording must not materialize it.
+    fireEvent.click(within(meta()).getByRole('button', { name: 'architecture' }))
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(back().disabled).toBe(false))
+
+    expect(write).not.toHaveBeenCalled()
+    expect([...tree.children.keys()].sort()).toEqual(before)
+    write.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('does not re-render the sidebar on a keystroke, but does on a navigation', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+
+    const before = dayLabelCalls.count
+    // The keystroke re-renders App (the save indicator appears) while the
+    // sidebar's props are unchanged, so the memoized sidebar does not run.
+    await act(async () => {
+      editor().emitChange('a keystroke')
+    })
+    expect(screen.getByRole('status')).toBeTruthy()
+    expect(dayLabelCalls.count).toBe(before)
+
+    // A navigation does change what the sidebar shows, so it re-renders.
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
+    expect(dayLabelCalls.count).toBeGreaterThan(before)
     vi.unstubAllGlobals()
   })
 })

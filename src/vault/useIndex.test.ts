@@ -214,6 +214,18 @@ describe('useIndex pins (add-pinned-pages)', () => {
     expect(result.current.togglePin).toBe(first)
   })
 
+  it('keeps one empty pins identity while the graph is still building', () => {
+    // The sidebar is memoized (add-page-history, D8), so a fresh [] on every
+    // render before the index resolves would re-render it for nothing.
+    const tree = buildTree({ 'a.md': 'a' })
+    const storage = vault(tree)
+    const { result, rerender } = renderHook(() => useIndex(storage))
+    const first = result.current.pins
+    rerender()
+    expect(result.current.graph).toBeNull()
+    expect(result.current.pins).toBe(first)
+  })
+
   it('togglePin reports false on a failed write and leaves pins unchanged', async () => {
     const tree = buildTree({ 'a.md': 'a', '.folio': { 'pins.md': '- a.md\n' } })
     const storage = vault(tree)

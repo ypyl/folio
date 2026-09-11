@@ -11,6 +11,11 @@ const REFRESH_INTERVAL_MS = 30_000
 
 type Built = { storage: VaultStorage; graph: Graph; pins: string[] }
 
+// One shared empty list for the no-graph state (add-page-history, design D8):
+// the sidebar is memoized, so a fresh [] on every render would defeat the memo
+// while the index builds.
+const EMPTY_PINS: string[] = []
+
 export function useIndex(storage: VaultStorage | undefined): {
   graph: Graph | null
   pins: string[]
@@ -22,7 +27,7 @@ export function useIndex(storage: VaultStorage | undefined): {
   // immediately (no stale flash) without a synchronous reset in the effect.
   const [built, setBuilt] = useState<Built | null>(null)
   const graph = built !== null && built.storage === storage ? built.graph : null
-  const pins = built !== null && built.storage === storage ? built.pins : []
+  const pins = built !== null && built.storage === storage ? built.pins : EMPTY_PINS
   const latest = useRef<VaultIndex | null>(null)
   const inflight = useRef(false)
   // Generation counter: bumped when the storage changes, so an in-flight save

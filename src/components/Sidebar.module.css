@@ -8,10 +8,77 @@
   min-width: 0;
 }
 
+/* Navigation controls (add-history-navigation): the session trail's only UI,
+   pinned to the top of the sidebar's scroll region so Back and Forward stay
+   reachable however long the listing below is. The fill is the sidebar's own
+   surface — Kami allows no shadow on a surface that does not float — so rows
+   scroll under it cleanly. */
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: 2px;
+  padding-bottom: 4px;
+  background: var(--ivory);
+}
+
+/* Same treatment as the status bar's pin toggle: stone at rest, brand on
+   hover/focus, dimmed when there is nowhere to step. */
+.control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.control:hover:not(:disabled),
+.control:focus-visible {
+  color: var(--brand);
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -1px;
+}
+
+.control:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.controlIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+/* The listing is a list rather than a div (add-history-navigation, D5): every
+   rendered row reports its position and the listing's total size, so a windowed
+   listing is not read as a short one. The 2px gap between rows lives on the
+   item, not as a flex gap, so a row is exactly ROW_STRIDE tall and the spacers
+   standing in for skipped rows add up to the full scroll extent. */
 .list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  padding-bottom: 2px;
+}
+
+.gap {
+  flex-shrink: 0;
 }
 
 .row {

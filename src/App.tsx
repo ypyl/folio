@@ -12,6 +12,7 @@ import { DraftStore } from './editor/drafts'
 import { chordToKeyEventInit } from './editor/chord'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
+import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import { kindOf, localDayString, orderPages, stem, type IndexPage } from './vault/index'
@@ -25,6 +26,12 @@ function App() {
   const activeFolder = folders.find((f) => f.id === activeId)
   const { graph, savePage, pins, togglePin } = useIndex(activeFolder?.storage)
   const [activePath, setActivePath] = useState<string | null>(null)
+  // Session trail of the pages opened so far, plus the cursor marking the open
+  // one (add-history-navigation). In memory only, and cleared when the active
+  // folder changes (design D3/D5): every route into a page funnels through
+  // activePath, so one effect below records them all without touching each
+  // handler.
+  const [trail, setTrail] = useState<Trail>(EMPTY_TRAIL)
   // Pane mode (search-results-view): the main slot hosts either a page (the
   // editor) or the transient full-results view. ActivePath is untouched in
   // results mode, so closing it returns to the previously open page.
@@ -53,6 +60,11 @@ function App() {
   // The editor, reached through its one-method handle so the reference's rows
   // can apply a key combination (apply-shortcuts-on-click, design D8).
   const editorRef = useRef<EditorPaneHandle | null>(null)
+  // A Back or Forward step changes the open page without being a navigation
+  // (add-history-navigation, D2): the recording effect below skips the append
+  // it would otherwise make, and clears this again. Steps always change the
+  // open page, so the effect always runs to consume it.
+  const stepped = useRef(false)
 
   const handleActivate = (id: string) => {
     if (id !== activeId) {
@@ -65,17 +77,45 @@ function App() {
     void activate(id)
   }
 
-  const handleSelect = (path: string) => {
-    // Opening anything leaves the results view (search-results-view); the
-    // query stays in the header so the see-all row returns to it later.
-    setMode('page')
-    lastKnown.current = null
-    setActivePath(path)
-    // Baseline the draft against the index's content for this page. An
-    // existing draft (unsaved edits from earlier in the session) wins.
-    drafts.open(path, graph?.pages.get(path)?.content ?? '')
-    setDraftVersion((v) => v + 1)
-  }
+  // Stable identity so the memoized Sidebar can skip re-rendering on every
+  // keystroke (add-page-history, design D8). The memo only bails while this
+  // keeps its identity, so it must depend on exactly what it reads: the index
+  // (which changes on save/refresh) and the draft store (session state) - and
+  // never on the open page, which it does not read.
+  const handleSelect = useCallback(
+    (path: string) => {
+      // Opening anything leaves the results view (search-results-view); the
+      // query stays in the header so the see-all row returns to it later.
+      setMode('page')
+      lastKnown.current = null
+      setActivePath(path)
+      // Baseline the draft against the index's content for this page. An
+      // existing draft (unsaved edits from earlier in the session) wins.
+      drafts.open(path, graph?.pages.get(path)?.content ?? '')
+      setDraftVersion((v) => v + 1)
+    },
+    [graph, drafts],
+  )
+
+  // Back and Forward move the cursor and open the page it then marks; they
+  // never add an entry (add-history-navigation, D2). Both are stable across
+  // keystrokes - they depend on the trail and the select handler, and neither
+  // changes while typing - which keeps the memoized Sidebar memoized.
+  const handleBack = useCallback(() => {
+    const next = stepTrail(trail, -1)
+    if (next === trail) return
+    stepped.current = true
+    setTrail(next)
+    handleSelect(trailPath(next) as string)
+  }, [trail, handleSelect])
+
+  const handleForward = useCallback(() => {
+    const next = stepTrail(trail, 1)
+    if (next === trail) return
+    stepped.current = true
+    setTrail(next)
+    handleSelect(trailPath(next) as string)
+  }, [trail, handleSelect])
 
   // Opening a reference badge (add-reference-badges): resolve the name exactly
   // as the Forwardlinks panel does — the existing page, else a blank page at
@@ -128,6 +168,11 @@ function App() {
     // oxlint-disable-next-line react/set-state-in-effect
     setActivePath(null)
     lastKnown.current = null
+    // The trail belongs to one folder (add-page-history): a page from the
+    // previous vault must never be reachable by Back or Forward, so it clears
+    // here with the open page, the last-known page, and search.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setTrail(EMPTY_TRAIL)
     resetSearch()
   }, [activeFolder?.id])
 
@@ -148,6 +193,23 @@ function App() {
     drafts.open(today, graph.pages.get(today)?.content ?? '')
     setDraftVersion((v) => v + 1)
   }, [graph, activePath, drafts])
+
+  // Record every page the app opens (add-page-history, design D3). Keyed on
+  // the open page, so the sidebar, the calendar, the links pane, the search
+  // surfaces, reference badges, and the journal the app opens by itself are all
+  // covered by one hook. Runs once per navigation, never per keystroke; the
+  // append is O(cap) over cap <= 20 entries. A Back or Forward step is not a
+  // navigation and must not append (add-history-navigation, D2): the handler
+  // that moved the cursor set `stepped`, which is consumed here instead.
+  useEffect(() => {
+    if (activePath === null) return
+    if (stepped.current) {
+      stepped.current = false
+      return
+    }
+    // oxlint-disable-next-line react/set-state-in-effect
+    setTrail((prev) => appendTrail(prev, activePath))
+  }, [activePath])
 
   // The page to show: fresh from the active graph, else the last-known
   // content for that path, else nothing. The ref read is the
@@ -302,6 +364,10 @@ function App() {
     [graph],
   )
 
+  // Whether either control has anywhere to step (add-history-navigation).
+  const canBack = canStep(trail, -1)
+  const canForward = canStep(trail, 1)
+
   // Loading state (indexing-loading-state): while an active folder with
   // storage is building its index, the graph is null — the panes show
   // placeholders instead of empty content. No active folder (brand empty
@@ -368,6 +434,10 @@ function App() {
           pinnedPaths={pins}
           hasVault={graph !== null}
           loading={indexing}
+          canBack={canBack}
+          canForward={canForward}
+          onBack={handleBack}
+          onForward={handleForward}
         />
         {mode === 'results' ? (
           <SearchResultsView
