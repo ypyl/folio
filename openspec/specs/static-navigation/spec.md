@@ -7,25 +7,56 @@ Let a user navigate Folio's notes: the sidebar lists the open vault's pages and 
 ## Requirements
 
 ### Requirement: Sidebar lists pages and journal entries from the open vault
+
 When a vault folder is open, the sidebar SHALL list that vault's pages in the Pages section as selectable rows, and SHALL render the open vault's journal entries in the Journal section as a calendar. The rows and calendar SHALL come from the active folder's index, not from sample data. Both sections SHALL retain independent open/close behavior. Within the Pages section, pinned pages (see pinned-pages) SHALL be listed first in pin order — most recently pinned first — followed by the remaining pages in descending order of last-modified time (see vault-index); pages with equal last-modified time SHALL be ordered by path for a stable listing.
 
+The Pages listing SHALL render only the rows near the visible part of the sidebar: the number of rows in the document SHALL NOT grow with the number of pages in the vault. Windowing SHALL NOT change what the listing is: its scroll extent SHALL cover every page, its order SHALL be the order specified above, the open page's row SHALL always be rendered and marked, and assistive technology SHALL be able to read each rendered row's position in the list and the list's total size.
+
 #### Scenario: Pages section lists vault pages
+
 - **WHEN** a vault folder is open
-- **THEN** the Pages section shows a row for each page in that folder's index
+- **THEN** the Pages listing covers every page in that folder's index, in the specified order, and the first rows are rendered
 
 #### Scenario: Journal section lists vault journal entries
+
 - **WHEN** a vault folder is open
 - **THEN** the Journal section shows the journal calendar, and the days that have a journal entry in that folder's index are marked in the grid
 
 #### Scenario: Pinned pages lead the Pages section
+
 - **GIVEN** a vault where `Vision.md` is pinned and `Ideas.md`, `Log.md` are unpinned, and `Ideas.md` was edited most recently
 - **WHEN** the Pages section renders
 - **THEN** `Vision.md` is the first row (pinned, with its star), then `Ideas.md` (edited most recently), then `Log.md`
 
 #### Scenario: Unpinning moves a page into edit order
+
 - **GIVEN** pinned `Vision.md` and unpinned pages `Ideas.md`, `Log.md`
 - **WHEN** `Vision.md` is unpinned and `Ideas.md` was edited most recently
 - **THEN** the Pages section shows `Ideas.md`, `Log.md`, `Vision.md` in that order, all unpinned
+
+#### Scenario: The listing renders a bounded number of rows
+
+- **GIVEN** a vault with thousands of pages
+- **WHEN** the sidebar renders
+- **THEN** only a small number of rows near the visible part of the sidebar are in the document, and that number does not grow with the vault
+
+#### Scenario: Scrolling reaches every page
+
+- **GIVEN** a vault with thousands of pages
+- **WHEN** the user scrolls the sidebar to the end of the Pages listing
+- **THEN** the last page in the listing is rendered and can be activated like any other row
+
+#### Scenario: The open page's row is always rendered
+
+- **GIVEN** the open page sits far from the current scroll position in the Pages listing
+- **WHEN** the sidebar renders
+- **THEN** that page's row is in the document and marked as the active row
+
+#### Scenario: Assistive technology reads the whole listing
+
+- **WHEN** a row in the Pages listing is rendered
+- **THEN** it reports its position in the listing and the listing's total size, so a windowed listing is not read as a short list
+
 ### Requirement: Selecting a row opens the page in the editor pane
 Selecting a page row or a calendar day SHALL replace the editor pane's content with that page or day's rendered content, and SHALL mark the selected item as the active item in the sidebar. A calendar day without a file on disk SHALL still open, as a blank in-memory page whose file materializes on first save (see the unmaterialized-pages requirement).
 
@@ -40,6 +71,7 @@ Selecting a page row or a calendar day SHALL replace the editor pane's content w
 #### Scenario: Selecting a different row replaces the current one
 - **WHEN** the user clicks a second row while one is already open
 - **THEN** the editor pane shows the second row's content and only the second row is marked active
+
 ### Requirement: App loads to today's journal when a vault is open
 On load with a vault folder open and its index ready, the app SHALL open that folder's today journal note — `journals/YYYY-MM-DD.md` for the current local date — in the editor pane, and the sidebar SHALL mark that day as the active item. A day without a file on disk SHALL open as a blank in-memory page; merely opening SHALL NOT create a file, and the file SHALL materialize on the first save (see the unmaterialized-pages requirement). When no folder is open, the editor pane SHALL show the brand empty state instead.
 
