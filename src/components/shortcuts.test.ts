@@ -1,10 +1,25 @@
-// Keyboard-shortcuts data (keyboard-shortcuts-help, move-help-to-right-panel).
-// Pure-data concerns: how a shortcut renders, and whether the sheet still
-// matches what the editor actually binds. The list's rendering lives in
-// ShortcutsList.test.tsx.
+// Keyboard-shortcuts data (keyboard-shortcuts-help, move-help-to-right-panel,
+// apply-shortcuts-on-click). Pure-data concerns: how a shortcut renders, and
+// whether the sheet still matches what the editor actually binds. Since the
+// sheet became the dispatch surface for the chords it lists — a click replays
+// them — this guard protects behaviour rather than documentation. The list's
+// rendering lives in ShortcutsList.test.tsx.
 
 import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest'
-import { headingKeymap, strongKeymap } from '@milkdown/preset-commonmark'
+import { historyKeymap } from '@milkdown/plugin-history'
+import {
+  blockquoteKeymap,
+  bulletListKeymap,
+  codeBlockKeymap,
+  emphasisKeymap,
+  hardbreakKeymap,
+  headingKeymap,
+  inlineCodeKeymap,
+  listItemKeymap,
+  orderedListKeymap,
+  paragraphKeymap,
+  strongKeymap,
+} from '@milkdown/preset-commonmark'
 import { MilkdownAdapter } from '../editor/milkdown'
 import { REFERENCE_OPEN_SHORTCUT } from '../editor/referenceBadges'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
@@ -28,35 +43,29 @@ describe('displayKeys', () => {
     expect(displayKeys('Mod-b')).toBe('Cmd+B')
     expect(displayKeys('Mod-k')).toBe('Cmd+K')
   })
-
-  // The heading row is one range chord rather than six entries, so the range
-  // has to survive the same Mod-to-platform mapping as any other chord.
-  it('renders a range chord without mangling the range', () => {
-    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
-    expect(displayKeys('Mod-Alt-1..6')).toBe('Ctrl+Alt+1..6')
-    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
-    expect(displayKeys('Mod-Alt-1..6')).toBe('Cmd+Alt+1..6')
-  })
 })
 
 const sheetItems = SHORTCUT_GROUPS.flatMap((group) => group.items)
 const sheetItem = (label: string) => sheetItems.find((item) => item.label === label)
 
-/** Expand a range chord ("Mod-Alt-1..6") into the chords it stands for. */
-function expandRange(chord: string): string[] {
-  const match = /^(.*?)(\d+)\.\.(\d+)$/.exec(chord)
-  if (!match) return [chord]
-  const [, prefix, from, to] = match
-  const chords: string[] = []
-  for (let n = Number(from); n <= Number(to); n += 1) chords.push(`${prefix}${n}`)
-  return chords
-}
+// Chords the app binds outside ProseMirror's keymaps: the code block's own
+// CodeMirror surface owns Mod-Enter and Backspace, the reference badge plugin
+// owns its own chord, and the app's search listener owns Mod-k. They are listed
+// explicitly rather than omitted, so a chord moved out of a ProseMirror keymap
+// fails the union check below instead of silently drifting.
+const CHORDS_BOUND_ELSEWHERE = new Set<string>([
+  'Mod-Enter',
+  'Backspace',
+  REFERENCE_OPEN_SHORTCUT,
+  'Mod-k',
+])
 
 // Drift guard (keyboard-shortcuts-help design; extended by
-// move-help-to-right-panel): a sheet row must match what the editor actually
-// binds. The bindings are read from the running editor's ctx, so a preset
-// remap fails these tests rather than silently leaving the sheet lying. That
-// guard is what lets the heading row be a range instead of six literal chords.
+// move-help-to-right-panel and apply-shortcuts-on-click): every row the sheet
+// makes clickable must name a chord the app really binds, or a click would
+// dispatch something nothing can claim. The bindings are read from the running
+// editor's ctx, so a preset remap fails these tests rather than silently
+// leaving the sheet — and the sheet's chords decide what a click runs.
 describe('sheet vs editor bindings', () => {
   const el = document.createElement('div')
   const adapter = new MilkdownAdapter()
@@ -67,6 +76,22 @@ describe('sheet vs editor bindings', () => {
         editor: { action: (f: (ctx: unknown) => unknown) => unknown }
       }
     ).editor.action((ctx) => (ctx as { get: (k: unknown) => unknown }).get(key)) as T
+
+  /** Every keymap the editor registers, as (ctx key, label) pairs. */
+  const keymaps: [unknown, string][] = [
+    [strongKeymap.key, 'strong'],
+    [emphasisKeymap.key, 'emphasis'],
+    [inlineCodeKeymap.key, 'inlineCode'],
+    [headingKeymap.key, 'heading'],
+    [paragraphKeymap.key, 'paragraph'],
+    [bulletListKeymap.key, 'bulletList'],
+    [orderedListKeymap.key, 'orderedList'],
+    [listItemKeymap.key, 'listItem'],
+    [blockquoteKeymap.key, 'blockquote'],
+    [codeBlockKeymap.key, 'codeBlock'],
+    [hardbreakKeymap.key, 'hardbreak'],
+    [historyKeymap.key, 'history'],
+  ]
 
   beforeAll(async () => {
     document.body.appendChild(el)
@@ -104,22 +129,42 @@ describe('sheet vs editor bindings', () => {
     expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
   })
 
-  it('the sheet heading range matches every live heading binding', () => {
+  it('every heading level row matches the live heading binding', () => {
     const binding = ctxGet<Record<string, { shortcuts: string }>>(headingKeymap.key)
 
-    // The range stands for exactly levels one through six — no more, no less.
-    expect(expandRange(sheetItem('Heading 1-6')?.keys[0] ?? '')).toEqual([
-      'Mod-Alt-1',
-      'Mod-Alt-2',
-      'Mod-Alt-3',
-      'Mod-Alt-4',
-      'Mod-Alt-5',
-      'Mod-Alt-6',
-    ])
-
-    // …and the editor really binds each of those levels to its own chord.
+    // One row per level (no range entry): the sheet names each level's own
+    // chord, and the editor really binds each of those chords.
     for (let level = 1; level <= 6; level += 1) {
+      expect(sheetItem(`Heading ${level}`)?.keys).toEqual([`Mod-Alt-${level}`])
       expect(binding[`TurnIntoH${level}`]?.shortcuts).toBe(`Mod-Alt-${level}`)
     }
+    expect(sheetItem('Heading 1-6')).toBeUndefined()
+  })
+
+  it('every clickable row names a chord the app actually binds', () => {
+    const bound = new Set<string>()
+    for (const [key] of keymaps) {
+      const entries = ctxGet<Record<string, { shortcuts: string | string[] }>>(key) ?? {}
+      for (const entry of Object.values(entries)) {
+        for (const chord of [entry.shortcuts].flat()) bound.add(chord)
+      }
+    }
+
+    const clickable = sheetItems.filter((item) => item.replayable !== false)
+    expect(clickable.length).toBeGreaterThan(0)
+    for (const item of clickable) {
+      for (const chord of item.keys) {
+        const known = bound.has(chord) || CHORDS_BOUND_ELSEWHERE.has(chord)
+        expect(known, `${item.label} lists ${chord}, which nothing binds`).toBe(true)
+      }
+    }
+  })
+
+  it('the one non-clickable row documents a chord that is not a keydown binding', () => {
+    const plain = sheetItems.filter((item) => item.replayable === false)
+    expect(plain.map((item) => item.label)).toEqual(['Paste as plain text'])
+    // It is a paste modifier, not a keymap entry — which is exactly why a click
+    // cannot perform it (design D4).
+    expect(plain[0].keys).toEqual(['Shift-Mod-v'])
   })
 })

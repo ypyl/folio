@@ -43,6 +43,7 @@ vi.mock('./vault/suggest', async (importOriginal) => {
 type FakeView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
+  chords: string[]
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string) => void
   suggest: (query: string) => import('./vault/suggest').Suggestion[]
@@ -785,6 +786,52 @@ describe('reference badges (add-reference-badges)', () => {
       'page',
     )
     expect(editor().setContents).toHaveLength(before)
+    vi.unstubAllGlobals()
+  })
+})
+
+// Applying a key combination from the reference (apply-shortcuts-on-click):
+// the shell routes an editor row to the editor and an app row to the document,
+// disables rows whose surface is unavailable, and keeps the one non-keydown row
+// a plain label.
+describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () => {
+  const openReference = async () => {
+    const summary = await screen.findByText('Keyboard shortcuts')
+    const section = summary.closest('details') as HTMLDetailsElement
+    if (!section.open) fireEvent.click(summary)
+    return section
+  }
+  const control = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement
+
+  it('disables every row while no surface can accept it', async () => {
+    render(<App />)
+    await openReference()
+    // No vault: no editor is mounted and search is disabled, so no row acts.
+    for (const name of ['Bold Ctrl+B', 'Indent list item Tab', 'Search notes Ctrl+K']) {
+      expect(control(name).disabled).toBe(true)
+    }
+    // The row whose chord is not a keydown binding is never a control.
+    expect(screen.queryByRole('button', { name: /Paste as plain text/ })).toBeNull()
+  })
+
+  it('enables the editor rows once a page is open and sends the chord to the editor', async () => {
+    render(<App />)
+    await openFixture()
+    await openReference()
+    expect(control('Bold Ctrl+B').disabled).toBe(false)
+    expect(control('Search notes Ctrl+K').disabled).toBe(false)
+    fireEvent.click(control('Bold Ctrl+B'))
+    expect(editor().chords).toEqual(['Mod-b'])
+    vi.unstubAllGlobals()
+  })
+
+  it('routes the app row through the document, focusing the search box', async () => {
+    render(<App />)
+    await openFixture()
+    await openReference()
+    fireEvent.click(control('Search notes Ctrl+K'))
+    // The chord reaches the app's own document listener, which focuses search.
+    expect(document.activeElement).toBe(screen.getByLabelText('Search notes'))
     vi.unstubAllGlobals()
   })
 })

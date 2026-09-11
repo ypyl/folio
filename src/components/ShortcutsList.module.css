@@ -67,7 +67,50 @@
   border-radius: 4px;
   background: var(--warm-sand);
   color: var(--near-black);
-  font-family: inherit;
+  font: inherit;
   font-size: 12px;
   white-space: nowrap;
+}
+
+/* The chip's styles sit on the element that is the chip: the <button> for a row
+   the app binds, the <kbd> itself for a plain row. When it is the button, the
+   key label is an inner <kbd>, which would otherwise fall back to the browser's
+   monospace default — a wider font, and the reason the widest row ("Outdent
+   list item", Shift+Tab + Ctrl+[) wrapped to two lines. Keep one font. */
+.kbd > kbd {
+  font: inherit;
+}
+
+/* The key chip carries two elements (apply-shortcuts-on-click, design D7): a
+   <button> for a row whose chord the app binds, and a plain <kbd> for the one
+   row that documents a gesture a click cannot perform. They must look identical
+   at rest, so the button's user-agent defaults are reset in .kbd above and the
+   whole difference lives behind the element selector: a pointer, a hover, a
+   focus ring and a press. The plain chip gets none of them, which is its cue. */
+button.kbd {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+button.kbd:hover:not(:disabled) {
+  border-color: var(--dark-warm);
+}
+
+button.kbd:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* D5b's click feedback: a styled button loses the browser's own press state,
+   and DESIGN.md lists active states among brand's uses, so the press is one
+   brand-colored step. */
+button.kbd:active:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* Same treatment as the status bar's pin: dimmed but still labelled. */
+button.kbd:disabled {
+  opacity: 0.45;
+  cursor: default;
 }

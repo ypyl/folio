@@ -32,6 +32,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0013](0013-vault-storage-path-and-io-contract.md) | VaultStorage path and I/O contract | Accepted |
 | [0014](0014-adopt-milkdown-code-block-component.md) | Adopt the Milkdown component code block (CodeMirror) | Accepted |
 | [0015](0015-in-vault-app-meta.md) | The `.folio/` directory is app-owned state inside the vault | Accepted |
+| [0016](0016-apply-commands-by-key-chord.md) | Apply editor commands by replaying their key chord | Accepted |
 
 ## Adding a new ADR
 

@@ -15,6 +15,9 @@ export class FakeEditor implements EditorAdapter {
   readonly setContents: string[] = []
   /** Every insertMarkdown call, in order — lets tests assert what was inserted. */
   readonly insertions: string[] = []
+  /** Every applyChord call, in order — lets tests assert which key
+   *  combination a click sent to the editor (apply-shortcuts-on-click). */
+  readonly chords: string[] = []
   private listeners: ((markdown: string) => void)[] = []
   private referenceListeners: ((target: string) => void)[] = []
   private suggestionSources: ((query: string) => Suggestion[])[] = []
@@ -66,6 +69,13 @@ export class FakeEditor implements EditorAdapter {
   insertMarkdown(markdown: string): void {
     this.emitChange(this.content + markdown)
     this.insertions.push(markdown)
+  }
+
+  // The real adapter replays the chord through the editor's keymap; the fake
+  // records it and reports that something claimed it.
+  applyChord(chord: string): boolean {
+    this.chords.push(chord)
+    return true
   }
 
   onChange(listener: (markdown: string) => void): void {

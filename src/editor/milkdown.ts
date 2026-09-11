@@ -17,6 +17,7 @@ import { commonmark } from '@milkdown/preset-commonmark'
 import type { Slice } from '@milkdown/prose/model'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
+import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { referenceBadges } from './referenceBadges'
 import { referenceSuggest } from './referenceSuggest'
@@ -52,6 +53,13 @@ export class MilkdownAdapter implements EditorAdapter {
   // ancestor runs after it, so the flavor written here survives.
   private copyRoot: HTMLElement | null = null
   private copyHandlers: Array<{ handler: (event: Event) => void; capture: boolean }> = []
+  // Caret-surface tracking (apply-shortcuts-on-click, design D7): an applied
+  // chord must land where the caret is, and while the caret is inside a code
+  // block that surface is CodeMirror's, not the ProseMirror root. `focusin`
+  // bubbles, so one listener on the mount root sees both surfaces.
+  private focusRoot: HTMLElement | null = null
+  private focusHandler: ((event: FocusEvent) => void) | null = null
+  private lastFocusedWithin: HTMLElement | null = null
 
   /** Mount the editor into `el`. The element must stay in the document for
    *  the editor's lifetime. If `destroy()` was called while `create()` was
@@ -185,6 +193,11 @@ export class MilkdownAdapter implements EditorAdapter {
       el.addEventListener('copy', handler, capture)
       el.addEventListener('cut', handler, capture)
     }
+    this.focusRoot = el
+    this.focusHandler = (event) => {
+      this.lastFocusedWithin = event.target instanceof HTMLElement ? event.target : null
+    }
+    el.addEventListener('focusin', this.focusHandler)
   }
 
   async destroy(): Promise<void> {
@@ -200,6 +213,12 @@ export class MilkdownAdapter implements EditorAdapter {
       this.copyRoot = null
       this.copyHandlers = []
     }
+    if (this.focusRoot && this.focusHandler) {
+      this.focusRoot.removeEventListener('focusin', this.focusHandler)
+    }
+    this.focusRoot = null
+    this.focusHandler = null
+    this.lastFocusedWithin = null
     await this.editor?.destroy()
     this.editor = null
   }
@@ -225,6 +244,32 @@ export class MilkdownAdapter implements EditorAdapter {
 
   insertMarkdown(markdown: string): void {
     this.insertParsedMarkdown(markdown)
+  }
+
+  /** Apply `chord` exactly as pressing it would (ADR-0016): focus the surface
+   *  the caret is in — which restores the DOM selection from `state.selection`,
+   *  which a blur never touched — then dispatch a synthetic keydown at it and
+   *  report whether the editor's own keymap claimed the chord. */
+  applyChord(chord: string): boolean {
+    const editor = this.editor
+    if (!editor) return false
+    return editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const remembered = this.lastFocusedWithin
+      const target =
+        remembered && remembered.isConnected && view.dom.contains(remembered)
+          ? remembered
+          : view.dom
+      if (!view.hasFocus()) {
+        // view.focus() also writes the state selection back to the DOM; a
+        // CodeMirror surface just takes focus on its own element.
+        if (target === view.dom) view.focus()
+        else target.focus()
+      }
+      const event = new KeyboardEvent('keydown', chordToKeyEventInit(chord))
+      target.dispatchEvent(event)
+      return event.defaultPrevented
+    })
   }
 
   /** Parse `markdown` into nodes and replace the selection with them.

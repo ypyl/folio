@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties, DragEvent } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import type { CSSProperties, DragEvent, Ref } from 'react'
 import { FolioMark } from '../FolioMark'
 import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
@@ -26,6 +26,14 @@ const PLACEHOLDER = 'Start typing…'
 // are dimmed 12px markers in the document's left margin, inert to input, and
 // recentered on every edit / reflow.
 
+// Keyboard-shortcuts reference (apply-shortcuts-on-click): the app applies a
+// chord by asking the editor to replay it, and this is the whole surface it
+// reaches through — one method, so App never depends on the editor's contract.
+export type EditorPaneHandle = {
+  /** Apply a keyboard chord to the editor, as pressing it would. */
+  applyChord: (chord: string) => boolean
+}
+
 export function EditorPane({
   page,
   initialContent,
@@ -35,6 +43,7 @@ export function EditorPane({
   onDropFiles,
   onOpenReference,
   suggest,
+  ref,
 }: {
   page: Page | null
   initialContent: string
@@ -49,11 +58,23 @@ export function EditorPane({
   /** Completion candidates for the reference being typed
    *  (add-reference-autocomplete); the app answers by page name. */
   suggest?: (query: string) => Suggestion[]
+  /** The app's handle on the editor (apply-shortcuts-on-click). */
+  ref?: Ref<EditorPaneHandle>
 }) {
   const paneRef = useRef<HTMLElement>(null)
   const mountRef = useRef<HTMLDivElement>(null)
   const gutterRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<EditorAdapter | null>(null)
+
+  // Read at call time, so a page switch (which remounts this pane) simply swaps
+  // the adapter the handle forwards to.
+  useImperativeHandle(
+    ref,
+    () => ({
+      applyChord: (chord: string) => adapterRef.current?.applyChord(chord) ?? false,
+    }),
+    [],
+  )
 
   // Empty-page placeholder (journal-home): seeded from the mount content and
   // kept current on every edit, so an empty page invites typing and emptying

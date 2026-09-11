@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditorAdapter } from '../editor/editor'
 import type { Suggestion } from '../vault/suggest'
-import { EditorPane } from './EditorPane'
+import { EditorPane, type EditorPaneHandle } from './EditorPane'
 import styles from './EditorPane.module.css'
 import { collectDropFiles, linkForAsset } from './dropAssets'
 
@@ -31,6 +32,7 @@ function fake(): FakeEditorView {
 type FakeEditorView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
+  chords: string[]
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string) => void
   destructed: boolean
@@ -300,6 +302,28 @@ describe('EditorPane', () => {
       fireEvent.drop(screen.getByRole('main'), { dataTransfer: dt([new File(['x'], 'x.png')]) })
       await act(async () => {})
       expect(onDropFiles).not.toHaveBeenCalled()
+    })
+  })
+
+  // The app applies a chord by asking the editor to replay it
+  // (apply-shortcuts-on-click, design D8).
+  describe('applyChord handle', () => {
+    it('forwards the chord to the mounted adapter', async () => {
+      const ref = createRef<EditorPaneHandle>()
+      render(<EditorPane ref={ref} page={page} initialContent="v1" onChange={() => {}} />)
+      await act(async () => {})
+      expect(ref.current).not.toBeNull()
+      act(() => {
+        ref.current?.applyChord('Mod-b')
+      })
+      expect(fake().chords).toEqual(['Mod-b'])
+    })
+
+    it('reports false when no editor is mounted', async () => {
+      const ref = createRef<EditorPaneHandle>()
+      render(<EditorPane ref={ref} page={null} initialContent="" onChange={() => {}} />)
+      await act(async () => {})
+      expect(ref.current?.applyChord('Mod-b')).toBe(false)
     })
   })
 })

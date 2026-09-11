@@ -30,4 +30,12 @@ export interface EditorAdapter {
    *  Attach at any time; the source is read at query time, so one bound to the
    *  live vault index stays current. */
   setSuggestionSource(source: (query: string) => Suggestion[]): void
+  /** Apply a keyboard shortcut to the editor exactly as pressing it would
+   *  (apply-shortcuts-on-click, ADR-0016): the chord is replayed at the surface
+   *  the caret is in, so the editor's own keymap resolves it and a formatting
+   *  combination keeps its toggling behaviour. The app asks with the chord it
+   *  displays; it never learns what the command is. Returns whether anything
+   *  claimed the chord, so a caller can tell “applied” from “not applicable
+   *  here”. */
+  applyChord(chord: string): boolean
 }

@@ -5,29 +5,51 @@
 // deliberately absent. `Mod` is shown as Ctrl on Windows/Linux and Cmd on
 // macOS. Lives outside the component so ShortcutsList stays pure-component
 // (fast-refresh) and tests can import the data directly.
+//
+// Since apply-shortcuts-on-click this data is also the dispatch table: every row
+// whose chord the app binds on keydown is a control that replays that chord,
+// `target` says which surface it acts on, and `replayable: false` marks the one
+// row that documents a gesture a click cannot perform. A row's chord is now a
+// runtime value, so the drift guard in shortcuts.test.ts protects behaviour
+// rather than documentation.
 
 interface ShortcutItem {
   label: string
   keys: string[]
+  /** False when the row's key combination is not bound on keydown, so
+   *  activating it cannot apply it: the paste shortcut's shift modifier is read
+   *  from the paste gesture. Defaults to true. */
+  replayable?: boolean
 }
 
-export const SHORTCUT_GROUPS: { heading: string; items: ShortcutItem[] }[] = [
+export const SHORTCUT_GROUPS: {
+  heading: string
+  /** Which surface the group's chords act on: the editor's own key surface, or
+   *  the document, where the app's key listeners live. */
+  target: 'editor' | 'app'
+  items: ShortcutItem[]
+}[] = [
   {
     heading: 'Editing',
+    target: 'editor',
     items: [
       { label: 'Bold', keys: ['Mod-b'] },
       { label: 'Italic', keys: ['Mod-i'] },
       { label: 'Inline code', keys: ['Mod-e'] },
       { label: 'Undo', keys: ['Mod-z'] },
       { label: 'Redo', keys: ['Mod-y', 'Shift-Mod-z'] },
-      {
-        label: 'Heading 1-6',
-        // One range chord, not six literal entries: displayKeys splits on "-",
-        // so this renders as "Ctrl+Alt+1..6". The range is checked against the
-        // live keymap in shortcuts.test.ts (drift guard), which is what keeps a
-        // range honest where six literal chords could not fit the panel column.
-        keys: ['Mod-Alt-1..6'],
-      },
+      // One row per level rather than the old `Mod-Alt-1..6` range
+      // (apply-shortcuts-on-click, design D3): a range stands for six chords
+      // but has no single action to apply. The range only existed because six
+      // chips on one row measured 522px; six rows each fit on one line, and
+      // each is narrower than the Paste-as-plain-text row the panel already
+      // fits.
+      { label: 'Heading 1', keys: ['Mod-Alt-1'] },
+      { label: 'Heading 2', keys: ['Mod-Alt-2'] },
+      { label: 'Heading 3', keys: ['Mod-Alt-3'] },
+      { label: 'Heading 4', keys: ['Mod-Alt-4'] },
+      { label: 'Heading 5', keys: ['Mod-Alt-5'] },
+      { label: 'Heading 6', keys: ['Mod-Alt-6'] },
       { label: 'Normal paragraph', keys: ['Mod-Alt-0'] },
       { label: 'Ordered list', keys: ['Mod-Alt-7'] },
       { label: 'Bullet list', keys: ['Mod-Alt-8'] },
@@ -38,12 +60,15 @@ export const SHORTCUT_GROUPS: { heading: string; items: ShortcutItem[] }[] = [
       { label: 'Indent list item', keys: ['Tab', 'Mod-]'] },
       { label: 'Outdent list item', keys: ['Shift-Tab', 'Mod-['] },
       { label: 'Line break', keys: ['Shift-Enter'] },
-      { label: 'Paste as plain text', keys: ['Shift-Mod-v'] },
+      // Documented but not a control: this modifier is read from the paste
+      // event, so no click can perform it (design D4).
+      { label: 'Paste as plain text', keys: ['Shift-Mod-v'], replayable: false },
       { label: 'Open reference', keys: ['Mod-Enter'] },
     ],
   },
   {
     heading: 'App',
+    target: 'app',
     items: [{ label: 'Search notes', keys: ['Mod-k'] }],
   },
 ]

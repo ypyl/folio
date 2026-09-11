@@ -3,6 +3,11 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MetaPanel, type LinkRow } from './MetaPanel'
 import styles from './MetaPanel.module.css'
 
+// The panel receives the keyboard-shortcuts reference as a node
+// (apply-shortcuts-on-click); its own content is covered by
+// ShortcutsList.test.tsx, so a stub is enough here.
+const shortcuts = <p>shortcuts</p>
+
 // The meta panel is pure presentation (design D6): it renders the rows App
 // hands it and reports navigation through onSelect. No editor/vault deps.
 
@@ -23,6 +28,7 @@ describe('MetaPanel', () => {
         forwardlinks={[]}
         activePath={null}
         onSelect={() => {}}
+        shortcuts={shortcuts}
       />,
     )
     expect(
@@ -41,6 +47,7 @@ describe('MetaPanel', () => {
         forwardlinks={[]}
         activePath={null}
         onSelect={() => {}}
+        shortcuts={shortcuts}
         loading
       />,
     )
@@ -64,6 +71,7 @@ describe('MetaPanel', () => {
         forwardlinks={[row('Beta.md'), row('Gama.md')]}
         activePath={null}
         onSelect={() => {}}
+        shortcuts={shortcuts}
       />,
     )
     // Each section sorts its own list; DOM order follows the accordion
@@ -83,6 +91,7 @@ describe('MetaPanel', () => {
         forwardlinks={[row('Beta.md')]}
         activePath={null}
         onSelect={() => {}}
+        shortcuts={shortcuts}
       />,
     )
     expect(within(meta()).getByText('Nothing links here yet.')).toBeTruthy()
@@ -98,6 +107,7 @@ describe('MetaPanel', () => {
         forwardlinks={[row('missing.md', false)]}
         activePath={null}
         onSelect={onSelect}
+        shortcuts={shortcuts}
       />,
     )
     const btn = within(meta()).getByRole('button', { name: 'missing' })
@@ -114,6 +124,7 @@ describe('MetaPanel', () => {
         forwardlinks={[]}
         activePath="Beta.md"
         onSelect={() => {}}
+        shortcuts={shortcuts}
       />,
     )
     expect(within(meta()).getByRole('button', { name: 'Beta' }).getAttribute('aria-current')).toBe(
@@ -135,6 +146,7 @@ describe('keyboard-shortcuts section', () => {
       forwardlinks={[]}
       activePath={null}
       onSelect={() => {}}
+      shortcuts={shortcuts}
       loading={props.loading}
     />
   )
@@ -152,7 +164,8 @@ describe('keyboard-shortcuts section', () => {
 
   it('shows the reference in every panel state', () => {
     // Brand empty state and search-results surfaces both reach the panel with
-    // no page open; the index-building state adds loading.
+    // no page open; the index-building state adds loading. The reference is a
+    // node App supplies, so the panel's job is to render it in every state.
     const states = [
       { pageOpen: false, loading: false },
       { pageOpen: false, loading: true },
@@ -161,7 +174,7 @@ describe('keyboard-shortcuts section', () => {
     for (const state of states) {
       const { unmount } = render(panel(state))
       expect(within(meta()).getByText('Keyboard shortcuts')).toBeTruthy()
-      expect(within(meta()).getByText('Bold')).toBeTruthy()
+      expect(within(meta()).getByText('shortcuts')).toBeTruthy()
       unmount()
     }
   })

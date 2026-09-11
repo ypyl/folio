@@ -674,4 +674,157 @@ describe('MilkdownAdapter (smoke)', () => {
       el.remove()
     })
   })
+
+  // Applying a chord from the keyboard-shortcuts reference
+  // (apply-shortcuts-on-click, ADR-0016): the app dispatches a synthetic
+  // keydown and the editor's own keymap resolves it. The payload is the toggle
+  // — a formatting combination applied to text that already carries it removes
+  // it — so `serialize` (the document itself) is the assertion, not
+  // `getContent`, which only catches up when Milkdown's change listener fires.
+  // The code-block chords are CodeMirror's, so the surface the caret is in has
+  // to be the surface the replay reaches; those cases run against the real
+  // component (jsdom mounts it once IntersectionObserver is stubbed).
+  describe('MilkdownAdapter (applyChord)', () => {
+    const selectAll = (adapter: MilkdownAdapter): void => {
+      editorOf(adapter).action((ctx) => {
+        const view = (ctx as { get: (k: unknown) => unknown }).get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          dispatch: (t: unknown) => void
+        }
+        view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
+      })
+    }
+
+    const caretToEnd = (adapter: MilkdownAdapter): void => {
+      editorOf(adapter).action((ctx) => {
+        const view = (ctx as { get: (k: unknown) => unknown }).get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          dispatch: (t: unknown) => void
+        }
+        const end = view.state.doc.content.size
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(end))))
+      })
+    }
+
+    const mountPlain = async () => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const adapter = new MilkdownAdapter()
+      await adapter.mount(el)
+      return { adapter, el }
+    }
+
+    // A real panel control would take focus on mousedown; every case below
+    // moves focus to a detached button first so the editor has to take it back.
+    const focusAway = () => {
+      const button = document.createElement('button')
+      document.body.appendChild(button)
+      button.focus()
+      return button
+    }
+    const settleCodeBlock = () => new Promise((r) => setTimeout(r, 50))
+
+    it('removes formatting from a selection and restores it on a second apply', async () => {
+      const { adapter, el } = await mountPlain()
+      await adapter.setContent('a **bold** run\n')
+      expect(serialize(adapter)).toBe('a **bold** run\n')
+
+      // Any emphasis inside the selection means the toggle strips it (the
+      // command's own removeWhenPresent rule) — the un-format case the
+      // reference exists to make reachable without a keyboard.
+      selectAll(adapter)
+      expect(adapter.applyChord('Mod-b')).toBe(true)
+      expect(serialize(adapter)).toBe('a bold run\n')
+
+      // Applying the same chord again restores it: the control is a pipe, the
+      // command owns the toggle.
+      selectAll(adapter)
+      expect(adapter.applyChord('Mod-b')).toBe(true)
+      expect(serialize(adapter)).toBe('**a bold run**\n')
+
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('reports false for a chord nothing claims, and leaves the document alone', async () => {
+      const { adapter, el } = await mountPlain()
+      await adapter.setContent('an ordinary paragraph\n')
+
+      // Tab sinks a list item, which no plain paragraph allows, so the keymap
+      // declines — and the replay says so rather than pretending it applied.
+      expect(adapter.applyChord('Tab')).toBe(false)
+      expect(serialize(adapter)).toBe('an ordinary paragraph\n')
+
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('takes focus back, so the selection survives the click', async () => {
+      const { adapter, el } = await mountPlain()
+      await adapter.setContent('a **bold** run\n')
+      selectAll(adapter)
+      const button = focusAway()
+      expect(el.contains(document.activeElement)).toBe(false)
+
+      adapter.applyChord('Mod-b')
+      expect(el.contains(document.activeElement)).toBe(true)
+      expect(serialize(adapter)).toBe('a bold run\n')
+
+      button.remove()
+      await adapter.destroy()
+      el.remove()
+    })
+
+    describe('code-block chords', () => {
+      const cmContent = (el: HTMLElement) => {
+        const content = el.querySelector('.cm-content')
+        expect(content).toBeTruthy()
+        return content as HTMLElement
+      }
+      const focusProse = (el: HTMLElement) => {
+        const editable = el.querySelector('.ProseMirror')
+        expect(editable).toBeTruthy()
+        ;(editable as HTMLElement).focus()
+        return editable as HTMLElement
+      }
+
+      it('reaches the CodeMirror surface when the caret is inside the block', async () => {
+        const { adapter, el } = await mountPlain()
+        await adapter.setContent('```' + '\n' + 'let x = 1' + '\n' + '```' + '\n')
+        await settleCodeBlock()
+        expect(serialize(adapter)).toContain('```')
+
+        // The caret is in the block, so CodeMirror owns the surface and takes
+        // focus; the adapter remembers it through the mount root's focusin.
+        cmContent(el).focus()
+        const button = focusAway()
+
+        expect(adapter.applyChord('Backspace')).toBe(true)
+        expect(serialize(adapter)).not.toContain('```')
+
+        button.remove()
+        await adapter.destroy()
+        el.remove()
+      })
+
+      it('leaves an unrelated code block alone when the caret is in prose', async () => {
+        const { adapter, el } = await mountPlain()
+        await adapter.setContent(
+          '```' + '\n' + 'let x = 1' + '\n' + '```' + '\n' + '\n' + 'after' + '\n',
+        )
+        await settleCodeBlock()
+
+        // Caret in the trailing paragraph, focus on the ProseMirror root: no
+        // surface binds Backspace, so the replay reports it was not applied and
+        // the block is untouched — a synthetic Backspace can never delete.
+        caretToEnd(adapter)
+        focusProse(el)
+        expect(adapter.applyChord('Backspace')).toBe(false)
+        expect(serialize(adapter)).toContain('```')
+
+        await adapter.destroy()
+        el.remove()
+      })
+    })
+  })
 })

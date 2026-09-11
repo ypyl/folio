@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
-import { EditorPane } from './components/EditorPane'
+import { EditorPane, type EditorPaneHandle } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
+import { ShortcutsList } from './components/ShortcutsList'
 import { FolderRail } from './components/FolderRail'
 import { SearchBox } from './components/SearchBox'
 import { SearchResultsView } from './components/SearchResultsView'
 import { StatusBar } from './components/StatusBar'
 import { DraftStore } from './editor/drafts'
+import { chordToKeyEventInit } from './editor/chord'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
 import { useVault } from './vault/useVault'
@@ -48,6 +50,9 @@ function App() {
   const [drafts] = useState(() => new DraftStore())
   const [, setDraftVersion] = useState(0)
   const saverRef = useRef<ReturnType<typeof createDebouncedSaver> | null>(null)
+  // The editor, reached through its one-method handle so the reference's rows
+  // can apply a key combination (apply-shortcuts-on-click, design D8).
+  const editorRef = useRef<EditorPaneHandle | null>(null)
 
   const handleActivate = (id: string) => {
     if (id !== activeId) {
@@ -96,6 +101,18 @@ function App() {
   const handleOpenResults = (query: string) => {
     setSearchQuery(query)
     setMode('results')
+  }
+
+  // Applying a key combination from the reference (apply-shortcuts-on-click,
+  // design D2/D8): an editor row asks the editor to replay the chord at its own
+  // key surface, an app row dispatches on the document, where the app's own key
+  // listeners already live. One mechanism, two targets, no command table.
+  const applyShortcut = (chord: string, target: 'editor' | 'app') => {
+    if (target === 'editor') {
+      editorRef.current?.applyChord(chord)
+      return
+    }
+    document.dispatchEvent(new KeyboardEvent('keydown', chordToKeyEventInit(chord)))
   }
 
   // A folder switch resets the open page: the previously open page belongs
@@ -170,6 +187,14 @@ function App() {
         }
       : null
   const page = displayed ?? pendingBlank
+
+  // Which surfaces the reference's rows can act on (design D5): editor rows need
+  // a mounted editor — no page open also covers the brand empty state, the
+  // results view, and indexing, where the graph is null and no adapter exists —
+  // and the search row needs the vault that enables search itself.
+  /* oxlint-disable-next-line react/refs */
+  const canEdit = mode === 'page' && page !== null
+  const canSearch = graph !== null
 
   const handleEdit = (markdown: string) => {
     if (activePath === null) return
@@ -352,6 +377,7 @@ function App() {
             // Keyed by path: each page gets a fresh editor seeded with its
             // draft-or-index content; switching pages remounts it.
             key={page?.path}
+            ref={editorRef}
             page={page}
             initialContent={initialContent}
             onChange={handleEdit}
@@ -370,14 +396,20 @@ function App() {
         )}
         <MetaPanel
           // The meta panel is page metadata: empty while the results view
-          // is open (search-results-view design D7).
-          /* oxlint-disable-next-line react/refs */
+          // is open (search-results-view design D7). Both `page` reads below
+          // derive from the last-known ref (the same quirk the StatusBar props
+          // suppress).
+          /* oxlint-disable react/refs */
           pageOpen={mode === 'page' && page !== null}
           backlinks={mode === 'page' ? backlinkRows : []}
           forwardlinks={mode === 'page' ? forwardlinkRows : []}
           activePath={mode === 'page' ? activePath : null}
           onSelect={handleSelect}
           loading={indexing}
+          shortcuts={
+            <ShortcutsList onApply={applyShortcut} canApply={{ editor: canEdit, app: canSearch }} />
+          }
+          /* oxlint-enable react/refs */
         />
       </div>
       <StatusBar

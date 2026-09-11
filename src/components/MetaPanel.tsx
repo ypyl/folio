@@ -1,5 +1,5 @@
+import type { ReactNode } from 'react'
 import { Accordion } from './Accordion'
-import { ShortcutsList } from './ShortcutsList'
 import styles from './MetaPanel.module.css'
 
 // One link row in the meta panel (links-pane). `path` is the target's
@@ -54,7 +54,9 @@ function LinkList({
 // reference. Placeholder copy while no page is open; real, navigable rows (or
 // empty-state copy) once one is (ui-shell spec); skeleton rows while the
 // active folder's index builds (indexing-loading-state). Components never
-// import the vault — App supplies rows. The shortcuts reference is
+// import the vault — App supplies rows, and it supplies the shortcuts reference
+// as a node too (apply-shortcuts-on-click), so the panel stays layout and knows
+// nothing about what a key combination does. The shortcuts reference is
 // content-only and renders in every state (move-help-to-right-panel).
 export function MetaPanel({
   pageOpen,
@@ -63,6 +65,7 @@ export function MetaPanel({
   activePath,
   onSelect,
   loading = false,
+  shortcuts,
 }: {
   pageOpen: boolean
   backlinks: LinkRow[]
@@ -71,6 +74,8 @@ export function MetaPanel({
   onSelect: (path: string) => void
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
+  /** The keyboard-shortcuts reference body (apply-shortcuts-on-click). */
+  shortcuts: ReactNode
 }) {
   // One placeholder line per section (indexing-loading-state): replaces the
   // placeholder copy at the same height (13px text, 1.5 line-height) so the
@@ -116,7 +121,7 @@ export function MetaPanel({
           scrolling as a single region. It renders in every state, so it needs
           neither `pageOpen` nor `loading`. */}
       <Accordion title="Keyboard shortcuts" className={styles.footer}>
-        <ShortcutsList />
+        {shortcuts}
       </Accordion>
     </aside>
   )
