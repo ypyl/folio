@@ -120,6 +120,12 @@ export function writeNumbers(
   host.replaceChildren(fragment)
 }
 
+// ponytail: one update measures every top-level block, so a keystroke costs
+// O(blocks) (~8 ms at 1500 blocks, sub-ms at ordinary page sizes). Left as-is
+// because long pages are hypothetical; if they become real, replace the JS
+// measurement with a per-block widget decoration and let the browser position
+// the numbers.
+
 /** One gutter update: measure every block first, write every number after. */
 export function updateGutterDom(
   host: HTMLElement,

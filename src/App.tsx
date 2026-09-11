@@ -217,40 +217,58 @@ function App() {
   // Resolve the open page's place in the link graph (links-pane): backlinks
   // come from the folded reverse index; forwardlinks resolve each reference
   // target to a page, or stay unmaterialized when no page exists yet.
-  const backlinkRows: LinkRow[] =
-    graph && page
-      ? (graph.backlinks.get(page.title.toLowerCase()) ?? []).map((path) => {
-          const p = graph.pages.get(path)
-          return { title: p ? p.title : path, path, materialized: true }
-        })
-      : []
-  const forwardlinkRows: LinkRow[] =
-    graph && page
-      ? page.links
-          .map((l) => {
-            const targetPath = graph.byName.get(l.target.toLowerCase())
-            if (targetPath) {
-              const p = graph.pages.get(targetPath)
-              return p ? { title: p.title, path: targetPath, materialized: true } : null
-            }
-            // No page matches the reference: it is unmaterialized. Root pages
-            // materialize as `name.md`, preserving any directory part in
-            // bracketed names.
-            return { title: l.target, path: `${l.target}.md`, materialized: false }
+  // Memoized on graph/page identity: a keystroke bumps the draft version and
+  // re-renders, but the graph does not change until a save lands, so typing
+  // must not re-walk the link graph (vault-proportional work stays off the
+  // typing path).
+  const backlinkRows = useMemo<LinkRow[]>(
+    () =>
+      graph && page
+        ? (graph.backlinks.get(page.title.toLowerCase()) ?? []).map((path) => {
+            const p = graph.pages.get(path)
+            return { title: p ? p.title : path, path, materialized: true }
           })
-          .filter(
-            (r): r is LinkRow =>
-              // A page's link to itself isn't useful navigation (mirrors the
-              // index's backlink self-exclusion).
-              r !== null && r.path !== page.path,
-          )
-      : []
+        : [],
+    [graph, page],
+  )
+  const forwardlinkRows = useMemo<LinkRow[]>(
+    () =>
+      graph && page
+        ? page.links
+            .map((l) => {
+              const targetPath = graph.byName.get(l.target.toLowerCase())
+              if (targetPath) {
+                const p = graph.pages.get(targetPath)
+                return p ? { title: p.title, path: targetPath, materialized: true } : null
+              }
+              // No page matches the reference: it is unmaterialized. Root pages
+              // materialize as `name.md`, preserving any directory part in
+              // bracketed names.
+              return { title: l.target, path: `${l.target}.md`, materialized: false }
+            })
+            .filter(
+              (r): r is LinkRow =>
+                // A page's link to itself isn't useful navigation (mirrors the
+                // index's backlink self-exclusion).
+                r !== null && r.path !== page.path,
+            )
+        : [],
+    [graph, page],
+  )
 
   // Ordered pages for the sidebar (add-pinned-pages, design D5): pinned
   // first in pin order, then the rest by last-modified descending — the
   // pages array was previously order-unspecified (alphabetical by accident).
-  const pages = graph ? orderPages(graph.pages.values(), pins).filter((p) => p.kind === 'page') : []
-  const journalEntries = graph ? [...graph.pages.values()].filter((p) => p.kind === 'journal') : []
+  // Memoized on graph/pins identity: the sort is vault-sized and must not run
+  // on every keystroke.
+  const pages = useMemo(
+    () => (graph ? orderPages(graph.pages.values(), pins).filter((p) => p.kind === 'page') : []),
+    [graph, pins],
+  )
+  const journalEntries = useMemo(
+    () => (graph ? [...graph.pages.values()].filter((p) => p.kind === 'journal') : []),
+    [graph],
+  )
 
   // Loading state (indexing-loading-state): while an active folder with
   // storage is building its index, the graph is null — the panes show

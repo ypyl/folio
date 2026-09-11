@@ -38,7 +38,7 @@ Undecided ideas, deliberately not scheduled. Revisit when a task touches their a
 - **Reference-aware asset deletion** — **won't do** (decided 2026-09-10). Deleting a link stays non-destructive: the asset remains on disk, and the app never scans references to decide whether to delete a file. No reference-aware cleanup and no deletion prompts; the safe default is the decision, not an open question.
 
 - start adding version -> near the title badge
-- add some reasonable limitation to markdown file
+- **Page size limits** — **won't do** (decided 2026-09-11). No file-size cap and no degraded mode for large files: they are hypothetical, and any threshold either nags a legitimate file or never fires. A sluggish page is one the user can split in any text editor, which is the point of a folder of plain Markdown. Revisit only on a real stall, and then as crash prevention, not a limit. If it ever happens, the unit is top-level blocks (what the DOM pays for), not bytes.
 
 - the document-proportional cost of typing in a long page is browser-side, not app JS (measured: ~100 ms of app JS against 480 ms of wall time for a 53-character burst at 1500 blocks, frame gaps holding at 60 fps, and `content-visibility`/`contain` hints making it worse). Needs renderer-level profiling before it can be scoped.
 
