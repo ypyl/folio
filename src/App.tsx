@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { EditorPane, type EditorPaneHandle } from './components/EditorPane'
@@ -107,13 +107,15 @@ function App() {
   // design D2/D8): an editor row asks the editor to replay the chord at its own
   // key surface, an app row dispatches on the document, where the app's own key
   // listeners already live. One mechanism, two targets, no command table.
-  const applyShortcut = (chord: string, target: 'editor' | 'app') => {
+  // Stable identity (it reads only refs) so the memoized reference does not
+  // re-render on an ordinary edit.
+  const applyShortcut = useCallback((chord: string, target: 'editor' | 'app') => {
     if (target === 'editor') {
       editorRef.current?.applyChord(chord)
       return
     }
     document.dispatchEvent(new KeyboardEvent('keydown', chordToKeyEventInit(chord)))
-  }
+  }, [])
 
   // A folder switch resets the open page: the previously open page belongs
   // to the old folder and must never surface in the new one (journal-home,
@@ -192,9 +194,14 @@ function App() {
   // a mounted editor — no page open also covers the brand empty state, the
   // results view, and indexing, where the graph is null and no adapter exists —
   // and the search row needs the vault that enables search itself.
-  /* oxlint-disable-next-line react/refs */
+  /* oxlint-disable react/refs */
   const canEdit = mode === 'page' && page !== null
   const canSearch = graph !== null
+  // One identity for the reference's availability, so the memoized list
+  // re-renders only when a surface's availability actually changes — never per
+  // keystroke (AGENTS.md: the keystroke budget).
+  const canApply = useMemo(() => ({ editor: canEdit, app: canSearch }), [canEdit, canSearch])
+  /* oxlint-enable react/refs */
 
   const handleEdit = (markdown: string) => {
     if (activePath === null) return
@@ -406,9 +413,7 @@ function App() {
           activePath={mode === 'page' ? activePath : null}
           onSelect={handleSelect}
           loading={indexing}
-          shortcuts={
-            <ShortcutsList onApply={applyShortcut} canApply={{ editor: canEdit, app: canSearch }} />
-          }
+          shortcuts={<ShortcutsList onApply={applyShortcut} canApply={canApply} />}
           /* oxlint-enable react/refs */
         />
       </div>

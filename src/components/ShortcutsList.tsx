@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { memo, useId } from 'react'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
 import styles from './ShortcutsList.module.css'
 
@@ -10,7 +10,13 @@ import styles from './ShortcutsList.module.css'
 // (design D4). No heading elements: the app's chrome has none (accordion titles
 // are <summary>), so a <p> labelled section carries the same grouping for
 // assistive technology without planting an orphaned heading level.
-export function ShortcutsList({
+//
+// Memoized because the list is static content: it depends only on the app's
+// availability per surface, so it must not re-render on an ordinary edit. That
+// holds only while the caller passes stable props — App memoizes canApply and
+// keeps onApply in a useCallback — which App.test.tsx pins by counting
+// displayKeys calls across an edit.
+export const ShortcutsList = memo(function ShortcutsList({
   onApply,
   canApply,
 }: {
@@ -79,4 +85,4 @@ export function ShortcutsList({
       })}
     </>
   )
-}
+})

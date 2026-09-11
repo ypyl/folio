@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 import { Accordion } from './components/Accordion'
 import styles from './components/JournalCalendar.module.css'
@@ -36,6 +36,23 @@ vi.mock('./vault/suggest', async (importOriginal) => {
     candidateNames: (...args: Parameters<typeof actual.candidateNames>) => {
       candidateCalls.count += 1
       return actual.candidateNames(...args)
+    },
+  }
+})
+
+// The keyboard-shortcuts reference is static content wrapped in memo: it must
+// re-render only when a surface's availability changes, never on an ordinary
+// edit (AGENTS.md: the keystroke budget). displayKeys runs once per rendered key
+// chip, so counting its calls is the direct evidence that the list re-rendered,
+// exactly as candidateNames is for the completion pool.
+const displayKeyCalls = vi.hoisted(() => ({ count: 0 }))
+vi.mock('./components/shortcuts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./components/shortcuts')>()
+  return {
+    ...actual,
+    displayKeys: (raw: string) => {
+      displayKeyCalls.count += 1
+      return actual.displayKeys(raw)
     },
   }
 })
@@ -832,6 +849,24 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     fireEvent.click(control('Search notes Ctrl+K'))
     // The chord reaches the app's own document listener, which focuses search.
     expect(document.activeElement).toBe(screen.getByLabelText('Search notes'))
+    vi.unstubAllGlobals()
+  })
+
+  it('does not re-render the reference on an ordinary edit', async () => {
+    render(<App />)
+    await openFixture()
+    await openReference()
+    expect(displayKeyCalls.count).toBeGreaterThan(0)
+    const before = displayKeyCalls.count
+
+    // A keystroke reaches App as a draft change; the reference's props are
+    // unchanged, so memo bails out and displayKeys is not called again.
+    await act(async () => {
+      editor().emitChange('a different body')
+    })
+    expect(editor().getContent()).toBe('a different body')
+    expect(displayKeyCalls.count).toBe(before)
+
     vi.unstubAllGlobals()
   })
 })
