@@ -1,16 +1,18 @@
 {
   "name": "folio",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:test": "vite --port 0",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "fmt": "oxfmt src",
     "fmt:check": "oxfmt --check src",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "kill:dev": "node scripts/kill-dev.mjs"
   },
   "dependencies": {
     "@codemirror/language": "^6.12.4",
