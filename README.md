@@ -2,6 +2,10 @@
 
 A lightweight, local-first alternative to Logseq. Your Markdown folder is the database; the app is just a UI and index over it.
 
+Live build: <https://ypyl.github.io/folio/> (Chromium browsers only — it needs the File System Access API).
+
+Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys to GitHub Pages via `.github/workflows/deploy.yml`. Run `npm run dev` locally for the root base.
+
 ## Features
 
 - Open a local Markdown folder (vault) directly from the browser
