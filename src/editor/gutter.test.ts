@@ -5,7 +5,7 @@ const prose = (
   blockTop: number,
   blockHeight = 24,
   line: { top: number; height: number } | null = null,
-) => ({ block: { top: blockTop, height: blockHeight }, line, isCodeBlock: false }) as const
+) => ({ block: { top: blockTop, height: blockHeight }, line, pinToTop: false }) as const
 
 describe('numberOffset', () => {
   it('centres a prose number on the block first text line', () => {
@@ -28,9 +28,16 @@ describe('numberOffset', () => {
     const code = {
       block: { top: 300, height: 400 },
       line: { top: 340, height: 20 },
-      isCodeBlock: true,
+      pinToTop: true,
     }
     expect(numberOffset(code, 50)).toBe(250)
+  })
+
+  it('pins a block of non-text content — an image on its own line — to its top', () => {
+    // Centring on the image's box would put the number in the middle of the
+    // picture; the block's first line is where the image starts.
+    const image = { block: { top: 300, height: 400 }, line: null, pinToTop: true }
+    expect(numberOffset(image, 50)).toBe(250)
   })
 
   it('honours a custom marker height', () => {
@@ -91,5 +98,30 @@ describe('updateGutterDom ordering', () => {
     expect(log.filter((entry) => entry === 'read')).toHaveLength(4)
     expect(children).toBe(3)
     expect([...host.children].map((span) => span.textContent)).toEqual(['1', '3', '5'])
+  })
+
+  it('pins an image block to the image top, not the middle of the picture', () => {
+    const host = document.createElement('div')
+    const para = document.createElement('p')
+    const img = document.createElement('img')
+    para.appendChild(img)
+    // jsdom measures everything as zero, so the two boxes that decide the
+    // offset are stubbed: a tall image whose bottom is far below its top.
+    const box = { top: 300, height: 400 } as DOMRect
+    para.getBoundingClientRect = () => box
+    img.getBoundingClientRect = () => box
+    updateGutterDom(host, [para], [7], 'num')
+    // Pinned: the block's top (300) less the host's top (0). Centring would be
+    // 300 + (400 - 12) / 2 = 494, halfway down the image.
+    expect((host.children[0] as HTMLElement).style.top).toBe('300px')
+  })
+
+  it('still centres an empty placeholder block, which has no image to pin to', () => {
+    const host = document.createElement('div')
+    const para = document.createElement('p')
+    const box = { top: 300, height: 24 } as DOMRect
+    para.getBoundingClientRect = () => box
+    updateGutterDom(host, [para], [1], 'num')
+    expect((host.children[0] as HTMLElement).style.top).toBe('306px')
   })
 })

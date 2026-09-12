@@ -16,23 +16,30 @@ export type BlockMetrics = {
   /** The block's first text line, when it has one; otherwise the block box is
    *  the fallback (an empty placeholder block has no text line). */
   line: Rect | null
-  /** The code-block component's wrapper: a tall panel, not a prose line. */
-  isCodeBlock: boolean
+  /** The block's number sits at its top edge instead of being centred on a
+   *  line: a code-block panel (a tall panel, not a prose line), or a block
+   *  whose content is not text at all — an image on its own line. Centring
+   *  either one reads as "middle of the block" rather than "first line". */
+  pinToTop: boolean
 }
+
+/** Content whose box is the thing itself rather than text: a block holding
+ *  only these has no text line to centre a number on. */
+const REPLACED_CONTENT = 'img, video, canvas, iframe'
 
 /**
  * Where a block's number sits, as an offset from the gutter's top. A code block
- * is pinned to the panel's top edge, because centring on a code line would read
- * as "middle of the block"; prose is centred on the first text line, which is
- * more accurate than the block box (a heading's glyphs sit inside a taller line
- * box).
+ * and a block of non-text content are pinned to the block's top edge, because
+ * centring on them would read as "middle of the block"; prose is centred on the
+ * first text line, which is more accurate than the block box (a heading's
+ * glyphs sit inside a taller line box).
  */
 export function numberOffset(
   metrics: BlockMetrics,
   hostTop: number,
   markerHeight = GUTTER_MARKER_HEIGHT,
 ): number {
-  if (metrics.isCodeBlock) return metrics.block.top - hostTop
+  if (metrics.pinToTop) return metrics.block.top - hostTop
   const box = metrics.line ?? metrics.block
   return box.top - hostTop + (box.height - markerHeight) / 2
 }
@@ -75,26 +82,29 @@ export function measureNumbers(
     const isCodeBlock = block.classList.contains('milkdown-code-block')
     const blockRect = block.getBoundingClientRect()
     let lineRect: Rect | null = null
-    if (!isCodeBlock) {
-      const text = firstTextNode(block)
-      if (text) {
-        range.selectNodeContents(text)
-        // A real browser always has this; jsdom does not, and the gutter's own
-        // tests run there. Without the guard the measurement throws and the
-        // numbers silently stay empty, which is how it behaved before this
-        // change was measured.
-        const rect =
-          typeof range.getClientRects === 'function' ? range.getClientRects()[0] : undefined
-        if (rect) lineRect = { top: rect.top, height: rect.height }
-      }
+    // A code block's own text lives in its embedded editor, so it never
+    // contributes a line here; anything else with no text at all has no line to
+    // centre on either.
+    const text = isCodeBlock ? null : firstTextNode(block)
+    if (text) {
+      range.selectNodeContents(text)
+      // A real browser always has this; jsdom does not, and the gutter's own
+      // tests run there. Without the guard the measurement throws and the
+      // numbers silently stay empty, which is how it behaved before this
+      // change was measured.
+      const rect =
+        typeof range.getClientRects === 'function' ? range.getClientRects()[0] : undefined
+      if (rect) lineRect = { top: rect.top, height: rect.height }
     }
+    const pinToTop =
+      isCodeBlock || (text === null && block.querySelector(REPLACED_CONTENT) !== null)
     numbers.push({
       line,
       top: numberOffset(
         {
           block: { top: blockRect.top, height: blockRect.height },
           line: lineRect,
-          isCodeBlock,
+          pinToTop,
         },
         hostTop,
       ),
