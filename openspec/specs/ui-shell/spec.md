@@ -385,6 +385,18 @@ The shell SHALL render a thin status bar as a full-width row below the workspace
 - **WHEN** the user scrolls a pane beneath the status bar
 - **THEN** the bar and its content remain fixed at the shell's bottom
 
+### Requirement: The status bar's leading column matches the folder rail
+The status bar SHALL open with a leading cell holding the pin control, and that cell's width SHALL equal the folder rail's column width and start at the bar's leading edge, so the pin's column is the rail's column continued downward at the same horizontal position. The bar's remaining content SHALL keep its existing order and spacing: the breadcrumb follows the leading cell, then the hairline separator, the status group, and the vault group. The pin control SHALL keep its existing glyph size, label, disabled rules, and states; only the cell it occupies becomes rail-wide.
+
+#### Scenario: The pin's column lines up with the rail
+- **GIVEN** the shell rendered at desktop width
+- **WHEN** the status bar lays out
+- **THEN** the pin's cell is one rail column wide and starts at the bar's leading edge, occupying the same x range as the rail's column above it
+
+#### Scenario: The rest of the bar keeps its layout
+- **WHEN** the status bar renders with a page open, with no page open, and while the index builds
+- **THEN** the breadcrumb, the hairline separator, the status group, and the vault group keep their order and spacing, and the pin control keeps its star glyph, accessible name, `aria-pressed` value, and title in its enabled and disabled states
+
 ### Requirement: Activating a shortcut row applies its key combination
 Every entry in the keyboard-shortcuts reference whose key combination the app binds as a keyboard shortcut SHALL be a control that applies that combination to the editor when activated. A row's label SHALL remain text; each key combination SHALL be its own control, so a row listing more than one combination offers one control per combination. Activating a control SHALL produce the same result as pressing that combination in the editor, including its toggling behaviour: applying a formatting combination to text that already carries that formatting SHALL remove it, and applying it again SHALL restore it. An entry whose key combination is not bound as a keyboard shortcut — the paste shortcut's shift modifier, which is read from the paste gesture rather than bound on keydown — SHALL remain a plain, non-interactive row rather than a control. A control SHALL carry an accessible name that states both the action and the key combination. A row SHALL be disabled — visibly dimmed and not activatable — when the surface it acts on is unavailable: rows that act on the editor while no editor is open, and the search row while no vault folder is open. Rows SHALL remain listed in every app state whether or not they are disabled. Activating an editor row SHALL leave keyboard focus in the editor, and activating the search row SHALL leave focus in the search input, so the user can continue typing or searching without a further gesture. A combination the current context does not claim SHALL leave the document unchanged, silently. Activating a row SHALL be distinct from opening the reference: opening and closing the section itself SHALL continue to change nothing.
 
