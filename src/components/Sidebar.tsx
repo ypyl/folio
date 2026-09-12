@@ -42,7 +42,8 @@ function ChevronIcon({
 //   pages / journalEntries - useMemo on graph identity
 //   pinnedPaths            - useIndex's pins, a constant empty array while the
 //                            graph is null
-//   onSelect / onBack / onForward - useCallback reading only what they need
+//   onSelect / onBack / onForward / onToday - useCallback reading only what
+//                            they need
 //   canBack / canForward, activePath, hasVault, loading - primitives
 // A new prop that is rebuilt on every render silently disables this, so
 // re-run the change's measurement when this list changes.
@@ -58,6 +59,7 @@ export const Sidebar = memo(function Sidebar({
   canForward = false,
   onBack,
   onForward,
+  onToday,
 }: {
   pages: Page[]
   journalEntries: Page[]
@@ -75,8 +77,17 @@ export const Sidebar = memo(function Sidebar({
   canForward?: boolean
   onBack?: () => void
   onForward?: () => void
+  /** Open the current day's journal (move-today-into-nav-controls); the
+   *  handler lives in App, so the open is an ordinary navigation. */
+  onToday?: () => void
 }) {
   const pinnedSet = new Set(pinnedPaths)
+
+  // The calendar anchors to the open day, so it cannot notice a Today that
+  // lands on the day already open. This row owns both the control and the
+  // calendar, so it bumps the tick locally: one number, no prop through App
+  // (move-today-into-nav-controls, design D3).
+  const [todayTick, setTodayTick] = useState(0)
 
   // The listing is windowed (add-history-navigation, D5): the sidebar is the
   // scroll container, and only the rows near its viewport are in the document.
@@ -201,8 +212,9 @@ export const Sidebar = memo(function Sidebar({
 
   return (
     <aside className={styles.sidebar} aria-label="Notes" ref={scrollRef} onScroll={onScroll}>
-      {/* The trail's only UI (add-history-navigation, D4): sticky, so Back and
-          Forward stay reachable however long the listing below them is. */}
+      {/* The session controls (add-history-navigation D4, move-today-into-nav-
+          controls): sticky, so Back, Forward, and Today stay reachable however
+          long the listing below them is. */}
       <div className={styles.controls}>
         <button
           type="button"
@@ -222,6 +234,20 @@ export const Sidebar = memo(function Sidebar({
         >
           <ChevronIcon direction="forward" className={styles.controlIcon} />
         </button>
+        {/* Today (move-today-into-nav-controls): the current day's journal is
+            navigation, so it rides with Back and Forward instead of living in
+            the calendar, where collapsing Journal took it away. */}
+        <button
+          type="button"
+          className={`${styles.control} ${styles.controlLabel}`}
+          disabled={!hasVault}
+          onClick={() => {
+            setTodayTick((t) => t + 1)
+            onToday?.()
+          }}
+        >
+          Today
+        </button>
       </div>
       <Accordion title="Journal" defaultOpen>
         {/* The journal calendar owns the section (journal-calendar D1); it
@@ -233,6 +259,7 @@ export const Sidebar = memo(function Sidebar({
                 journalEntries={journalEntries}
                 activePath={activePath}
                 onSelect={onSelect}
+                todayTick={todayTick}
               />
             )}
       </Accordion>

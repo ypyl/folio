@@ -39,15 +39,21 @@ function cellsFor(year: number, month: number): DayCell[] {
  *  Journal section's body, replaces the flat day list, and stays a dumb,
  *  prop-driven child of Sidebar. The displayed month is component-local,
  *  seeded from and re-anchored to the open day; chevrons browse freely
- *  without opening a day. */
+ *  without opening a day. The Today control lives in the sidebar's navigation
+ *  row (move-today-into-nav-controls), which bumps `todayTick` so the grid
+ *  still re-anchors to the current day when that day is already open. */
 export function JournalCalendar({
   journalEntries,
   activePath,
   onSelect,
+  todayTick = 0,
 }: {
   journalEntries: Page[]
   activePath: string | null
   onSelect: (path: string) => void
+  /** Bumped when the navigation row's Today control is activated; only a
+   *  reason to re-run the re-anchor effect below. */
+  todayTick?: number
 }) {
   const today = localDayString(new Date())
   const existing = new Set<string>()
@@ -62,16 +68,17 @@ export function JournalCalendar({
   // Follow the open day across navigations that don't go through a day-cell
   // click (e.g. a future links-pane row pointing at a journal). Chevron
   // browsing is the intended case where the view differs from the anchor, so
-  // this only re-anchors when the open day itself changed.
+  // this only re-anchors when the open day itself changed - or when Today was
+  // activated, which is the same day the grid may have been browsed away from.
   useEffect(() => {
     if (activeDate) {
       // oxlint-disable-next-line react/set-state-in-effect
       setView(monthOf(activeDate))
     }
-  }, [activeDate])
+  }, [activeDate, todayTick])
 
   // Opening a day re-anchors the grid to its month: clicking a day means
-  // "show me this day's month" (in-month cell, out-of-month cell, or Today).
+  // "show me this day's month" (in-month cell or out-of-month cell).
   const openDay = (date: string) => {
     onSelect(`journals/${date}.md`)
     setView(monthOf(date))
@@ -81,29 +88,26 @@ export function JournalCalendar({
 
   return (
     <div className={styles.calendar}>
-      <div className={styles.header}>
-        {/* ‹ label › as one centered cluster; Today held right (D2). */}
-        <div className={styles.monthGroup}>
-          <button
-            type="button"
-            className={styles.navBtn}
-            aria-label="Previous month"
-            onClick={() => setView((v) => shiftMonth(v, -1))}
-          >
-            {'\u2039'}
-          </button>
-          <span className={styles.month}>{monthYearLabel(view.year, view.month)}</span>
-          <button
-            type="button"
-            className={styles.navBtn}
-            aria-label="Next month"
-            onClick={() => setView((v) => shiftMonth(v, 1))}
-          >
-            {'\u203A'}
-          </button>
-        </div>
-        <button type="button" className={styles.todayBtn} onClick={() => openDay(today)}>
-          Today
+      {/* ‹ label › across the whole panel: chevrons at the ends, month
+          centered between them. The Today control moved to the sidebar's
+          navigation row (move-today-into-nav-controls). */}
+      <div className={styles.monthGroup}>
+        <button
+          type="button"
+          className={styles.navBtn}
+          aria-label="Previous month"
+          onClick={() => setView((v) => shiftMonth(v, -1))}
+        >
+          {'\u2039'}
+        </button>
+        <span className={styles.month}>{monthYearLabel(view.year, view.month)}</span>
+        <button
+          type="button"
+          className={styles.navBtn}
+          aria-label="Next month"
+          onClick={() => setView((v) => shiftMonth(v, 1))}
+        >
+          {'\u203A'}
         </button>
       </div>
       <div className={styles.weekdays}>

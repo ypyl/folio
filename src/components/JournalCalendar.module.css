@@ -4,13 +4,10 @@
   gap: 6px;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-}
-
-/* ‹ label › as one cluster on the left; Today is pushed to the right edge
-   of the section by its own margin-left: auto. */
+/* ‹ label › across the section's full width (move-today-into-nav-controls):
+   the chevrons sit at the two ends and the month is centered between them.
+   The label's flex:1 box is symmetric — equally wide chevrons on both sides —
+   so its center is the panel's center, not just the space left over. */
 .monthGroup {
   display: flex;
   align-items: center;
@@ -18,9 +15,11 @@
 }
 
 .month {
+  flex: 1;
   font-size: 13px;
   font-weight: 600;
   color: var(--near-black);
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -46,21 +45,6 @@
 
 .navBtn:hover {
   background: var(--warm-sand);
-}
-
-.todayBtn {
-  margin-left: auto;
-  border: none;
-  background: transparent;
-  color: var(--brand-light);
-  font: inherit;
-  font-size: 12px;
-  padding: 0;
-  cursor: pointer;
-}
-
-.todayBtn:hover {
-  text-decoration: underline;
 }
 
 .weekdays {

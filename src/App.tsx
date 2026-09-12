@@ -117,6 +117,16 @@ function App() {
     handleSelect(trailPath(next) as string)
   }, [trail, handleSelect])
 
+  // Today (move-today-into-nav-controls): the current day's journal is just
+  // another page to open, so it goes through handleSelect and inherits the
+  // trail recording, the draft baseline, and the blank-page-on-first-save
+  // rule. The day is read at activation, not at mount, so a session left open
+  // across midnight goes to the new day. The grid's re-anchor is the sidebar's
+  // own concern: it owns both the control and the calendar (design D3).
+  const handleToday = useCallback(() => {
+    handleSelect(`journals/${localDayString(new Date())}.md`)
+  }, [handleSelect])
+
   // Opening a reference badge (add-reference-badges): resolve the name exactly
   // as the Forwardlinks panel does — the existing page, else a blank page at
   // `name.md` that materializes on first save — skip a link back to the open
@@ -438,6 +448,7 @@ function App() {
           canForward={canForward}
           onBack={handleBack}
           onForward={handleForward}
+          onToday={handleToday}
         />
         {mode === 'results' ? (
           <SearchResultsView

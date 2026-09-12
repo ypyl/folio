@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from './Sidebar'
 import styles from './Sidebar.module.css'
+import { monthYearLabel } from './months'
+import { localDayString } from '../vault/index'
 import type { Page } from '../page'
 
 const journal = {
@@ -106,7 +108,16 @@ describe('Sidebar navigation controls (add-history-navigation)', () => {
     const aside = screen.getByRole('complementary')
     const controls = aside.firstElementChild as HTMLElement
     expect(controls.className).toContain(styles.controls)
-    expect(controls.querySelectorAll('button')).toHaveLength(2)
+    // Back and Forward (the trail), then Today (move-today-into-nav-controls),
+    // all in the row's own control treatment.
+    const row = [...controls.querySelectorAll('button')]
+    expect(row).toHaveLength(3)
+    expect(row.map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'Back',
+      'Forward',
+      'Today',
+    ])
+    expect(row[2].className).toContain(styles.control)
     // The row precedes the sections, and the Journal section still leads them.
     const next = controls.nextElementSibling as HTMLElement
     expect(next.tagName).toBe('DETAILS')
@@ -119,6 +130,7 @@ describe('Sidebar navigation controls (add-history-navigation)', () => {
     renderControls(true, true)
     expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Forward' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Today' })).toBeTruthy()
   })
 
   it('disables a control with nowhere to step', () => {
@@ -136,6 +148,44 @@ describe('Sidebar navigation controls (add-history-navigation)', () => {
     expect(onForward).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Forward' }))
     expect(onForward).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders Today in the row, disabled while no vault is usable', () => {
+    render(
+      <Sidebar
+        pages={[page]}
+        journalEntries={[journal]}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault={false}
+      />,
+    )
+    expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('Today calls its handler and re-anchors the calendar to the current day', () => {
+    const onToday = vi.fn()
+    const today = `journals/${localDayString(new Date())}.md`
+    render(
+      <Sidebar
+        pages={[page]}
+        journalEntries={[journal]}
+        activePath={today}
+        onSelect={() => {}}
+        hasVault
+        onToday={onToday}
+      />,
+    )
+    expect(screen.getByText(monthLabel(new Date()))).toBeTruthy()
+    // Browse away: view-only movement, since the open day did not change.
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
+    expect(screen.getByText(monthLabel(shiftMonth(new Date(), 1)))).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    expect(onToday).toHaveBeenCalledTimes(1)
+    // The open day never changed, so only the row's tick can bring the grid
+    // back to the current day's month (move-today-into-nav-controls, D3).
+    expect(screen.getByText(monthLabel(new Date()))).toBeTruthy()
   })
 })
 
@@ -311,3 +361,7 @@ describe('Sidebar pinned rows (add-pinned-pages)', () => {
     ])
   })
 })
+
+const monthLabel = (date: Date) => monthYearLabel(date.getFullYear(), date.getMonth())
+const shiftMonth = (date: Date, months: number) =>
+  new Date(date.getFullYear(), date.getMonth() + months, 1)

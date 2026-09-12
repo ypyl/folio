@@ -23,14 +23,15 @@ describe('localDayString (local-calendar guard, design D5)', () => {
 })
 
 describe('JournalCalendar grid', () => {
-  it('renders a Sunday-first 42-cell grid with the weekday header and Today', () => {
+  it('renders a Sunday-first 42-cell grid with the weekday header and no Today', () => {
     render(<JournalCalendar journalEntries={[]} activePath={null} onSelect={vi.fn()} />)
     const cells = screen.getAllByRole('button')
-    // 42 day cells + 2 month chevrons + the Today control.
-    expect(cells).toHaveLength(45)
+    // 42 day cells + 2 month chevrons. The Today control lives in the sidebar's
+    // navigation row (move-today-into-nav-controls), not in this header.
+    expect(cells).toHaveLength(44)
     // For September 2026 the 1st is a Tuesday, so the grid anchors on Aug 30.
     expect(screen.queryByRole('button', { name: 'August 30, 2026' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Today' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Today' })).toBeNull()
   })
 
   it('marks only the days that have journal files (design D3)', () => {
@@ -117,13 +118,6 @@ describe('JournalCalendar grid', () => {
     expect(screen.getByText('August 2026')).toBeTruthy()
   })
 
-  it('Today navigates to the current day', () => {
-    const onSelect = vi.fn()
-    render(<JournalCalendar journalEntries={[]} activePath={null} onSelect={onSelect} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
-    expect(onSelect).toHaveBeenCalledWith(`journals/${localDayString(new Date())}.md`)
-  })
-
   it('chevrons browse months without opening a day (D2)', () => {
     const onSelect = vi.fn()
     render(<JournalCalendar journalEntries={[]} activePath={null} onSelect={onSelect} />)
@@ -132,9 +126,10 @@ describe('JournalCalendar grid', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     expect(screen.getByText(monthLabel(shiftDate(new Date(), 1)))).toBeTruthy()
-    // View-only movement: no day is opened and the grid keeps its month.
+    // View-only movement: no day is opened, and the grid stays on the month
+    // the chevrons browsed to rather than snapping back to the open day.
     expect(onSelect).not.toHaveBeenCalled()
-    expect(screen.queryByRole('button', { name: 'Today' })).toBeTruthy()
+    expect(screen.queryByText(start)).toBeNull()
     expect(start).not.toBe(monthLabel(shiftDate(new Date(), 1)))
   })
 

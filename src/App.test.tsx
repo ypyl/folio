@@ -6,6 +6,7 @@ import styles from './components/JournalCalendar.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
 import { dayLabel } from './components/months'
+import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 
 // Replace the real ProseMirror transport with FakeEditor for App-level tests
@@ -155,7 +156,10 @@ describe('application shell', () => {
     render(<App />)
     expect(screen.queryByRole('button', { name: 'Welcome' })).toBeNull()
     // No vault: no journal calendar (ui-shell journal-calendar requirement).
-    expect(screen.queryByRole('button', { name: 'Today' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Next month' })).toBeNull()
+    // Today rides in the navigation row in every state, unusable without a
+    // vault (move-today-into-nav-controls).
+    expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('keeps the keyboard-shortcuts reference in the right panel, with no dialog', async () => {
@@ -1020,6 +1024,31 @@ describe('history navigation (add-history-navigation spec)', () => {
     // A navigation does change what the sidebar shows, so it re-renders.
     fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
     expect(dayLabelCalls.count).toBeGreaterThan(before)
+    vi.unstubAllGlobals()
+  })
+
+  it("Today opens the current day's journal and records it", async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const today = new Date()
+    const todayPath = `journals/${localDayString(today)}.md`
+    // Leave today's journal for a page, so the control has to bring it back.
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('Welcome.md')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
+    // The open day is marked in the calendar, and the open was recorded like
+    // any other navigation: Back lands on the page it displaced.
+    expect(screen.getByRole('button', { name: dayLabel(today) }).getAttribute('aria-current')).toBe(
+      'date',
+    )
+    fireEvent.click(back())
+    await waitFor(() => expect(openRow()).toBe('Welcome'))
+
+    // The fixture has no file for today, and merely opening created none.
+    const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
+    expect(journalsDir.children.size).toBe(3)
     vi.unstubAllGlobals()
   })
 })

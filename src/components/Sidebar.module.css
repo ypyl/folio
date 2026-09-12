@@ -8,11 +8,13 @@
   min-width: 0;
 }
 
-/* Navigation controls (add-history-navigation): the session trail's only UI,
+/* Navigation controls (add-history-navigation): the session trail's controls,
    pinned to the top of the sidebar's scroll region so Back and Forward stay
    reachable however long the listing below is. The fill is the sidebar's own
    surface — Kami allows no shadow on a surface that does not float — so rows
-   scroll under it cleanly. */
+   scroll under it cleanly. Today joined the row in
+   move-today-into-nav-controls, which is why it also has to stay reachable
+   while the Journal section is collapsed. */
 .controls {
   position: sticky;
   top: 0;
@@ -58,6 +60,18 @@
   display: block;
   width: 16px;
   height: 16px;
+}
+
+/* A labelled control in the same row (move-today-into-nav-controls): the row's
+   control treatment with the label's own width instead of the icons' fixed
+   square, pushed to the row's trailing edge so the trail controls keep the
+   reading start (design D1). Declared after .control so these declarations win
+   on the equal specificity both classes have. */
+.controlLabel {
+  width: auto;
+  margin-left: auto;
+  padding: 0 8px;
+  font-size: 13px;
 }
 
 /* The listing is a list rather than a div (add-history-navigation, D5): every
