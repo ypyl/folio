@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditorAdapter } from '../editor/editor'
@@ -159,6 +159,48 @@ describe('EditorPane', () => {
     const gutter = document.querySelector(`.${styles.gutter}`)
     const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
     expect(nums).toEqual(['1'])
+  })
+
+  it('points a vault image reference at the file bytes through the reader', async () => {
+    const read = vi.fn(async () => new Blob(['png']))
+    const { unmount } = render(
+      <EditorPane
+        page={page}
+        initialContent={'![photo](assets/photo.png)'}
+        onChange={() => {}}
+        readAsset={read}
+      />,
+    )
+    // The editor renders the reference as an image element; the pane points it
+    // at the file's bytes.
+    const img = await waitFor(() => {
+      const el = document.querySelector(`main img`)
+      expect(el).not.toBeNull()
+      return el as HTMLImageElement
+    })
+    await waitFor(() => expect(read).toHaveBeenCalledWith('assets/photo.png'))
+    await waitFor(() => expect(img.getAttribute('src')).toMatch(/^blob:/))
+    expect(img.getAttribute('alt')).toBe('photo')
+    // The document text is untouched: only the rendered element was re-pointed.
+    expect(fake().getContent()).toBe('![photo](assets/photo.png)')
+    // The page's URLs go with its editor.
+    const url = img.getAttribute('src')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    unmount()
+    expect(revoke.mock.calls.map(([u]) => u)).toContain(url)
+    revoke.mockRestore()
+  })
+
+  it('leaves vault image references alone without a reader', async () => {
+    render(
+      <EditorPane page={page} initialContent={'![photo](assets/photo.png)'} onChange={() => {}} />,
+    )
+    const img = await waitFor(() => {
+      const el = document.querySelector(`main img`)
+      expect(el).not.toBeNull()
+      return el as HTMLImageElement
+    })
+    expect(img.getAttribute('src')).toBe('assets/photo.png')
   })
 
   it('shows the empty states without mounting an editor', async () => {

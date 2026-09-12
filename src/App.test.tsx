@@ -442,6 +442,41 @@ describe('asset drag & drop (page-editing spec)', () => {
     expect(await (await file.getFile()).text()).toBe('imgbytes')
     vi.unstubAllGlobals()
   })
+
+  it('renders a vault image reference through the active folder storage', async () => {
+    // render-vault-images: a page whose markdown references a vault image shows
+    // the file, read out of the open vault through the app's wiring.
+    const readBinary = vi.spyOn(FileSystemVaultStorage.prototype, 'readBinary')
+    const tree = buildTree({
+      ...FIXTURE,
+      'image-demo.md': '![photo](assets/photo.png)',
+      // buildTree nests by object, not by '/' in a key.
+      assets: { 'photo.png': 'imgbytes' },
+    })
+    tree.name = 'notes'
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => tree as unknown as FileSystemDirectoryHandle),
+    )
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'image-demo' }))
+
+    // The editor renders the reference as an image element and the pane points
+    // it at the vault file's bytes.
+    const img = await waitFor(() => {
+      const el = document.querySelector('main img')
+      expect(el).not.toBeNull()
+      expect(el?.getAttribute('src')).toMatch(/^blob:/)
+      return el as HTMLImageElement
+    })
+    expect(readBinary).toHaveBeenCalledWith('assets/photo.png')
+    expect(img.getAttribute('alt')).toBe('photo')
+    // The page's markdown is untouched: only the rendered element was re-pointed.
+    expect(editor().getContent()).toBe('![photo](assets/photo.png)')
+    readBinary.mockRestore()
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('links pane navigation (static-navigation + ui-shell spec)', () => {

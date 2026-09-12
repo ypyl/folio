@@ -24,14 +24,25 @@ export class FakeEditor implements EditorAdapter {
   private host: HTMLElement | null = null
 
   /** Mirror the editor's top-level block DOM so pane tests can measure the
-   *  gutter binding (real ProseMirror is replaced by this fake). */
+   *  gutter binding (real ProseMirror is replaced by this fake). An
+   *  image-only block renders an `<img>` with the reference's path, as the real
+   *  adapter does — that is what vault-image resolution operates on. */
   private syncDoc(): void {
     if (!this.host) return
     this.host.querySelector('.ProseMirror')?.remove()
     const pm = document.createElement('div')
     pm.className = 'ProseMirror'
-    for (const _line of this.getBlockLines()) {
-      pm.appendChild(document.createElement('div'))
+    const lines = this.content.split('\n')
+    for (const line of this.getBlockLines()) {
+      const block = document.createElement('div')
+      const match = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec((lines[line - 1] ?? '').trim())
+      if (match) {
+        const img = document.createElement('img')
+        img.setAttribute('src', match[2])
+        img.setAttribute('alt', match[1])
+        block.appendChild(img)
+      }
+      pm.appendChild(block)
     }
     this.host.appendChild(pm)
   }

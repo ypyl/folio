@@ -485,6 +485,12 @@ function App() {
                 ? (files) => copyDroppedFiles(activeFolder.storage!, files)
                 : undefined
             }
+            // Vault images (render-vault-images): the pane resolves a page's
+            // asset references through the active folder's storage, and does
+            // nothing without one.
+            readAsset={
+              activeFolder?.storage ? (path) => activeFolder.storage!.readBinary(path) : undefined
+            }
             // While restoring, avoid a one-frame "open a folder" flash; once
             // settled, only an actually usable folder keeps the notes hint,
             // and a browser with no folder picker gets the requirement instead

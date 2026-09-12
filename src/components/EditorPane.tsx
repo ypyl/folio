@@ -7,6 +7,12 @@ import type { Page } from '../page'
 import type { Suggestion } from '../vault/suggest'
 import { collectDropFiles, linkForAsset } from './dropAssets'
 import { updateGutterDom } from '../editor/gutter'
+import {
+  createAssetImages,
+  releaseAssetImages,
+  syncAssetImages,
+  type AssetImages,
+} from '../editor/assetImages'
 import styles from './EditorPane.module.css'
 
 // The editor surface for an open page (design D1/D2). The pane owns the DOM
@@ -56,6 +62,7 @@ export function EditorPane({
   loading = false,
   onDropFiles,
   onOpenReference,
+  readAsset,
   suggest,
   ref,
 }: {
@@ -71,6 +78,10 @@ export function EditorPane({
   loading?: boolean
   /** Copy dropped files into the vault and resolve with the landed asset paths. */
   onDropFiles?: (files: File[]) => Promise<string[]>
+  /** Read a vault file's bytes, so a vault image reference can render
+   *  (render-vault-images). Absent without a vault: references then render as
+   *  they did before, and no read is attempted. */
+  readAsset?: (path: string) => Promise<Blob>
   /** Open the page a reference badge points at (add-reference-badges). */
   onOpenReference?: (target: string) => void
   /** Completion candidates for the reference being typed
@@ -83,6 +94,17 @@ export function EditorPane({
   const mountRef = useRef<HTMLDivElement>(null)
   const gutterRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<EditorAdapter | null>(null)
+  // Vault image URLs for this page (render-vault-images): created when this
+  // pane's editor mounts, revoked when it is torn down. A ref, because the pass
+  // runs from the adapter's change listener rather than from render — and one
+  // allocation per mount, not per render.
+  const assetsRef = useRef<AssetImages | null>(null)
+  // The reader is captured once per mount but must read through the live prop:
+  // a folder switch changes the vault behind it.
+  const readAssetRef = useRef(readAsset)
+  useEffect(() => {
+    readAssetRef.current = readAsset
+  })
 
   // Read at call time, so a page switch (which remounts this pane) simply swaps
   // the adapter the handle forwards to.
@@ -124,6 +146,19 @@ export function EditorPane({
     )
   }
 
+  // Vault images (render-vault-images): the document's image references point
+  // at vault paths the browser cannot fetch, so the rendered element is pointed
+  // at the file's bytes instead. Driven where the gutter is driven — a document
+  // change and the seed — and a no-op without a vault reader. Resolved paths
+  // cost one lookup, so a keystroke reads nothing (design D3).
+  const updateImages = () => {
+    const el = mountRef.current
+    const read = readAssetRef.current
+    const assets = assetsRef.current
+    if (!el || !read || !assets) return
+    syncAssetImages(el, assets, read)
+  }
+
   // Reference activation reads through a ref: the mount effect runs once, but
   // App's handler is recreated as the graph changes (every save), and a badge
   // click must resolve against the live graph, not the mount-time one.
@@ -153,12 +188,15 @@ export function EditorPane({
     let cancelled = false
     const adapter = new MilkdownAdapter()
     adapterRef.current = adapter
+    const assets = createAssetImages()
+    assetsRef.current = assets
     // Placeholder bookkeeping rides the same edit stream that reaches App:
     // markdown empty ⇒ the doc is empty ⇒ show the hint.
     adapter.onChange((markdown) => {
       setIsEmpty(markdown.trim() === '')
       onChange(markdown)
       updateGutter()
+      updateImages()
     })
     adapter.onReferenceClick((target) => openReferenceRef.current?.(target))
     adapter.setSuggestionSource((query) => suggestRef.current?.(query) ?? [])
@@ -166,7 +204,10 @@ export function EditorPane({
       .mount(el)
       .then(() => {
         if (cancelled) return
-        return adapter.setContent(initialContent).then(() => updateGutter())
+        return adapter.setContent(initialContent).then(() => {
+          updateGutter()
+          updateImages()
+        })
       })
       .catch(() => {
         // Mount failure keeps the pane as-is (empty surface, no error UI).
@@ -185,6 +226,9 @@ export function EditorPane({
       cancelled = true
       observer?.disconnect()
       adapterRef.current = null
+      // Release this page's image URLs with its editor (design D5).
+      assetsRef.current = null
+      releaseAssetImages(assets)
       void adapter.destroy()
     }
   }, [])

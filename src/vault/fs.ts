@@ -81,6 +81,15 @@ export class FileSystemVaultStorage implements VaultStorage {
     await this.writeFile(path, blob)
   }
 
+  /** The binary counterpart of `read` (render-vault-images): the same path
+   *  walk, the same missing-file rejection, bytes instead of text. */
+  async readBinary(path: string): Promise<Blob> {
+    const segments = parseFilePath(path)
+    const parent = await this.resolveDir(segments.slice(0, -1))
+    const file = await parent.getFileHandle(lastSegment(segments))
+    return await file.getFile()
+  }
+
   /** Create or overwrite the file at `path` with text or raw bytes. */
   private async writeFile(path: string, data: string | Blob): Promise<void> {
     const segments = parseFilePath(path)

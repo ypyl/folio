@@ -7,7 +7,7 @@ The transport contract between Folio's knowledge-management core and wherever it
 ## Requirements
 
 ### Requirement: VaultStorage exposes read, write, delete, list, and stat
-The vault storage SHALL expose five async operations: `read(path)` returning the file's text content, `write(path, content)` creating or overwriting a file, `delete(path)` removing a file, `list(path)` returning the files reachable under a path, and `stat(path)` returning the file's last-modified time in milliseconds since the epoch.
+The vault storage SHALL expose five async operations: `read(path)` returning the file's text content, `write(path, content)` creating or overwriting a file, `delete(path)` removing a file, `list(path)` returning the files reachable under a path, and `stat(path)` returning the file's last-modified time in milliseconds since the epoch. These five are the text and metadata set; binary assets are read and written through the separate binary operations the asset requirements define.
 
 #### Scenario: Reading a file returns its text content
 - **WHEN** `read` is called with the path of an existing file
@@ -128,6 +128,22 @@ The storage seam SHALL provide a binary write operation alongside its text `writ
 - **GIVEN** a binary asset path that already exists in the vault
 - **WHEN** the operation is invoked for that exact path
 - **THEN** the file at that path is replaced with the new bytes; unique-name selection on collision is the copy flow's responsibility, not the storage operation's
+
+### Requirement: The storage seam provides a binary read operation for assets
+The storage seam SHALL provide a binary read operation alongside its binary write: `readBinary(path)` resolves with the bytes stored at a vault path, under the same path contract as every other operation. The bytes SHALL come back as they were written, and a path with no file SHALL reject rather than resolving with empty content, matching the text read.
+
+#### Scenario: Bytes written through the binary write come back unchanged
+- **GIVEN** a vault holding an image written through the binary write operation
+- **WHEN** its path is read through the binary read operation
+- **THEN** the result carries exactly the stored bytes
+
+#### Scenario: Reading a missing asset rejects
+- **WHEN** the binary read operation is called with the path of a file that does not exist
+- **THEN** the call rejects with an error, and no empty or placeholder content is returned
+
+#### Scenario: The binary read holds the path contract
+- **WHEN** the binary read operation is called with an invalid path — absolute, or carrying a `.` or `..` segment
+- **THEN** the call rejects without touching the filesystem outside the vault
 
 ### Requirement: Closing a folder forgets it
 Closing a folder SHALL remove it from both the open folder set and the persisted folder registry: on a later app start, a closed folder SHALL NOT be restored and SHALL NOT participate in last-active selection. Closing a folder SHALL NOT modify the folder's contents on disk. When the closed folder was active, the app SHALL return to the empty state and clear the persisted last-active pointer, so a later app start also opens the empty state; when the closed folder was not active, the last-active pointer SHALL be left unchanged. Re-adding a closed folder SHALL follow the normal picker flow and produce a fresh entry, since the duplicate-pick dedup compares only against listed folders.

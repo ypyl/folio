@@ -102,6 +102,28 @@ describe('FileSystemVaultStorage', () => {
     await expect(vault.read('assets/photo.png')).resolves.toBe('v2')
   })
 
+  it('reads binary back byte-for-byte through readBinary', async () => {
+    const vault = fakeVault(VAULT)
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+    await vault.writeBinary('assets/photo.png', new Blob([bytes]))
+    expect([
+      ...new Uint8Array(await (await vault.readBinary('assets/photo.png')).arrayBuffer()),
+    ]).toEqual([...bytes])
+  })
+
+  it('readBinary rejects for a missing file rather than returning empty content', async () => {
+    const vault = fakeVault(VAULT)
+    await expect(vault.readBinary('assets/missing.png')).rejects.toMatchObject({
+      name: 'NotFoundError',
+    })
+  })
+
+  it('readBinary holds the path contract', async () => {
+    const vault = fakeVault(VAULT)
+    await expect(vault.readBinary('/abs.png')).rejects.toBeInstanceOf(InvalidVaultPathError)
+    await expect(vault.readBinary('../escape.png')).rejects.toBeInstanceOf(InvalidVaultPathError)
+  })
+
   it('deletes a file', async () => {
     const vault = fakeVault(VAULT)
     await vault.delete('tags.md')
