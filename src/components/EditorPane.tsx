@@ -1,11 +1,11 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
-import type { CSSProperties, DragEvent, Ref } from 'react'
+import type { CSSProperties, ClipboardEvent, DragEvent, Ref } from 'react'
 import { FolioMark } from '../FolioMark'
 import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
 import type { Suggestion } from '../vault/suggest'
-import { collectDropFiles, linkForAsset } from './dropAssets'
+import { collectFiles, linkForAsset, withPastedName } from './dropAssets'
 import { updateGutterDom } from '../editor/gutter'
 import {
   createAssetImages,
@@ -60,7 +60,7 @@ export function EditorPane({
   onChange,
   emptyHint = 'notes',
   loading = false,
-  onDropFiles,
+  onAttachFiles,
   onOpenReference,
   readAsset,
   suggest,
@@ -76,8 +76,9 @@ export function EditorPane({
   emptyHint?: 'notes' | 'open-folder' | 'browser-unsupported'
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
-  /** Copy dropped files into the vault and resolve with the landed asset paths. */
-  onDropFiles?: (files: File[]) => Promise<string[]>
+  /** Copy files into the vault and resolve with the landed asset paths; fed by
+   *  both the drop and the paste gesture. */
+  onAttachFiles?: (files: File[]) => Promise<string[]>
   /** Read a vault file's bytes, so a vault image reference can render
    *  (render-vault-images). Absent without a vault: references then render as
    *  they did before, and no read is attempted. */
@@ -234,17 +235,36 @@ export function EditorPane({
   }, [])
   /* oxlint-enable react/exhaustive-deps */
 
-  // Drop hygiene (D5): preventDefault on both pane states so the browser never
-  // navigates to the dropped file; the copy happens only with a page open.
+  // File intake (D5): something is always prevented so the browser never
+  // navigates to a dropped file; the copy happens only with a page open.
   const handleDragover = (e: DragEvent<HTMLElement>): void => {
     e.preventDefault()
   }
   const handleDrop = (e: DragEvent<HTMLElement>): void => {
     e.preventDefault()
-    if (page === null || !onDropFiles) return
-    const files = collectDropFiles(e.dataTransfer)
+    if (page === null || !onAttachFiles) return
+    const files = collectFiles(e.dataTransfer)
     if (files.length === 0) return
-    void onDropFiles(files).then((paths) => {
+    void onAttachFiles(files).then((paths) => {
+      for (const path of paths) {
+        adapterRef.current?.insertMarkdown(linkForAsset(path))
+      }
+    })
+  }
+
+  // Paste intake (attach-pasted-files): a clipboard carrying files and no text
+  // is a screenshot or a copied file, and is attached exactly as a drop would
+  // be. A clipboard with text belongs to the editor's markdown-aware paste,
+  // whether or not files ride along, so this returns before touching it — a
+  // decision made from the clipboard's content rather than from whether
+  // ProseMirror already called preventDefault (design D2).
+  const handlePaste = (e: ClipboardEvent<HTMLElement>): void => {
+    if (page === null || !onAttachFiles) return
+    if (e.clipboardData.getData('text/plain') !== '') return
+    const files = collectFiles(e.clipboardData)
+    if (files.length === 0) return
+    e.preventDefault()
+    void onAttachFiles(files.map(withPastedName)).then((paths) => {
       for (const path of paths) {
         adapterRef.current?.insertMarkdown(linkForAsset(path))
       }
@@ -284,7 +304,13 @@ export function EditorPane({
   }
 
   return (
-    <main ref={paneRef} onDragOver={handleDragover} onDrop={handleDrop} className={styles.pane}>
+    <main
+      ref={paneRef}
+      onDragOver={handleDragover}
+      onDrop={handleDrop}
+      onPaste={handlePaste}
+      className={styles.pane}
+    >
       <article className={styles.document}>
         {/* Line numbers (line-numbers): presentational only — aria-hidden and
             pointer-events: none, so the document owns every interaction. */}

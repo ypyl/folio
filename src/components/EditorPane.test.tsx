@@ -5,7 +5,7 @@ import type { EditorAdapter } from '../editor/editor'
 import type { Suggestion } from '../vault/suggest'
 import { EditorPane, type EditorPaneHandle } from './EditorPane'
 import styles from './EditorPane.module.css'
-import { collectDropFiles, linkForAsset } from './dropAssets'
+import { collectFiles, linkForAsset, withPastedName } from './dropAssets'
 
 // Replace the real ProseMirror transport with FakeEditor for component tests
 // (design D1): the pane is tested against the seam contract. Instances are
@@ -339,7 +339,26 @@ describe('EditorPane', () => {
           { kind: 'file', webkitGetAsEntry: () => ({ isDirectory: true }), getAsFile: () => dir },
         ],
       } as unknown as DataTransfer
-      expect(collectDropFiles(dt)).toEqual([f])
+      expect(collectFiles(dt)).toEqual([f])
+    })
+
+    it.each([
+      ['image.png', /^pasted-\d{8}-\d{6}\.png$/],
+      ['blob', /^pasted-\d{8}-\d{6}\.png$/],
+      ['image.jpeg', /^pasted-\d{8}-\d{6}\.jpeg$/],
+      ['Q3 report.pdf', /^Q3 report\.pdf$/],
+      ['pasted-20260101-101010.png', /^pasted-20260101-101010\.png$/],
+    ])('withPastedName(%s) names the asset', (name, expected) => {
+      const named = withPastedName(new File(['x'], name, { type: 'image/png' }))
+      expect(named.name).toMatch(expected)
+      // The bytes and the type survive the rename.
+      expect(named.type).toBe('image/png')
+    })
+
+    it('names a nameless bitmap from its MIME type so it still links as an image', () => {
+      const named = withPastedName(new File(['x'], 'blob', { type: 'image/webp' }))
+      expect(named.name).toMatch(/^pasted-\d{8}-\d{6}\.webp$/)
+      expect(linkForAsset(`assets/${named.name}`)).toMatch(/^!\[/)
     })
 
     it.each([
@@ -353,9 +372,14 @@ describe('EditorPane', () => {
     })
 
     it('inserts one link per landed file at the cursor (image vs plain)', async () => {
-      const onDropFiles = vi.fn(async () => ['assets/a.png', 'assets/b.pdf'])
+      const onAttachFiles = vi.fn(async () => ['assets/a.png', 'assets/b.pdf'])
       render(
-        <EditorPane page={page} initialContent="x" onChange={() => {}} onDropFiles={onDropFiles} />,
+        <EditorPane
+          page={page}
+          initialContent="x"
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
       )
       await act(async () => {})
       fireEvent.drop(screen.getByRole('main'), {
@@ -366,14 +390,141 @@ describe('EditorPane', () => {
       expect(editor.insertions).toEqual(['![a](assets/a.png)', '[b](assets/b.pdf)'])
     })
 
-    it('never calls onDropFiles when no page is open', async () => {
-      const onDropFiles = vi.fn()
+    it('never calls onAttachFiles when no page is open', async () => {
+      const onAttachFiles = vi.fn()
       render(
-        <EditorPane page={null} initialContent="" onChange={() => {}} onDropFiles={onDropFiles} />,
+        <EditorPane
+          page={null}
+          initialContent=""
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
       )
       fireEvent.drop(screen.getByRole('main'), { dataTransfer: dt([new File(['x'], 'x.png')]) })
       await act(async () => {})
-      expect(onDropFiles).not.toHaveBeenCalled()
+      expect(onAttachFiles).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('pasted files (attach-pasted-files)', () => {
+    // jsdom has no DataTransfer, so a clipboard is the same plain shape the drop
+    // tests use, plus the text the handler reads (design D2).
+    const clipboard = (files: File[], text = ''): DataTransfer =>
+      ({
+        files,
+        items: files.map((f) => ({ kind: 'file', getAsFile: () => f })),
+        getData: () => text,
+      }) as unknown as DataTransfer
+
+    it('attaches a pasted bitmap under a timestamped name and links it', async () => {
+      const onAttachFiles = vi.fn(async (files: File[]) => files.map((f) => `assets/${f.name}`))
+      render(
+        <EditorPane
+          page={page}
+          initialContent="x"
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
+      )
+      await act(async () => {})
+      const bitmap = new File(['png'], 'image.png', { type: 'image/png' })
+      await act(async () => {
+        fireEvent.paste(screen.getByRole('main'), { clipboardData: clipboard([bitmap]) })
+      })
+      const sent = onAttachFiles.mock.calls[0][0]
+      expect(sent).toHaveLength(1)
+      expect(sent[0].name).toMatch(/^pasted-\d{8}-\d{6}\.png$/)
+      expect(fake().insertions).toEqual([
+        `![${sent[0].name.replace('.png', '')}](assets/${sent[0].name})`,
+      ])
+    })
+
+    it('keeps the name of a pasted file that has one', async () => {
+      const onAttachFiles = vi.fn(async (_files: File[]) => ['assets/Q3 report.pdf'])
+      render(
+        <EditorPane
+          page={page}
+          initialContent="x"
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
+      )
+      await act(async () => {})
+      const pdf = new File(['pdf'], 'Q3 report.pdf', { type: 'application/pdf' })
+      await act(async () => {
+        fireEvent.paste(screen.getByRole('main'), { clipboardData: clipboard([pdf]) })
+      })
+      expect(onAttachFiles.mock.calls[0][0][0].name).toBe('Q3 report.pdf')
+      expect(fake().insertions).toEqual(['[Q3 report](assets/Q3 report.pdf)'])
+    })
+
+    it('leaves a clipboard with text to the editor, files and all', async () => {
+      const onAttachFiles = vi.fn(async (_files: File[]) => ['assets/a.png'])
+      render(
+        <EditorPane
+          page={page}
+          initialContent="x"
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
+      )
+      await act(async () => {})
+      const clipboard2 = clipboard([new File(['png'], 'image.png')], 'plain text')
+      fireEvent.paste(screen.getByRole('main'), { clipboardData: clipboard2 })
+      await act(async () => {})
+      expect(onAttachFiles).not.toHaveBeenCalled()
+      expect(fake().insertions).toEqual([])
+    })
+
+    it('attaches nothing with no page open or an empty clipboard', async () => {
+      const onAttachFiles = vi.fn(async (_files: File[]) => [])
+      const { rerender } = render(
+        <EditorPane
+          page={null}
+          initialContent=""
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
+      )
+      fireEvent.paste(screen.getByRole('main'), {
+        clipboardData: clipboard([new File(['x'], 'x.png')]),
+      })
+      rerender(
+        <EditorPane
+          page={page}
+          initialContent="x"
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
+      )
+      await act(async () => {})
+      fireEvent.paste(screen.getByRole('main'), { clipboardData: clipboard([]) })
+      await act(async () => {})
+      expect(onAttachFiles).not.toHaveBeenCalled()
+    })
+
+    it('inserts no link for a file whose copy failed', async () => {
+      const onAttachFiles = vi.fn(async (_files: File[]) => ['assets/one.png'])
+      render(
+        <EditorPane
+          page={page}
+          initialContent="x"
+          onChange={() => {}}
+          onAttachFiles={onAttachFiles}
+        />,
+      )
+      await act(async () => {})
+      await act(async () => {
+        fireEvent.paste(screen.getByRole('main'), {
+          clipboardData: clipboard([
+            new File(['1'], 'image.png', { type: 'image/png' }),
+            new File(['2'], 'image.png', { type: 'image/png' }),
+          ]),
+        })
+      })
+      // Two files pasted, one copy landed: exactly one link, no placeholder for
+      // the one that did not.
+      expect(fake().insertions).toHaveLength(1)
     })
   })
 

@@ -480,7 +480,7 @@ function App() {
             onChange={handleEdit}
             onOpenReference={handleOpenReference}
             suggest={suggest}
-            onDropFiles={
+            onAttachFiles={
               activeFolder?.storage
                 ? (files) => copyDroppedFiles(activeFolder.storage!, files)
                 : undefined

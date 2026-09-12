@@ -477,6 +477,44 @@ describe('asset drag & drop (page-editing spec)', () => {
     readBinary.mockRestore()
     vi.unstubAllGlobals()
   })
+
+  it('pasting a bitmap attaches it and it renders from the vault', async () => {
+    // attach-pasted-files: the paste gesture feeds the same intake as a drop,
+    // and the result renders through the vault-image path.
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().getContent()).toContain('This is Folio'))
+
+    const bitmap = new File(['png'], 'image.png', { type: 'image/png' })
+    await act(async () => {
+      fireEvent.paste(pane(), {
+        clipboardData: {
+          files: [bitmap],
+          items: [{ kind: 'file', getAsFile: () => bitmap }],
+          getData: () => '',
+        },
+      })
+    })
+
+    // The asset landed under a timestamped name and the page links it.
+    const insertion = editor().insertions.at(-1) ?? ''
+    const linked = /^!\[(pasted-\d{8}-\d{6})\]\(assets\/(pasted-\d{8}-\d{6}\.png)\)$/.exec(
+      insertion,
+    )
+    expect(linked).not.toBeNull()
+    const assetsDir = tree.children.get('assets') as FakeDirectoryHandle
+    expect(assetsDir.children.has(linked![2])).toBe(true)
+
+    // And the reference renders the bytes that were just pasted.
+    const img = await waitFor(() => {
+      const el = document.querySelector('main img')
+      expect(el?.getAttribute('src')).toMatch(/^blob:/)
+      return el as HTMLImageElement
+    })
+    expect(img.getAttribute('alt')).toBe(linked![1])
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('links pane navigation (static-navigation + ui-shell spec)', () => {
