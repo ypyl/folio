@@ -49,6 +49,23 @@ describe('FolderRail', () => {
     expect(screen.getByRole('button', { name: 'Open folder Home' })).toBeTruthy()
   })
 
+  it('renders the add button only when the browser can open folders', () => {
+    const folders = [folder('Work', 'granted', 'a')]
+    render(
+      <FolderRail
+        status="ready"
+        folders={folders}
+        activeId={null}
+        onActivate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Add folder' })).toBeNull()
+    // The column and its entries stay: only the add control is gated.
+    expect(screen.getByRole('navigation', { name: 'Open folders' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open folder Work' })).toBeTruthy()
+  })
+
   it('marks the active folder and fires activate on click', () => {
     const folders = [
       folder('Work', 'granted', 'a'),

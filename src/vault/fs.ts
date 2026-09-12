@@ -6,6 +6,15 @@ declare function showDirectoryPicker(options?: {
   mode?: 'read' | 'readwrite'
 }): Promise<FileSystemDirectoryHandle>
 
+/** Whether this browser can open a local folder at all: the File System
+ *  Access picker is Chromium-only (Chrome, Edge, Brave), and Firefox and
+ *  Safari leave it undefined. Read at render time, never cached at module
+ *  load: a constant would answer from import order, before a test's stub or
+ *  a late polyfill. The cast is the TS 6 DOM-lib gap above. */
+export function canOpenFolders(): boolean {
+  return typeof (window as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function'
+}
+
 // File System Access transport for the VaultStorage seam (ADR-0002, ADR-0013).
 // FSA resolves paths one segment at a time: getFileHandle/getDirectoryHandle
 // take a single name, so every operation walks the path first (D3).

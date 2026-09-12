@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { FileSystemVaultStorage, InvalidVaultPathError, parsePath, pickVaultFolder } from './fs'
+import {
+  FileSystemVaultStorage,
+  InvalidVaultPathError,
+  canOpenFolders,
+  parsePath,
+  pickVaultFolder,
+} from './fs'
 import { buildTree, type FakeDirectoryHandle, type FakeTreeNode } from './fakeHandle'
 
 // Fake handle tree lives in fakeHandle.ts (shared with useVault.test.ts);
@@ -164,6 +170,31 @@ describe('FileSystemVaultStorage', () => {
     const call =
       op === 'read' ? vault.read('') : op === 'write' ? vault.write('', 'x') : vault.delete('')
     await expect(call).rejects.toBeInstanceOf(InvalidVaultPathError)
+  })
+})
+
+describe('canOpenFolders', () => {
+  it('is true where the runtime provides the folder picker', () => {
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    try {
+      expect(canOpenFolders()).toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('is false where it is missing — Firefox, Safari, and jsdom', () => {
+    expect('showDirectoryPicker' in window).toBe(false)
+    expect(canOpenFolders()).toBe(false)
+  })
+
+  it('is false when the member exists but is not callable', () => {
+    vi.stubGlobal('showDirectoryPicker', undefined)
+    try {
+      expect(canOpenFolders()).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 

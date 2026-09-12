@@ -15,6 +15,7 @@ import { copyDroppedFiles } from './vault/assets'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
+import { canOpenFolders } from './vault/fs'
 import { kindOf, localDayString, orderPages, stem, type IndexPage } from './vault/index'
 import { candidateNames, suggestPages, type Suggestion } from './vault/suggest'
 import type { SearchResult } from './search/core'
@@ -23,6 +24,10 @@ const SAVE_DELAY_MS = 1000
 
 function App() {
   const { status, folders, activeId, addFolder, activate, closeFolder, goHome } = useVault()
+  // Browser capability (warn-unsupported-browser): probed once per render and
+  // spent twice — the rail's add control exists only where the picker does,
+  // and the brand screen states the requirement where it does not.
+  const canOpen = canOpenFolders()
   const activeFolder = folders.find((f) => f.id === activeId)
   const { graph, savePage, pins, togglePin } = useIndex(activeFolder?.storage)
   const [activePath, setActivePath] = useState<string | null>(null)
@@ -428,12 +433,16 @@ function App() {
           // Closing a folder forgets it; closing the active one returns home
           // (close-folders). The activeFolder?.id effect resets the page.
           onClose={(id) => void closeFolder(id)}
-          onAdd={() => {
-            setActivePath(null)
-            lastKnown.current = null
-            resetSearch()
-            void addFolder()
-          }}
+          onAdd={
+            canOpen
+              ? () => {
+                  setActivePath(null)
+                  lastKnown.current = null
+                  resetSearch()
+                  void addFolder()
+                }
+              : undefined
+          }
           onActivate={handleActivate}
         />
         <Sidebar
@@ -477,8 +486,16 @@ function App() {
                 : undefined
             }
             // While restoring, avoid a one-frame "open a folder" flash; once
-            // settled, only an actually usable folder keeps the notes hint.
-            emptyHint={status === 'restoring' || activeFolder?.storage ? 'notes' : 'open-folder'}
+            // settled, only an actually usable folder keeps the notes hint,
+            // and a browser with no folder picker gets the requirement instead
+            // of an instruction it cannot follow (warn-unsupported-browser).
+            emptyHint={
+              status === 'restoring' || activeFolder?.storage
+                ? 'notes'
+                : canOpen
+                  ? 'open-folder'
+                  : 'browser-unsupported'
+            }
             loading={indexing}
           />
         )}

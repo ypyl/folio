@@ -162,14 +162,44 @@ describe('EditorPane', () => {
   })
 
   it('shows the empty states without mounting an editor', async () => {
-    const { rerender } = render(
-      <EditorPane page={null} emptyHint="notes" initialContent="" onChange={() => {}} />,
+    // The open-folder hint is the supported-browser case: stub the picker the
+    // brand screen is gated on (warn-unsupported-browser).
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    try {
+      const { rerender } = render(
+        <EditorPane page={null} emptyHint="notes" initialContent="" onChange={() => {}} />,
+      )
+      expect(screen.getByText('Your notes appear here.')).toBeTruthy()
+      rerender(
+        <EditorPane page={null} emptyHint="open-folder" initialContent="" onChange={() => {}} />,
+      )
+      expect(screen.getByText('Open a folder to begin.')).toBeTruthy()
+      expect(instances.list).toHaveLength(0)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('states the browser requirement when the browser cannot open folders', async () => {
+    render(
+      <EditorPane
+        page={null}
+        emptyHint="browser-unsupported"
+        initialContent=""
+        onChange={() => {}}
+      />,
     )
-    expect(screen.getByText('Your notes appear here.')).toBeTruthy()
-    rerender(
-      <EditorPane page={null} emptyHint="open-folder" initialContent="" onChange={() => {}} />,
-    )
-    expect(screen.getByText('Open a folder to begin.')).toBeTruthy()
+    // The requirement replaces the instruction: "open a folder" is not
+    // something this browser can do (warn-unsupported-browser).
+    expect(
+      screen.getByText(
+        'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByText('Open a folder to begin.')).toBeNull()
+    // The mark stays decorative and the screen stays control-free.
+    expect(screen.getByRole('main').querySelector('[aria-hidden="true"]')).not.toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
     expect(instances.list).toHaveLength(0)
   })
 

@@ -20,6 +20,20 @@ import styles from './EditorPane.module.css'
 // document or the serialized markdown.
 const PLACEHOLDER = 'Start typing…'
 
+// The brand screen's copy when the browser cannot open a local folder at all
+// (warn-unsupported-browser): the picker is Chromium-only, so the screen names
+// the requirement and the browsers that meet it rather than telling the user to
+// open a folder they have no way to open.
+const BROWSER_REQUIREMENT =
+  'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.'
+
+// The brand screen's line, by hint variant.
+const EMPTY_HINTS: Record<'notes' | 'open-folder' | 'browser-unsupported', string> = {
+  notes: 'Your notes appear here.',
+  'open-folder': 'Open a folder to begin.',
+  'browser-unsupported': BROWSER_REQUIREMENT,
+}
+
 // Line-number gutter (line-numbers change, design D3): the single shared
 // anchor rule (src/lineAnchors.ts) provides one canonical start line per
 // top-level block; this module binds those lines to the block DOM. Numbers
@@ -48,7 +62,11 @@ export function EditorPane({
   page: Page | null
   initialContent: string
   onChange: (markdown: string) => void
-  emptyHint?: 'notes' | 'open-folder'
+  /** Which copy the brand screen shows when no page is open: the notes hint,
+   *  the open-a-folder instruction, or — where the browser has no local-folder
+   *  picker — the browser requirement instead of an instruction that cannot be
+   *  followed (warn-unsupported-browser). */
+  emptyHint?: 'notes' | 'open-folder' | 'browser-unsupported'
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
   /** Copy dropped files into the vault and resolve with the landed asset paths. */
@@ -210,8 +228,10 @@ export function EditorPane({
         ) : (
           <div className={styles.emptyState}>
             <FolioMark className={styles.mark} />
-            <p className={styles.tagline}>
-              {emptyHint === 'open-folder' ? 'Open a folder to begin.' : 'Your notes appear here.'}
+            <p
+              className={`${styles.tagline}${emptyHint === 'browser-unsupported' ? ` ${styles.notice}` : ''}`}
+            >
+              {EMPTY_HINTS[emptyHint]}
             </p>
           </div>
         )}

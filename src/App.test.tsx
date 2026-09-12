@@ -142,14 +142,40 @@ async function openFixture(): Promise<FakeDirectoryHandle> {
 
 describe('application shell', () => {
   it('renders the shell chrome with the open-a-folder empty state', async () => {
+    // The open-folder hint is the supported-browser case: stub the picker the
+    // shell is gated on (warn-unsupported-browser).
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    try {
+      render(<App />)
+      expect(within(screen.getByRole('banner')).getByText('Folio')).toBeTruthy()
+      expect(screen.getByLabelText('Search notes')).toBeTruthy()
+      expect(screen.getByText('Journal')).toBeTruthy()
+      expect(screen.getByText('Pages')).toBeTruthy()
+      expect(screen.getByText('Backlinks')).toBeTruthy()
+      // Restore resolves async; once no folder is present the hint settles.
+      expect(await screen.findByText('Open a folder to begin.')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Add folder' })).toBeTruthy()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('states the browser requirement and offers no add control without a picker', async () => {
+    // No stub: jsdom has no `showDirectoryPicker`, which is the Firefox and
+    // Safari case (warn-unsupported-browser).
+    expect('showDirectoryPicker' in window).toBe(false)
     render(<App />)
-    expect(within(screen.getByRole('banner')).getByText('Folio')).toBeTruthy()
-    expect(screen.getByLabelText('Search notes')).toBeTruthy()
-    expect(screen.getByText('Journal')).toBeTruthy()
-    expect(screen.getByText('Pages')).toBeTruthy()
-    expect(screen.getByText('Backlinks')).toBeTruthy()
-    // Restore resolves async; once no folder is present the hint settles.
-    expect(await screen.findByText('Open a folder to begin.')).toBeTruthy()
+    expect(
+      await screen.findByText(
+        'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
+      ),
+    ).toBeTruthy()
+    // No control promises the action the browser cannot perform, and the
+    // instruction it replaces is gone.
+    expect(screen.queryByRole('button', { name: 'Add folder' })).toBeNull()
+    expect(screen.queryByText('Open a folder to begin.')).toBeNull()
+    // The rail keeps its column so the shell's panes stay aligned.
+    expect(screen.getByRole('navigation', { name: 'Open folders' })).toBeTruthy()
   })
 
   it('shows empty sidebar sections before a folder is opened', () => {
@@ -518,8 +544,15 @@ describe('reference completion', () => {
 
 describe('folder rail flow', () => {
   it('shows the Add folder button before any folder opens', async () => {
-    render(<App />)
-    expect(await screen.findByRole('button', { name: 'Add folder' })).toBeTruthy()
+    // The control is gated on the picker: stub it for the supported case
+    // (warn-unsupported-browser).
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    try {
+      render(<App />)
+      expect(await screen.findByRole('button', { name: 'Add folder' })).toBeTruthy()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it("switching folders resets to the new folder's journal; re-clicking the active folder keeps the page", async () => {

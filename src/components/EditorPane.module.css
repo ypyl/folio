@@ -23,6 +23,16 @@
   margin: 0;
   font-size: 15px;
   color: var(--stone);
+  /* The brand screen is a centred block: a line long enough to wrap (the
+     browser requirement) wraps inside a readable measure and stays centred. */
+  text-align: center;
+  max-width: 46ch;
+}
+
+/* The browser requirement (warn-unsupported-browser) is information the user
+   has to act on, not metadata: DESIGN.md's secondary text ink, not stone. */
+.notice {
+  color: var(--dark-warm);
 }
 
 /* Loading state (indexing-loading-state): replaces the empty hint while the

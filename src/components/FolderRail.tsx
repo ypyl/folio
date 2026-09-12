@@ -5,7 +5,9 @@ interface FolderRailProps {
   status: VaultStatus
   folders: VaultFolder[]
   activeId: string | null
-  onAdd: () => void
+  /** Absent where the browser has no local-folder picker
+   *  (warn-unsupported-browser): the rail then shows no add control. */
+  onAdd?: () => void
   onActivate: (id: string) => void
   onClose: (id: string) => void
 }
@@ -14,7 +16,10 @@ interface FolderRailProps {
 // one avatar per folder below. Avatar = first letter on a warm surface; the
 // active folder gets a brand ring, a pending-permission folder a hollow
 // (dashed) ring. Kami palette only — the rail must not introduce a second
-// chromatic color (ui-shell spec).
+// chromatic color (ui-shell spec). The add control renders only where the
+// browser can open a folder at all (warn-unsupported-browser), the same
+// optional-callback shape the status bar's pin uses; the column itself always
+// renders so the workspace grid keeps its leading column.
 export function FolderRail({
   status,
   folders,
@@ -26,15 +31,17 @@ export function FolderRail({
   if (status === 'restoring') return <nav className={styles.rail} aria-label="Open folders" />
   return (
     <nav className={styles.rail} aria-label="Open folders">
-      <button
-        type="button"
-        className={styles.add}
-        onClick={onAdd}
-        title="Add folder"
-        aria-label="Add folder"
-      >
-        <span aria-hidden="true">+</span>
-      </button>
+      {onAdd && (
+        <button
+          type="button"
+          className={styles.add}
+          onClick={onAdd}
+          title="Add folder"
+          aria-label="Add folder"
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+      )}
       <div className={styles.list}>
         {folders.map((folder) => {
           const active = folder.id === activeId
