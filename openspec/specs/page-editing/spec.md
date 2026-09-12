@@ -319,6 +319,47 @@ A code block in the editor SHALL render as a dedicated multi-line code editing s
 - **WHEN** the user pastes formatted text while the caret is outside any code block
 - **THEN** only the clipboard's plain text is used and rich formatting is ignored; whether that text is interpreted as Markdown is decided by the paste rule (markdown-aware paste), never by the code surface
 
+### Requirement: A code block that ends a page keeps a block after it
+An open page whose last top-level block is a code block SHALL hold an empty paragraph after it, so a block to continue in always exists. The paragraph SHALL be maintained by the editor rather than authored: it appears whether the code block was typed, pasted, or opened from a file, and it never appears after a block that is already a paragraph, so the document does not accumulate empty blocks. Moving into it SHALL work the ways a user tries: `ArrowDown` from the code block's last line, and a click below the code block. `Enter` inside the code block SHALL continue to add a code line, and `Mod-Enter` SHALL continue to exit the block.
+
+#### Scenario: The block after a trailing code block exists
+- **GIVEN** an open page whose markdown ends with a fenced code block
+- **WHEN** the page renders
+- **THEN** the document holds an empty paragraph after the code block
+
+#### Scenario: Arrow down leaves a trailing code block
+- **GIVEN** an open page whose last block is a code block, with the caret on the code block's last line
+- **WHEN** the user presses `ArrowDown` and types
+- **THEN** the caret is in the paragraph after the code block and the typed text lands there, not in the code
+
+#### Scenario: Enter still adds a code line
+- **GIVEN** the caret inside a code block that ends the page
+- **WHEN** the user presses `Enter`
+- **THEN** a new line is added inside the code block and no paragraph is inserted
+
+#### Scenario: No empty paragraph accumulates after a paragraph
+- **GIVEN** a page whose last block is a paragraph
+- **WHEN** the document changes
+- **THEN** no extra empty paragraph is appended
+
+### Requirement: Serialization never writes a trailing blank line
+The Markdown a document serializes to SHALL end with a single newline and SHALL NOT end with blank lines, so the empty paragraph the editor maintains after a trailing code block never reaches the vault: opening such a page writes nothing, and editing it writes only the user's own text. Trimming SHALL be a property of every serialization the app performs — the change stream that drives autosave, the content the app reads for a draft, and the copy-as-markdown flavor — so no path disagrees about what the page holds.
+
+#### Scenario: Opening a page that ends with a code block writes nothing
+- **GIVEN** a vault file ending with a fenced code block
+- **WHEN** the page is opened and left alone
+- **THEN** the maintained paragraph does not mark the page dirty and the file is not rewritten
+
+#### Scenario: Editing after the code block writes only the new text
+- **GIVEN** the same page, with the caret moved into the paragraph after the code block
+- **WHEN** the user types and the page saves
+- **THEN** the file ends with the code fence, a blank line, and the typed paragraph, and carries no trailing blank line
+
+#### Scenario: A hand-made trailing empty paragraph is not persisted
+- **GIVEN** a page whose document ends with an empty paragraph
+- **WHEN** the page saves
+- **THEN** the file ends with the last non-empty block and a single newline
+
 ### Requirement: The editor shows block line numbers
 An open page in the editor SHALL display a quiet line-number gutter along the left of the document: one small, dimmed number per top-level block, showing the block's start line in the page's canonical Markdown form. The gutter SHALL be purely presentational — non-interactive, hidden from assistive technology, and free of any effect on editing, selection, or focus. Numbers SHALL be live: they update as the document changes (inserting or deleting lines above renumbers the blocks below). Blank separator lines SHALL be counted in the numbering but not rendered, so the display may read 1, 3, 5. A list SHALL carry a single number at its start rather than one per item. Code blocks SHALL keep their embedded editor's local line numbering and additionally show the block's start number in the outer gutter. Renumbering SHALL be a single pass: an update SHALL read the document's layout in one batch and write the numbers in another, never interleaving a layout read with a style write per block, so an update's cost grows with the block count rather than with its square.
 

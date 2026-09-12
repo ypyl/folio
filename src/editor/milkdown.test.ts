@@ -51,6 +51,80 @@ if (typeof globalThis.IntersectionObserver === 'undefined') {
 // Milidown's own, wired verbatim per its documented API.
 
 describe('MilkdownAdapter (smoke)', () => {
+  // edit-after-trailing-code-block: a code block that ends the page keeps an
+  // empty paragraph after it (so ArrowDown and a click below it have somewhere
+  // to go), and that paragraph never reaches the serialized Markdown.
+  describe('the document tail', () => {
+    // The same access pattern the helpers above use: the context is untyped at
+    // this boundary, so a read casts once.
+    const docOf = (adapter: MilkdownAdapter): ProseNode =>
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { state: { doc: ProseNode } }
+        return view.state.doc
+      }) as ProseNode
+
+    const typeAt = (adapter: MilkdownAdapter, offset: number, text: string): void => {
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { insertText: (t: string, p: number) => unknown } }
+          dispatch: (tr: unknown) => void
+        }
+        view.dispatch(view.state.tr.insertText(text, view.state.doc.content.size + offset))
+      })
+    }
+
+    const mount = async () => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const adapter = new MilkdownAdapter()
+      await adapter.mount(el)
+      return { adapter, el }
+    }
+
+    it('keeps a paragraph after a trailing code block without writing it to the file', async () => {
+      const { adapter, el } = await mount()
+      const changes: string[] = []
+      adapter.onChange((markdown) => changes.push(markdown))
+      const seed = ['```js', 'const a = 1', '```', ''].join('\n')
+      await adapter.setContent(seed)
+      // The change stream is debounced; this waits past it so "no change" means
+      // the seed echo really was suppressed.
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+      // The file's text is what the page holds: no trailing blank line, and
+      // the maintained paragraph is not an edit the app would save.
+      expect(adapter.getContent()).toBe(seed)
+      expect(changes).toEqual([])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('appends nothing to a page that already ends with a paragraph', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(['Just a paragraph', ''].join('\n'))
+      expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+      expect(docOf(adapter).childCount).toBe(1)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('keeps the paragraph when the code block is edited, and trims the tail on save', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(['```js', 'const a = 1', '```', ''].join('\n'))
+      typeAt(adapter, -1, 'typed')
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+      const markdown = adapter.getContent()
+      expect(markdown).toContain('typed')
+      expect(markdown.endsWith('typed\n')).toBe(true)
+      expect(markdown).not.toMatch(/\n\n$/)
+      await adapter.destroy()
+      el.remove()
+    })
+  })
+
   it('mounts, round-trips content, and destroys cleanly', async () => {
     const el = document.createElement('div')
     document.body.appendChild(el)

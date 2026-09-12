@@ -464,12 +464,17 @@ describe('asset drag & drop (page-editing spec)', () => {
 
     // The editor renders the reference as an image element and the pane points
     // it at the vault file's bytes.
-    const img = await waitFor(() => {
-      const el = document.querySelector('main img')
-      expect(el).not.toBeNull()
-      expect(el?.getAttribute('src')).toMatch(/^blob:/)
-      return el as HTMLImageElement
-    })
+    // A generous timeout: the read and its object URL land after a microtask,
+    // but a full parallel suite can starve the default one.
+    const img = await waitFor(
+      () => {
+        const el = document.querySelector('main img')
+        expect(el).not.toBeNull()
+        expect(el?.getAttribute('src')).toMatch(/^blob:/)
+        return el as HTMLImageElement
+      },
+      { timeout: 4000 },
+    )
     expect(readBinary).toHaveBeenCalledWith('assets/photo.png')
     expect(img.getAttribute('alt')).toBe('photo')
     // The page's markdown is untouched: only the rendered element was re-pointed.
@@ -507,11 +512,14 @@ describe('asset drag & drop (page-editing spec)', () => {
     expect(assetsDir.children.has(linked![2])).toBe(true)
 
     // And the reference renders the bytes that were just pasted.
-    const img = await waitFor(() => {
-      const el = document.querySelector('main img')
-      expect(el?.getAttribute('src')).toMatch(/^blob:/)
-      return el as HTMLImageElement
-    })
+    const img = await waitFor(
+      () => {
+        const el = document.querySelector('main img')
+        expect(el?.getAttribute('src')).toMatch(/^blob:/)
+        return el as HTMLImageElement
+      },
+      { timeout: 4000 },
+    )
     expect(img.getAttribute('alt')).toBe(linked![1])
     vi.unstubAllGlobals()
   })

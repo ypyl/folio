@@ -21,6 +21,7 @@ import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { referenceBadges } from './referenceBadges'
 import { referenceSuggest } from './referenceSuggest'
+import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { blockStartLines } from '../lineAnchors'
 import type { Suggestion } from '../vault/suggest'
 import type { EditorAdapter } from './editor'
@@ -121,17 +122,20 @@ export class MilkdownAdapter implements EditorAdapter {
           },
         }))
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
-          this.latest = markdown
+          // The tail is normalized on the way out (edit-after-trailing-code-block):
+          // the paragraph the document keeps after a trailing code block must not
+          // reach the file, and neither must a stray blank line at the end.
+          const canonical = trimTrailingBlankLines(markdown)
+          this.latest = canonical
           // The first event after a setContent echoes the seeded doc. If it
           // matches what we dispatched, it is not an edit — drop it. Any other
           // event (a real keystroke, even one folded into the same debounce
           // window) differs from the seed and is forwarded.
-          const seedEcho = markdown === this.seedMarkdown
+          const seedEcho = canonical === this.seedMarkdown
           this.seedMarkdown = null
           if (seedEcho) return
-          this.changeListener?.(markdown)
+          this.changeListener?.(canonical)
         })
-        // The component-backed code block (code-block-component): code blocks
         // are edited inside a CodeMirror surface — the picker gets the
         // language catalog, the surface gets the extensions (highlighting,
         // line numbers, completion, folding, search) themed with Folio
@@ -154,6 +158,10 @@ export class MilkdownAdapter implements EditorAdapter {
       // Reference completion (add-reference-autocomplete): the popup and its
       // keys, fed by the app's candidate source through the getter above.
       .use(referenceSuggest((query) => this.suggestSource?.(query) ?? []))
+      // Document tail (edit-after-trailing-code-block): a code block that ends
+      // the page keeps an empty paragraph after it, so the block is always
+      // followed by somewhere to continue.
+      .use(documentTail)
       .create()
     if (this.destroyed) {
       await editor.destroy()
@@ -236,7 +244,7 @@ export class MilkdownAdapter implements EditorAdapter {
       view.dispatch(tr.replaceWith(0, view.state.doc.content.size, doc.content))
       // Capture the canonical serialization of what we just seeded so the
       // echoed markdownUpdated can be recognized and suppressed (no user edit).
-      canonical = ctx.get(serializerCtx)(view.state.doc)
+      canonical = trimTrailingBlankLines(ctx.get(serializerCtx)(view.state.doc))
     })
     this.latest = canonical ?? markdown
     this.seedMarkdown = canonical
@@ -376,7 +384,7 @@ export class MilkdownAdapter implements EditorAdapter {
     return editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
       const serializer = ctx.get(serializerCtx)
-      return serializer(view.state.doc)
+      return trimTrailingBlankLines(serializer(view.state.doc))
     })
   }
 
@@ -390,7 +398,9 @@ export class MilkdownAdapter implements EditorAdapter {
     return editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
       const serializer = ctx.get(serializerCtx)
-      return serializer(view.state.schema.topNodeType.create(null, slice.content))
+      return trimTrailingBlankLines(
+        serializer(view.state.schema.topNodeType.create(null, slice.content)),
+      )
     })
   }
 }
