@@ -1,4 +1,5 @@
 import { FolioMark } from '../FolioMark'
+import { APP_VERSION } from '../version'
 import type { ReactNode } from 'react'
 import styles from './Header.module.css'
 
@@ -18,16 +19,23 @@ interface HeaderProps {
 export function Header({ search, onHome }: HeaderProps) {
   return (
     <header className={styles.header}>
-      <button
-        type="button"
-        className={styles.brand}
-        onClick={onHome}
-        title="Go home"
-        aria-label="Folio, go home"
-      >
-        <FolioMark className={styles.mark} />
-        <span className={styles.name}>Folio</span>
-      </button>
+      {/* Brand cell: the home button (mark + title) and, beside it, the running
+          version (add-version-badge). The badge is a sibling, never a child of
+          the button, so the home control keeps its own accessible name and the
+          version stays plain, non-interactive text. */}
+      <div className={styles.brand}>
+        <button
+          type="button"
+          className={styles.brandButton}
+          onClick={onHome}
+          title="Go home"
+          aria-label="Folio, go home"
+        >
+          <FolioMark className={styles.mark} />
+          <span className={styles.name}>Folio</span>
+        </button>
+        <span className={styles.version}>{`v${APP_VERSION}`}</span>
+      </div>
       <div className={styles.search}>{search}</div>
     </header>
   )

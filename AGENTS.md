@@ -19,5 +19,6 @@ The Markdown folder is the source of truth. Filesystem access sits behind a `Vau
 - **Keep boundaries.** Filesystem access via `VaultStorage`; editor separate from knowledge-management logic (ADR-0003, ADR-0010).
 - **Use `DESIGN.md` for all styling.** Tokens, colors, spacing, and UI rules live there; read it before any UI or styling work.
 - **No migration compatibility.** Folio is a new app. Its reference forms are `#word` and `#[[Page]]`; plain `[[Page]]` and other tools' conventions are not parsed as features (ADR-0012).
+- **Bump the version every commit.** Increment `version` in `package.json` as part of each commit, so every commit is a distinct running build and the header badge (`v<version>`) names the build that is live. A patch bump for fixes, refactors, and docs; a minor bump for a new user-facing capability. The version is build identity, not a release schedule.
 - After making code changes, run `npx oxlint --fix`, then `npm run fmt` (oxfmt formats `src/`).
 - Before finishing, run `npx oxlint --deny-warnings --format=agent`.
