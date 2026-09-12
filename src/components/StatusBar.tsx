@@ -70,19 +70,26 @@ export function StatusBar({
 
   return (
     <footer className={styles.bar}>
-      {onTogglePin && (
-        <button
-          type="button"
-          className={`${styles.pin}${pinned ? ` ${styles.pinActive}` : ''}`}
-          onClick={onTogglePin}
-          disabled={!canPin}
-          aria-pressed={pinned}
-          aria-label={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
-          title={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
-        >
-          <StarIcon filled={pinned} className={styles.pinIcon} />
-        </button>
-      )}
+      {/* Leading column (align-status-bar-pin-column): the rail's column
+          continued into the bar, closed by the hairline that continues the
+          rail's right border (continue-rail-border-in-status-bar). The cell
+          is the rail's width whether or not the pin renders, so the bar's
+          geometry never shifts. */}
+      <div className={styles.lead}>
+        {onTogglePin && (
+          <button
+            type="button"
+            className={`${styles.pin}${pinned ? ` ${styles.pinActive}` : ''}`}
+            onClick={onTogglePin}
+            disabled={!canPin}
+            aria-pressed={pinned}
+            aria-label={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
+            title={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
+          >
+            <StarIcon filled={pinned} className={styles.pinIcon} />
+          </button>
+        )}
+      </div>
       <div className={styles.path} title={pagePath ?? undefined}>
         {hasDirs && (
           <span className={styles.crumbDirs}>
@@ -107,8 +114,6 @@ export function StatusBar({
           <span className={styles.crumbLast}>{segments[segments.length - 1]}</span>
         )}
       </div>
-      {/* Vertical hairline between the breadcrumb and the status text. */}
-      <span className={styles.divider} aria-hidden="true" />
       <div className={styles.center}>
         {statusText !== null ? (
           <span className={styles.statusText} role="status">
