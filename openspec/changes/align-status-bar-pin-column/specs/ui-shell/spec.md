@@ -1,13 +1,13 @@
 ## ADDED Requirements
 
 ### Requirement: The status bar's leading column matches the folder rail
-The status bar SHALL open with a leading cell holding the pin control, and that cell's width SHALL equal the folder rail's column width (`--rail-w`), so the pin's column is the rail's column continued downward. The bar's hairline separator SHALL sit on the right edge of that column, continuing the rail's right border, with the path group beginning past it. The pin control SHALL keep its existing size, label, and disabled rules; only the cell it occupies is rail-wide.
+The status bar SHALL open with a leading cell holding the pin control, and that cell's width SHALL equal the folder rail's column width (`--rail-w`) and start at the bar's leading edge, so the pin's column is the rail's column continued downward at the same horizontal position. The bar's remaining content SHALL keep its existing order and spacing: the breadcrumb follows the leading cell, then the hairline separator, the status group, and the vault group. The pin control SHALL keep its existing glyph size, label, disabled rules, and states; only the cell it occupies becomes rail-wide.
 
-#### Scenario: The bar's hairline lines up with the rail's border
+#### Scenario: The pin's column lines up with the rail
 - **GIVEN** the shell rendered at desktop width
 - **WHEN** the status bar lays out
-- **THEN** the bar's leading cell is one rail column wide and the hairline separator starts where the rail's right border does, so the breadcrumb follows it under the sidebar's column
+- **THEN** the pin's cell is one rail column wide and starts at the bar's leading edge, occupying the same x range as the rail's column above it
 
-#### Scenario: The pin control is unchanged
-- **WHEN** the status bar renders the pin control in its enabled or disabled state
-- **THEN** the control keeps its star glyph, accessible name, `aria-pressed` value, and title, and the bar's path, status, and vault groups keep their order and spacing
+#### Scenario: The rest of the bar keeps its layout
+- **WHEN** the status bar renders with a page open, with no page open, and while the index builds
+- **THEN** the breadcrumb, the hairline separator, the status group, and the vault group keep their order and spacing, and the pin control keeps its star glyph, accessible name, `aria-pressed` value, and title in its enabled and disabled states

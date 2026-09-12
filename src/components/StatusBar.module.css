@@ -1,15 +1,17 @@
 /* App-level status frame (add-status-bar, ui-shell spec): a thin Kami bar
    below the workspace — stone 12px metadata on parchment, hairline top
-   border, flat, no shadow. Flex layout: the path cluster leads; a vertical
-   hairline separates it from the status cluster, which follows the
-   breadcrumb; the vault stats pin to the far right via an auto margin on
-   the right side (status-bar layout refinement). */
+   border, flat, no shadow. Flex layout: the pin's cell leads, the path
+   cluster follows it; a vertical hairline separates the breadcrumb from the
+   status cluster, which follows the breadcrumb; the vault stats pin to the
+   far right via an auto margin on the right side (status-bar layout
+   refinement). No left inset: the leading cell is the rail's column and
+   starts at the bar's edge (align-status-bar-pin-column). */
 .bar {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 30px;
-  padding: 4px 16px;
+  padding: 4px 16px 4px 0;
   background: var(--parchment);
   border-top: 1px solid var(--border);
   font-size: 12px;
@@ -20,12 +22,18 @@
    file path — enabled only when a file-backed page is open (journal days,
    unmaterialized pages, and the results view disable it). Filled star in
    ink-blue when the open page is pinned; outline star in stone otherwise;
-   disabled is dimmed but still labelled. */
+   disabled is dimmed but still labelled.
+
+   The control IS the bar's leading column (align-status-bar-pin-column):
+   sized to the rail's column so the star centers on the rail's center line
+   and the whole cell is one hit target, matching the rail continuing down
+   the shell. The glyph stays 14px and the background stays transparent, so
+   only the target grew. */
 .pin {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
+  width: var(--rail-w);
   height: 24px;
   padding: 0;
   border: none;
@@ -93,7 +101,10 @@
   flex-shrink: 0;
 }
 
-/* Vertical hairline between the breadcrumb and the status cluster. */
+/* Vertical hairline between the breadcrumb and the status cluster. It
+tracks the breadcrumb's width (the path group fits its content), so it is
+deliberately not aligned to the bar's leading column
+(align-status-bar-pin-column). */
 .divider {
   align-self: stretch;
   width: 1px;
