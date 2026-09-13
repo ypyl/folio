@@ -224,6 +224,15 @@
   text-decoration: line-through;
 }
 
+/* Bare URLs (open-links-on-ctrl-click): shown in the app's one link style
+   (DESIGN.md "Links" — brand ink, no underline), because Ctrl+Click opens them
+   exactly as it opens a markdown link. No padding, border, or font change, so
+   the text's metrics and the gutter's measurements are untouched; the cursor
+   stays the text cursor, since a plain click edits rather than opens. */
+.editor :global(.url) {
+  color: var(--brand);
+}
+
 .editor :global(code) {
   background: var(--inline-code-bg); /* fill only, no border (DESIGN code) */
   border-radius: 4px;

@@ -15,6 +15,7 @@ import {
   scanInline,
   type BlockRange,
   type ReferenceRef,
+  openExternal,
 } from './inlineDecorations'
 
 const schema = new Schema({
@@ -32,6 +33,7 @@ const schema = new Schema({
   },
   marks: {
     inlineCode: { toDOM: () => ['code', 0] },
+    link: { attrs: { href: {} }, toDOM: () => ['a', 0] },
   },
 })
 
@@ -39,6 +41,8 @@ const text = (value: string): ProseNode => schema.text(value)
 const inlineCode = (value: string): ProseNode =>
   schema.text(value, [schema.marks.inlineCode.create()])
 const para = (...content: ProseNode[]): ProseNode => schema.node('paragraph', null, content)
+const link = (value: string, href: string): ProseNode =>
+  schema.text(value, [schema.marks.link.create({ href })])
 const fenced = (value: string): ProseNode => schema.node('code_block', null, text(value))
 const doc = (...content: ProseNode[]): ProseNode => schema.node('doc', null, content)
 
@@ -137,6 +141,179 @@ describe('buildReferenceState', () => {
       expect(ranges).toHaveLength(1)
       // The struck run further down the page survives the edit.
       expect(runsIn(state.doc, plugin.getState(state)!.decorations)).toEqual(['~~note~~'])
+    })
+  })
+
+  // open-links-on-ctrl-click: a bare URL is decorated as a link while the text
+  // stays literal, and the click gesture is the modifier.
+  describe('bare URLs', () => {
+    const classOf = (decoration: Decoration): string =>
+      (decoration as unknown as { type: { attrs: { class?: string } } }).type.attrs.class ?? ''
+
+    const urlsIn = (d: ProseNode, decorations: DecorationSet): string[] =>
+      decorations
+        .find()
+        .filter((decoration) => classOf(decoration) === 'url')
+        .map((decoration) => d.textBetween(decoration.from, decoration.to))
+
+    it('decorates each bare URL form over its literal text', () => {
+      const d = doc(para(text('see https://example.com/path and http://x.y and www.z.dev now')))
+      const { decorations } = buildReferenceState(d)
+      expect(urlsIn(d, decorations)).toEqual([
+        'https://example.com/path',
+        'http://x.y',
+        'www.z.dev',
+      ])
+    })
+
+    it('leaves a sentence back to the writer', () => {
+      const d = doc(para(text('Read https://example.com/path. Then stop.')))
+      const { decorations } = buildReferenceState(d)
+      expect(urlsIn(d, decorations)).toEqual(['https://example.com/path'])
+    })
+
+    it('skips URLs inside code and inside a link', () => {
+      const d = doc(
+        para(inlineCode('https://code.example')),
+        fenced('https://fenced.example'),
+        // A link's own text is already under an anchor.
+        para(link('https://linked.example', 'https://linked.example')),
+      )
+      const { decorations } = buildReferenceState(d)
+      expect(urlsIn(d, decorations)).toEqual([])
+    })
+
+    it('re-decorates only the block an edit touched', () => {
+      const blocks = Array.from({ length: 20 }, (_, i) =>
+        para(text(i === 8 ? 'See https://example.com/here' : `Paragraph ${i}`)),
+      )
+      const d = doc(...blocks)
+      const plugin = createInlineDecorationPlugin()
+      let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
+      expect(urlsIn(state.doc, plugin.getState(state)!.decorations)).toEqual([
+        'https://example.com/here',
+      ])
+      const ranges: BlockRange[] = []
+      state.doc.forEach((node, offset) => ranges.push({ from: offset, to: offset + node.nodeSize }))
+      state = state.apply(state.tr.insertText('x', ranges[2].from + 2))
+      expect(urlsIn(state.doc, plugin.getState(state)!.decorations)).toEqual([
+        'https://example.com/here',
+      ])
+    })
+  })
+
+  // open-links-on-ctrl-click: the gesture lives on the click event, because
+  // that is the event that activates an anchor — preventing it is what keeps a
+  // Ctrl+Click on a markdown link from opening two tabs.
+  describe('opening links', () => {
+    const clickEvent = (target: Element, modifiers: { ctrl?: boolean; meta?: boolean } = {}) => {
+      const event = {
+        target,
+        ctrlKey: modifiers.ctrl ?? false,
+        metaKey: modifiers.meta ?? false,
+        clientX: 0,
+        clientY: 0,
+        preventDefault: vi.fn(),
+      }
+      return event as unknown as MouseEvent & { preventDefault: ReturnType<typeof vi.fn> }
+    }
+
+    /** A view double: the click path needs a position for the coordinates. */
+    const viewAt = (state: EditorState, pos: number): EditorView =>
+      ({ state, posAtCoords: () => ({ pos, inside: -1 }) }) as unknown as EditorView
+
+    const urlSpan = (): HTMLElement => {
+      const el = document.createElement('span')
+      el.className = 'url'
+      return el
+    }
+
+    const anchorTag = (href: string): HTMLElement => {
+      const el = document.createElement('a')
+      el.setAttribute('href', href)
+      return el
+    }
+
+    const opens = () => {
+      const calls: string[] = []
+      const spy = vi.spyOn(window, 'open').mockImplementation((url) => {
+        calls.push(String(url))
+        return null
+      })
+      return { calls, restore: () => spy.mockRestore() }
+    }
+
+    const click = (
+      plugin: ReturnType<typeof createInlineDecorationPlugin>,
+      view: EditorView,
+      event: MouseEvent,
+    ) => plugin.props.handleDOMEvents?.click?.call(plugin, view, event as unknown as PointerEvent)
+
+    it('opens a bare URL on a modifier click, once, and stops the default', () => {
+      const d = doc(para(text('see https://example.com/path now')))
+      const plugin = createInlineDecorationPlugin()
+      const state = EditorState.create({ schema, doc: d, plugins: [plugin] })
+      const urlStart = d.textBetween(0, d.content.size).indexOf('https')
+      const { calls, restore } = opens()
+      const event = clickEvent(urlSpan(), { ctrl: true })
+      expect(click(plugin, viewAt(state, 1 + urlStart), event)).toBe(true)
+      expect(calls).toEqual(['https://example.com/path'])
+      expect(event.preventDefault).toHaveBeenCalled()
+      restore()
+    })
+
+    it('keeps an external anchor from double-opening', () => {
+      const plugin = createInlineDecorationPlugin()
+      const state = EditorState.create({ schema, doc: doc(para(text('link'))), plugins: [plugin] })
+      const { calls, restore } = opens()
+      const event = clickEvent(anchorTag('https://example.com/x'), { meta: true })
+      expect(click(plugin, viewAt(state, 1), event)).toBe(true)
+      expect(calls).toEqual(['https://example.com/x'])
+      // The browser's own Ctrl+Click activation is stopped, so one tab opens.
+      expect(event.preventDefault).toHaveBeenCalled()
+      restore()
+    })
+
+    it('opens nothing for a vault-relative target, in any modifier state', () => {
+      const plugin = createInlineDecorationPlugin()
+      const state = EditorState.create({ schema, doc: doc(para(text('asset'))), plugins: [plugin] })
+      const { calls, restore } = opens()
+      const event = clickEvent(anchorTag('assets/photo.png'), { ctrl: true })
+      expect(click(plugin, viewAt(state, 1), event)).toBe(false)
+      expect(calls).toEqual([])
+      // The default is stopped — a tab to a vault path would 404 — but the
+      // click is not claimed, so the editor still places the caret.
+      expect(event.preventDefault).toHaveBeenCalled()
+      restore()
+    })
+
+    it('opens nothing on a plain click', () => {
+      const d = doc(para(text('see https://example.com/path now')))
+      const plugin = createInlineDecorationPlugin()
+      const state = EditorState.create({ schema, doc: d, plugins: [plugin] })
+      const urlStart = d.textBetween(0, d.content.size).indexOf('https')
+      const { calls, restore } = opens()
+      const event = clickEvent(urlSpan())
+      expect(click(plugin, viewAt(state, 1 + urlStart), event)).toBe(false)
+      expect(calls).toEqual([])
+      expect(event.preventDefault).not.toHaveBeenCalled()
+      restore()
+    })
+
+    it.each([
+      ['https://example.com/x', true],
+      ['http://example.com/x', true],
+      ['mailto:someone@example.com', true],
+      ['www.example.com', true],
+      ['assets/photo.png', false],
+      ['#section', false],
+      ['', false],
+      [null, false],
+    ])('openExternal(%s) -> %s', (href, expected) => {
+      const { calls, restore } = opens()
+      expect(openExternal(href as string | null)).toBe(expected)
+      expect(calls).toHaveLength(expected ? 1 : 0)
+      restore()
     })
   })
 

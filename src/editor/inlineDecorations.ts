@@ -70,10 +70,65 @@ export const referenceKey = new PluginKey<ReferenceState>('folioReferenceBadges'
 const STRUCK_RUN = /~~([^~\s](?:[^~]*?[^~\s])?)~~/g
 
 /**
+ * A bare URL (open-links-on-ctrl-click): `http://…`, `https://…`, or the
+ * `www.…` form writers use. The match stops at whitespace and at brackets, and
+ * the trailing punctuation of a sentence is trimmed off it, so
+ * `see https://example.com/path.` links the URL and not the full stop.
+ */
+const BARE_URL = /(?:https?:\/\/|www\.)[^\s<>()[\]]+/g
+
+/** Sentence punctuation that ends a URL rather than belonging to it. */
+const TRAILING_PUNCTUATION = /[.,;:!?'"]+$/
+
+/** Schemes the browser can open; anything else (a vault path, a fragment) is
+ *  not a target this app can open. */
+const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
+
+/** Whether this click is the open gesture: Ctrl+Click, or Cmd+Click on macOS. */
+function opensInBrowser(event: MouseEvent): boolean {
+  return event.ctrlKey || event.metaKey
+}
+
+/**
+ * Open `href` in the browser: a new tab, or the system browser when the app runs
+ * installed. `noopener` keeps the opened page out of this window. Only a URL
+ * that already carries a scheme the browser can open is ever opened — a vault
+ * path or a fragment would otherwise resolve against the app's own origin and
+ * open a tab showing a 404. The `www.` form a writer types counts as https.
+ */
+export function openExternal(href: string | null | undefined): boolean {
+  if (!href) return false
+  const candidate = /^www\./i.test(href) ? `https://${href}` : href
+  let url: URL
+  try {
+    // No base: a relative href throws here rather than resolving to the app's
+    // own origin, which is what makes it recognisable as not-external.
+    url = new URL(candidate)
+  } catch {
+    return false
+  }
+  if (!EXTERNAL_SCHEMES.has(url.protocol)) return false
+  window.open(url.href, '_blank', 'noopener,noreferrer')
+  return true
+}
+
+/** The URL text under `pos` in the decoration's own terms: the scan trims
+ *  sentence punctuation, so the position is looked up against the same run. */
+function urlAt(doc: ProseNode, pos: number): string | null {
+  const node = doc.resolve(pos).parent
+  const offset = pos - doc.resolve(pos).start()
+  for (const found of node.textBetween(0, node.content.size).matchAll(BARE_URL)) {
+    const url = found[0].replace(TRAILING_PUNCTUATION, '')
+    if (found.index <= offset && offset <= found.index + url.length) return url
+  }
+  return null
+}
+
+/**
  * The decorations for `doc`, or for one range of whole top-level blocks (design
- * D1): reference badges and struck runs, in one walk. Skips inline code (the
- * `code` mark) and fenced code (`code_block` subtrees): a reference token or a
- * pair of tildes inside code is code, not a link and not a strike.
+ * D1): reference badges, struck runs, and bare URLs, in one walk. Skips inline
+ * code (the `code` mark) and fenced code (`code_block` subtrees): a reference
+ * token, a pair of tildes, or a URL inside code is code, not a link.
  */
 export function scanInline(doc: ProseNode, range?: BlockRange): ScanResult {
   const refs: ReferenceRef[] = []
@@ -92,6 +147,17 @@ export function scanInline(doc: ProseNode, range?: BlockRange): ScanResult {
     for (const found of node.text.matchAll(STRUCK_RUN)) {
       const from = pos + found.index
       marks.push(Decoration.inline(from, from + found[0].length, { class: 'strike' }))
+    }
+    // A link's own text is already under an anchor: decorating it would add a
+    // second way to open the same URL for no gain.
+    const linked = node.marks.some((mark) => mark.type.name === 'link')
+    if (!linked) {
+      for (const found of node.text.matchAll(BARE_URL)) {
+        const url = found[0].replace(TRAILING_PUNCTUATION, '')
+        if (url === '') continue
+        const from = pos + found.index
+        marks.push(Decoration.inline(from, from + url.length, { class: 'url' }))
+      }
     }
     return
   }
@@ -262,6 +328,30 @@ export function createInlineDecorationPlugin(
         if (!ref) return false
         options.onActivate?.(ref.target)
         return true
+      },
+      handleDOMEvents: {
+        // Links (open-links-on-ctrl-click) are handled on the click event, not
+        // in handleClick: that hook runs while the press is being handled, and
+        // preventing there does not stop the browser's own activation of an
+        // anchor — a Ctrl+Click on a markdown link would open two tabs. The
+        // click event is the one that activates a link, so it is the one worth
+        // preventing. A modifier-less click is left entirely alone: it places
+        // the caret, and a contenteditable does not follow an anchor on its own.
+        click: (view: EditorView, event: MouseEvent) => {
+          if (!opensInBrowser(event)) return false
+          const at = view.posAtCoords({ left: event.clientX, top: event.clientY })
+          if (!at) return false
+          const target = event.target instanceof Element ? event.target : null
+          // An anchor carries its own target; a bare URL is read from the
+          // position, so a span another decoration split still resolves.
+          const href = target?.closest('a')?.getAttribute('href') ?? urlAt(view.state.doc, at.pos)
+          if (!href) return false
+          // A link is never opened by the browser itself: a plain click edits,
+          // and a vault path has nothing served at it, so its tab would only
+          // show a 404. Only an external URL is opened, and only by this code.
+          event.preventDefault()
+          return openExternal(href)
+        },
       },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
         if (!isOpenChord(event)) return false
