@@ -429,6 +429,18 @@
   letter-spacing: 0.04em;
 }
 
+/* An empty cell shows its own edge (make-table-entry-usable, design D3): a table
+   the user has just inserted has no text anywhere, so with row rules alone there
+   is nothing to tell its columns apart or to aim a press at. Painted as an inset
+   shadow, not a border: the table collapses its borders, so a border would take
+   part in column sizing and could shift columns as cells fill and empty. A cell
+   whose paragraph holds only a line break is ProseMirror's shape for an empty
+   one, and the hairline leaves with the emptiness it marks. */
+.editor :global(.milkdown-table-block th:has(> p > br:only-child)),
+.editor :global(.milkdown-table-block td:has(> p > br:only-child)) {
+  box-shadow: inset -1px 0 0 var(--border-soft);
+}
+
 /* Cell selection: the component selects a row or a column before it moves or
    deletes it, and prosemirror-tables paints that selection itself. The fill is
    DESIGN.md's brand tint — the lightest one, so a selected column still reads

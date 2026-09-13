@@ -216,6 +216,14 @@ row rules (`--border`, 0.25pt/px scale), content-sized columns, muted
 uppercase header labels. Row separation comes from whitespace before line
 weight.
 
+One exception, and only one: a cell that holds no text may show a hairline on
+its trailing edge (`--border-soft`, 1px). A table the user has just inserted is
+empty in every cell, and with row rules alone there is nothing to tell its
+columns apart or to aim a press at. The hairline leaves with the emptiness it
+marks, so a table whose cells all hold text keeps row rules only. It is a hint
+for an empty cell — the same kind of device as the empty-page placeholder — not
+the table's resting style.
+
 ### Keyboard focus
 
 Use a visible `outline` for keyboard focus. Re-verify foreground/background

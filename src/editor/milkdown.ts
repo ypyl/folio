@@ -19,6 +19,7 @@ import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-b
 import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { tableRenderButton, tableSlice } from './tableSetup'
+import { tableCellCaret } from './tableCellCaret'
 import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
@@ -174,6 +175,10 @@ export class MilkdownAdapter implements EditorAdapter {
       // GFM keymap binds Mod-Enter to leaving a table, and the reference wins.
       .use(tableSlice)
       .use(tableBlock)
+      // A click in a table cell is a caret, not a selection of the whole cell
+      // (make-table-entry-usable, design D1/D2): the component claims the press,
+      // so the selection it dispatches is converted here.
+      .use(tableCellCaret)
       // Reference completion (add-reference-autocomplete): the popup and its
       // keys, fed by the app's candidate source through the getter above.
       .use(referenceSuggest((query) => this.suggestSource?.(query) ?? []))

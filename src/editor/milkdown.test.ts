@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/core'
 import type { EditorState, Transaction } from '@milkdown/prose/state'
-import { AllSelection, TextSelection } from '@milkdown/prose/state'
+import { AllSelection, NodeSelection, TextSelection } from '@milkdown/prose/state'
 import type { Node as ProseNode, Schema as ProseSchema } from '@milkdown/prose/model'
 // The pieces the table slice deliberately leaves unregistered (add-table-editing):
 // the test names them to assert they really are absent from the editor.
@@ -52,6 +52,14 @@ if (typeof globalThis.IntersectionObserver === 'undefined') {
 // keymap moves the caret into the next cell (`singleRect` on the character's
 // Range). Empty rects make it fall back to `getBoundingClientRect`, which jsdom
 // does implement (as zeros); Range supplies the same zeros if it needs them.
+// jsdom also has no layout to ask about a point: `document.elementFromPoint` is
+// undefined, and the table component asks it on a press to find the cell under
+// the pointer, as ProseMirror's own `posAtCoords` does. "Nothing here" is what a
+// browser answers outside a cell.
+if (typeof document.elementFromPoint !== 'function') {
+  document.elementFromPoint = () => null
+}
+
 const noRect = {
   x: 0,
   y: 0,
@@ -66,6 +74,7 @@ const noRect = {
 const clientRects = () => [] as unknown as DOMRectList
 const nodeProto = Node.prototype as unknown as { getClientRects?: () => DOMRectList }
 if (typeof nodeProto.getClientRects !== 'function') nodeProto.getClientRects = clientRects
+
 const rangeProto = Range.prototype as unknown as {
   getClientRects?: () => DOMRectList
   getBoundingClientRect?: () => DOMRect
@@ -1357,6 +1366,148 @@ describe('MilkdownAdapter (smoke)', () => {
       paste(adapter, TABLE)
       expect(docOf(adapter).firstChild?.type.name).toBe('table')
       expect(fileText(adapter)).toBe(['| a | b |', '| - | - |', '| 1 | 2 |', ''].join('\n'))
+      await adapter.destroy()
+      el.remove()
+    })
+
+    /** The text of every cell, in document order. */
+    const cellTexts = (adapter: MilkdownAdapter): string[] => {
+      const texts: string[] = []
+      docOf(adapter).descendants((node) => {
+        if (node.type.name === 'table_cell' || node.type.name === 'table_header') {
+          texts.push(node.textContent)
+        }
+      })
+      return texts
+    }
+
+    /** What a press on a cell leaves behind: the component claims the press (a
+     *  capture-phase `mousedown` on the cell) and dispatches a node selection on
+     *  it, which prosemirror-tables turns into a selection over that one cell.
+     *  Both halves are reproduced here, in that order. */
+    const pressCellWithText = (
+      adapter: MilkdownAdapter,
+      text: string,
+      selected: 'block' | 'cell' = 'block',
+    ): void => {
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          dispatch: (t: unknown) => void
+          dom: HTMLElement
+        }
+        let at = -1
+        view.state.doc.descendants((node, pos) => {
+          const cell = node.type.name === 'table_cell' || node.type.name === 'table_header'
+          if (at < 0 && cell && node.textContent === text) at = pos
+        })
+        const cellElement = [...view.dom.querySelectorAll('th, td')].find(
+          (element) => element.textContent === text,
+        )
+        cellElement?.dispatchEvent(
+          new MouseEvent('mousedown', { bubbles: true, clientX: 10, clientY: 10 }),
+        )
+        // What the browser produced: the component's handleClick resolves to the
+        // block inside the cell. A component that resolved to the cell itself
+        // would land on the `cell` variant, which prosemirror-tables turns into a
+        // selection over that one cell.
+        view.dispatch(
+          view.state.tr.setSelection(
+            NodeSelection.create(view.state.doc, selected === 'cell' ? at : at + 1),
+          ),
+        )
+      })
+    }
+
+    const selectionKind = (adapter: MilkdownAdapter): string =>
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { state: { selection: unknown } }
+        const selection = view.state.selection
+        if (selection instanceof TextSelection) return 'text'
+        if (selection instanceof NodeSelection) return 'node'
+        return 'other'
+      }) as string
+
+    const typeAtCaret = (adapter: MilkdownAdapter, text: string): void => {
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: {
+            selection: { from: number }
+            tr: { insertText: (t: string, p: number) => unknown }
+          }
+          dispatch: (t: unknown) => void
+        }
+        view.dispatch(view.state.tr.insertText(text, view.state.selection.from))
+      })
+    }
+
+    // make-table-entry-usable: a click in a cell is a caret, not a selection of
+    // the cell, so typing can never replace what the cell held.
+    it('turns the cell a click selected into a caret inside it', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| one | two |', ''].join('\n'),
+      )
+      pressCellWithText(adapter, 'one')
+      expect(selectionKind(adapter)).toBe('text')
+      typeAtCaret(adapter, 'X')
+      expect(cellTexts(adapter)).toEqual(['alpha', 'beta', 'oneX', 'two'])
+      expect(fileText(adapter)).toContain('oneX')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('converts a press that selected the cell itself too', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| one | two |', ''].join('\n'),
+      )
+      pressCellWithText(adapter, 'one', 'cell')
+      expect(selectionKind(adapter)).toBe('text')
+      typeAtCaret(adapter, 'X')
+      expect(cellTexts(adapter)).toEqual(['alpha', 'beta', 'oneX', 'two'])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('leaves a selection that is not a press on one cell alone', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      // A press on a cell can leave a selection over a range of cells (a drag),
+      // or over the table itself; neither is a request to type in one cell.
+      pressCellWithText(adapter, 'a')
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          dispatch: (t: unknown) => void
+        }
+        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)))
+      })
+      expect(selectionKind(adapter)).toBe('node')
+      // And a caret already in a cell is ordinary text: typing appends.
+      caretInText(adapter, 'a')
+      typeAtCaret(adapter, 'Z')
+      expect(cellTexts(adapter)).toContain('aZ')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // The stylesheet's empty-cell hairline keys on this DOM shape
+    // (make-table-entry-usable, design D3/D4), and the shape comes from
+    // ProseMirror rather than from the app: pin it so a dependency change fails
+    // here instead of dropping the boundary.
+    it('renders an empty cell as a paragraph holding only a break', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| one |  |', ''].join('\n'),
+      )
+      const cells = [...el.querySelectorAll('.milkdown-table-block th, .milkdown-table-block td')]
+      expect(cells.map((cell) => cell.innerHTML)).toEqual([
+        '<p>alpha</p>',
+        '<p>beta</p>',
+        '<p>one</p>',
+        '<p><br class="ProseMirror-trailingBreak"></p>',
+      ])
       await adapter.destroy()
       el.remove()
     })
