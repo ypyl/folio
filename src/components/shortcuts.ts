@@ -69,6 +69,14 @@ export const SHORTCUT_GROUPS: {
       // chord's four tokens.
       { label: 'Add row', keys: ['Mod-Alt-Enter'] },
       { label: 'Add column', keys: ['Mod-Alt-Shift-Enter'] },
+      // The controls that live only on the row and column handles
+      // (align-and-delete-table-by-chord): without these the keyboard cannot
+      // reach them at all.
+      { label: 'Align column left', keys: ['Mod-Alt-l'] },
+      { label: 'Align column center', keys: ['Mod-Alt-m'] },
+      { label: 'Align column right', keys: ['Mod-Alt-r'] },
+      { label: 'Delete row', keys: ['Mod-Alt-d'] },
+      { label: 'Delete column', keys: ['Mod-Alt-Shift-d'] },
       { label: 'Next table cell', keys: ['Tab'] },
       { label: 'Previous table cell', keys: ['Shift-Tab'] },
       { label: 'Exit table', keys: ['Enter'] },

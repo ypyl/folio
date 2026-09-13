@@ -13,6 +13,10 @@
 
 import type { RenderType } from '@milkdown/components/table-block'
 import { commandsCtx } from '@milkdown/core'
+import type { Ctx } from '@milkdown/ctx'
+import type { Command } from '@milkdown/prose/state'
+import { TextSelection } from '@milkdown/prose/state'
+import { TableMap, cellAround, deleteColumn, deleteRow, isInTable } from '@milkdown/prose/tables'
 import type { RemarkPluginRaw } from '@milkdown/transformer'
 import { $remark, $useKeymap } from '@milkdown/utils'
 import {
@@ -126,7 +130,49 @@ export const tableChords = $useKeymap('folioTableChords', {
     shortcuts: 'Mod-Alt-Shift-Enter',
     command: (ctx) => () => ctx.get(commandsCtx).call(addColAfterCommand.key),
   },
+  // The controls that exist only on the row and column handles, so that the
+  // keyboard can reach them too (align-and-delete-table-by-chord).
+  AlignLeft: { shortcuts: 'Mod-Alt-l', command: (ctx) => alignColumn(ctx, 'left') },
+  AlignCenter: { shortcuts: 'Mod-Alt-m', command: (ctx) => alignColumn(ctx, 'center') },
+  AlignRight: { shortcuts: 'Mod-Alt-r', command: (ctx) => alignColumn(ctx, 'right') },
+  DeleteRow: { shortcuts: 'Mod-Alt-d', command: () => inTable(deleteRow) },
+  DeleteColumn: { shortcuts: 'Mod-Alt-Shift-d', command: () => inTable(deleteColumn) },
 })
+
+/** A table command runs only with the caret in a table: prosemirror-tables'
+ *  deletions read the table around the selection and have nothing to do
+ *  otherwise. */
+function inTable(command: Command): Command {
+  return (state, dispatch, view) => isInTable(state) && command(state, dispatch, view)
+}
+
+/** Align the caret's whole column, not the cell the caret is in. Alignment
+ *  lives on cells, so the column is selected first and the attribute set through
+ *  the same two commands the column handle's alignment control uses. */
+function alignColumn(ctx: Ctx, alignment: 'left' | 'center' | 'right'): Command {
+  return (state) => {
+    // The column is read from the cell the caret is in: table offsets address
+    // cells, not the text inside them.
+    const $cell = cellAround(state.selection.$from)
+    if (!$cell) return false
+    const caret = state.selection.from
+    const column = TableMap.get($cell.node(-1)).findCell($cell.pos - $cell.start(-1)).left
+    const commands = ctx.get(commandsCtx)
+    // The select command reports nothing useful — it is a dispatch with a void
+    // return — so its result is not what says whether this worked; the alignment
+    // command's own result is.
+    commands.call(selectColCommand.key, { index: column })
+    const applied = commands.call(setAlignCommand.key, alignment)
+    // The column was selected to carry the attribute to every cell in it. The
+    // caret goes back where it was, so the next keystroke types rather than
+    // replacing the column the chord just aligned.
+    commands.inline((after, dispatch) => {
+      dispatch?.(after.tr.setSelection(TextSelection.near(after.doc.resolve(caret))))
+      return true
+    })
+    return applied
+  }
+}
 
 /** Everything the editor registers for tables (design D1). The schemas and the
  *  input rule parse, serialize, and align; `tableKeymap` navigates; the plugins

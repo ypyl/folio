@@ -1320,6 +1320,52 @@ describe('MilkdownAdapter (smoke)', () => {
       el.remove()
     })
 
+    // align-and-delete-table-by-chord: the two control sets that used to exist
+    // only on the row and column handles.
+    it('aligns the caret column by chord', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| one | two |', ''].join('\n'),
+      )
+      caretInFirstCell(adapter)
+      expect(adapter.applyChord('Mod-Alt-m')).toBe(true)
+      expect(fileText(adapter)).toMatch(/\| :-+: \| -+ \|/)
+      expect(adapter.applyChord('Mod-Alt-r')).toBe(true)
+      expect(fileText(adapter)).toMatch(/\| -+: \| -+ \|/)
+      expect(adapter.applyChord('Mod-Alt-l')).toBe(true)
+      // The whole column, and only it: the second keeps its default alignment.
+      expect(fileText(adapter)).toMatch(/\| :-+ \| -+ \|/)
+      // The caret is left in the cell, so typing appends rather than replacing
+      // the column the chord just aligned.
+      typeAtCaret(adapter, 'X')
+      expect(cellTexts(adapter)).toEqual(['Xalpha', 'beta', 'one', 'two'])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('deletes the caret row and the caret column by chord', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| one | two |', '| three | four |', ''].join('\n'),
+      )
+      caretInText(adapter, 'one')
+      expect(adapter.applyChord('Mod-Alt-d')).toBe(true)
+      expect(cellTexts(adapter)).toEqual(['alpha', 'beta', 'three', 'four'])
+      expect(adapter.applyChord('Mod-Alt-Shift-d')).toBe(true)
+      expect(cellTexts(adapter)).toEqual(['beta', 'four'])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('does nothing with the caret outside a table', async () => {
+      const { adapter, el } = await mountTable('text\n')
+      setCaret(adapter, (doc) => doc.content.size)
+      for (const chord of ['Mod-Alt-l', 'Mod-Alt-m', 'Mod-Alt-r', 'Mod-Alt-d', 'Mod-Alt-Shift-d']) {
+        expect(adapter.applyChord(chord)).toBe(false)
+      }
+      expect(fileText(adapter)).toBe('text\n')
+      await adapter.destroy()
+      el.remove()
+    })
+
     // 2.5: the chord inside a cell belongs to the reference, not to the table
     // (design D8) — the preset binds Mod-Enter to leaving a table.
     it('opens a reference inside a cell instead of leaving the table', async () => {

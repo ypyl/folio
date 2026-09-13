@@ -159,10 +159,21 @@ describe('sheet vs editor bindings', () => {
     expect(folio.InsertTable.shortcuts).toBe('Mod-Alt-t')
     expect(folio.AddRow.shortcuts).toBe('Mod-Alt-Enter')
     expect(folio.AddCol.shortcuts).toBe('Mod-Alt-Shift-Enter')
+    // The align and delete controls, which the handles alone used to provide.
+    expect(folio.AlignLeft.shortcuts).toBe('Mod-Alt-l')
+    expect(folio.AlignCenter.shortcuts).toBe('Mod-Alt-m')
+    expect(folio.AlignRight.shortcuts).toBe('Mod-Alt-r')
+    expect(folio.DeleteRow.shortcuts).toBe('Mod-Alt-d')
+    expect(folio.DeleteColumn.shortcuts).toBe('Mod-Alt-Shift-d')
 
     expect(sheetItem('Insert table')?.keys).toEqual(['Mod-Alt-t'])
     expect(sheetItem('Add row')?.keys).toEqual(['Mod-Alt-Enter'])
     expect(sheetItem('Add column')?.keys).toEqual(['Mod-Alt-Shift-Enter'])
+    expect(sheetItem('Align column left')?.keys).toEqual(['Mod-Alt-l'])
+    expect(sheetItem('Align column center')?.keys).toEqual(['Mod-Alt-m'])
+    expect(sheetItem('Align column right')?.keys).toEqual(['Mod-Alt-r'])
+    expect(sheetItem('Delete row')?.keys).toEqual(['Mod-Alt-d'])
+    expect(sheetItem('Delete column')?.keys).toEqual(['Mod-Alt-Shift-d'])
     expect(sheetItem('Next table cell')?.keys).toEqual(['Tab'])
     expect(sheetItem('Previous table cell')?.keys).toEqual(['Shift-Tab'])
     expect(sheetItem('Exit table')?.keys).toEqual(['Enter'])
@@ -175,6 +186,11 @@ describe('sheet vs editor bindings', () => {
       'Next table cell',
       'Previous table cell',
       'Exit table',
+      'Align column left',
+      'Align column center',
+      'Align column right',
+      'Delete row',
+      'Delete column',
     ]) {
       expect(sheetItem(label)?.replayable).not.toBe(false)
     }
