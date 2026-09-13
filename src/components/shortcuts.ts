@@ -57,6 +57,21 @@ export const SHORTCUT_GROUPS: {
       { label: 'Code block', keys: ['Mod-Alt-c'] },
       { label: 'Exit code block', keys: ['Mod-Enter'] },
       { label: 'Cancel code block', keys: ['Backspace'] },
+      // Tables (add-table-editing): a table is the other block with a surface of
+      // its own — a way in, a way to extend it, a way to move inside it, a way
+      // out. Tab, Shift-Tab, and Enter therefore appear twice: what they do
+      // depends on the caret being inside a table, and a chord is listed under
+      // each action it serves.
+      { label: 'Insert table', keys: ['Mod-Alt-t'] },
+      // "Row" and "column" rather than "table row"/"table column": these sit
+      // directly under "Insert table", and the panel fits one line per row at
+      // its default width — which the longer labels broke against the column
+      // chord's four tokens.
+      { label: 'Add row', keys: ['Mod-Alt-Enter'] },
+      { label: 'Add column', keys: ['Mod-Alt-Shift-Enter'] },
+      { label: 'Next table cell', keys: ['Tab'] },
+      { label: 'Previous table cell', keys: ['Shift-Tab'] },
+      { label: 'Exit table', keys: ['Enter'] },
       { label: 'Indent list item', keys: ['Tab', 'Mod-]'] },
       { label: 'Outdent list item', keys: ['Shift-Tab', 'Mod-['] },
       { label: 'Line break', keys: ['Shift-Enter'] },

@@ -16,7 +16,9 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
 import type { Slice } from '@milkdown/prose/model'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
+import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
+import { tableRenderButton, tableSlice } from './tableSetup'
 import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
@@ -149,6 +151,13 @@ export class MilkdownAdapter implements EditorAdapter {
           languages: codeBlockLanguages,
           extensions: codeBlockExtensions,
         }))
+        // The table block's controls (add-table-editing, design D4): the
+        // component fills a span with whatever this returns, so the markup is
+        // Folio's own drawing plus the label that names the control.
+        ctx.update(tableBlockConfig.key, (prev) => ({
+          ...prev,
+          renderButton: tableRenderButton,
+        }))
       })
       .use(commonmark)
       .use(listener)
@@ -159,6 +168,12 @@ export class MilkdownAdapter implements EditorAdapter {
       // target across the seam. The listener is read at activation time, so
       // onReferenceClick may be attached after mount.
       .use(inlineDecorations((target) => this.referenceClickListener?.(target)))
+      // Tables (add-table-editing, design D1): GFM's table slice and the
+      // component block that gives it controls. Registered after the decoration
+      // plugin, so the reference chord keeps its meaning inside a cell (D8): the
+      // GFM keymap binds Mod-Enter to leaving a table, and the reference wins.
+      .use(tableSlice)
+      .use(tableBlock)
       // Reference completion (add-reference-autocomplete): the popup and its
       // keys, fed by the app's candidate source through the getter above.
       .use(referenceSuggest((query) => this.suggestSource?.(query) ?? []))

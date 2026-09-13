@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/core'
 import type { EditorState, Transaction } from '@milkdown/prose/state'
 import { AllSelection, TextSelection } from '@milkdown/prose/state'
-import type { Node as ProseNode } from '@milkdown/prose/model'
+import type { Node as ProseNode, Schema as ProseSchema } from '@milkdown/prose/model'
+// The pieces the table slice deliberately leaves unregistered (add-table-editing):
+// the test names them to assert they really are absent from the editor.
+import { footnoteDefinitionSchema, strikethroughAttr, tableSchema } from '@milkdown/preset-gfm'
 import { FOLIO_CLIPBOARD_FLAVOR, MilkdownAdapter } from './milkdown'
+import { trimTrailingBlankLines } from './documentTail'
 
 // jsdom has no IntersectionObserver; the code-block component's node view
 // creates one on mount and initializes CodeMirror when the observed element
@@ -41,6 +45,34 @@ if (typeof globalThis.IntersectionObserver === 'undefined') {
   }
   ;(globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver =
     NoopIntersectionObserver
+}
+
+// jsdom has no layout, so nothing has client rects, and a Text node or a Range has
+// no such method at all. ProseMirror's scroll path asks for them whenever a table
+// keymap moves the caret into the next cell (`singleRect` on the character's
+// Range). Empty rects make it fall back to `getBoundingClientRect`, which jsdom
+// does implement (as zeros); Range supplies the same zeros if it needs them.
+const noRect = {
+  x: 0,
+  y: 0,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  width: 0,
+  height: 0,
+  toJSON: () => ({}),
+} as unknown as DOMRect
+const clientRects = () => [] as unknown as DOMRectList
+const nodeProto = Node.prototype as unknown as { getClientRects?: () => DOMRectList }
+if (typeof nodeProto.getClientRects !== 'function') nodeProto.getClientRects = clientRects
+const rangeProto = Range.prototype as unknown as {
+  getClientRects?: () => DOMRectList
+  getBoundingClientRect?: () => DOMRect
+}
+if (typeof rangeProto.getClientRects !== 'function') rangeProto.getClientRects = clientRects
+if (typeof rangeProto.getBoundingClientRect !== 'function') {
+  rangeProto.getBoundingClientRect = () => noRect
 }
 
 // Thin smoke test for the real transport (design D1): the seam contract is
@@ -95,6 +127,24 @@ describe('MilkdownAdapter (smoke)', () => {
       expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
       // The file's text is what the page holds: no trailing blank line, and
       // the maintained paragraph is not an edit the app would save.
+      expect(adapter.getContent()).toBe(seed)
+      expect(changes).toEqual([])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('keeps a paragraph after a trailing table without writing it to the file', async () => {
+      const { adapter, el } = await mount()
+      const changes: string[] = []
+      adapter.onChange((markdown) => changes.push(markdown))
+      const seed = ['| a | b |', '| - | - |', '| 1 | 2 |', ''].join('\n')
+      await adapter.setContent(seed)
+      // The change stream is debounced; this waits past it so "no change" means
+      // the seed echo really was suppressed.
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+      // The file's text is what the page holds: the table, no trailing blank
+      // line, and the maintained paragraph is not an edit the app would save.
       expect(adapter.getContent()).toBe(seed)
       expect(changes).toEqual([])
       await adapter.destroy()
@@ -975,6 +1025,350 @@ describe('MilkdownAdapter (smoke)', () => {
         await adapter.destroy()
         el.remove()
       })
+    })
+  })
+
+  // Tables (add-table-editing). GFM's table slice, registered by name, plus the
+  // component block that gives it controls. `fileText` is the raw serialization
+  // with the tail normalized — the text the app would write — because several
+  // fixtures end in a table, and a table that ends a page keeps a continuation
+  // paragraph the file must not carry. Expected strings were measured against
+  // this pipeline before the slice was registered: a byte that moved is a
+  // behavior change rather than a formatting preference.
+  describe('MilkdownAdapter (tables)', () => {
+    const TABLE = ['| a | b |', '| --- | --- |', '| 1 | 2 |', ''].join('\n')
+
+    const mountTable = async (markdown: string) => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const adapter = new MilkdownAdapter()
+      await adapter.mount(el)
+      await adapter.setContent(markdown)
+      return { adapter, el }
+    }
+
+    const docOf = (adapter: MilkdownAdapter): ProseNode =>
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { state: { doc: ProseNode } }
+        return view.state.doc
+      }) as ProseNode
+
+    const fileText = (adapter: MilkdownAdapter): string =>
+      trimTrailingBlankLines(serialize(adapter))
+
+    /** Whether the editor's context holds a slice. A plugin that was never
+     *  registered throws when read, which is the absence being asserted. */
+    const contextHas = (adapter: MilkdownAdapter, key: unknown): boolean => {
+      try {
+        editorOf(adapter).action((ctx) => (ctx as { get: (k: unknown) => unknown }).get(key))
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    /** The text of the block the caret's position sits in. */
+    const caretText = (adapter: MilkdownAdapter): string =>
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { doc: ProseNode; selection: { from: number } }
+        }
+        const parent = view.state.doc.resolve(view.state.selection.from).parent
+        return parent.textBetween(0, parent.content.size)
+      }) as string
+
+    const setCaret = (adapter: MilkdownAdapter, resolve: (doc: ProseNode) => number): void => {
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          dispatch: (t: unknown) => void
+        }
+        view.dispatch(
+          view.state.tr.setSelection(
+            TextSelection.near(view.state.doc.resolve(resolve(view.state.doc))),
+          ),
+        )
+      })
+    }
+
+    /** Inside the first cell of a table that starts the document: the table's
+     *  content begins at 1, then a row, a cell, and the cell's paragraph, so 4
+     *  is the first text position in it. */
+    const caretInFirstCell = (adapter: MilkdownAdapter): void => setCaret(adapter, () => 4)
+
+    /** Inside the run `text`, wherever in the document it sits. */
+    const caretInText = (adapter: MilkdownAdapter, text: string): void =>
+      setCaret(adapter, (doc) => {
+        let at = 1
+        doc.descendants((node, pos) => {
+          if (node.isText && node.text?.includes(text)) at = pos + 1
+        })
+        return at
+      })
+
+    // 1.2: the slice registers the table and none of the GFM features Folio
+    // declines, so nothing else about a page can change through it.
+    it('registers the table node without the GFM features Folio declines', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      const schema = editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { state: { schema: ProseSchema } }
+        return view.state.schema
+      }) as ProseSchema
+      expect(schema.nodes.table).toBeDefined()
+      expect(schema.nodes.footnote_definition).toBeUndefined()
+      expect(schema.nodes.footnote_reference).toBeUndefined()
+      expect(schema.marks.strike_through).toBeUndefined()
+      // Absent from the context, not merely unused.
+      expect(contextHas(adapter, tableSchema.key)).toBe(true)
+      expect(contextHas(adapter, strikethroughAttr.key)).toBe(false)
+      expect(contextHas(adapter, footnoteDefinitionSchema.key)).toBe(false)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // 2.1: a table in the file is a table on screen, in the app's canonical
+    // form, and that form is a fixed point.
+    it('seeds a pipe table as a table and writes it back canonically', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      expect(docOf(adapter).firstChild?.type.name).toBe('table')
+      const once = fileText(adapter)
+      expect(once).toBe(['| a | b |', '| - | - |', '| 1 | 2 |', ''].join('\n'))
+      await adapter.setContent(once)
+      expect(fileText(adapter)).toBe(once)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('pads a table to its widest cell', async () => {
+      const { adapter, el } = await mountTable(
+        ['| a | bbbb |', '| --- | --- |', '| 1 | 2 |', ''].join('\n'),
+      )
+      expect(fileText(adapter)).toBe(
+        ['| a | bbbb |', '| - | ---- |', '| 1 | 2    |', ''].join('\n'),
+      )
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('keeps the alignment written in the delimiter row', async () => {
+      const { adapter, el } = await mountTable(
+        ['| a | b | c |', '| :-- | :-: | ---: |', '| 1 | 2 | 3 |', ''].join('\n'),
+      )
+      expect(fileText(adapter)).toBe(
+        ['| a  |  b  |  c |', '| :- | :-: | -: |', '| 1  |  2  |  3 |', ''].join('\n'),
+      )
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // 2.2: the slice brings tables and nothing else. These are the constructs
+    // that the whole GFM preset would have changed.
+    it('leaves every non-table construct exactly as the GFM-free editor did', async () => {
+      const { adapter, el } = await mountTable(
+        [
+          'Visit https://example.com now',
+          '',
+          'Visit www.example.com now',
+          '',
+          'a ~~struck~~ run',
+          '',
+          '- [x] done',
+          '',
+          'Text[^1]',
+          '',
+          '[^1]: note',
+          '',
+        ].join('\n'),
+      )
+      expect(fileText(adapter)).toBe(
+        [
+          'Visit https://example.com now',
+          '',
+          'Visit www.example.com now',
+          '',
+          'a ~~struck~~ run',
+          '',
+          '* \\[x] done',
+          '',
+          'Text[^1](note)',
+          '',
+        ].join('\n'),
+      )
+      const doc = docOf(adapter)
+      const nodes: string[] = []
+      const marks: string[] = []
+      const markedUrls: string[] = []
+      doc.descendants((node) => {
+        nodes.push(node.type.name)
+        for (const mark of node.marks) marks.push(mark.type.name)
+        if (node.isText && node.text?.includes('example.com') && node.marks.length) {
+          markedUrls.push(node.text)
+        }
+      })
+      expect(nodes).not.toContain('footnote_definition')
+      expect(nodes).not.toContain('footnote_reference')
+      expect(marks).not.toContain('strike_through')
+      // No link mark was planted on a bare URL: the URL is text, as typed.
+      expect(markedUrls).toEqual([])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // 2.3: the forms the table model cannot express exactly, which the spec
+    // states as its contract.
+    it('writes an empty cell as a break, stably', async () => {
+      const { adapter, el } = await mountTable(['| a |  |', '| - | - |', '| 1 |  |', ''].join('\n'))
+      const once = fileText(adapter)
+      expect(once).toContain('<br />')
+      await adapter.setContent(once)
+      expect(fileText(adapter)).toBe(once)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('gives a header-only table one empty body row', async () => {
+      const { adapter, el } = await mountTable(['| a |', '| --- |', ''].join('\n'))
+      expect(fileText(adapter)).toBe(['| a      |', '| ------ |', '| <br /> |', ''].join('\n'))
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('escapes the leading pipe of a paragraph that is not a table', async () => {
+      const { adapter, el } = await mountTable('| just text |\n')
+      // The serializer escapes it so the line cannot turn into a table on the
+      // next read; the text the user reads is unchanged.
+      expect(fileText(adapter)).toBe('\\| just text |\n')
+      expect(viewText(adapter)).toBe('| just text |')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // 2.4: the chords the shortcuts reference lists, applied the way those rows
+    // apply them.
+    it('moves between cells and leaves the table with its own chords', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| 1 | 2 |', ''].join('\n'),
+      )
+      caretInFirstCell(adapter)
+      expect(caretText(adapter)).toBe('alpha')
+      expect(adapter.applyChord('Tab')).toBe(true)
+      expect(caretText(adapter)).toBe('beta')
+      expect(adapter.applyChord('Shift-Tab')).toBe(true)
+      expect(caretText(adapter)).toBe('alpha')
+      expect(adapter.applyChord('Enter')).toBe(true)
+      expect(caretText(adapter)).toBe('')
+      expect(fileText(adapter)).toContain('| alpha | beta |')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('adds a row below the caret row by chord', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      caretInFirstCell(adapter)
+      expect(adapter.applyChord('Mod-Alt-Enter')).toBe(true)
+      expect(fileText(adapter)).toBe(
+        [
+          '| a      | b      |',
+          '| ------ | ------ |',
+          '| <br /> | <br /> |',
+          '| 1      | 2      |',
+          '',
+        ].join('\n'),
+      )
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('adds a column to the right of the caret column by chord', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      caretInFirstCell(adapter)
+      expect(adapter.applyChord('Mod-Alt-Shift-Enter')).toBe(true)
+      expect(fileText(adapter)).toBe(
+        ['| a | <br /> | b |', '| - | :----- | - |', '| 1 | <br /> | 2 |', ''].join('\n'),
+      )
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('inserts a table from a paragraph by chord', async () => {
+      const { adapter, el } = await mountTable('text\n')
+      setCaret(adapter, (doc) => doc.content.size)
+      expect(adapter.applyChord('Mod-Alt-t')).toBe(true)
+      // The paragraph keeps its text, the table follows it, and the tail keeps
+      // its continuation paragraph after the table.
+      const children: string[] = []
+      docOf(adapter).forEach((node) => children.push(node.type.name))
+      expect(children).toEqual(['paragraph', 'table', 'paragraph'])
+      const table = docOf(adapter).child(1)
+      expect(table.type.name).toBe('table')
+      expect(table.childCount).toBe(3) // a header row plus two body rows (3x3)
+      expect(table.firstChild?.childCount).toBe(3)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // 2.5: the chord inside a cell belongs to the reference, not to the table
+    // (design D8) — the preset binds Mod-Enter to leaving a table.
+    it('opens a reference inside a cell instead of leaving the table', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha |', '| --- |', '| #Inbox x |', ''].join('\n'),
+      )
+      const opened: string[] = []
+      adapter.onReferenceClick((target) => opened.push(target))
+      caretInText(adapter, '#Inbox')
+      expect(adapter.applyChord('Mod-Enter')).toBe(true)
+      expect(opened).toEqual(['Inbox'])
+      // The badge is a decoration over the cell's text, like anywhere else.
+      expect(el.querySelector('.ref')?.textContent).toBe('#Inbox')
+      expect(fileText(adapter)).toContain('| #Inbox x |')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('copies a table out as canonical Markdown and pastes it back as a table', async () => {
+      // The table crosses the clipboard the same way every other block does
+      // (copy-as-markdown): the private flavor holds the serializer's Markdown,
+      // and the parser turns it back into a table on the way in. In the browser
+      // a pointer drag cannot span cells — the table component claims a
+      // pointerdown aimed at a cell the caret is not in, selecting that cell —
+      // so the selection here is the whole document, the way Select All gives it.
+      const { adapter, el } = await mountForPaste()
+      await adapter.setContent(TABLE)
+      const captured: Record<string, string> = {}
+      selectAllAndCopy(adapter, captured)
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toBe('| a | b |\n| - | - |\n| 1 | 2 |\n')
+      await adapter.setContent('')
+      paste(adapter, 'ignored', '', {}, captured[FOLIO_CLIPBOARD_FLAVOR])
+      expect(docOf(adapter).firstChild?.type.name).toBe('table')
+      expect(fileText(adapter)).toBe('| a | b |\n| - | - |\n| 1 | 2 |\n')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // 2.7: a pasted Markdown table arrives through the parser (design D3: no
+    // paste rule is registered, because the app's handler claims text pastes).
+    it('pastes Markdown table text as a table', async () => {
+      const { adapter, el } = await mountForPaste()
+      await adapter.setContent('')
+      paste(adapter, TABLE)
+      expect(docOf(adapter).firstChild?.type.name).toBe('table')
+      expect(fileText(adapter)).toBe(['| a | b |', '| - | - |', '| 1 | 2 |', ''].join('\n'))
+      await adapter.destroy()
+      el.remove()
+    })
+
+    // 2.8: a table is one block to the gutter, however many lines it spans.
+    it('numbers a table once, at its first line', async () => {
+      const { adapter, el } = await mountTable(
+        ['before', '', '| a | b |', '| - | - |', '| 1 | 2 |', '', 'after', ''].join('\n'),
+      )
+      expect([...adapter.getBlockLines()]).toEqual([1, 3, 7])
+      await adapter.destroy()
+      el.remove()
     })
   })
 })

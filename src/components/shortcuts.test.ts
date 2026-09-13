@@ -22,6 +22,8 @@ import {
 } from '@milkdown/preset-commonmark'
 import { MilkdownAdapter } from '../editor/milkdown'
 import { REFERENCE_OPEN_SHORTCUT } from '../editor/inlineDecorations'
+import { tableKeymap } from '@milkdown/preset-gfm'
+import { tableChords } from '../editor/tableSetup'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
 
 describe('displayKeys', () => {
@@ -91,6 +93,10 @@ describe('sheet vs editor bindings', () => {
     [codeBlockKeymap.key, 'codeBlock'],
     [hardbreakKeymap.key, 'hardbreak'],
     [historyKeymap.key, 'history'],
+    // The table slice's two keymaps (add-table-editing): the preset's own for
+    // navigation and the exit, and Folio's for the structural edits.
+    [tableKeymap.key, 'table'],
+    [tableChords.key, 'tableChords'],
   ]
 
   beforeAll(async () => {
@@ -139,6 +145,46 @@ describe('sheet vs editor bindings', () => {
       expect(binding[`TurnIntoH${level}`]?.shortcuts).toBe(`Mod-Alt-${level}`)
     }
     expect(sheetItem('Heading 1-6')).toBeUndefined()
+  })
+
+  it('the sheet lists the table rows, and the editor binds each of them', () => {
+    // The table rows are controls like any other: every one of their chords is
+    // dispatched by a keymap the editor registers (the union check below covers
+    // that too; this pins the rows themselves).
+    const table = ctxGet<Record<string, { shortcuts: string | string[] }>>(tableKeymap.key)
+    const folio = ctxGet<Record<string, { shortcuts: string | string[] }>>(tableChords.key)
+    expect([table.NextCell.shortcuts].flat()).toContain('Tab')
+    expect([table.PrevCell.shortcuts].flat()).toContain('Shift-Tab')
+    expect([table.ExitTable.shortcuts].flat()).toContain('Enter')
+    expect(folio.InsertTable.shortcuts).toBe('Mod-Alt-t')
+    expect(folio.AddRow.shortcuts).toBe('Mod-Alt-Enter')
+    expect(folio.AddCol.shortcuts).toBe('Mod-Alt-Shift-Enter')
+
+    expect(sheetItem('Insert table')?.keys).toEqual(['Mod-Alt-t'])
+    expect(sheetItem('Add row')?.keys).toEqual(['Mod-Alt-Enter'])
+    expect(sheetItem('Add column')?.keys).toEqual(['Mod-Alt-Shift-Enter'])
+    expect(sheetItem('Next table cell')?.keys).toEqual(['Tab'])
+    expect(sheetItem('Previous table cell')?.keys).toEqual(['Shift-Tab'])
+    expect(sheetItem('Exit table')?.keys).toEqual(['Enter'])
+
+    // Every one is a control, not a documented gesture: a click applies it.
+    for (const label of [
+      'Insert table',
+      'Add row',
+      'Add column',
+      'Next table cell',
+      'Previous table cell',
+      'Exit table',
+    ]) {
+      expect(sheetItem(label)?.replayable).not.toBe(false)
+    }
+
+    // Tab, Shift-Tab, and Enter are context-dependent, so they stay listed
+    // under their text actions as well.
+    expect(sheetItem('Indent list item')?.keys).toContain('Tab')
+    expect(sheetItem('Outdent list item')?.keys).toContain('Shift-Tab')
+    expect(sheetItem('Exit code block')?.keys).toContain('Mod-Enter')
+    expect(displayKeys('Mod-Alt-Shift-Enter')).toMatch(/^(Ctrl|Cmd)\+Alt\+Shift\+Enter$/)
   })
 
   it('every clickable row names a chord the app actually binds', () => {

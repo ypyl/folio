@@ -390,9 +390,21 @@
   margin: 24px 0;
 }
 
+/* Tables (add-table-editing). A table is a real table now, wrapped by the
+   component's block, so the block carries the rhythm the <table> used to and
+   the absolutely positioned controls hang off it rather than inside a row. The
+   editorial rules are DESIGN.md's Tables section: no framed box, no tinted
+   header bar, no vertical rules, hairline row rules, content-sized columns
+   (no `table-layout`), muted uppercase header labels, and quiet whitespace
+   before line weight. */
+.editor :global(.milkdown-table-block) {
+  position: relative; /* the offset parent for the block's controls */
+  margin: 0 0 12px;
+}
+
 .editor :global(table) {
   border-collapse: collapse;
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .editor :global(th),
@@ -409,4 +421,162 @@
   text-transform: uppercase;
   font-size: 12px;
   letter-spacing: 0.04em;
+}
+
+/* Cell selection: the component selects a row or a column before it moves or
+   deletes it, and prosemirror-tables paints that selection itself. The fill is
+   DESIGN.md's brand tint — the lightest one, so a selected column still reads
+   as text. */
+.editor :global(.milkdown-table-block td.selectedCell),
+.editor :global(.milkdown-table-block th.selectedCell) {
+  background: var(--brand-tint);
+}
+
+/* The table's controls: a handle on the row or column the pointer is over, a
+   "+" on the line where a row or column would be added, and the group a handle
+   opens (alignment and delete). They stay invisible until the pointer is on the
+   line they belong to — a table at rest is a table, with no box and no toolbar.
+
+   Hidden with `visibility`, not `display`: the component measures a handle
+   before it positions it, and a control with no box would measure as zero. The
+   children override both inherited properties, so a group can show inside a
+   handle that stays hidden. */
+.editor :global(.milkdown-table-block .handle) {
+  position: absolute;
+  z-index: 3; /* over the cells, so the handle is grabbable rather than text */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  pointer-events: none;
+  color: var(--stone);
+  cursor: grab;
+}
+
+.editor :global(.milkdown-table-block .handle[data-show='true']) {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.editor :global(.milkdown-table-block .cell-handle) {
+  width: 18px;
+  height: 18px;
+  background: var(--ivory);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.editor :global(.milkdown-table-block .cell-handle:hover) {
+  background: var(--warm-sand);
+  color: var(--brand);
+}
+
+/* The line handles span the table's edge, so only their thickness is ours. */
+.editor :global(.milkdown-table-block .line-handle) {
+  background: transparent;
+  border: 0;
+}
+
+.editor :global(.milkdown-table-block .add-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  background: var(--ivory);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.editor :global(.milkdown-table-block .add-button:hover) {
+  background: var(--warm-sand);
+  color: var(--brand);
+}
+
+.editor :global(.milkdown-table-block .button-group) {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--ivory);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.editor :global(.milkdown-table-block .button-group[data-show='true']) {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Beside the handle it belongs to: a column's group below it, a row's to its
+   right — the two edges the handle itself does not occupy. */
+.editor :global(.milkdown-table-block [data-role='col-drag-handle'] .button-group) {
+  top: 100%;
+  left: 0;
+}
+
+.editor :global(.milkdown-table-block [data-role='row-drag-handle'] .button-group) {
+  top: 0;
+  left: 100%;
+}
+
+.editor :global(.milkdown-table-block .button-group button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.editor :global(.milkdown-table-block .button-group button:hover) {
+  background: var(--warm-sand);
+  color: var(--brand);
+}
+
+.editor :global(.milkdown-table-block .milkdown-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The dragged row or column's ghost, moved by the component while a drag is in
+   flight. It is a preview, not content: no pointer events, no text. */
+.editor :global(.milkdown-table-block .drag-preview) {
+  position: absolute;
+  z-index: 4;
+  display: none;
+  background: var(--ivory);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.editor :global(.milkdown-table-block .drag-preview[data-show='true']) {
+  display: block;
+}
+
+/* A control's label (add-table-editing, design D4): the component fills a span
+   with Folio markup, so each control's accessible name has to travel inside it.
+   Hidden from sight, not from assistive technology. */
+.editor :global(.milkdown-table-block .table-icon-label) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
