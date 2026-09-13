@@ -61,6 +61,10 @@ export class MilkdownAdapter implements EditorAdapter {
   private focusRoot: HTMLElement | null = null
   private focusHandler: ((event: FocusEvent) => void) | null = null
   private lastFocusedWithin: HTMLElement | null = null
+  // Forward delete in a list item (see deleteDeletesText): the one key this
+  // adapter intercepts before the editor's own keymaps see it.
+  private keyRoot: HTMLElement | null = null
+  private keyHandler: ((event: KeyboardEvent) => void) | null = null
 
   /** Mount the editor into `el`. The element must stay in the document for
    *  the editor's lifetime. If `destroy()` was called while `create()` was
@@ -206,6 +210,20 @@ export class MilkdownAdapter implements EditorAdapter {
       this.lastFocusedWithin = event.target instanceof HTMLElement ? event.target : null
     }
     el.addEventListener('focusin', this.focusHandler)
+    // Forward delete (deleteDeletesText): the list keymap binds Delete and
+    // Backspace to the same "lift the first list item" command, so Delete at an
+    // item's start lifted the item instead of deleting the character after the
+    // caret — for a key a user pressed to delete text, the wrong command. The
+    // event is stopped in the capture phase, before ProseMirror's own handler,
+    // which leaves the key unclaimed: exactly how a paragraph behaves, where the
+    // browser deletes the character and ProseMirror reads the change.
+    this.keyRoot = el
+    this.keyHandler = (event) => {
+      if (event.key !== 'Delete') return
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (this.deleteDeletesText()) event.stopPropagation()
+    }
+    el.addEventListener('keydown', this.keyHandler, true)
   }
 
   async destroy(): Promise<void> {
@@ -224,6 +242,11 @@ export class MilkdownAdapter implements EditorAdapter {
     if (this.focusRoot && this.focusHandler) {
       this.focusRoot.removeEventListener('focusin', this.focusHandler)
     }
+    if (this.keyRoot && this.keyHandler) {
+      this.keyRoot.removeEventListener('keydown', this.keyHandler, true)
+    }
+    this.keyRoot = null
+    this.keyHandler = null
     this.focusRoot = null
     this.focusHandler = null
     this.lastFocusedWithin = null
@@ -375,6 +398,29 @@ export class MilkdownAdapter implements EditorAdapter {
 
   setSuggestionSource(source: (query: string) => Suggestion[]): void {
     this.suggestSource = source
+  }
+
+  /**
+   * Whether a forward delete should delete the character after the caret rather
+   * than run the list keymap's "lift the first list item" command: the caret is
+   * at the very start of a list item's first text block and there is something
+   * after it. The condition mirrors the preset's own guard for that command —
+   * an empty selection at offset 0 inside a list item — plus the check that
+   * there is a character (or node) to delete at all.
+   */
+  private deleteDeletesText(): boolean {
+    const editor = this.editor
+    if (!editor) return false
+    return editor.action((ctx) => {
+      const { selection } = ctx.get(editorViewCtx).state
+      const { $from } = selection
+      return (
+        selection.empty &&
+        $from.parentOffset === 0 &&
+        $from.node(-1)?.type.name === 'list_item' &&
+        $from.nodeAfter !== null
+      )
+    })
   }
 
   /** Current document serialized to Markdown, read imperatively. */

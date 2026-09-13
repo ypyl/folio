@@ -125,6 +125,70 @@ describe('MilkdownAdapter (smoke)', () => {
     })
   })
 
+  // A forward delete inside a list item (the preset binds Delete and Backspace
+  // to the same "lift the first list item" command, which is Backspace's job).
+  describe('forward delete in a list item', () => {
+    const mount = async () => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const adapter = new MilkdownAdapter()
+      await adapter.mount(el)
+      return { adapter, el }
+    }
+
+    /** The document's first child, for asserting the list survived the key. */
+    const firstBlock = (adapter: MilkdownAdapter): ProseNode =>
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { state: { doc: ProseNode } }
+        return view.state.doc.firstChild as ProseNode
+      }) as ProseNode
+
+    /** Put the caret at the start of the first list item and press a key. */
+    const pressAtItemStart = (adapter: MilkdownAdapter, key: string): void => {
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          dispatch: (tr: unknown) => void
+          dom: HTMLElement
+        }
+        // The first list item's first text block starts one position in.
+        const itemStart = 1 + 1 + 1
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, itemStart)))
+        view.dom.dispatchEvent(
+          new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+        )
+      })
+    }
+
+    it('does not lift the item out of the list', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(
+        ['- banana split', '- second item', ''].join(String.fromCharCode(10)),
+      )
+      pressAtItemStart(adapter, 'Delete')
+      // Unclaimed, so the browser would delete the character; in jsdom nothing
+      // changes, and the point of the test is that the item is still a list
+      // item rather than a paragraph lifted out of the list.
+      expect(firstBlock(adapter).type.name).toBe('bullet_list')
+      expect(firstBlock(adapter).firstChild?.type.name).toBe('list_item')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('still lifts the item on Backspace, which is that gesture', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(
+        ['- banana split', '- second item', ''].join(String.fromCharCode(10)),
+      )
+      pressAtItemStart(adapter, 'Backspace')
+      expect(firstBlock(adapter).type.name).toBe('paragraph')
+      await adapter.destroy()
+      el.remove()
+    })
+  })
+
   it('mounts, round-trips content, and destroys cleanly', async () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
