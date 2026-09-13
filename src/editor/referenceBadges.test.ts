@@ -121,7 +121,11 @@ describe('createReferencePlugin', () => {
     })
     const view = viewOf(state)
     const paragraph = document.createElement('p')
-    expect(plugin.props.handleClick?.call(plugin, view, 8, { target: paragraph } as unknown as MouseEvent)).toBe(false)
+    expect(
+      plugin.props.handleClick?.call(plugin, view, 8, {
+        target: paragraph,
+      } as unknown as MouseEvent),
+    ).toBe(false)
     expect(onActivate).not.toHaveBeenCalled()
   })
 

@@ -74,6 +74,14 @@
 .document {
   padding: 4px 32px 4px;
   position: relative; /* anchoring context for the line-number gutter */
+  /* The page owns the space below its content (click-below-to-continue): the
+     document box fills the pane so the editable surface can reach the pane's
+     bottom edge, which is where a user clicks to continue writing. The growth
+     is downward only — the fixed top padding and the first-child margin reset
+     below keep the first block on the shared start line. */
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Line numbers (line-numbers, DESIGN: metadata level --stone, 12px floor, no
@@ -102,6 +110,11 @@
 .editor {
   font-size: 15px;
   color: var(--near-black);
+  /* Grows into the document box so ProseMirror's surface reaches the pane's
+     bottom edge (click-below-to-continue). */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 /* Empty-page placeholder (journal-home, page-editing spec): an empty doc is a
@@ -118,9 +131,23 @@
   color: var(--stone);
 }
 
+/* Milkdown wraps the editable surface in its own div, so the height has to be
+   passed through it: it is the surface's parent and the last link before
+   ProseMirror, and an ordinary block here would stop the page at its content
+   (click-below-to-continue). */
+.editor > :global(.milkdown) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 .editor :global(.ProseMirror) {
   outline: none; /* the caret is the focus indicator for a document surface */
   min-height: 8em;
+  /* The clickable page: with the surface filling the pane, a click anywhere
+     below the last block lands in the document, and ProseMirror resolves it to
+     the end of the page (click-below-to-continue). */
+  flex: 1;
 }
 
 /* The document's first block starts at the pane's top padding: its own
