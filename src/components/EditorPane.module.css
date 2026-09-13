@@ -413,6 +413,12 @@
   padding: 4px 12px 4px 0;
   text-align: left;
   vertical-align: top;
+  /* A floor under the column width. A column is only as wide as its widest
+     cell, and a table the user just inserted is empty in every cell, so
+     without this the columns collapse to their padding (measured: 12px) and
+     the table is a sliver of hairlines with nothing to aim a click at. Sized
+     in rem so header cells (12px type) and body cells (15px) floor alike. */
+  min-width: 5rem;
 }
 
 .editor :global(th) {
