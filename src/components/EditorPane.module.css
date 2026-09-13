@@ -216,6 +216,14 @@
   background: var(--brand-tint); /* hover lightens (DESIGN links) */
 }
 
+/* Struck runs (render-struck-text): `~~text~~` reads crossed. The decoration is
+   the only change — the tildes stay in the text, exactly as a badge keeps its
+   `#` — so this adds the line and nothing else: no colour, no padding, and
+   nothing that could move the text or the line box. */
+.editor :global(.strike) {
+  text-decoration: line-through;
+}
+
 .editor :global(code) {
   background: var(--inline-code-bg); /* fill only, no border (DESIGN code) */
   border-radius: 4px;

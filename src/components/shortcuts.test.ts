@@ -21,7 +21,7 @@ import {
   strongKeymap,
 } from '@milkdown/preset-commonmark'
 import { MilkdownAdapter } from '../editor/milkdown'
-import { REFERENCE_OPEN_SHORTCUT } from '../editor/referenceBadges'
+import { REFERENCE_OPEN_SHORTCUT } from '../editor/inlineDecorations'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
 
 describe('displayKeys', () => {
@@ -111,7 +111,7 @@ describe('sheet vs editor bindings', () => {
   })
 
   it('the sheet Open reference row matches the badge binding', () => {
-    // The badge plugin binds this chord (referenceBadges); the sheet must list
+    // The decoration plugin binds this chord (inlineDecorations); the sheet must list
     // the same one so the reference stays discoverable.
     expect(REFERENCE_OPEN_SHORTCUT).toBe('Mod-Enter')
     expect(sheetItem('Open reference')?.keys).toEqual([REFERENCE_OPEN_SHORTCUT])

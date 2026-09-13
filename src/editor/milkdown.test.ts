@@ -433,6 +433,18 @@ describe('MilkdownAdapter (smoke)', () => {
       el.remove()
     })
 
+    it('copies a struck run as its literal tildes', async () => {
+      // render-struck-text: the run is literal text under a decoration, so the
+      // clipboard carries the Markdown the page holds, tildes and all.
+      const { adapter, el } = await mountForPaste()
+      await adapter.setContent(['~~done~~ later', ''].join('\n'))
+      const captured: Record<string, string> = {}
+      selectAllAndCopy(adapter, captured)
+      expect(captured[FOLIO_CLIPBOARD_FLAVOR]).toContain('~~done~~')
+      await adapter.destroy()
+      el.remove()
+    })
+
     it('writes nothing to the private flavor for an empty selection', async () => {
       const { adapter, el } = await mountForPaste()
       await adapter.setContent('# Title\n')

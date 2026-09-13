@@ -19,7 +19,7 @@ import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-b
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
-import { referenceBadges } from './referenceBadges'
+import { inlineDecorations } from './inlineDecorations'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { blockStartLines } from '../lineAnchors'
@@ -154,7 +154,7 @@ export class MilkdownAdapter implements EditorAdapter {
       // `#word` / `#[[Page]]`, and a click / Mod+Enter path that reports the
       // target across the seam. The listener is read at activation time, so
       // onReferenceClick may be attached after mount.
-      .use(referenceBadges((target) => this.referenceClickListener?.(target)))
+      .use(inlineDecorations((target) => this.referenceClickListener?.(target)))
       // Reference completion (add-reference-autocomplete): the popup and its
       // keys, fed by the app's candidate source through the getter above.
       .use(referenceSuggest((query) => this.suggestSource?.(query) ?? []))

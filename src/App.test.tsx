@@ -445,12 +445,16 @@ describe('asset drag & drop (page-editing spec)', () => {
 
   it('renders a vault image reference through the active folder storage', async () => {
     // render-vault-images: a page whose markdown references a vault image shows
-    // the file, read out of the open vault through the app's wiring.
+    // the file, read out of the open vault through the app's wiring. The page is
+    // today's journal, which the app opens by itself on folder open, so the test
+    // needs no sidebar click and no page switch: one seed, one render pass.
     const readBinary = vi.spyOn(FileSystemVaultStorage.prototype, 'readBinary')
+    const journal = localDayString(new Date())
     const tree = buildTree({
       ...FIXTURE,
-      'image-demo.md': '![photo](assets/photo.png)',
-      // buildTree nests by object, not by '/' in a key.
+      // buildTree nests by object, so the journal file goes inside the folder
+      // it lives in and the asset inside assets/.
+      journals: { ...FIXTURE.journals, [`${journal}.md`]: '![photo](assets/photo.png)' },
       assets: { 'photo.png': 'imgbytes' },
     })
     tree.name = 'notes'
@@ -460,21 +464,15 @@ describe('asset drag & drop (page-editing spec)', () => {
     )
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'image-demo' }))
 
     // The editor renders the reference as an image element and the pane points
     // it at the vault file's bytes.
-    // A generous timeout: the read and its object URL land after a microtask,
-    // but a full parallel suite can starve the default one.
-    const img = await waitFor(
-      () => {
-        const el = document.querySelector('main img')
-        expect(el).not.toBeNull()
-        expect(el?.getAttribute('src')).toMatch(/^blob:/)
-        return el as HTMLImageElement
-      },
-      { timeout: 4000 },
-    )
+    const img = await waitFor(() => {
+      const el = document.querySelector('main img')
+      expect(el).not.toBeNull()
+      expect(el?.getAttribute('src')).toMatch(/^blob:/)
+      return el as HTMLImageElement
+    })
     expect(readBinary).toHaveBeenCalledWith('assets/photo.png')
     expect(img.getAttribute('alt')).toBe('photo')
     // The page's markdown is untouched: only the rendered element was re-pointed.

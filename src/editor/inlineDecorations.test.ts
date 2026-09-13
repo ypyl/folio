@@ -10,12 +10,12 @@ import { EditorState, TextSelection } from '@milkdown/prose/state'
 import type { Decoration, DecorationSet, EditorView } from '@milkdown/prose/view'
 import {
   buildReferenceState,
-  createReferencePlugin,
+  createInlineDecorationPlugin,
   referenceAt,
-  scanReferences,
+  scanInline,
   type BlockRange,
   type ReferenceRef,
-} from './referenceBadges'
+} from './inlineDecorations'
 
 const schema = new Schema({
   nodes: {
@@ -62,16 +62,94 @@ describe('buildReferenceState', () => {
     expect(refs.map((ref) => ref.target)).toEqual(['Inbox'])
   })
 
+  // render-struck-text: struck runs ride the same decorations, so they are
+  // covered by the same walk, the same invalidation, and the same one-pass cost.
+  describe('struck runs', () => {
+    /** An inline decoration's attrs live on the type, which ProseMirror's
+     *  public Decoration type does not expose — read the class through it. */
+    const classOf = (decoration: Decoration): string =>
+      (decoration as unknown as { type: { attrs: { class?: string } } }).type.attrs.class ?? ''
+
+    const runsIn = (d: ProseNode, decorations: DecorationSet): string[] =>
+      decorations
+        .find()
+        .filter((decoration) => classOf(decoration) === 'strike')
+        .map((decoration) => d.textBetween(decoration.from, decoration.to))
+
+    const blockRanges = (d: ProseNode): BlockRange[] => {
+      const ranges: BlockRange[] = []
+      d.forEach((node, offset) => ranges.push({ from: offset, to: offset + node.nodeSize }))
+      return ranges
+    }
+
+    it('decorates each struck run over its literal text', () => {
+      const d = doc(para(text('Before ~~done~~ and ~~two words~~ after')))
+      const { decorations } = buildReferenceState(d)
+      expect(runsIn(d, decorations)).toEqual(['~~done~~', '~~two words~~'])
+    })
+
+    it('leaves the near misses plain', () => {
+      const cases = ['~~~~', '~~ spaced ~~', '~single~', '~~~~~', '~~a b ~c~~', '~~ ~~']
+      const d = doc(para(text(cases.join(' | '))))
+      const { decorations } = buildReferenceState(d)
+      expect(runsIn(d, decorations)).toEqual([])
+    })
+
+    it('strikes the first complete pair when runs share a line', () => {
+      // `~~a~~b~~` is a struck "a" and a stray tail, not one run: the pair that
+      // closes first wins, which is the rule the spec states.
+      const d = doc(para(text('~~a~~b~~')))
+      const { decorations } = buildReferenceState(d)
+      expect(runsIn(d, decorations)).toEqual(['~~a~~'])
+    })
+
+    it('skips runs inside inline code and fenced code', () => {
+      const d = doc(para(inlineCode('~~code~~')), fenced('~~fenced~~'))
+      const { decorations } = buildReferenceState(d)
+      expect(runsIn(d, decorations)).toEqual([])
+    })
+
+    it('decorates a struck reference with both schemes', () => {
+      const d = doc(para(text('~~#Inbox~~')))
+      const { decorations, refs } = buildReferenceState(d)
+      expect(refs.map((ref) => ref.target)).toEqual(['Inbox'])
+      expect(decorations.find().map(classOf).sort()).toEqual(['ref', 'strike'])
+    })
+
+    it('re-decorates only the block an edit touched', () => {
+      const ranges: (BlockRange | undefined)[] = []
+      const scan = vi.fn((d: ProseNode, range?: BlockRange) => {
+        ranges.push(range)
+        return scanInline(d, range)
+      })
+      const blocks = Array.from({ length: 30 }, (_, i) =>
+        para(text(i === 10 ? 'Target ~~note~~ here' : `Paragraph ${i} of the page`)),
+      )
+      const d = doc(...blocks)
+      const plugin = createInlineDecorationPlugin({ scan })
+      let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
+      expect(runsIn(state.doc, plugin.getState(state)!.decorations)).toEqual(['~~note~~'])
+      ranges.length = 0
+
+      // Type one character inside paragraph 3.
+      state = state.apply(state.tr.insertText('x', blockRanges(d)[3].from + 3))
+
+      expect(ranges).toHaveLength(1)
+      // The struck run further down the page survives the edit.
+      expect(runsIn(state.doc, plugin.getState(state)!.decorations)).toEqual(['~~note~~'])
+    })
+  })
+
   it('keeps a plain wikilink as text', () => {
     const { refs } = buildReferenceState(doc(para(text('[[Inbox]] is not a reference'))))
     expect(refs).toEqual([])
   })
 })
 
-describe('createReferencePlugin', () => {
+describe('createInlineDecorationPlugin', () => {
   it('does not rescan the document on a selection-only transaction', () => {
-    const scan = vi.fn(scanReferences)
-    const plugin = createReferencePlugin({ scan })
+    const scan = vi.fn(scanInline)
+    const plugin = createInlineDecorationPlugin({ scan })
     let state = EditorState.create({
       schema,
       doc: doc(para(text('See #Inbox now'))),
@@ -86,7 +164,7 @@ describe('createReferencePlugin', () => {
 
   it('reports the target when a click lands on a reference badge', () => {
     const onActivate = vi.fn()
-    const plugin = createReferencePlugin({ onActivate })
+    const plugin = createInlineDecorationPlugin({ onActivate })
     const state = EditorState.create({
       schema,
       doc: doc(para(text('See #Inbox now'))),
@@ -113,7 +191,7 @@ describe('createReferencePlugin', () => {
     // lands on position `to`, exactly where the badge's last character is, so
     // only the target says which the user meant.
     const onActivate = vi.fn()
-    const plugin = createReferencePlugin({ onActivate })
+    const plugin = createInlineDecorationPlugin({ onActivate })
     const state = EditorState.create({
       schema,
       doc: doc(para(text('#NewPage'))),
@@ -131,7 +209,7 @@ describe('createReferencePlugin', () => {
 
   it('opens the reference at the caret with Mod+Enter and falls through otherwise', () => {
     const onActivate = vi.fn()
-    const plugin = createReferencePlugin({ onActivate })
+    const plugin = createInlineDecorationPlugin({ onActivate })
     const base = EditorState.create({
       schema,
       doc: doc(para(text('See #Inbox now'))),
@@ -183,13 +261,13 @@ describe('badge invalidation scope', () => {
     const ranges: (BlockRange | undefined)[] = []
     const scan = vi.fn((d: ProseNode, range?: BlockRange) => {
       ranges.push(range)
-      return scanReferences(d, range)
+      return scanInline(d, range)
     })
     const blocks = Array.from({ length: 40 }, (_, i) =>
       para(text(i === 20 ? 'Target #note here' : `Paragraph ${i} of the page`)),
     )
     const d = doc(...blocks)
-    const plugin = createReferencePlugin({ scan })
+    const plugin = createInlineDecorationPlugin({ scan })
     let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
     ranges.length = 0
 
@@ -208,10 +286,10 @@ describe('badge invalidation scope', () => {
     const ranges: (BlockRange | undefined)[] = []
     const scan = vi.fn((d: ProseNode, range?: BlockRange) => {
       ranges.push(range)
-      return scanReferences(d, range)
+      return scanInline(d, range)
     })
     const d = doc(para(text('before')), para(text('after #Inbox')))
-    const plugin = createReferencePlugin({ scan })
+    const plugin = createInlineDecorationPlugin({ scan })
     let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
     ranges.length = 0
 
@@ -232,10 +310,10 @@ describe('badge invalidation scope', () => {
     const ranges: (BlockRange | undefined)[] = []
     const scan = vi.fn((d: ProseNode, range?: BlockRange) => {
       ranges.push(range)
-      return scanReferences(d, range)
+      return scanInline(d, range)
     })
     const d = doc(para(text('See #Inbox now')))
-    const plugin = createReferencePlugin({ scan })
+    const plugin = createInlineDecorationPlugin({ scan })
     let state = EditorState.create({ schema, doc: d, plugins: [plugin] })
     expect(plugin.getState(state)!.refs).toHaveLength(1)
     ranges.length = 0
@@ -259,7 +337,7 @@ describe('activation after an edit', () => {
 
   it('keeps a mapped reference activatable at every caret boundary', () => {
     const onActivate = vi.fn()
-    const plugin = createReferencePlugin({ onActivate })
+    const plugin = createInlineDecorationPlugin({ onActivate })
     let state = EditorState.create({
       schema,
       doc: doc(para(text('See #Inbox now')), para(text('other'))),
@@ -282,7 +360,7 @@ describe('activation after an edit', () => {
 
   it('activates a reference whose own block was rescanned', () => {
     const onActivate = vi.fn()
-    const plugin = createReferencePlugin({ onActivate })
+    const plugin = createInlineDecorationPlugin({ onActivate })
     let state = EditorState.create({
       schema,
       doc: doc(para(text('See #Inbox now'))),
@@ -330,7 +408,7 @@ describe('incremental badges match a full scan', () => {
       para(text('another #ref here')),
       para(text('the last paragraph')),
     )
-    const plugin = createReferencePlugin()
+    const plugin = createInlineDecorationPlugin()
     let state = EditorState.create({ schema, doc: initial, plugins: [plugin] })
 
     const textPositions = () => {

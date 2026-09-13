@@ -1,11 +1,18 @@
-// Reference badges (add-reference-badges, design D1/D2/D5; incremental
-// invalidation from bound-editor-per-keystroke-work, design D1): a ProseMirror
-// inline decoration over every page reference token in the open page, plus the
-// click/keyboard path that opens the target. The badge is presentational —
-// the document keeps the literal `#word` / `#[[Page]]` text — so Markdown stays
-// canonical (ADR-0001, ADR-0009) and no serializer or second tokenizer exists.
-// The canonical `REF` regex is shared with the index (design D6), so what the
-// editor badges is exactly what the vault counts.
+// Inline decorations over literal text (add-reference-badges; render-struck-text
+// adds the second kind; incremental invalidation from
+// bound-editor-per-keystroke-work, design D1). Two decorations share one walk
+// over the changed blocks:
+//
+//   - Reference badges: a chip over every page reference token, plus the
+//     click/keyboard path that opens the target. The canonical `REF` regex is
+//     shared with the index (design D6), so what the editor badges is exactly
+//     what the vault counts.
+//   - Struck runs: a line through `~~text~~`.
+//
+// Both are presentational — the document keeps the literal characters — so
+// Markdown stays canonical (ADR-0001, ADR-0009) and no serializer or second
+// tokenizer exists. Neither creates a formatting mark, so neither round-trips
+// anything and neither can be toggled: the text is the state.
 
 import { $prose } from '@milkdown/utils'
 import type { Node as ProseNode } from '@milkdown/prose/model'
@@ -52,11 +59,23 @@ export type ScanResult = {
 export const referenceKey = new PluginKey<ReferenceState>('folioReferenceBadges')
 
 /**
- * Every reference in `doc`, or in one range of whole top-level blocks (design
- * D1). Skips inline code (the `code` mark) and fenced code (`code_block`
- * subtrees): a reference token inside code is code, not a link.
+ * A struck run (render-struck-text): `~~`, then content that carries no tilde
+ * and starts and ends with a non-space, then `~~`. Deliberately narrower than
+ * GFM's grammar — the app does not parse GFM — and wide enough for the runs a
+ * writer types: `~~done~~`, `~~two words~~`. The empty pair, a padded pair, a
+ * single tilde, and a tilde inside the run all stay plain, and a longer tilde
+ * run cannot be half-matched into one (`[^~\s]` keeps a tilde out of the
+ * content's ends as well as its middle).
  */
-export function scanReferences(doc: ProseNode, range?: BlockRange): ScanResult {
+const STRUCK_RUN = /~~([^~\s](?:[^~]*?[^~\s])?)~~/g
+
+/**
+ * The decorations for `doc`, or for one range of whole top-level blocks (design
+ * D1): reference badges and struck runs, in one walk. Skips inline code (the
+ * `code` mark) and fenced code (`code_block` subtrees): a reference token or a
+ * pair of tildes inside code is code, not a link and not a strike.
+ */
+export function scanInline(doc: ProseNode, range?: BlockRange): ScanResult {
   const refs: ReferenceRef[] = []
   const marks: Decoration[] = []
   const visit = (node: ProseNode, pos: number): boolean | undefined => {
@@ -70,6 +89,10 @@ export function scanReferences(doc: ProseNode, range?: BlockRange): ScanResult {
       refs.push({ from, to, target: found.target })
       marks.push(Decoration.inline(from, to, { class: 'ref' }))
     }
+    for (const found of node.text.matchAll(STRUCK_RUN)) {
+      const from = pos + found.index
+      marks.push(Decoration.inline(from, from + found[0].length, { class: 'strike' }))
+    }
     return
   }
   if (range) doc.nodesBetween(range.from, range.to, visit)
@@ -77,9 +100,9 @@ export function scanReferences(doc: ProseNode, range?: BlockRange): ScanResult {
   return { marks, refs }
 }
 
-/** The badge decorations and clickable spans for a whole document. */
+/** The decorations and clickable spans for a whole document. */
 export function buildReferenceState(doc: ProseNode): ReferenceState {
-  const { marks, refs } = scanReferences(doc)
+  const { marks, refs } = scanInline(doc)
   return { decorations: DecorationSet.create(doc, marks), refs }
 }
 
@@ -207,10 +230,10 @@ export type ReferencePluginOptions = {
  *  selection or focus, so caret moves recompute nothing and repaint nothing
  *  (design D2/D4). A document change rescans only the blocks it touched
  *  (bound-editor-per-keystroke-work, design D1). */
-export function createReferencePlugin(
+export function createInlineDecorationPlugin(
   options: ReferencePluginOptions = {},
 ): Plugin<ReferenceState> {
-  const scan = options.scan ?? scanReferences
+  const scan = options.scan ?? scanInline
   const build = (doc: ProseNode): ReferenceState => {
     const { marks, refs } = scan(doc)
     return { decorations: DecorationSet.create(doc, marks), refs }
@@ -256,6 +279,6 @@ export function createReferencePlugin(
 
 /** Milkdown wrapper for the adapter (design D7): the activation callback reads
  *  through a getter so the listener can be attached after mount. */
-export function referenceBadges(onActivate: (target: string) => void) {
-  return $prose(() => createReferencePlugin({ onActivate }))
+export function inlineDecorations(onActivate: (target: string) => void) {
+  return $prose(() => createInlineDecorationPlugin({ onActivate }))
 }

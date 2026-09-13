@@ -4,7 +4,7 @@
 // keeps literal `#word` / `#[[Page]]` text (ADR-0001), so nothing here
 // serializes or parses Markdown: completion is a text insertion like typing.
 //
-// The plugin is deliberately separate from `referenceBadges`. Badges must not
+// The plugin is deliberately separate from `inlineDecorations`. Badges must not
 // depend on the caret, so their `apply` ignores selection-only transactions;
 // this popup is entirely caret-driven. Two plugins, two keys, no shared state.
 
