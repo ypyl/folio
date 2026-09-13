@@ -517,6 +517,34 @@ A page whose first block is a table SHALL give that table room above its first r
 - **WHEN** the page renders
 - **THEN** the table's line number sits on the table's first line, not on the space above it
 
+### Requirement: A table's handles stay inside the pane
+
+The row and column handles the editor draws for a table SHALL be brought inside the pane's visible box whenever the editor places them and whenever the pane scrolls, so that a handle can be pressed wherever the table sits — including a table scrolled until its first row is at the pane's top edge. A handle that already fits inside the pane SHALL NOT be moved. A handle that has to be brought inside SHALL keep its meaning: pressing it SHALL still select that table's row or column and SHALL still open that row's or column's controls. A handle's position SHALL NOT be page content: the page's Markdown SHALL NOT change and SHALL NOT be written for it. The line handles that appear while a row or column is being dragged SHALL be left where the editor places them, and a table whose handles already fit SHALL render exactly as it does today.
+
+#### Scenario: A table at the pane's top edge can still be controlled
+
+- **GIVEN** a page holding a table, scrolled so the table's first row sits at the pane's top edge
+- **WHEN** the user points at one of its columns
+- **THEN** the column's handle is drawn inside the pane rather than above its edge, and pressing it selects that column and opens its controls
+
+#### Scenario: A handle that fits is not moved
+
+- **GIVEN** a page holding a table with room above it in the pane
+- **WHEN** the user points at one of its columns
+- **THEN** the handle sits where the editor placed it, above the first row and clear of the pane's edges
+
+#### Scenario: Scrolling keeps a shown handle inside the pane
+
+- **GIVEN** a page holding a table whose column handle is being shown
+- **WHEN** the user scrolls the pane
+- **THEN** the handle is still inside the pane's visible box, and the page's Markdown is unchanged
+
+#### Scenario: The nudge is a position, not content
+
+- **GIVEN** a page holding a table at the pane's top edge
+- **WHEN** the page is saved
+- **THEN** the Markdown holds the table exactly as it did, and the page is not written at all if nothing was edited
+
 ### Requirement: The space below the last block belongs to the page
 The editor's editable surface SHALL fill the pane's height, so that the empty space below a page's last block is part of the document rather than dead background. A click in that space SHALL place the caret at the end of the document, and the next keystroke SHALL continue the page there. The click SHALL NOT create a block, SHALL NOT change the document's Markdown, and SHALL NOT open a reference or any other target. On a page whose content is taller than the pane, the surface SHALL grow with the content as it does now, so nothing about scrolling changes. The surface SHALL NOT grow upward: the first block's start line, the document's readable column width, the line-number gutter, and an empty page's placeholder SHALL be unaffected, except that a table which begins the page SHALL carry the margin its column handle needs to stay inside the pane ("A table that begins a page keeps room for its controls"). A page whose last block is a table SHALL keep a continuation paragraph after it, exactly as a page ending in a code block does, so a click below the table places the caret in that paragraph rather than inside a cell; that paragraph SHALL NOT be written to the page's file.
 

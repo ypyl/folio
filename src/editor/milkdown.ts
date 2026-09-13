@@ -20,6 +20,7 @@ import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { tableRenderButton, tableSlice } from './tableSetup'
 import { tableCellCaret } from './tableCellCaret'
+import { keepTableHandlesInThePane } from './tableHandleClamp'
 import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
@@ -68,6 +69,10 @@ export class MilkdownAdapter implements EditorAdapter {
   // adapter intercepts before the editor's own keymaps see it.
   private keyRoot: HTMLElement | null = null
   private keyHandler: ((event: KeyboardEvent) => void) | null = null
+  // A table's handles inside the pane (keep-table-handles-in-the-pane): the
+  // component places them above the row or cell they belong to, which the pane's
+  // box can clip when the table sits at its top edge.
+  private handleClamp: (() => void) | null = null
 
   /** Mount the editor into `el`. The element must stay in the document for
    *  the editor's lifetime. If `destroy()` was called while `create()` was
@@ -244,6 +249,7 @@ export class MilkdownAdapter implements EditorAdapter {
       if (this.deleteDeletesText()) event.stopPropagation()
     }
     el.addEventListener('keydown', this.keyHandler, true)
+    this.handleClamp = keepTableHandlesInThePane(el)
   }
 
   async destroy(): Promise<void> {
@@ -267,6 +273,8 @@ export class MilkdownAdapter implements EditorAdapter {
     }
     this.keyRoot = null
     this.keyHandler = null
+    this.handleClamp?.()
+    this.handleClamp = null
     this.focusRoot = null
     this.focusHandler = null
     this.lastFocusedWithin = null
