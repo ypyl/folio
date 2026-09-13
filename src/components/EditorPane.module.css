@@ -152,9 +152,16 @@
 
 /* The document's first block starts at the pane's top padding: its own
    top margin (headings carry 24px) would push the title below the outboard
-   columns' content, breaking the shared start line. */
+   columns' content, breaking the shared start line. A table is the one block
+   that keeps a margin: its column handle is placed above its first row, and the
+   pane clips at its top edge, so the table needs that room to keep the handle
+   reachable (DESIGN.md — Tables). */
 .editor :global(.ProseMirror > :first-child) {
   margin-top: 0;
+}
+
+.editor :global(.ProseMirror > .milkdown-table-block:first-child) {
+  margin-top: 16px;
 }
 
 .editor :global(p) {

@@ -224,6 +224,12 @@ marks, so a table whose cells all hold text keeps row rules only. It is a hint
 for an empty cell — the same kind of device as the empty-page placeholder — not
 the table's resting style.
 
+A table that begins a page keeps a 16px top margin, where every other first
+block has its top margin zeroed. The table's column handle is drawn above its
+first row, and the pane clips at its top edge, so the table needs that room for
+the handle to be inside the pane and pressable. The room is space, not content:
+nothing about the page's Markdown changes. See `keep-table-handles-reachable`.
+
 ### Keyboard focus
 
 Use a visible `outline` for keyboard focus. Re-verify foreground/background

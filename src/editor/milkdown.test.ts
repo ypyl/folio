@@ -1512,6 +1512,22 @@ describe('MilkdownAdapter (smoke)', () => {
       el.remove()
     })
 
+    // A table that begins a page carries the room its column handle needs
+    // (keep-table-handles-reachable, design D3): the stylesheet keys on the block
+    // being the editable root's first child, which is Milkdown's DOM rather than
+    // ours, so the shape is pinned here.
+    it('makes a table the editable root first child only when the page begins with it', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      const rootOf = () => el.querySelector('.ProseMirror')
+      const leadingBlock = () =>
+        rootOf()?.firstElementChild?.classList.contains('milkdown-table-block')
+      expect(leadingBlock()).toBe(true)
+      await adapter.setContent(['text', '', '| a | b |', '| - | - |', '| 1 | 2 |', ''].join('\n'))
+      expect(leadingBlock()).toBe(false)
+      await adapter.destroy()
+      el.remove()
+    })
+
     // 2.8: a table is one block to the gutter, however many lines it spans.
     it('numbers a table once, at its first line', async () => {
       const { adapter, el } = await mountTable(
