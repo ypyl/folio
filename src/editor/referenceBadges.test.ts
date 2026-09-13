@@ -84,7 +84,7 @@ describe('createReferencePlugin', () => {
     expect(plugin.getState(state)).toBe(before)
   })
 
-  it('reports the target when a click lands inside a reference', () => {
+  it('reports the target when a click lands on a reference badge', () => {
     const onActivate = vi.fn()
     const plugin = createReferencePlugin({ onActivate })
     const state = EditorState.create({
@@ -93,11 +93,35 @@ describe('createReferencePlugin', () => {
       plugins: [plugin],
     })
     const view = viewOf(state)
+    const click = (target: Element) => ({ target }) as unknown as MouseEvent
+    const badge = () => {
+      const el = document.createElement('span')
+      el.className = 'ref'
+      return el
+    }
     // The paragraph text starts at 1, so `#Inbox` spans 5..11.
-    expect(plugin.props.handleClick?.call(plugin, view, 7, {} as MouseEvent)).toBe(true)
+    expect(plugin.props.handleClick?.call(plugin, view, 7, click(badge()))).toBe(true)
     expect(onActivate).toHaveBeenCalledWith('Inbox')
     onActivate.mockClear()
-    expect(plugin.props.handleClick?.call(plugin, view, 0, {} as MouseEvent)).toBe(false)
+    expect(plugin.props.handleClick?.call(plugin, view, 0, click(badge()))).toBe(false)
+    expect(onActivate).not.toHaveBeenCalled()
+  })
+
+  it('places the caret for a click past a reference instead of navigating', () => {
+    // The reported bug: a page holding only `#NewPage` navigated away when the
+    // user clicked the end of the line to add content after it. That click
+    // lands on position `to`, exactly where the badge's last character is, so
+    // only the target says which the user meant.
+    const onActivate = vi.fn()
+    const plugin = createReferencePlugin({ onActivate })
+    const state = EditorState.create({
+      schema,
+      doc: doc(para(text('#NewPage'))),
+      plugins: [plugin],
+    })
+    const view = viewOf(state)
+    const paragraph = document.createElement('p')
+    expect(plugin.props.handleClick?.call(plugin, view, 8, { target: paragraph } as unknown as MouseEvent)).toBe(false)
     expect(onActivate).not.toHaveBeenCalled()
   })
 

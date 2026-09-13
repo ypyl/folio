@@ -225,7 +225,16 @@ export function createReferencePlugin(
     },
     props: {
       decorations: (state: EditorState) => referenceKey.getState(state)?.decorations ?? null,
-      handleClick: (view: EditorView, pos: number) => {
+      handleClick: (view: EditorView, pos: number, event: MouseEvent) => {
+        // Only a click on the badge itself opens the reference
+        // (add-reference-badges: "plain-clicks the reference's badge"). The
+        // document position cannot tell the two apart: a click in the space
+        // past a reference — the end of a line that holds nothing else, which
+        // is where a user clicks to continue the page — lands on the same
+        // position as the token's last character, so asking the position alone
+        // navigated away instead of placing the caret.
+        const onBadge = event.target instanceof Element && event.target.closest('.ref') !== null
+        if (!onBadge) return false
         const ref = referenceAt(referenceKey.getState(view.state)?.refs ?? [], pos)
         if (!ref) return false
         options.onActivate?.(ref.target)
