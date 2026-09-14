@@ -20,14 +20,13 @@ async function graphOf(tree: FakeTreeNode): Promise<Graph> {
 const pool = (...names: string[]): PageCandidate[] =>
   names.map((name) => {
     const lower = name.toLowerCase()
-    return { name, path: `${name}.md`, lower, starts: wordStarts(lower) }
+    return { name, path: `pages/${name}.md`, lower, starts: wordStarts(lower) }
   })
 
 describe('candidateNames', () => {
   it('offers one row per resolvable name, in the app page order', async () => {
     const graph = await graphOf({
-      'reading.md': '#reading',
-      'reading list.md': 'x',
+      pages: { 'reading.md': '#reading', 'reading list.md': 'x' },
       journals: { '2026-09-10.md': 'today' },
     })
     const rows = candidateNames(graph, [])
@@ -37,14 +36,14 @@ describe('candidateNames', () => {
   // The pool is the resolution map, so every row must resolve where it says it
   // does: a picker row that resolves elsewhere would insert the wrong link.
   it('offers only names the index resolves to the row path', async () => {
-    const graph = await graphOf({ a: { 'reading.md': 'x' }, 'reading list.md': 'y' })
+    const graph = await graphOf({ pages: { a: { 'reading.md': 'x' }, 'reading list.md': 'y' } })
     for (const row of candidateNames(graph, [])) {
       expect(graph.byName.get(row.lower)).toBe(row.path)
     }
   })
 
   it('yields one row for a case collision, matching the index resolution', async () => {
-    const graph = await graphOf({ 'Reading.md': 'x', 'reading.md': 'y' })
+    const graph = await graphOf({ pages: { 'Reading.md': 'x', 'reading.md': 'y' } })
     const rows = candidateNames(graph, [])
     expect(rows).toHaveLength(1)
     expect(rows[0].path).toBe(graph.byName.get('reading'))
@@ -63,13 +62,13 @@ describe('candidateNames', () => {
   })
 
   it('drops names that no reference token can express', async () => {
-    const graph = await graphOf({ 'weird]name.md': 'x', 'fine.md': 'y' })
+    const graph = await graphOf({ pages: { 'weird]name.md': 'x', 'fine.md': 'y' } })
     expect(candidateNames(graph, []).map((row) => row.name)).toEqual(['fine'])
   })
 
   it('leads with pinned pages', async () => {
-    const graph = await graphOf({ 'a.md': 'x', 'b.md': 'y' })
-    const rows = candidateNames(graph, ['b.md'])
+    const graph = await graphOf({ pages: { 'a.md': 'x', 'b.md': 'y' } })
+    const rows = candidateNames(graph, ['pages/b.md'])
     expect(rows.map((row) => row.name)).toEqual(['b', 'a'])
   })
 })
@@ -91,13 +90,13 @@ describe('suggestPages', () => {
 
   it('matches a word inside a name', () => {
     expect(suggestPages('list', pool('reading list'))).toEqual([
-      { name: 'reading list', path: 'reading list.md', match: [8, 12] },
+      { name: 'reading list', path: 'pages/reading list.md', match: [8, 12] },
     ])
   })
 
   it('matches the hyphen boundary in a journal date', () => {
     expect(suggestPages('09', pool('2026-09-10'))).toEqual([
-      { name: '2026-09-10', path: '2026-09-10.md', match: [5, 7] },
+      { name: '2026-09-10', path: 'pages/2026-09-10.md', match: [5, 7] },
     ])
   })
 

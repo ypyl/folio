@@ -133,13 +133,13 @@ function App() {
   }, [handleSelect])
 
   // Opening a reference badge (add-reference-badges): resolve the name exactly
-  // as the Forwardlinks panel does — the existing page, else a blank page at
-  // `name.md` that materializes on first save — skip a link back to the open
+  // as the Forwardlinks panel does — the existing page, else a blank page under
+  // `pages/` that materializes on first save — skip a link back to the open
   // page, and route through handleSelect. Resolution stays here, never in the
   // editor (ADR-0010).
   const handleOpenReference = (target: string) => {
     if (!graph) return
-    const path = graph.byName.get(target.toLowerCase()) ?? `${target}.md`
+    const path = graph.byName.get(target.toLowerCase()) ?? `pages/${target}.md`
     if (path === activePath) return
     handleSelect(path)
   }
@@ -350,10 +350,10 @@ function App() {
                 const p = graph.pages.get(targetPath)
                 return p ? { title: p.title, path: targetPath, materialized: true } : null
               }
-              // No page matches the reference: it is unmaterialized. Root pages
-              // materialize as `name.md`, preserving any directory part in
+              // No page matches the reference: it is unmaterialized. Pages
+              // materialize under `pages/`, preserving any directory part in
               // bracketed names.
-              return { title: l.target, path: `${l.target}.md`, materialized: false }
+              return { title: l.target, path: `pages/${l.target}.md`, materialized: false }
             })
             .filter(
               (r): r is LinkRow =>

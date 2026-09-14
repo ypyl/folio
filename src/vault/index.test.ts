@@ -5,8 +5,10 @@ import {
   buildIndex,
   isPagePath,
   journalDate,
+  kindOf,
   orderPages,
   parsePins,
+  stem,
   upsertPage,
   upsertPins,
   type IndexPage,
@@ -16,69 +18,103 @@ function vault(tree: FakeDirectoryHandle): FileSystemVaultStorage {
   return new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
 }
 
-describe('isPagePath (scan scope, design D4)', () => {
-  it('accepts lowercase and upper-case .md files', () => {
-    expect(isPagePath('a.md')).toBe(true)
-    expect(isPagePath('dir/NOTES.MD')).toBe(true)
+/** Walk a nested fake tree to a file handle, so tests can poke a page's file. */
+function fileOf(root: FakeDirectoryHandle, path: string): FakeFileHandle {
+  const segments = path.split('/')
+  let dir = root
+  for (const segment of segments.slice(0, -1)) {
+    dir = dir.children.get(segment) as FakeDirectoryHandle
+  }
+  return dir.children.get(segments[segments.length - 1]) as FakeFileHandle
+}
+
+describe('isPagePath (scan scope, pages-folder-layout design D2)', () => {
+  it('accepts pages/ and journals/ markdown files', () => {
+    expect(isPagePath('pages/a.md')).toBe(true)
+    expect(isPagePath('journals/2026-09-02.md')).toBe(true)
+  })
+
+  it('accepts upper-case extensions', () => {
+    expect(isPagePath('pages/NOTES.MD')).toBe(true)
+    expect(isPagePath('journals/2026-09-02.MD')).toBe(true)
   })
 
   it('rejects non-markdown files', () => {
-    expect(isPagePath('image.png')).toBe(false)
-    expect(isPagePath('notes.txt')).toBe(false)
-    expect(isPagePath('README')).toBe(false)
+    expect(isPagePath('pages/image.png')).toBe(false)
+    expect(isPagePath('pages/notes.txt')).toBe(false)
+    expect(isPagePath('pages/README')).toBe(false)
+  })
+
+  it('rejects markdown outside pages/ and journals/', () => {
+    expect(isPagePath('Welcome.md')).toBe(false)
+    expect(isPagePath('notes/random.md')).toBe(false)
+    expect(isPagePath('assets/notes.md')).toBe(false)
+    expect(isPagePath('Assets/notes.md')).toBe(false)
+    expect(isPagePath('journals.md')).toBe(false)
+    expect(isPagePath('pages.md')).toBe(false)
   })
 
   it('rejects hidden paths at any depth', () => {
-    expect(isPagePath('.hidden.md')).toBe(false)
+    expect(isPagePath('pages/.hidden.md')).toBe(false)
+    expect(isPagePath('pages/.spot/x.md')).toBe(false)
+    expect(isPagePath('.folio/pins.md')).toBe(false)
     expect(isPagePath('.obsidian/plugins/x.md')).toBe(false)
-    expect(isPagePath('dir/.spot.md')).toBe(false)
+  })
+})
+
+describe('page name and kind (pages-folder-layout)', () => {
+  it('stems a pages/ path to its filename', () => {
+    expect(stem('pages/MyPage.md')).toBe('MyPage')
   })
 
-  it('rejects the assets folder at any case', () => {
-    expect(isPagePath('assets/notes.md')).toBe(false)
-    expect(isPagePath('Assets/notes.md')).toBe(false)
-    expect(isPagePath('assets/nested/x.md')).toBe(false)
-  })
-
-  it('a page named assets at root still scans', () => {
-    expect(isPagePath('assets.md')).toBe(true)
+  it('classifies pages/ paths as pages and journals/ paths as journals', () => {
+    expect(kindOf('pages/MyPage.md')).toBe('page')
+    expect(kindOf('journals/2026-09-02.md')).toBe('journal')
   })
 })
 
 describe('buildIndex', () => {
-  it('indexes every markdown page with path, title, kind, and content', async () => {
+  it('indexes pages/ and journals/ markdown with path, title, kind, and content', async () => {
     const tree = buildTree({
-      'Welcome.md': '# Welcome',
-      projects: { 'ideas.md': 'an idea' },
-      'NOTES.MD': 'upper',
-      'draft.v2.md': 'multi-dot',
+      pages: {
+        'Welcome.md': '# Welcome',
+        projects: { 'ideas.md': 'an idea' },
+        'NOTES.MD': 'upper',
+        'draft.v2.md': 'multi-dot',
+        'journals.md': 'not a journal',
+        'image.png': 'png',
+      },
       journals: { '2026-09-02.md': 'daily' },
-      'journals.md': 'not a journal',
-      'image.png': 'png',
       '.obsidian': { plugins: { 'x.md': 'hidden' } },
     })
     const index = await buildIndex(vault(tree))
 
     expect([...index.graph.pages.keys()]).toEqual([
-      'NOTES.MD',
-      'Welcome.md',
-      'draft.v2.md',
-      'journals.md',
       'journals/2026-09-02.md',
-      'projects/ideas.md',
+      'pages/NOTES.MD',
+      'pages/Welcome.md',
+      'pages/draft.v2.md',
+      'pages/journals.md',
+      'pages/projects/ideas.md',
     ])
-    expect(index.graph.pages.get('draft.v2.md')!.title).toBe('draft.v2')
-    expect(index.graph.pages.get('NOTES.MD')!.title).toBe('NOTES')
-    expect(index.graph.pages.get('projects/ideas.md')!.content).toBe('an idea')
+    expect(index.graph.pages.get('pages/draft.v2.md')!.title).toBe('draft.v2')
+    expect(index.graph.pages.get('pages/NOTES.MD')!.title).toBe('NOTES')
+    expect(index.graph.pages.get('pages/projects/ideas.md')!.content).toBe('an idea')
     expect(index.graph.pages.get('journals/2026-09-02.md')!.kind).toBe('journal')
-    expect(index.graph.pages.get('journals.md')!.kind).toBe('page')
-    expect(index.graph.pages.get('Welcome.md')!.kind).toBe('page')
+    expect(index.graph.pages.get('pages/journals.md')!.kind).toBe('page')
+    expect(index.graph.pages.get('pages/Welcome.md')!.kind).toBe('page')
+  })
+
+  it('ignores root-level markdown files', async () => {
+    const tree = buildTree({ 'Welcome.md': 'root', pages: { 'Real.md': 'page' } })
+    const index = await buildIndex(vault(tree))
+    expect([...index.graph.pages.keys()]).toEqual(['pages/Real.md'])
   })
 
   it('extracts outgoing links per page', async () => {
-    const tree = buildTree({ 'a.md': 'see #Inbox and #[[reading list]]' })
+    const tree = buildTree({ pages: { 'a.md': 'see #Inbox and #[[reading list]]' } })
     const index = await buildIndex(vault(tree))
-    expect(index.graph.pages.get('a.md')!.links).toEqual([
+    expect(index.graph.pages.get('pages/a.md')!.links).toEqual([
       { target: 'Inbox', via: 'word' },
       { target: 'reading list', via: 'bracketed' },
     ])
@@ -86,45 +122,51 @@ describe('buildIndex', () => {
 
   it('resolves references case-insensitively through byName', async () => {
     const tree = buildTree({
-      'Folio.md': '#Welcome #FOLIO',
-      'Welcome.md': 'hi',
+      pages: {
+        'Folio.md': '#Welcome #FOLIO',
+        'Welcome.md': 'hi',
+      },
     })
     const index = await buildIndex(vault(tree))
-    expect(index.graph.byName.get('folio')).toBe('Folio.md')
-    expect(index.graph.pages.get('Folio.md')!.links[1]).toEqual({
+    expect(index.graph.byName.get('folio')).toBe('pages/Folio.md')
+    expect(index.graph.pages.get('pages/Folio.md')!.links[1]).toEqual({
       target: 'FOLIO',
       via: 'word',
     })
   })
 
   it('keeps references to pages that do not exist', async () => {
-    const tree = buildTree({ 'a.md': '#[[feature roadmap]]' })
+    const tree = buildTree({ pages: { 'a.md': '#[[feature roadmap]]' } })
     const index = await buildIndex(vault(tree))
-    expect(index.graph.pages.get('a.md')!.links).toEqual([
+    expect(index.graph.pages.get('pages/a.md')!.links).toEqual([
       { target: 'feature roadmap', via: 'bracketed' },
     ])
   })
 
   it('picks the first-by-path page for case-only collisions', async () => {
-    const tree = buildTree({ 'project.md': 'see #Project', 'Project.md': '#project' })
+    const tree = buildTree({
+      pages: { 'project.md': 'see #Project', 'Project.md': '#project' },
+    })
     const index = await buildIndex(vault(tree))
     // 'Project.md' sorts before 'project.md' (ASCII), so it wins resolution.
-    expect(index.graph.byName.get('project')).toBe('Project.md')
+    expect(index.graph.byName.get('project')).toBe('pages/Project.md')
     // project.md -> #Project resolves to Project.md: a real backlink.
-    expect(index.graph.backlinks.get('project')).toEqual(['project.md'])
+    expect(index.graph.backlinks.get('project')).toEqual(['pages/project.md'])
     // Project.md -> #project is a self-link: absent from backlinks.
   })
 
   it('folds backlinks across every lexical form and excludes self-links', async () => {
     const tree = buildTree({
-      'a.md': '#Topic',
-      'b.md': '#[[Topic]]',
-      'Topic.md': '#Topic #ideas',
+      pages: {
+        'a.md': '#Topic',
+        'b.md': '#[[Topic]]',
+        'Topic.md': '#Topic #ideas',
+      },
     })
     const index = await buildIndex(vault(tree))
-    expect(index.graph.backlinks.get('topic')).toEqual(['a.md', 'b.md'])
-    expect(index.graph.backlinks.get('ideas')).toEqual(['Topic.md'])
-    expect(index.graph.pages.get('Topic.md')!.links).toEqual([
+    expect(index.graph.backlinks.get('topic')).toEqual(['pages/a.md', 'pages/b.md'])
+    expect(index.graph.backlinks.get('ideas')).toEqual(['pages/Topic.md'])
+    expect(index.graph.pages.get('pages/Topic.md')!.links).toEqual([
       { target: 'Topic', via: 'word' },
       { target: 'ideas', via: 'word' },
     ])
@@ -134,17 +176,20 @@ describe('buildIndex', () => {
 describe('parsePins (pins meta file, design D1)', () => {
   it('keeps the ordered page paths from a real pins file', () => {
     const content =
-      '# Pinned pages - order is pin order, most recent first\n\n- b.md\n- a.md\n- projects/roadmap.md\n'
-    expect(parsePins(content)).toEqual(['b.md', 'a.md', 'projects/roadmap.md'])
+      '# Pinned pages - order is pin order, most recent first\n\n- pages/b.md\n- pages/a.md\n- pages/projects/roadmap.md\n'
+    expect(parsePins(content)).toEqual(['pages/b.md', 'pages/a.md', 'pages/projects/roadmap.md'])
   })
 
   it('accepts bare-path hand-edited lines', () => {
-    expect(parsePins('- Ideas.md\nnotes.md\n')).toEqual(['Ideas.md', 'notes.md'])
+    expect(parsePins('- pages/Ideas.md\npages/notes.md\n')).toEqual([
+      'pages/Ideas.md',
+      'pages/notes.md',
+    ])
   })
 
-  it('ignores junk and non-page lines but preserves order', () => {
-    expect(parsePins('\n# a comment\n- Ideas.md\nwhat is this\n\n- assets/x.md\n')).toEqual([
-      'Ideas.md',
+  it('ignores junk and out-of-scope lines but preserves order', () => {
+    expect(parsePins('\n# a comment\n- pages/Ideas.md\nwhat is this\n\n- assets/x.md\n')).toEqual([
+      'pages/Ideas.md',
     ])
   })
 
@@ -161,23 +206,25 @@ describe('parsePins (pins meta file, design D1)', () => {
 describe('pins in the index (design D1/D3)', () => {
   it('reads the meta file into pins and never as a page', async () => {
     const tree = buildTree({
-      'a.md': 'a',
-      'b.md': 'b',
-      '.folio': { 'pins.md': '# Pinned pages\n\n- b.md\n- a.md\n' },
+      pages: { 'a.md': 'a', 'b.md': 'b' },
+      '.folio': { 'pins.md': '# Pinned pages\n\n- pages/b.md\n- pages/a.md\n' },
     })
     const index = await buildIndex(vault(tree))
-    expect(index.pins).toEqual(['b.md', 'a.md'])
+    expect(index.pins).toEqual(['pages/b.md', 'pages/a.md'])
     expect(index.graph.pages.has('.folio/pins.md')).toBe(false)
     expect(index.snapshot.get('.folio/pins.md')).toBeGreaterThan(0)
   })
 
   it('a missing meta file means no pins', async () => {
-    const index = await buildIndex(vault(buildTree({ 'a.md': 'a' })))
+    const index = await buildIndex(vault(buildTree({ pages: { 'a.md': 'a' } })))
     expect(index.pins).toEqual([])
   })
 
   it('carries pins by identity when the meta file is unchanged', async () => {
-    const tree = buildTree({ 'a.md': 'a', '.folio': { 'pins.md': '- a.md\n' } })
+    const tree = buildTree({
+      pages: { 'a.md': 'a' },
+      '.folio': { 'pins.md': '- pages/a.md\n' },
+    })
     const storage = vault(tree)
     const first = await buildIndex(storage)
     const second = await buildIndex(storage, first)
@@ -185,35 +232,41 @@ describe('pins in the index (design D1/D3)', () => {
   })
 
   it('picks up an external edit to the meta file on refresh', async () => {
-    const root = buildTree({ 'a.md': 'a', 'b.md': 'b', '.folio': { 'pins.md': '- a.md\n' } })
+    const root = buildTree({
+      pages: { 'a.md': 'a', 'b.md': 'b' },
+      '.folio': { 'pins.md': '- pages/a.md\n' },
+    })
     const storage = vault(root)
     const first = await buildIndex(storage)
     const pinsFile = (root.children.get('.folio') as FakeDirectoryHandle).children.get(
       'pins.md',
     ) as FakeFileHandle
-    await pinsFile.writeContent('- b.md\n- a.md\n')
+    await pinsFile.writeContent('- pages/b.md\n- pages/a.md\n')
     const second = await buildIndex(storage, first)
-    expect(second.pins).toEqual(['b.md', 'a.md'])
+    expect(second.pins).toEqual(['pages/b.md', 'pages/a.md'])
   })
 
   it('upserts pins through to disk and heals the snapshot', async () => {
-    const tree = buildTree({ 'a.md': 'a', 'b.md': 'b' })
+    const tree = buildTree({ pages: { 'a.md': 'a', 'b.md': 'b' } })
     const storage = vault(tree)
     const first = await buildIndex(storage)
     expect(first.pins).toEqual([])
 
-    const next = await upsertPins(storage, first, ['b.md', 'a.md'])
-    expect(next.pins).toEqual(['b.md', 'a.md'])
-    expect(await storage.read('.folio/pins.md')).toContain('- b.md')
+    const next = await upsertPins(storage, first, ['pages/b.md', 'pages/a.md'])
+    expect(next.pins).toEqual(['pages/b.md', 'pages/a.md'])
+    expect(await storage.read('.folio/pins.md')).toContain('- pages/b.md')
     // Snapshot healed: the next refresh carries pins by identity.
     const refreshed = await buildIndex(storage, next)
     expect(refreshed.pins).toBe(next.pins)
     // A pin edit never disturbs page records.
-    expect(refreshed.graph.pages.get('a.md')).toBe(first.graph.pages.get('a.md'))
+    expect(refreshed.graph.pages.get('pages/a.md')).toBe(first.graph.pages.get('pages/a.md'))
   })
 
   it('a failed pin write leaves the pins and the file unchanged', async () => {
-    const root = buildTree({ 'a.md': 'a', '.folio': { 'pins.md': '- a.md\n' } })
+    const root = buildTree({
+      pages: { 'a.md': 'a' },
+      '.folio': { 'pins.md': '- pages/a.md\n' },
+    })
     const storage = vault(root)
     const first = await buildIndex(storage)
     const pinsFile = (root.children.get('.folio') as FakeDirectoryHandle).children.get(
@@ -223,46 +276,50 @@ describe('pins in the index (design D1/D3)', () => {
       throw new DOMException('denied', 'SecurityError')
     }
     await expect(upsertPins(storage, first, [])).rejects.toThrow('denied')
-    expect(first.pins).toEqual(['a.md'])
-    expect(await storage.read('.folio/pins.md')).toContain('- a.md')
+    expect(first.pins).toEqual(['pages/a.md'])
+    expect(await storage.read('.folio/pins.md')).toContain('- pages/a.md')
   })
 
   it('a saved page preserves the pins list', async () => {
-    const tree = buildTree({ 'a.md': 'v1', '.folio': { 'pins.md': '- a.md\n' } })
+    const tree = buildTree({
+      pages: { 'a.md': 'v1' },
+      '.folio': { 'pins.md': '- pages/a.md\n' },
+    })
     const storage = vault(tree)
     const first = await buildIndex(storage)
-    const saved = await upsertPage(storage, first, 'a.md', 'v2')
-    expect(saved.pins).toEqual(['a.md'])
+    const saved = await upsertPage(storage, first, 'pages/a.md', 'v2')
+    expect(saved.pins).toEqual(['pages/a.md'])
   })
 })
 
 describe('page last-modified time (add-pinned-pages)', () => {
-  const fileOf = (tree: ReturnType<typeof buildTree>, path: string): FakeFileHandle =>
-    tree.children.get(path) as FakeFileHandle
-
   it('a scanned page carries the file lastModified', async () => {
-    const tree = buildTree({ 'a.md': 'v1' })
+    const tree = buildTree({ pages: { 'a.md': 'v1' } })
     const index = await buildIndex(vault(tree))
-    expect(index.graph.pages.get('a.md')!.lastModified).toBe(fileOf(tree, 'a.md').lastModified)
+    expect(index.graph.pages.get('pages/a.md')!.lastModified).toBe(
+      fileOf(tree, 'pages/a.md').lastModified,
+    )
   })
 
   it('an upserted page carries the post-write lastModified', async () => {
-    const tree = buildTree({ 'a.md': 'v1' })
+    const tree = buildTree({ pages: { 'a.md': 'v1' } })
     const storage = vault(tree)
     const first = await buildIndex(storage)
-    const saved = await upsertPage(storage, first, 'a.md', 'v2')
-    expect(saved.graph.pages.get('a.md')!.lastModified).toBe(fileOf(tree, 'a.md').lastModified)
+    const saved = await upsertPage(storage, first, 'pages/a.md', 'v2')
+    expect(saved.graph.pages.get('pages/a.md')!.lastModified).toBe(
+      fileOf(tree, 'pages/a.md').lastModified,
+    )
   })
 
   it('a carried page preserves its lastModified by identity', async () => {
-    const tree = buildTree({ 'a.md': 'v1' })
+    const tree = buildTree({ pages: { 'a.md': 'v1' } })
     const storage = vault(tree)
     const first = await buildIndex(storage)
     const second = await buildIndex(storage, first)
-    expect(second.graph.pages.get('a.md')!.lastModified).toBe(
-      first.graph.pages.get('a.md')!.lastModified,
+    expect(second.graph.pages.get('pages/a.md')!.lastModified).toBe(
+      first.graph.pages.get('pages/a.md')!.lastModified,
     )
-    expect(second.graph.pages.get('a.md')).toBe(first.graph.pages.get('a.md'))
+    expect(second.graph.pages.get('pages/a.md')).toBe(first.graph.pages.get('pages/a.md'))
   })
 })
 
@@ -277,146 +334,167 @@ describe('orderPages (sidebar list order, design D5)', () => {
   })
 
   it('pins first in pin order, then the rest by last-modified descending', () => {
-    const a = mk('a.md', 1)
-    const b = mk('b.md', 2)
-    const c = mk('c.md', 3)
-    expect(orderPages([a, b, c], ['b.md']).map((p) => p.path)).toEqual(['b.md', 'c.md', 'a.md'])
+    const a = mk('pages/a.md', 1)
+    const b = mk('pages/b.md', 2)
+    const c = mk('pages/c.md', 3)
+    expect(orderPages([a, b, c], ['pages/b.md']).map((p) => p.path)).toEqual([
+      'pages/b.md',
+      'pages/c.md',
+      'pages/a.md',
+    ])
   })
 
   it('pin-file order wins over mtime among pinned pages', () => {
-    const a = mk('a.md', 1)
-    const c = mk('c.md', 3)
-    expect(orderPages([a, c], ['a.md', 'c.md']).map((p) => p.path)).toEqual(['a.md', 'c.md'])
+    const a = mk('pages/a.md', 1)
+    const c = mk('pages/c.md', 3)
+    expect(orderPages([a, c], ['pages/a.md', 'pages/c.md']).map((p) => p.path)).toEqual([
+      'pages/a.md',
+      'pages/c.md',
+    ])
   })
 
   it('equal mtimes break by path ascending', () => {
-    const a = mk('a.md', 5)
-    const b = mk('b.md', 5)
-    const c = mk('c.md', 5)
-    expect(orderPages([c, a, b], []).map((p) => p.path)).toEqual(['a.md', 'b.md', 'c.md'])
+    const a = mk('pages/a.md', 5)
+    const b = mk('pages/b.md', 5)
+    const c = mk('pages/c.md', 5)
+    expect(orderPages([c, a, b], []).map((p) => p.path)).toEqual([
+      'pages/a.md',
+      'pages/b.md',
+      'pages/c.md',
+    ])
   })
 
   it('empty pins falls back to pure edit order', () => {
-    const a = mk('a.md', 1)
-    const b = mk('b.md', 2)
-    const c = mk('c.md', 3)
-    expect(orderPages([a, b, c], []).map((p) => p.path)).toEqual(['c.md', 'b.md', 'a.md'])
+    const a = mk('pages/a.md', 1)
+    const b = mk('pages/b.md', 2)
+    const c = mk('pages/c.md', 3)
+    expect(orderPages([a, b, c], []).map((p) => p.path)).toEqual([
+      'pages/c.md',
+      'pages/b.md',
+      'pages/a.md',
+    ])
   })
 
   it('skips pins naming no page in the set (self-healing)', () => {
-    const a = mk('a.md', 1)
-    const b = mk('b.md', 2)
-    expect(orderPages([a, b], ['missing.md', 'a.md']).map((p) => p.path)).toEqual(['a.md', 'b.md'])
+    const a = mk('pages/a.md', 1)
+    const b = mk('pages/b.md', 2)
+    expect(orderPages([a, b], ['pages/missing.md', 'pages/a.md']).map((p) => p.path)).toEqual([
+      'pages/a.md',
+      'pages/b.md',
+    ])
   })
 })
 
 describe('buildIndex (diff-rescan)', () => {
   it('carries unchanged pages over without re-reading (object identity)', async () => {
-    const tree = buildTree({ 'Ideas.md': 'v1 #One', 'Other.md': 'still' })
+    const tree = buildTree({ pages: { 'Ideas.md': 'v1 #One', 'Other.md': 'still' } })
     const storage = vault(tree)
     const first = await buildIndex(storage)
     const second = await buildIndex(storage, first)
-    expect(second.graph.pages.get('Other.md')).toBe(first.graph.pages.get('Other.md'))
-    expect(second.graph.pages.get('Ideas.md')).toBe(first.graph.pages.get('Ideas.md'))
+    expect(second.graph.pages.get('pages/Other.md')).toBe(first.graph.pages.get('pages/Other.md'))
+    expect(second.graph.pages.get('pages/Ideas.md')).toBe(first.graph.pages.get('pages/Ideas.md'))
   })
 
   it('picks up a file added externally', async () => {
-    const root = buildTree({ 'Ideas.md': 'v1 #One' })
+    const root = buildTree({ pages: { 'Ideas.md': 'v1 #One' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
-    root.children.set('New.md', new FakeFileHandle('New.md', 'hello #Two'))
+    ;(root.children.get('pages') as FakeDirectoryHandle).children.set(
+      'New.md',
+      new FakeFileHandle('New.md', 'hello #Two'),
+    )
     const second = await buildIndex(storage, first)
-    expect(second.graph.pages.has('New.md')).toBe(true)
-    expect(second.graph.backlinks.get('two')).toEqual(['New.md'])
+    expect(second.graph.pages.has('pages/New.md')).toBe(true)
+    expect(second.graph.backlinks.get('two')).toEqual(['pages/New.md'])
   })
 
   it('updates links and backlinks for a file modified externally', async () => {
-    const root = buildTree({ 'Ideas.md': 'v1 #One', 'Other.md': 'still' })
+    const root = buildTree({ pages: { 'Ideas.md': 'v1 #One', 'Other.md': 'still' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
-    const ideas = root.children.get('Ideas.md') as FakeFileHandle
+    const ideas = fileOf(root, 'pages/Ideas.md')
     await ideas.writeContent('v2 #One #Three')
     const second = await buildIndex(storage, first)
-    const page = second.graph.pages.get('Ideas.md')!
+    const page = second.graph.pages.get('pages/Ideas.md')!
     expect(page.content).toBe('v2 #One #Three')
     expect(page.links).toEqual([
       { target: 'One', via: 'word' },
       { target: 'Three', via: 'word' },
     ])
-    expect(second.graph.backlinks.get('three')).toEqual(['Ideas.md'])
+    expect(second.graph.backlinks.get('three')).toEqual(['pages/Ideas.md'])
     // Unchanged file still carried over by identity.
-    expect(second.graph.pages.get('Other.md')).toBe(first.graph.pages.get('Other.md'))
+    expect(second.graph.pages.get('pages/Other.md')).toBe(first.graph.pages.get('pages/Other.md'))
   })
 
   it('drops a file removed externally', async () => {
-    const root = buildTree({ 'Ideas.md': 'v1', 'Other.md': 'still' })
+    const root = buildTree({ pages: { 'Ideas.md': 'v1', 'Other.md': 'still' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
-    root.children.delete('Other.md')
+    ;(root.children.get('pages') as FakeDirectoryHandle).children.delete('Other.md')
     const second = await buildIndex(storage, first)
-    expect(second.graph.pages.has('Other.md')).toBe(false)
-    expect(second.graph.pages.has('Ideas.md')).toBe(true)
+    expect(second.graph.pages.has('pages/Other.md')).toBe(false)
+    expect(second.graph.pages.has('pages/Ideas.md')).toBe(true)
   })
 
   it('ignores asset files on refresh (scenario: asset write disturbs nothing)', async () => {
-    const root = buildTree({ 'Ideas.md': 'v1 #One' })
+    const root = buildTree({ pages: { 'Ideas.md': 'v1 #One' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
     // An asset lands under assets/ (the drop-copy flow) — no page appears.
     await storage.writeBinary('assets/notes.md', new Blob(['not a page']))
     const second = await buildIndex(storage, first)
     expect(second.graph.pages.has('assets/notes.md')).toBe(false)
-    expect(second.graph.pages.has('Ideas.md')).toBe(true)
+    expect(second.graph.pages.has('pages/Ideas.md')).toBe(true)
   })
 
   it('upserts a saved page into the index immediately (B1)', async () => {
-    const root = buildTree({ 'a.md': 'v1 #One', 'b.md': 'see #Two' })
+    const root = buildTree({ pages: { 'a.md': 'v1 #One', 'b.md': 'see #Two' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
-    const second = await upsertPage(storage, first, 'a.md', 'v2 #One #New')
-    const page = second.graph.pages.get('a.md')!
+    const second = await upsertPage(storage, first, 'pages/a.md', 'v2 #One #New')
+    const page = second.graph.pages.get('pages/a.md')!
     expect(page.content).toBe('v2 #One #New')
     expect(page.links).toEqual([
       { target: 'One', via: 'word' },
       { target: 'New', via: 'word' },
     ])
     // Unchanged pages carried over by identity.
-    expect(second.graph.pages.get('b.md')).toBe(first.graph.pages.get('b.md'))
+    expect(second.graph.pages.get('pages/b.md')).toBe(first.graph.pages.get('pages/b.md'))
   })
 
   it('re-derives backlinks from the saved edit', async () => {
-    const root = buildTree({ 'a.md': 'see #Old', 'b.md': 'other #Old' })
+    const root = buildTree({ pages: { 'a.md': 'see #Old', 'b.md': 'other #Old' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
-    const second = await upsertPage(storage, first, 'a.md', 'see #New')
-    expect(second.graph.backlinks.get('old')).toEqual(['b.md'])
-    expect(second.graph.backlinks.get('new')).toEqual(['a.md'])
+    const second = await upsertPage(storage, first, 'pages/a.md', 'see #New')
+    expect(second.graph.backlinks.get('old')).toEqual(['pages/b.md'])
+    expect(second.graph.backlinks.get('new')).toEqual(['pages/a.md'])
   })
 
   it('heals the snapshot so the next refresh skips the written file', async () => {
-    const root = buildTree({ 'a.md': 'v1' })
+    const root = buildTree({ pages: { 'a.md': 'v1' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
-    const saved = await upsertPage(storage, first, 'a.md', 'v2')
+    const saved = await upsertPage(storage, first, 'pages/a.md', 'v2')
     const refreshed = await buildIndex(storage, saved)
     // The refresh carried the upserted page by identity — nothing re-read.
-    expect(refreshed.graph.pages.get('a.md')).toBe(saved.graph.pages.get('a.md'))
-    expect(refreshed.snapshot.get('a.md')).toBe(saved.snapshot.get('a.md'))
+    expect(refreshed.graph.pages.get('pages/a.md')).toBe(saved.graph.pages.get('pages/a.md'))
+    expect(refreshed.snapshot.get('pages/a.md')).toBe(saved.snapshot.get('pages/a.md'))
   })
 
   it('a failed write leaves the index unchanged', async () => {
-    const root = buildTree({ 'a.md': 'v1' })
+    const root = buildTree({ pages: { 'a.md': 'v1' } })
     const storage = vault(root)
     const first = await buildIndex(storage)
-    const failWrite = upsertPage(storage, first, 'a.md', 'v2')
+    const failWrite = upsertPage(storage, first, 'pages/a.md', 'v2')
     // Force the filesystem write to reject by removing the file's writable
     // capability: stub createWritable to throw on the fake.
-    const file = root.children.get('a.md') as FakeFileHandle
+    const file = fileOf(root, 'pages/a.md')
     file.createWritable = async () => {
       throw new DOMException('denied', 'SecurityError')
     }
     await expect(failWrite).rejects.toThrow('denied')
-    expect(first.graph.pages.get('a.md')!.content).toBe('v1')
+    expect(first.graph.pages.get('pages/a.md')!.content).toBe('v1')
   })
 })
 
@@ -431,7 +509,7 @@ describe('journalDate (calendar day derivation, journal-calendar)', () => {
   })
 
   it('returns null for non-journal pages', () => {
-    expect(journalDate('Welcome.md')).toBeNull()
-    expect(journalDate('notes/2026-09-06.md')).toBeNull()
+    expect(journalDate('pages/Welcome.md')).toBeNull()
+    expect(journalDate('pages/notes/2026-09-06.md')).toBeNull()
   })
 })

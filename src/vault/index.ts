@@ -152,11 +152,12 @@ function carryOver(
   return previous.graph.pages.get(path)
 }
 
-/** Scan scope (design D4): `.md` file, no hidden path segment; the assets
- *  folder is referenced, never navigated (asset-drag-drop, design D6). */
+/** Scan scope (pages-folder-layout, design D2): `.md` file under `pages/` or
+ *  `journals/`, no hidden path segment. Root-level and other-directory
+ *  Markdown files are not pages, so `assets/` is unreachable by construction. */
 export function isPagePath(path: string): boolean {
   const lower = path.toLowerCase()
-  if (lower.startsWith('assets/')) return false
+  if (!lower.startsWith('pages/') && !lower.startsWith('journals/')) return false
   if (!lower.endsWith('.md')) return false
   for (const segment of path.split('/')) {
     if (segment.startsWith('.')) return false

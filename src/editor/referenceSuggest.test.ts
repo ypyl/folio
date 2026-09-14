@@ -52,7 +52,11 @@ const paraAt = (content: string, caret: number) => {
   return { doc: d, pos: 1 + caret }
 }
 
-const row = (name: string): Suggestion => ({ name, path: `${name}.md`, match: [0, name.length] })
+const row = (name: string): Suggestion => ({
+  name,
+  path: `pages/${name}.md`,
+  match: [0, name.length],
+})
 
 /** A provider that records the queries it is asked, and returns `rows`. */
 const recorder = (rows: Suggestion[]) => {
@@ -324,8 +328,8 @@ describe('completion popup element', () => {
   it('renders rows beside the editable root, with the match highlighted', () => {
     const { doc: d, pos } = paraAt('See #rea', 8)
     const suggest = (): Suggestion[] => [
-      { name: 'reading', path: 'reading.md', match: [0, 4] },
-      { name: 'reading list', path: 'reading list.md', match: [0, 4] },
+      { name: 'reading', path: 'pages/reading.md', match: [0, 4] },
+      { name: 'reading list', path: 'pages/reading list.md', match: [0, 4] },
     ]
     const { place } = mount(d, pos, suggest)
     const popup = popupOf(place)
@@ -341,7 +345,7 @@ describe('completion popup element', () => {
   it('follows the active row and highlights a word-start match', () => {
     const { doc: d, pos } = paraAt('#[[list', 7)
     const suggest = (): Suggestion[] => [
-      { name: 'reading list', path: 'reading list.md', match: [8, 12] },
+      { name: 'reading list', path: 'pages/reading list.md', match: [8, 12] },
     ]
     const { view, place } = mount(d, pos, suggest)
     expect(rowsOf(place)[0].textContent).toBe('reading list')

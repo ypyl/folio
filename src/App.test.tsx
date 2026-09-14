@@ -95,9 +95,12 @@ const section = (title: string) =>
   within((screen.getByText(title) as HTMLElement).closest('details') as HTMLElement)
 const pagesSection = () => section('Pages')
 
+/** The fixture vault's pages directory: pages live under `pages/`. */
+const pagesDir = (tree: FakeDirectoryHandle) => tree.children.get('pages') as FakeDirectoryHandle
+
 // Test fixture: the former mock-vault content lifted into real .md files
 // (the promised scan/index fixture). 5 pages + 3 journals = 8 files.
-const FIXTURE = {
+const PAGES = {
   'Welcome.md':
     'This is Folio, a lightweight way to work with a folder of Markdown notes.' +
     'The folder is your library; this app is just a window over it.\n\n' +
@@ -116,6 +119,10 @@ const FIXTURE = {
   'Reading.md':
     'A running list of things to read.\n\n' +
     '- Essays on plain text and durable notes\n- Local-first software, why it matters\n\n#reading #[[reading list]]',
+}
+
+const FIXTURE = {
+  pages: PAGES,
   journals: {
     '2026-09-02.md': 'Started a fresh vault. First note: #Welcome.',
     '2026-09-03.md': 'Sketching how backlinks should behave. Added to #Ideas.',
@@ -371,7 +378,7 @@ describe('auto-save (page-editing spec)', () => {
 
     // After the ~1s debounce the file is written and the indicator clears.
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
-    const file = tree.children.get('Welcome.md') as FakeFileHandle
+    const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('edited welcome body')
     vi.unstubAllGlobals()
   })
@@ -412,7 +419,7 @@ describe('auto-save (page-editing spec)', () => {
     const retry = await screen.findByRole('status')
     expect(retry.textContent).toBe('Unsaved changes')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
-    const file = tree.children.get('Welcome.md') as FakeFileHandle
+    const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('second edit')
     vi.unstubAllGlobals()
   })
@@ -546,7 +553,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     // Folio references #architecture (no such file). Clicking the dimmed row
     // opens it as a blank in-memory page; no file is created yet.
     fireEvent.click(await within(meta()).findByRole('button', { name: 'architecture' }))
-    expect(tree.children.get('architecture.md')).toBeUndefined()
+    expect(pagesDir(tree).children.get('architecture.md')).toBeUndefined()
     await waitFor(() => expect(editor().setContents[0]).toBe(''))
 
     // First edit reads as a brand-new page, not an edit to an existing file.
@@ -556,7 +563,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
 
     // The save materializes the file on disk and clears the indicator.
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
-    const file = tree.children.get('architecture.md') as FakeFileHandle
+    const file = pagesDir(tree).children.get('architecture.md') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together')
     vi.unstubAllGlobals()
   })
@@ -641,7 +648,7 @@ describe('folder rail flow', () => {
     expect(within(pane()).queryByRole('heading', { level: 1 })).toBeNull()
     await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
 
-    const home = buildTree({ 'b.md': 'b' })
+    const home = buildTree({ pages: { 'b.md': 'b' } })
     home.name = 'Home'
     vi.stubGlobal(
       'showDirectoryPicker',
@@ -710,7 +717,7 @@ describe('content search over the real index (search spec)', () => {
     fireEvent.change(search, { target: { value: 'backlinks' } })
     await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0))
 
-    const home = buildTree({ 'b.md': 'b' })
+    const home = buildTree({ pages: { 'b.md': 'b' } })
     home.name = 'Home'
     vi.stubGlobal(
       'showDirectoryPicker',
@@ -831,14 +838,14 @@ describe('search results view (search-results-view spec)', () => {
     fireEvent.change(search(), { target: { value: 'folio' } })
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
-    const before = [...tree.children.keys()].sort()
+    const before = [...pagesDir(tree).children.keys()].sort()
     const previous = editor()
     fireEvent.keyDown(pane(), { key: 'Escape' })
     // Escape closes back to the previously open page (the blank today
     // journal), and browsing alone writes nothing to the vault.
     await waitFor(() => expect(editor()).not.toBe(previous))
     expect(editor().setContents[0]).toBe('')
-    expect([...tree.children.keys()].sort()).toEqual(before)
+    expect([...pagesDir(tree).children.keys()].sort()).toEqual(before)
     vi.unstubAllGlobals()
   })
 })
@@ -875,7 +882,7 @@ describe('pinned pages (add-pinned-pages)', () => {
     expect(welcomeRow.getAttribute('data-pinned')).toBe('true')
     expect(welcomeRow.querySelector('svg')).toBeNull() // no icon on the row
     // The pin persists in the vault meta file, not the app.
-    expect(await storage.read('.folio/pins.md')).toContain('- Welcome.md')
+    expect(await storage.read('.folio/pins.md')).toContain('- pages/Welcome.md')
 
     // A journal day disables the toggle again.
     fireEvent.click(screen.getByRole('button', { name: 'September 2, 2026' }))
@@ -924,7 +931,7 @@ describe('reference badges (add-reference-badges)', () => {
     // until the first save (the Forwardlinks rule).
     editor().emitReferenceClick('notes')
     await waitFor(() => expect(editor().setContents[0]).toBe(''))
-    expect(tree.children.get('notes.md')).toBeUndefined()
+    expect(pagesDir(tree).children.get('notes.md')).toBeUndefined()
     vi.unstubAllGlobals()
   })
 
@@ -1080,7 +1087,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
     await waitFor(() => expect(back().disabled).toBe(false))
 
-    const home = buildTree({ 'b.md': 'b' })
+    const home = buildTree({ pages: { 'b.md': 'b' } })
     home.name = 'Home'
     vi.stubGlobal(
       'showDirectoryPicker',
@@ -1102,7 +1109,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     render(<App />)
     const tree = await openFixture()
     const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
-    const before = [...tree.children.keys()].sort()
+    const before = [...pagesDir(tree).children.keys()].sort()
     const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
 
     fireEvent.click(await screen.findByRole('button', { name: 'Folio' }))
@@ -1113,7 +1120,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     await waitFor(() => expect(back().disabled).toBe(false))
 
     expect(write).not.toHaveBeenCalled()
-    expect([...tree.children.keys()].sort()).toEqual(before)
+    expect([...pagesDir(tree).children.keys()].sort()).toEqual(before)
     write.mockRestore()
     vi.unstubAllGlobals()
   })
@@ -1146,7 +1153,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     const todayPath = `journals/${localDayString(today)}.md`
     // Leave today's journal for a page, so the control has to bring it back.
     fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('Welcome.md')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'Today' }))
     await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
