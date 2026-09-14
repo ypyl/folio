@@ -750,6 +750,20 @@ describe('MilkdownAdapter (smoke)', () => {
       await adapter.destroy()
       el.remove()
     })
+
+    // A loose list is one block but several blank-separated Markdown lines, so
+    // its anchors outnumber the document's blocks. The maintained empty line at
+    // the end is not a block the file holds and must take none of them.
+    it('numbers a loose list once and leaves the trailing empty line unnumbered', async () => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const adapter = new MilkdownAdapter()
+      await adapter.mount(el)
+      await adapter.setContent('* a\n\n* b\n\n* c\n')
+      expect(adapter.getBlockLines()).toEqual([1])
+      await adapter.destroy()
+      el.remove()
+    })
   })
 
   it('insertMarkdown inserts text into the document at the selection', async () => {

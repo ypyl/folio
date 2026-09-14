@@ -14,7 +14,7 @@ import {
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
-import type { Slice } from '@milkdown/prose/model'
+import type { Node as ProseNode, Slice } from '@milkdown/prose/model'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
 import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
@@ -399,9 +399,8 @@ export class MilkdownAdapter implements EditorAdapter {
 
   /** The canonical start line of each top-level block, in doc order
    *  (line-numbers, design D1/D2). The shared anchor rule runs over the
-   *  canonical text the adapter already produces; blocks and anchors are
-   *  1:1 in canonical form, so the first N anchors map to the N top-level
-   *  children in order. */
+   *  canonical text the adapter already produces; the first N anchors map to
+   *  the N blocks the file holds, in order. */
   getBlockLines(): number[] {
     const editor = this.editor
     if (!editor) return []
@@ -412,7 +411,7 @@ export class MilkdownAdapter implements EditorAdapter {
       // line 1. Give that first block its number.
       const anchors = blockStartLines(this.latest)
       const lines = anchors.length ? anchors : [1]
-      return lines.slice(0, view.state.doc.childCount)
+      return lines.slice(0, contentBlockCount(view.state.doc))
     })
   }
 
@@ -477,4 +476,16 @@ export class MilkdownAdapter implements EditorAdapter {
       )
     })
   }
+}
+
+/** The number of top-level blocks the page's Markdown holds: the document's
+ *  children less the empty paragraph the editor maintains at the end, which has
+ *  no Markdown of its own and so takes no gutter number. That paragraph is only
+ *  the last child when the document holds something else — an empty page's
+ *  single paragraph IS the placeholder, and line 1 is its number. */
+function contentBlockCount(doc: ProseNode): number {
+  const last = doc.lastChild
+  const trailing =
+    last !== null && last.type.name === 'paragraph' && last.content.size === 0 && doc.childCount > 1
+  return trailing ? doc.childCount - 1 : doc.childCount
 }
