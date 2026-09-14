@@ -92,9 +92,9 @@ if (typeof rangeProto.getBoundingClientRect !== 'function') {
 // Milidown's own, wired verbatim per its documented API.
 
 describe('MilkdownAdapter (smoke)', () => {
-  // edit-after-trailing-code-block: a code block that ends the page keeps an
-  // empty paragraph after it (so ArrowDown and a click below it have somewhere
-  // to go), and that paragraph never reaches the serialized Markdown.
+  // The page always keeps an empty paragraph after its last block (so
+  // ArrowDown and a click below it have somewhere to go), and that paragraph
+  // never reaches the serialized Markdown.
   describe('the document tail', () => {
     // The same access pattern the helpers above use: the context is untyped at
     // this boundary, so a read casts once.
@@ -160,11 +160,38 @@ describe('MilkdownAdapter (smoke)', () => {
       el.remove()
     })
 
-    it('appends nothing to a page that already ends with a paragraph', async () => {
+    it('keeps an empty paragraph after a page that ends with a paragraph', async () => {
       const { adapter, el } = await mount()
-      await adapter.setContent(['Just a paragraph', ''].join('\n'))
+      const seed = ['Just a paragraph', ''].join('\n')
+      await adapter.setContent(seed)
+      expect(docOf(adapter).childCount).toBe(2)
       expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+      expect(docOf(adapter).lastChild?.content.size).toBe(0)
+      // The visible empty line is not part of the file.
+      expect(adapter.getContent()).toBe(seed)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('keeps the empty paragraph after a page that ends with a list, a quote, or a heading', async () => {
+      for (const seed of ['* one\n* two\n', '> quoted\n', '## Heading\n']) {
+        const { adapter, el } = await mount()
+        await adapter.setContent(seed)
+        expect(docOf(adapter).childCount).toBe(2)
+        expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+        expect(docOf(adapter).lastChild?.content.size).toBe(0)
+        expect(adapter.getContent()).toBe(seed)
+        await adapter.destroy()
+        el.remove()
+      }
+    })
+
+    it('does not accumulate a second empty paragraph on an empty page', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent('')
       expect(docOf(adapter).childCount).toBe(1)
+      expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+      expect(docOf(adapter).lastChild?.content.size).toBe(0)
       await adapter.destroy()
       el.remove()
     })
@@ -179,6 +206,29 @@ describe('MilkdownAdapter (smoke)', () => {
       expect(markdown).toContain('typed')
       expect(markdown.endsWith('typed\n')).toBe(true)
       expect(markdown).not.toMatch(/\n\n$/)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('keeps the empty line after undoing an edit', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(['first', ''].join('\n'))
+      // Type into the maintained empty line: the page grows a text block and a
+      // fresh empty line below it.
+      typeAt(adapter, -1, 'typed')
+      // getContent() reads the debounced change stream, like the draft store.
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      expect(adapter.getContent()).toBe('first\n\ntyped\n')
+      expect(docOf(adapter).childCount).toBe(3)
+
+      // One undo reverses the typing, and the empty line is still there: the
+      // maintained paragraph never becomes an extra undo step.
+      expect(adapter.applyChord('Mod-z')).toBe(true)
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      expect(adapter.getContent()).toBe('first\n')
+      expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
+      expect(docOf(adapter).lastChild?.content.size).toBe(0)
+
       await adapter.destroy()
       el.remove()
     })
@@ -334,12 +384,14 @@ describe('MilkdownAdapter (smoke)', () => {
 
   const editorOf = (adapter: MilkdownAdapter) => (adapter as unknown as AdapterEditor).editor
 
+  // The canonical Markdown the app would write: the maintained empty line at
+  // the document's end is trimmed, exactly as every serialization path trims it.
   const serialize = (adapter: MilkdownAdapter): string =>
     editorOf(adapter).action((ctx) => {
       const access = ctx as { get: (k: unknown) => unknown }
       const view = access.get(editorViewCtx) as { state: { doc: unknown } }
       const serializer = access.get(serializerCtx) as (doc: unknown) => string
-      return serializer(view.state.doc)
+      return trimTrailingBlankLines(serializer(view.state.doc))
     }) as string
 
   const viewText = (adapter: MilkdownAdapter): string =>
@@ -717,7 +769,7 @@ describe('MilkdownAdapter (smoke)', () => {
       const access = ctx as { get: (k: unknown) => unknown }
       const view = access.get(editorViewCtx) as { state: { doc: unknown } }
       const serializer = access.get(serializerCtx) as (doc: unknown) => string
-      return serializer(view.state.doc)
+      return trimTrailingBlankLines(serializer(view.state.doc))
     }) as string
     // Serialized as a real image node (not escaped literal text), inline on the
     // caret's own line — no new paragraph is opened for it — and the serialization
@@ -812,10 +864,16 @@ describe('MilkdownAdapter (smoke)', () => {
       return { adapter, el, view }
     }
 
-    /** Put the caret at the end of the document's only line, as typing would. */
+    /** Put the caret at the end of the document's text, as typing leaves it: the
+     *  maintained empty line below it is not where the caret rests. */
     const caretToEnd = (view: RealView) => {
-      const end = view.state.doc.content.size - 1
-      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)))
+      const { doc } = view.state
+      const last = doc.lastChild
+      const end =
+        last && last.type.name === 'paragraph' && last.content.size === 0 && doc.childCount > 1
+          ? doc.content.size - last.nodeSize - 1
+          : doc.content.size - 1
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, end)))
     }
 
     it('offers candidates while a reference is typed and inserts the token on Enter', async () => {
@@ -842,11 +900,13 @@ describe('MilkdownAdapter (smoke)', () => {
       view.dom.dispatchEvent(enter)
       expect(enter.defaultPrevented).toBe(true)
       expect(serialize(adapter)).toContain('#reading')
-      expect(view.state.selection.from).toBe(view.state.doc.content.size - 1)
+      // The caret rests right after the token, at the end of that paragraph —
+      // the maintained empty line below it is not where the caret lands.
+      expect(view.state.selection.from).toBe(view.state.selection.$from.end())
       // The popup consumed the key, so the paragraph did not split: this is the
       // observable difference between "the picker took Enter" and "the editor
       // took Enter" (both prevent the browser default).
-      expect(view.state.doc.childCount).toBe(1)
+      expect(view.state.doc.childCount).toBe(2) // the text paragraph plus the maintained tail
       expect(popup.hidden).toBe(true)
 
       // The insertion is an ordinary edit: it reaches the change stream that
@@ -910,8 +970,15 @@ describe('MilkdownAdapter (smoke)', () => {
           state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
           dispatch: (t: unknown) => void
         }
-        const end = view.state.doc.content.size
-        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(end))))
+        const doc = view.state.doc
+        const last = doc.lastChild
+        // The maintained empty line ends the document; the caret rests at the
+        // end of the last block that holds text, as typing leaves it.
+        const end =
+          last && last.type.name === 'paragraph' && last.content.size === 0 && doc.childCount > 1
+            ? doc.content.size - last.nodeSize - 1
+            : doc.content.size
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(doc.resolve(end))))
       })
     }
 

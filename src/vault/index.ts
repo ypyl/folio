@@ -100,7 +100,7 @@ export async function upsertPage(
   path: string,
   content: string,
 ): Promise<VaultIndex> {
-  await storage.write(path, ensureTrailingNewline(content))
+  await storage.write(path, content)
   const lastModified = await storage.stat(path)
   const pages = new Map(current.graph.pages)
   pages.set(path, {
@@ -201,11 +201,6 @@ export function orderPages(pages: Iterable<IndexPage>, pins: string[]): IndexPag
   const rest = [...byPath.values()].filter((page) => !pinned.has(page.path))
   rest.sort((a, b) => b.lastModified - a.lastModified || a.path.localeCompare(b.path))
   return [...pinnedRows, ...rest]
-}
-
-/** Ensure the content ends with exactly one trailing newline (POSIX convention). */
-function ensureTrailingNewline(content: string): string {
-  return content.endsWith('\n') ? content : content + '\n'
 }
 
 /** Title = filename with the final `.md` removed (design D1). */
