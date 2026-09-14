@@ -293,7 +293,7 @@ describe('navigation over the real index', () => {
     expect(status.textContent).toBe('New page: created on first save')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = journalsDir.children.get(`${date}.md`) as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('Started the day in the journal.')
+    expect(await (await file.getFile()).text()).toBe('Started the day in the journal.\n')
     vi.unstubAllGlobals()
   })
 
@@ -379,7 +379,7 @@ describe('auto-save (page-editing spec)', () => {
     // After the ~1s debounce the file is written and the indicator clears.
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('edited welcome body')
+    expect(await (await file.getFile()).text()).toBe('edited welcome body\n')
     vi.unstubAllGlobals()
   })
 
@@ -420,7 +420,7 @@ describe('auto-save (page-editing spec)', () => {
     expect(retry.textContent).toBe('Unsaved changes')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('second edit')
+    expect(await (await file.getFile()).text()).toBe('second edit\n')
     vi.unstubAllGlobals()
   })
 })
@@ -564,7 +564,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     // The save materializes the file on disk and clears the indicator.
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = pagesDir(tree).children.get('architecture.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together')
+    expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together\n')
     vi.unstubAllGlobals()
   })
 })
@@ -592,7 +592,7 @@ describe('journal calendar (static-navigation + ui-shell spec)', () => {
     expect(status.textContent).toBe('New page: created on first save')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = journalsDir.children.get('2026-09-18.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('Wrote a journal entry')
+    expect(await (await file.getFile()).text()).toBe('Wrote a journal entry\n')
 
     // Once the day exists it is marked in the calendar.
     const day = screen.getByRole('button', { name: 'September 18, 2026' })

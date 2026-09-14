@@ -141,8 +141,8 @@ describe('useIndex', () => {
       ok = await result.current.savePage('pages/a.md', 'v2 #New')
     })
     expect(ok).toBe(true)
-    // Disk written.
-    expect(await storage.read('pages/a.md')).toBe('v2 #New')
+    // Disk written with trailing newline.
+    expect(await storage.read('pages/a.md')).toBe('v2 #New\n')
     // Graph reflects the save without any refresh.
     expect(result.current.graph?.pages.get('pages/a.md')?.content).toBe('v2 #New')
     // Backlinks re-derived: New points back to a.md.
