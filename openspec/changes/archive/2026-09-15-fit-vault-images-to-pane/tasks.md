@@ -1,0 +1,28 @@
+## 1. Node view module
+
+- [x] 1.1 Export `isVaultRelative` from `src/editor/assetImages.ts` (currently module-private), documented as the shared "is this a reference into the vault" predicate, and uncomment nothing else about resolution; verify `npx vitest run src/editor/assetImages.test.ts` still passes.
+- [x] 1.2 Add `src/editor/vaultImageView.ts`: a `$view` over the commonmark image schema whose node view renders, for a vault reference, a `span` wrapper holding the `<img>` (`src`, `alt`, `title` bound from the node) and a `button` control, and for anything else a bare `<img>` (design D3). The control toggles `data-expanded` on the wrapper and flips its own `aria-label` and `title` between expanding and collapsing; `stopEvent` keeps the press on the control out of ProseMirror; the NodeView's `update` returns `true` and re-binds the `src` only when the node's own `src` changed, so a resolved `blob:` URL is never reset (design D2, D4, D6). The module imports no vault, no React, and no editor adapter.
+- [x] 1.3 Add `src/editor/vaultImageView.test.ts` with cases for: a vault-relative `src` rendering the wrapper, the `<img>` carrying `src`/`alt`/`title`, and a control whose accessible name names expanding; a remote `https:` `src` rendering a bare `<img>` with no control; activating the control flipping `data-expanded` and the accessible name to collapsing, and a second activation flipping both back; `update` with unchanged attributes leaving the element's `src` attribute (as the asset pass left it) alone; and `update` with a changed `src` writing the new one. Verify `npx vitest run src/editor/vaultImageView.test.ts` passes.
+- [x] 1.4 Verify no other image behavior moved: `npx vitest run src/editor src/components/EditorPane.test.tsx` passes, including the existing cases for a vault image resolving to its bytes, a `data:` URL being left alone, and unmounting revoking the URL.
+
+## 2. Editor wiring
+
+- [x] 2.1 Register the node view in `MilkdownAdapter.mount`'s `.use(...)` chain in `src/editor/milkdown.ts`, with a comment naming the reversal of `render-vault-images`' node-view rejection (design D2) and the reason resolution stays in the pane; verify `npx vitest run src/editor/milkdown.test.ts src/editor/mount.test.tsx` passes.
+- [x] 2.2 Add a case to `src/editor/mount.test.tsx` — the one place the real Milkdown adapter mounts — asserting that a document holding `![photo](assets/photo.png)` renders that image inside the fit wrapper with its control, resolved to the reader's bytes: the integration proof that the node view reached the editor and that the pane's resolution pass still finds the `<img>` inside it. The pane's own suite drives the fake seam, so it cannot show this; verify `npx vitest run src/editor/mount.test.tsx` passes.
+
+## 3. Styling and the design language
+
+- [x] 3.1 Add the image rules to `src/components/EditorPane.module.css` (design D1, D3, D5, D7): the wrapper as a relative `inline-block` capped at `max-width: 100%`, the image inside it capped the same with `height: auto`, the `[data-expanded]` state lifting both caps, the control hidden at rest and revealed on pointer proximity, focus within the wrapper, or the expanded state — and shown at all only for an image whose `src` is the resolved `blob:` URL. Tokens only, the table handle's recipe for the chip (18px, `--ivory`, `--border` hairline, 4px radius, `--stone`, hover `--warm-sand` / `--brand`).
+- [x] 3.2 Add an **Images** entry under Components in `DESIGN.md`: fitted to the pane by default, never upscaled, the corner control that expands to the original size, its reveal rule, and that remote images are out of it. Keep it to the section's length and voice, and cite the change.
+- [x] 3.3 Verify the styles compile and lint: `npm run build` and `npx oxlint --deny-warnings --format=agent` are clean.
+
+## 4. Decision record
+
+- [x] 4.1 Write `adr/0018-image-node-view.md` (MADR: Status, Date, Context, Decision, Consequences) recording that Folio owns the image node's DOM through a Milkdown node view, that asset resolution stays in the pane's pass, what it costs (the schema's `toDOM` no longer renders images, so image presentation is Folio's from here), and the rejected alternatives (injecting DOM into the editable subtree, an absolutely positioned overlay outside ProseMirror). Add its row to `adr/README.md`.
+
+## 5. Gates
+
+- [x] 5.1 Run `npx oxlint --fix`, `npm run fmt`, then `npx oxlint --deny-warnings --format=agent`; verify all three are clean.
+- [x] 5.2 Run `npm test` and `npm run build`; verify both pass.
+- [x] 5.3 Browser check in Chrome, against a vault with one image wider than the pane (a screenshot at 2000px or more) and one narrower than it: start the server with `npm run dev:test`, confirm the log says `ready in` and read the port from it, then measure that the wide image's rendered width equals the pane's content width and that its aspect ratio is preserved, that the narrow image's rendered width equals its natural width, that the control is invisible at rest, appears on hover and on keyboard focus, expands the image to its natural width (letting the pane scroll horizontally), and collapses it back, that a non-vault image (a `data:` URL, the same non-vault path as a remote one) is unchanged, unfitted, and has no control, and that a vault path holding no file gets no rendered control, and that typing in the page does not reflow or flicker the images. Sweep the server with `npm run kill:dev` afterwards, and state in the archive note which parts were verified by hand and which by test.
+- [x] 5.4 Bump `version` in `package.json` (minor: a new user-facing capability) and verify the header badge names the new build.

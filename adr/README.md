@@ -34,6 +34,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0015](0015-in-vault-app-meta.md) | The `.folio/` directory is app-owned state inside the vault | Accepted |
 | [0016](0016-apply-commands-by-key-chord.md) | Apply editor commands by replaying their key chord | Accepted |
 | [0017](0017-adopt-gfm-table-slice-and-table-block.md) | Adopt the GFM table slice and the component table block | Accepted |
+| [0018](0018-image-node-view.md) | Folio owns the image node's DOM through a node view | Accepted |
 
 ## Adding a new ADR
 

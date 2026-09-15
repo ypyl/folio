@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { act, render } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import { EditorPane } from '../components/EditorPane'
 import type { Page } from '../page'
@@ -49,4 +49,25 @@ it('unmounting while the first mount is initializing leaves no editor behind', a
   unmount()
   await settle()
   expect(roots()).toBe(0)
+})
+
+// fit-vault-images-to-pane: the node view is registered by the real adapter, and
+// the pane's resolution pass still finds the element inside it. This is the one
+// place both run for real; the pane's own tests drive the fake seam.
+it('renders a vault image in the fit wrapper with its control, resolved to the bytes', async () => {
+  const readAsset = async () => new Blob(['bytes'], { type: 'image/png' })
+  render(
+    <EditorPane
+      page={pageA}
+      initialContent="![photo](assets/photo.png)"
+      onChange={() => {}}
+      readAsset={readAsset}
+    />,
+  )
+  await settle()
+  const wrapper = document.querySelector('.folio-image')
+  expect(wrapper).not.toBeNull()
+  const img = wrapper?.querySelector('img')
+  await waitFor(() => expect(img?.getAttribute('src') ?? '').toMatch(/^blob:/))
+  expect(wrapper?.querySelector('button')?.getAttribute('aria-label')).toBe('Expand image')
 })

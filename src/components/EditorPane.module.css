@@ -397,6 +397,80 @@
   margin: 24px 0;
 }
 
+/* Vault images (fit-vault-images-to-pane, DESIGN.md — Images). The node view
+   renders the wrapper; an image that resolved from the vault is shown at the
+   pane's content width — wide images scale down, narrow ones keep their own
+   size (`max-width` never stretches), and the aspect ratio stays the image's
+   own. `inline-block` + `position: relative` make the wrapper the image's box,
+   so the control can sit in a corner without anything being measured. */
+.editor :global(.folio-image) {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.editor :global(.folio-image > img) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Expanded: the image's own width, and the pane scrolls to it. The wrapper's
+   cap lifts with the image's, or the box the control is positioned against
+   would stop at the pane and leave the control behind the image's edge. */
+.editor :global(.folio-image[data-expanded]),
+.editor :global(.folio-image[data-expanded] > img) {
+  max-width: none;
+}
+
+/* The expand/collapse control: the table handle's recipe — an ivory chip that
+   appears on the thing it acts on. `opacity`, not `display` or `visibility`,
+   is what keeps it in the tab order: a control that can never be reached by
+   keyboard is not a control. It stays visible while the image is expanded
+   (there is no pointer near a picture wider than the pane once scrolled). */
+.editor :global(.folio-image-control) {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: var(--ivory);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--stone);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+/* Only an image whose bytes arrived carries a control: the node view renders
+   one for every vault reference, and `blob:` in `src` is what the pane's
+   resolution pass writes when its read succeeded. A path the vault cannot
+   resolve therefore has none, not an invisible one. */
+.editor :global(.folio-image:not(:has(> img[src^='blob:'])) > .folio-image-control) {
+  display: none;
+}
+
+.editor :global(.folio-image:hover > .folio-image-control),
+.editor :global(.folio-image:focus-within > .folio-image-control),
+.editor :global(.folio-image[data-expanded] > .folio-image-control) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.editor :global(.folio-image-control:hover) {
+  background: var(--warm-sand);
+  color: var(--brand);
+}
+
+.editor :global(.folio-image-control svg) {
+  width: 12px;
+  height: 12px;
+}
+
 /* Tables (add-table-editing). A table is a real table now, wrapped by the
    component's block, so the block carries the rhythm the <table> used to and
    the absolutely positioned controls hang off it rather than inside a row. The

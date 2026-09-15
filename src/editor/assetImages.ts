@@ -23,8 +23,10 @@ export function createAssetImages(): AssetImages {
 }
 
 /** Vault-relative only (design D4): a `src` carrying a scheme (`http:`,
- *  `https:`, `data:`, `blob:`) or starting at `/` is left to the browser. */
-function isVaultRelative(src: string): boolean {
+ *  `https:`, `data:`, `blob:`) or starting at `/` is left to the browser. Shared
+ *  with the image node view (fit-vault-images-to-pane), which shows its control
+ *  for exactly the references this pass resolves. */
+export function isVaultRelative(src: string): boolean {
   return src !== '' && !src.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(src)
 }
 

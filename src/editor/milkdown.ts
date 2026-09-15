@@ -24,6 +24,7 @@ import { keepTableHandlesInThePane } from './tableHandleClamp'
 import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
+import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { blockStartLines } from '../lineAnchors'
@@ -166,6 +167,13 @@ export class MilkdownAdapter implements EditorAdapter {
         }))
       })
       .use(commonmark)
+      // The image node's DOM (fit-vault-images-to-pane, ADR-0018): a wrapper with
+      // the expand/collapse control, registered over the commonmark image schema.
+      // It is a view, not a resolver — the pane's asset pass still turns a vault
+      // path into the bytes, and this view is careful not to write that `blob:`
+      // URL back into the document (render-vault-images' "no node view" note
+      // still holds for resolution; the control is what needed Folio's own DOM).
+      .use(vaultImageView)
       .use(listener)
       .use(history)
       .use(codeBlockComponent)

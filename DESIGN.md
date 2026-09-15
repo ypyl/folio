@@ -230,6 +230,23 @@ first row, and the pane clips at its top edge, so the table needs that room for
 the handle to be inside the pane and pressable. The room is space, not content:
 nothing about the page's Markdown changes. See `keep-table-handles-reachable`.
 
+### Images
+
+A vault image reads at the pane's width: an image wider than the pane scales
+down to it, a narrower one keeps its own size (`max-width: 100%` never
+stretches), and the aspect ratio is the image's own. There is no floor — a
+small image stays small.
+
+One control, in the image's **top-left** corner: the table handle's recipe, an
+18px ivory chip with a hairline border, that expands the image to its own size
+and collapses it back. Left, not right, so an image wider than the pane keeps
+its own control on screen once expanded, without scrolling to it. It appears
+when the pointer is over the image or the control has keyboard focus, and stays
+visible while the image is expanded. Only an image that resolved from the vault
+has one, and the state is presentation only: nothing about it reaches the
+Markdown. A remote image is neither fitted nor given a control
+(`fit-vault-images-to-pane`).
+
 ### Keyboard focus
 
 Use a visible `outline` for keyboard focus. Re-verify foreground/background
