@@ -401,10 +401,6 @@ export class MilkdownAdapter implements EditorAdapter {
     })
   }
 
-  getContent(): string {
-    return this.latest
-  }
-
   /** The canonical start line of each top-level block, in doc order
    *  (line-numbers, design D1/D2). The shared anchor rule runs over the
    *  canonical text the adapter already produces; the first N anchors map to

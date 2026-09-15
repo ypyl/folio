@@ -2,7 +2,7 @@
 // labels (search-notes), plus the label itself (search-results-view). Kept
 // out of component files so fast refresh keeps working
 // (react(only-export-components)).
-import { journalDate } from '../vault/index'
+import { journalDate, stem } from '../vault/index'
 
 // English labels via the platform formatter: the same strings as the old
 // hard-coded month table, without the table.
@@ -25,9 +25,9 @@ export function monthYearLabel(year: number, month: number): string {
 
 /** Pretty label for a journal-day path: "September 2, 2026". Non-date journal
  *  files fall back to the stem. */
-export function journalLabel(path: string): string {
+function journalLabel(path: string): string {
   const date = journalDate(path)
-  if (!date) return path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, '')
+  if (!date) return stem(path)
   const [y, m, d] = date.split('-').map(Number)
   return dayLabel(new Date(y, m - 1, d))
 }

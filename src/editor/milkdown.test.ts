@@ -86,7 +86,7 @@ if (typeof rangeProto.getBoundingClientRect !== 'function') {
 
 // Thin smoke test for the real transport (design D1): the seam contract is
 // fully covered by FakeEditor; this proves ProseMirror boots in jsdom and the
-// setContent/getContent wiring works end to end. Driving real keystrokes is
+// setContent/insertMarkdown wiring works end to end. Driving real keystrokes is
 // out of reach (jsdom has no execCommand, and transactions need the private
 // view), so onChange stays covered by the fake — the listener plugin is
 // Milidown's own, wired verbatim per its documented API.
@@ -136,7 +136,7 @@ describe('MilkdownAdapter (smoke)', () => {
       expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
       // The file's text is what the page holds: no trailing blank line, and
       // the maintained paragraph is not an edit the app would save.
-      expect(adapter.getContent()).toBe(seed)
+      expect(serialize(adapter)).toBe(seed)
       expect(changes).toEqual([])
       await adapter.destroy()
       el.remove()
@@ -154,7 +154,7 @@ describe('MilkdownAdapter (smoke)', () => {
       expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
       // The file's text is what the page holds: the table, no trailing blank
       // line, and the maintained paragraph is not an edit the app would save.
-      expect(adapter.getContent()).toBe(seed)
+      expect(serialize(adapter)).toBe(seed)
       expect(changes).toEqual([])
       await adapter.destroy()
       el.remove()
@@ -168,7 +168,7 @@ describe('MilkdownAdapter (smoke)', () => {
       expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
       expect(docOf(adapter).lastChild?.content.size).toBe(0)
       // The visible empty line is not part of the file.
-      expect(adapter.getContent()).toBe(seed)
+      expect(serialize(adapter)).toBe(seed)
       await adapter.destroy()
       el.remove()
     })
@@ -180,7 +180,7 @@ describe('MilkdownAdapter (smoke)', () => {
         expect(docOf(adapter).childCount).toBe(2)
         expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
         expect(docOf(adapter).lastChild?.content.size).toBe(0)
-        expect(adapter.getContent()).toBe(seed)
+        expect(serialize(adapter)).toBe(seed)
         await adapter.destroy()
         el.remove()
       }
@@ -202,7 +202,7 @@ describe('MilkdownAdapter (smoke)', () => {
       typeAt(adapter, -1, 'typed')
       await new Promise((resolve) => setTimeout(resolve, 400))
       expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
-      const markdown = adapter.getContent()
+      const markdown = serialize(adapter)
       expect(markdown).toContain('typed')
       expect(markdown.endsWith('typed\n')).toBe(true)
       expect(markdown).not.toMatch(/\n\n$/)
@@ -216,16 +216,17 @@ describe('MilkdownAdapter (smoke)', () => {
       // Type into the maintained empty line: the page grows a text block and a
       // fresh empty line below it.
       typeAt(adapter, -1, 'typed')
-      // getContent() reads the debounced change stream, like the draft store.
+      // The document is the assertion (`serialize`), not the app's debounced
+      // change stream; the wait still covers the debounce so the settler runs.
       await new Promise((resolve) => setTimeout(resolve, 400))
-      expect(adapter.getContent()).toBe('first\n\ntyped\n')
+      expect(serialize(adapter)).toBe('first\n\ntyped\n')
       expect(docOf(adapter).childCount).toBe(3)
 
       // One undo reverses the typing, and the empty line is still there: the
       // maintained paragraph never becomes an extra undo step.
       expect(adapter.applyChord('Mod-z')).toBe(true)
       await new Promise((resolve) => setTimeout(resolve, 400))
-      expect(adapter.getContent()).toBe('first\n')
+      expect(serialize(adapter)).toBe('first\n')
       expect(docOf(adapter).lastChild?.type.name).toBe('paragraph')
       expect(docOf(adapter).lastChild?.content.size).toBe(0)
 
@@ -304,9 +305,9 @@ describe('MilkdownAdapter (smoke)', () => {
     const adapter = new MilkdownAdapter()
     await adapter.mount(el)
     await adapter.setContent('# Hello\n\nSome *text* with #ref.\n')
-    expect(adapter.getContent()).toContain('# Hello')
+    expect(serialize(adapter)).toContain('# Hello')
     await adapter.setContent('second body')
-    expect(adapter.getContent()).toContain('second body')
+    expect(serialize(adapter)).toContain('second body')
     await adapter.destroy()
     await adapter.destroy() // idempotent
     el.remove()
@@ -324,7 +325,7 @@ describe('MilkdownAdapter (smoke)', () => {
     expect(badges).toHaveLength(2)
     expect(badges[0].textContent).toBe('#Inbox')
     expect(badges[1].textContent).toBe('#[[reading list]]')
-    expect(adapter.getContent()).toContain('#Inbox')
+    expect(serialize(adapter)).toContain('#Inbox')
     await adapter.destroy()
     el.remove()
   })
@@ -343,7 +344,7 @@ describe('MilkdownAdapter (smoke)', () => {
     await adapter.setContent('# Title\r\n\r\nBody\r\n')
     await new Promise((r) => setTimeout(r, 400))
     expect(changes).toEqual([])
-    expect(adapter.getContent()).toBe('# Title\n\nBody\n')
+    expect(serialize(adapter)).toBe('# Title\n\nBody\n')
 
     // A real change (a transaction the user would produce) still reaches
     // onChange.
@@ -744,7 +745,7 @@ describe('MilkdownAdapter (smoke)', () => {
         view.dispatch(view.state.tr.insert(0, para!))
       })
       await new Promise((r) => setTimeout(r, 400))
-      expect(adapter.getContent()).toContain('prelude')
+      expect(serialize(adapter)).toContain('prelude')
       expect(adapter.getBlockLines()).toEqual([1, 3, 5, 7])
 
       await adapter.destroy()
@@ -793,7 +794,7 @@ describe('MilkdownAdapter (smoke)', () => {
     const reopened = new MilkdownAdapter()
     await reopened.mount(el)
     await reopened.setContent(doc)
-    expect(reopened.getContent()).toBe(doc)
+    expect(serialize(reopened)).toBe(doc)
     await reopened.destroy()
     await adapter.destroy()
     el.remove()
@@ -816,12 +817,12 @@ describe('MilkdownAdapter (smoke)', () => {
     // Mounting the surface is not an edit: the seed echo stays suppressed and
     // the doc is not rewritten to a different form.
     expect(changes).toEqual([])
-    expect(adapter.getContent()).toBe(fenced)
+    expect(serialize(adapter)).toBe(fenced)
 
     // Reload round-trip: the same fence parses, mounts, and serializes back.
     await adapter.setContent('')
     await adapter.setContent(fenced)
-    expect(adapter.getContent()).toBe(fenced)
+    expect(serialize(adapter)).toBe(fenced)
 
     await adapter.destroy()
     el.remove()
@@ -962,8 +963,8 @@ describe('MilkdownAdapter (smoke)', () => {
   // (apply-shortcuts-on-click, ADR-0016): the app dispatches a synthetic
   // keydown and the editor's own keymap resolves it. The payload is the toggle
   // — a formatting combination applied to text that already carries it removes
-  // it — so `serialize` (the document itself) is the assertion, not
-  // `getContent`, which only catches up when Milkdown's change listener fires.
+  // it — so `serialize` (the document itself) is the assertion, not the
+  // adapter's debounced change stream.
   // The code-block chords are CodeMirror's, so the surface the caret is in has
   // to be the surface the replay reaches; those cases run against the real
   // component (jsdom mounts it once IntersectionObserver is stubbed).

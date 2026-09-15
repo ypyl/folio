@@ -72,7 +72,7 @@ const remarkTablesPlugin: RemarkPluginRaw<null> = function (this: unknown) {
   add('toMarkdownExtensions', gfmTableToMarkdown())
 }
 
-export const remarkTables = $remark('folioTables', () => remarkTablesPlugin)
+const remarkTables = $remark('folioTables', () => remarkTablesPlugin)
 
 /** One control's glyph: Folio's own drawing, in the panel's ink (`currentColor`
  *  is set by the pane's stylesheet), hidden from assistive technology because

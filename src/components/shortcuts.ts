@@ -13,6 +13,8 @@
 // runtime value, so the drift guard in shortcuts.test.ts protects behaviour
 // rather than documentation.
 
+import { isMac } from '../editor/chord'
+
 interface ShortcutItem {
   label: string
   keys: string[]
@@ -96,11 +98,9 @@ export const SHORTCUT_GROUPS: {
   },
 ]
 
-const modKey = (): string => (/Mac/i.test(navigator.platform) ? 'Cmd' : 'Ctrl')
-
 /** Render a Milkdown-style shortcut (Mod-b, Mod-Alt-1) for display. */
 export function displayKeys(raw: string): string {
-  const mod = modKey()
+  const mod = isMac() ? 'Cmd' : 'Ctrl'
   return raw
     .split('-')
     .map((part) => {

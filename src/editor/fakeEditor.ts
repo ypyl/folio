@@ -67,10 +67,6 @@ export class FakeEditor implements EditorAdapter {
     this.syncDoc()
   }
 
-  getContent(): string {
-    return this.content
-  }
-
   getBlockLines(): number[] {
     // The real adapter zips anchors to doc blocks and maps an empty doc's
     // single placeholder block to line 1; mirror that contract here.

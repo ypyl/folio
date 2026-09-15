@@ -10,7 +10,7 @@ export const GUTTER_MARKER_HEIGHT = 12
 
 export type Rect = { top: number; height: number }
 
-export type BlockMetrics = {
+type BlockMetrics = {
   /** The block's own box. */
   block: Rect
   /** The block's first text line, when it has one; otherwise the block box is
@@ -45,7 +45,7 @@ export function numberOffset(
 }
 
 /** First text node inside a block (for its first line box), else null. */
-export function firstTextNode(node: Node): Node | null {
+function firstTextNode(node: Node): Node | null {
   if (node.nodeType === Node.TEXT_NODE) return node
   for (const child of node.childNodes) {
     const hit = firstTextNode(child)
@@ -55,7 +55,7 @@ export function firstTextNode(node: Node): Node | null {
 }
 
 /** A number to render, with the offset its span's `top` gets. */
-export type GutterNumber = {
+type GutterNumber = {
   line: number
   top: number
 }
@@ -66,7 +66,7 @@ export type GutterNumber = {
  * every `getBoundingClientRect`/`getClientRects` in an update happens before the
  * first `replaceChildren`, span creation, or `style.top` write.
  */
-export function measureNumbers(
+function measureNumbers(
   host: HTMLElement,
   blocks: readonly Element[],
   lines: readonly number[],
@@ -114,7 +114,7 @@ export function measureNumbers(
 }
 
 /** The write phase: build the spans and insert them once. */
-export function writeNumbers(
+function writeNumbers(
   host: HTMLElement,
   numbers: readonly GutterNumber[],
   className: string,

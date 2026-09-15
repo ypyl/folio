@@ -51,12 +51,12 @@ type ReferenceState = {
 }
 
 /** What a scan produced: the decorations to add, and the refs they cover. */
-export type ScanResult = {
+type ScanResult = {
   marks: Decoration[]
   refs: ReferenceRef[]
 }
 
-export const referenceKey = new PluginKey<ReferenceState>('folioReferenceBadges')
+const referenceKey = new PluginKey<ReferenceState>('folioReferenceBadges')
 
 /**
  * A struck run (render-struck-text): `~~`, then content that carries no tilde
@@ -166,10 +166,19 @@ export function scanInline(doc: ProseNode, range?: BlockRange): ScanResult {
   return { marks, refs }
 }
 
-/** The decorations and clickable spans for a whole document. */
-export function buildReferenceState(doc: ProseNode): ReferenceState {
-  const { marks, refs } = scanInline(doc)
+/** A scan's decorations and refs, as the plugin's state. */
+function stateFromScan(
+  scan: (doc: ProseNode, range?: BlockRange) => ScanResult,
+  doc: ProseNode,
+): ReferenceState {
+  const { marks, refs } = scan(doc)
   return { decorations: DecorationSet.create(doc, marks), refs }
+}
+
+/** The decorations and clickable spans for a whole document (the non-incremental
+ *  reference the plugin's incremental rescan is tested against). */
+export function buildReferenceState(doc: ProseNode): ReferenceState {
+  return stateFromScan(scanInline, doc)
 }
 
 /**
@@ -216,7 +225,7 @@ function stepRange(step: Step): { from: number; to: number } | null {
  * edits safe: a split or a join rewrites the text nodes on both sides of the
  * boundary, and a reference can move between blocks (design D1).
  */
-export function affectedRanges(tr: Transaction): BlockRange[] {
+function affectedRanges(tr: Transaction): BlockRange[] {
   const ranges: BlockRange[] = []
   tr.steps.forEach((step, index) => {
     const touched = stepRange(step)
@@ -283,7 +292,7 @@ function isOpenChord(event: KeyboardEvent): boolean {
   )
 }
 
-export type ReferencePluginOptions = {
+type ReferencePluginOptions = {
   /** Called with the target when a badge is clicked or Mod+Enter is pressed. */
   onActivate?: (target: string) => void
   /** Document scan, injectable for tests. Called with a block range for an
@@ -300,10 +309,7 @@ export function createInlineDecorationPlugin(
   options: ReferencePluginOptions = {},
 ): Plugin<ReferenceState> {
   const scan = options.scan ?? scanInline
-  const build = (doc: ProseNode): ReferenceState => {
-    const { marks, refs } = scan(doc)
-    return { decorations: DecorationSet.create(doc, marks), refs }
-  }
+  const build = (doc: ProseNode): ReferenceState => stateFromScan(scan, doc)
   return new Plugin<ReferenceState>({
     key: referenceKey,
     state: {

@@ -8,9 +8,9 @@
 // low as the pane can show it. Nothing can move the table out of that position,
 // so the handle is nudged inside the pane each time the component places it.
 
-export type Rect = { top: number; left: number; right: number; bottom: number }
+type Rect = { top: number; left: number; right: number; bottom: number }
 
-export type Nudge = { dx: number; dy: number }
+type Nudge = { dx: number; dy: number }
 
 /** The nudge that brings `handle` inside `pane` with `margin` to spare, or null
  *  when it already fits. Pure, so the geometry is testable without a browser —
@@ -35,7 +35,7 @@ export function nudgeIntoPane(handle: Rect, pane: Rect, margin = 2): Nudge | nul
  *  line handles that appear during a drag are deliberately outside it — a drag is
  *  driven by the pointer, and the component reads those boxes for the drop
  *  indicator's offsets. */
-export const TABLE_HANDLES = '[data-role="row-drag-handle"], [data-role="col-drag-handle"]'
+const TABLE_HANDLES = '[data-role="row-drag-handle"], [data-role="col-drag-handle"]'
 
 /** Whether an element is one of the handles this pass may move. */
 export function isTableHandle(element: Element): boolean {

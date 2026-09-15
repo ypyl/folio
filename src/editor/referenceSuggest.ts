@@ -79,7 +79,7 @@ export function triggerAt(source: {
   )
 }
 
-export type ReferenceSuggestOptions = {
+type ReferenceSuggestOptions = {
   /** Candidates for the typed text. Read at query time, so a source bound to
    *  the live vault index stays current without re-registering. */
   suggest: (query: string) => Suggestion[]

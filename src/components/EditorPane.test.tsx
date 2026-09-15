@@ -30,6 +30,7 @@ function fake(): FakeEditorView {
 }
 
 type FakeEditorView = EditorAdapter & {
+  content: string
   setContents: string[]
   insertions: string[]
   chords: string[]
@@ -59,7 +60,7 @@ describe('EditorPane', () => {
     const editor = fake()
     expect(editor.mounted).toBe(true)
     expect(editor.setContents).toEqual(['# hello'])
-    expect(editor.getContent()).toBe('# hello')
+    expect(editor.content).toBe('# hello')
   })
 
   it('forwards edits to onChange with the serialized markdown', async () => {
@@ -182,7 +183,7 @@ describe('EditorPane', () => {
     await waitFor(() => expect(img.getAttribute('src')).toMatch(/^blob:/))
     expect(img.getAttribute('alt')).toBe('photo')
     // The document text is untouched: only the rendered element was re-pointed.
-    expect(fake().getContent()).toBe('![photo](assets/photo.png)')
+    expect(fake().content).toBe('![photo](assets/photo.png)')
     // The page's URLs go with its editor.
     const url = img.getAttribute('src')
     const revoke = vi.spyOn(URL, 'revokeObjectURL')

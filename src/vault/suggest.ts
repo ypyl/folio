@@ -10,7 +10,7 @@ import { findReferenceRanges, referenceToken } from './parse'
 export const SUGGESTION_LIMIT = 8
 
 /** A page the picker can offer: the name to insert, and where it resolves. */
-export type PageName = {
+type PageName = {
   name: string
   path: string
 }

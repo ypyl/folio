@@ -4,9 +4,9 @@
 // because the adapter is its primary consumer and App already imports editor
 // modules; displayKeys stays with the display data it renders.
 
-/** The platform check displayKeys uses, kept here so the editor layer does not
- *  depend on the components layer. Mod is Cmd on macOS, Ctrl elsewhere. */
-const isMac = (): boolean => /Mac/i.test(navigator.platform)
+/** The platform check shared with the shortcuts reference: Mod is Cmd on macOS,
+ *  Ctrl elsewhere. */
+export const isMac = (): boolean => /Mac/i.test(navigator.platform)
 
 /**
  * The KeyboardEvent init that reproduces `chord`. Breadth of the modifiers is
@@ -27,9 +27,10 @@ export function chordToKeyEventInit(chord: string): KeyboardEventInit {
   const parts = chord.split('-')
   const key = parts.pop() ?? ''
   const init: KeyboardEventInit = { key, bubbles: true, cancelable: true }
+  const mac = isMac()
   for (const part of parts) {
     if (part === 'Mod') {
-      if (isMac()) init.metaKey = true
+      if (mac) init.metaKey = true
       else init.ctrlKey = true
     } else if (part === 'Shift') init.shiftKey = true
     else if (part === 'Alt') init.altKey = true

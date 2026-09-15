@@ -6,7 +6,7 @@
 // clamp into the viewport. Kept out of the plugin so it can be tested without a
 // browser.
 
-export type CaretRect = {
+type CaretRect = {
   left: number
   right: number
   top: number

@@ -10,7 +10,7 @@ export type Link = {
 /** A reference token's source range in a string, plus its target (badge
  *  rendering). `from`/`to` are string offsets: the editor shifts them by the
  *  text node's document position. */
-export type ReferenceRange = {
+type ReferenceRange = {
   from: number
   to: number
   target: string

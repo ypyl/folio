@@ -75,6 +75,7 @@ vi.mock('./components/months', async (importOriginal) => {
 })
 
 type FakeView = EditorAdapter & {
+  content: string
   setContents: string[]
   insertions: string[]
   chords: string[]
@@ -483,7 +484,7 @@ describe('asset drag & drop (page-editing spec)', () => {
     expect(readBinary).toHaveBeenCalledWith('assets/photo.png')
     expect(img.getAttribute('alt')).toBe('photo')
     // The page's markdown is untouched: only the rendered element was re-pointed.
-    expect(editor().getContent()).toBe('![photo](assets/photo.png)')
+    expect(editor().content).toBe('![photo](assets/photo.png)')
     readBinary.mockRestore()
     vi.unstubAllGlobals()
   })
@@ -494,7 +495,7 @@ describe('asset drag & drop (page-editing spec)', () => {
     render(<App />)
     const tree = await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(editor().getContent()).toContain('This is Folio'))
+    await waitFor(() => expect(editor().content).toContain('This is Folio'))
 
     const bitmap = new File(['png'], 'image.png', { type: 'image/png' })
     await act(async () => {
@@ -1009,7 +1010,7 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     await act(async () => {
       editor().emitChange('a different body')
     })
-    expect(editor().getContent()).toBe('a different body')
+    expect(editor().content).toBe('a different body')
     expect(displayKeyCalls.count).toBe(before)
 
     vi.unstubAllGlobals()
