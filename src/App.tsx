@@ -57,11 +57,20 @@ function App() {
   // refresh, keep showing it instead of yanking the page (design D6).
   const lastKnown = useRef<IndexPage | null>(null)
 
-  const resetSearch = () => {
+  const resetSearch = useCallback(() => {
     setSearchQuery('')
     setSearchResults([])
     setMode('page')
-  }
+  }, [])
+
+  // Leave the open page behind: no page, no last-known fallback, and no results
+  // view. A folder switch, a folder add, and the folder-change effect all start
+  // here. Stable identity so the folder-change effect runs only on folder change.
+  const resetOpenPage = useCallback(() => {
+    setActivePath(null)
+    lastKnown.current = null
+    resetSearch()
+  }, [resetSearch])
 
   // Per-page drafts (design C1): session-scoped edit state; mutations bump
   // a render version so the editor's initial content and the indicator
@@ -79,13 +88,9 @@ function App() {
   const stepped = useRef(false)
 
   const handleActivate = (id: string) => {
-    if (id !== activeId) {
-      // Switching folders resets the open page (F5); re-granting the already
-      // active folder is not a switch, so it keeps the page.
-      setActivePath(null)
-      lastKnown.current = null
-      resetSearch()
-    }
+    // Switching folders resets the open page (F5); re-granting the already
+    // active folder is not a switch, so it keeps the page.
+    if (id !== activeId) resetOpenPage()
     void activate(id)
   }
 
@@ -189,15 +194,13 @@ function App() {
   // its graph is ready. Re-activating the same folder keeps the page.
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect
-    setActivePath(null)
-    lastKnown.current = null
+    resetOpenPage()
     // The trail belongs to one folder (add-page-history): a page from the
     // previous vault must never be reachable by Back or Forward, so it clears
     // here with the open page, the last-known page, and search.
     // oxlint-disable-next-line react/set-state-in-effect
     setTrail(EMPTY_TRAIL)
-    resetSearch()
-  }, [activeFolder?.id])
+  }, [activeFolder?.id, resetOpenPage])
 
   // The journal is the home (journal-home, spec: static-navigation today-
   // journal load): whenever a folder's graph is ready and no page is open —
@@ -363,10 +366,9 @@ function App() {
               return { title: l.target, path: targetPath, materialized: false }
             })
             .filter(
-              (r): r is LinkRow =>
-                // A page's link to itself isn't useful navigation (mirrors the
-                // index's backlink self-exclusion).
-                r !== null && r.path !== page.path,
+              // A page's link to itself isn't useful navigation (mirrors the
+              // index's backlink self-exclusion).
+              (r) => r.path !== page.path,
             )
         : [],
     [graph, page],
@@ -443,9 +445,7 @@ function App() {
           onAdd={
             canOpen
               ? () => {
-                  setActivePath(null)
-                  lastKnown.current = null
-                  resetSearch()
+                  resetOpenPage()
                   void addFolder()
                 }
               : undefined

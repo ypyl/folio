@@ -58,7 +58,8 @@ export class MilkdownAdapter implements EditorAdapter {
   // after custom handlers and calls clipboardData.clearData(); a listener on an
   // ancestor runs after it, so the flavor written here survives.
   private copyRoot: HTMLElement | null = null
-  private copyHandlers: Array<{ handler: (event: Event) => void; capture: boolean }> = []
+  private copySnapshot: ((event: Event) => void) | null = null
+  private copyWrite: ((event: Event) => void) | null = null
   // Caret-surface tracking (apply-shortcuts-on-click, design D7): an applied
   // chord must land where the caret is, and while the caret is inside a code
   // block that surface is CodeMirror's, not the ProseMirror root. `focusin`
@@ -230,14 +231,12 @@ export class MilkdownAdapter implements EditorAdapter {
       pendingFlavor = null
     }
     this.copyRoot = el
-    this.copyHandlers = [
-      { handler: snapshotFlavor, capture: true },
-      { handler: writeFlavor, capture: false },
-    ]
-    for (const { handler, capture } of this.copyHandlers) {
-      el.addEventListener('copy', handler, capture)
-      el.addEventListener('cut', handler, capture)
-    }
+    this.copySnapshot = snapshotFlavor
+    this.copyWrite = writeFlavor
+    el.addEventListener('copy', snapshotFlavor, true)
+    el.addEventListener('cut', snapshotFlavor, true)
+    el.addEventListener('copy', writeFlavor, false)
+    el.addEventListener('cut', writeFlavor, false)
     this.focusRoot = el
     this.focusHandler = (event) => {
       this.lastFocusedWithin = event.target instanceof HTMLElement ? event.target : null
@@ -265,14 +264,15 @@ export class MilkdownAdapter implements EditorAdapter {
     this.changeListener = null
     this.referenceClickListener = null
     this.suggestSource = null
-    if (this.copyRoot) {
-      for (const { handler, capture } of this.copyHandlers) {
-        this.copyRoot.removeEventListener('copy', handler, capture)
-        this.copyRoot.removeEventListener('cut', handler, capture)
-      }
-      this.copyRoot = null
-      this.copyHandlers = []
+    if (this.copyRoot && this.copySnapshot && this.copyWrite) {
+      this.copyRoot.removeEventListener('copy', this.copySnapshot, true)
+      this.copyRoot.removeEventListener('cut', this.copySnapshot, true)
+      this.copyRoot.removeEventListener('copy', this.copyWrite, false)
+      this.copyRoot.removeEventListener('cut', this.copyWrite, false)
     }
+    this.copyRoot = null
+    this.copySnapshot = null
+    this.copyWrite = null
     if (this.focusRoot && this.focusHandler) {
       this.focusRoot.removeEventListener('focusin', this.focusHandler)
     }

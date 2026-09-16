@@ -21,12 +21,9 @@ export function canOpenFolders(): boolean {
 
 /** Rejects a path that violates the ADR-0013 path contract. Never sanitized. */
 export class InvalidVaultPathError extends Error {
-  readonly path: string
-
   constructor(path: string) {
     super(`Invalid vault path: ${path === '' ? '<root>' : path}`)
     this.name = 'InvalidVaultPathError'
-    this.path = path
   }
 }
 

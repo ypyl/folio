@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { firstMatchLine, snippetSegments, type SearchResult } from '../search/core'
-import { rowLabel } from './months'
+import type { SearchResult } from '../search/core'
+import { MatchBody } from './MatchBody'
+import { listKeyDown } from './listNav'
 import styles from './SearchResultsView.module.css'
 
 /** Match-list page size (search-results-view): bounded DOM per page instead
@@ -58,23 +59,13 @@ export function SearchResultsView({
     header: i === 0 || slice[i - 1].group !== entry.group,
   }))
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key === 'Escape') {
-      onClose()
-      return
-    }
-    if (!slice.length) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActive((i) => (i + 1) % slice.length)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActive((i) => (i - 1 + slice.length) % slice.length)
-    } else if (e.key === 'Enter') {
-      const idx = active >= 0 ? active : 0
-      onOpen(slice[idx].item.path)
-    }
-  }
+  const onKeyDown = listKeyDown({
+    length: slice.length,
+    active,
+    setActive,
+    onEnter: (index) => onOpen(slice[index].item.path),
+    onEscape: onClose,
+  })
 
   return (
     <main
@@ -96,41 +87,21 @@ export function SearchResultsView({
           Back to notes
         </button>
       </div>
-      {rows.map(({ item, group, header }, i) => {
-        const segments = snippetSegments(item.text, item.ranges)
-        const line = firstMatchLine(item.text, item.ranges)
-        return (
-          <div key={item.path}>
-            {header && (
-              <div className={styles.groupHead}>{group === 'pages' ? 'Pages' : 'Journal'}</div>
-            )}
-            <button
-              type="button"
-              className={`${styles.row}${i === active ? ` ${styles.active}` : ''}`}
-              onClick={() => onOpen(item.path)}
-              onMouseEnter={() => setActive(i)}
-            >
-              <span className={styles.label}>
-                {rowLabel(item)}
-                {line !== null && <span className={styles.line}>{` \u00B7 line ${line}`}</span>}
-              </span>
-              {segments.length > 0 && (
-                <span className={styles.snip}>
-                  {segments.map((s, j) =>
-                    s.hit ? (
-                      <mark key={j} className={styles.hit}>
-                        {s.text}
-                      </mark>
-                    ) : (
-                      <span key={j}>{s.text}</span>
-                    ),
-                  )}
-                </span>
-              )}
-            </button>
-          </div>
-        )
-      })}
+      {rows.map(({ item, group, header }, i) => (
+        <div key={item.path}>
+          {header && (
+            <div className={styles.groupHead}>{group === 'pages' ? 'Pages' : 'Journal'}</div>
+          )}
+          <button
+            type="button"
+            className={`${styles.row}${i === active ? ` ${styles.active}` : ''}`}
+            onClick={() => onOpen(item.path)}
+            onMouseEnter={() => setActive(i)}
+          >
+            <MatchBody result={item} />
+          </button>
+        </div>
+      ))}
       {pageCount > 1 && (
         <div className={styles.pager}>
           <button

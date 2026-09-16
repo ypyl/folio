@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { SearchBox } from './SearchBox'
 import styles from './SearchBox.module.css'
+import matchStyles from './MatchBody.module.css'
 import type { Page } from '../page'
 
 // The search box is prop-driven (components never import the vault): docs
@@ -72,7 +73,7 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
       />,
     )
     await type('docker')
-    const marks = listbox().querySelectorAll(`mark.${styles.hit}`)
+    const marks = listbox().querySelectorAll(`mark.${matchStyles.hit}`)
     expect(marks.length).toBeGreaterThan(0)
     expect(marks[0].textContent).toBe('docker')
   })

@@ -6,13 +6,19 @@
 /** Image extensions get an `![..]` link; everything else a plain `[..]` link. */
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'])
 
+/** A filename split at its extension: `stem` without the dot, `ext` with it
+ *  (empty when there is none). A leading-dot name has no extension. */
+function splitExtension(name: string): { stem: string; ext: string } {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? { stem: name.slice(0, dot), ext: name.slice(dot) } : { stem: name, ext: '' }
+}
+
 /** Markdown link for a copied asset path; link text is the basename's stem. */
 export function linkForAsset(path: string): string {
   const base = path.slice(path.lastIndexOf('/') + 1)
-  const dot = base.lastIndexOf('.')
-  const ext = dot > 0 ? base.slice(dot + 1).toLowerCase() : ''
-  const stem = dot > 0 ? base.slice(0, dot) : base
-  return ext && IMAGE_EXTENSIONS.has(ext) ? `![${stem}](${path})` : `[${stem}](${path})`
+  const { stem, ext } = splitExtension(base)
+  const type = ext.slice(1).toLowerCase()
+  return type && IMAGE_EXTENSIONS.has(type) ? `![${stem}](${path})` : `[${stem}](${path})`
 }
 
 /** Plain File entries from a drop or a paste; directories are ignored (D3). */
@@ -41,8 +47,8 @@ function pad(n: number): string {
  *  matters: `linkForAsset` picks the image link from the path, so a bitmap
  *  without one would attach as a plain link and never render. */
 function pastedExtension(name: string, type: string): string {
-  const dot = name.lastIndexOf('.')
-  if (dot > 0) return name.slice(dot)
+  const { ext } = splitExtension(name)
+  if (ext) return ext
   const subtype = type.split('/')[1]
   return subtype ? `.${subtype}` : ''
 }

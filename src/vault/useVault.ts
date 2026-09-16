@@ -53,6 +53,13 @@ export function useVault() {
     }
   }, [])
 
+  // Make a folder the active one, in state and in the stored last-active
+  // pointer. Every path that activates a folder ends here.
+  async function makeActive(id: string): Promise<void> {
+    setActiveId(id)
+    await setLastActiveId(id)
+  }
+
   // Activate an existing folder. Granted: switch (loading the count lazily).
   // Pending: re-grant from the STORED handle; denied/failed re-grant drops the
   // row and falls back to the picker (delta: denied stored folder).
@@ -64,8 +71,7 @@ export function useVault() {
         const fileCount = (await target.storage.list('')).length
         upsert(setFolders, { ...target, fileCount })
       }
-      setActiveId(id)
-      await setLastActiveId(id)
+      await makeActive(id)
       return
     }
     const granted = await permission(target.handle, 'request')
@@ -77,8 +83,7 @@ export function useVault() {
         storage: open.storage,
         fileCount: open.fileCount,
       })
-      setActiveId(id)
-      await setLastActiveId(id)
+      await makeActive(id)
       return
     }
     // Denied or failed re-grant: the stored handle is dead.
@@ -135,8 +140,7 @@ export function useVault() {
       storage: open.storage,
       fileCount: open.fileCount,
     })
-    setActiveId(id)
-    await setLastActiveId(id)
+    await makeActive(id)
   }
 
   return { status, folders, activeId, addFolder: openNewFolder, activate, closeFolder, goHome }

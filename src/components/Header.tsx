@@ -1,5 +1,5 @@
 import { FolioMark } from '../FolioMark'
-import { APP_VERSION } from '../version'
+import { version } from '../../package.json'
 import type { ReactNode } from 'react'
 import styles from './Header.module.css'
 
@@ -34,7 +34,7 @@ export function Header({ search, onHome }: HeaderProps) {
           <FolioMark className={styles.mark} />
           <span className={styles.name}>Folio</span>
         </button>
-        <span className={styles.version}>{`v${APP_VERSION}`}</span>
+        <span className={styles.version}>{`v${version}`}</span>
       </div>
       <div className={styles.search}>{search}</div>
     </header>

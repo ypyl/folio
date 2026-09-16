@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { RESULTS_PER_PAGE, SearchResultsView } from './SearchResultsView'
 import styles from './SearchResultsView.module.css'
+import matchStyles from './MatchBody.module.css'
 import type { SearchResult } from '../search/core'
 
 // The results view is prop-driven (components never import the vault): the
@@ -53,7 +54,7 @@ describe('SearchResultsView listing (search-results-view spec: full set, groups)
     const heads = within(main()).getAllByText(/^(Pages|Journal)$/)
     expect(heads.map((h) => h.textContent)).toEqual(['Pages', 'Journal'])
     // Snippets highlight the matched span.
-    expect(main().querySelectorAll(`mark.${styles.hit}`).length).toBeGreaterThan(0)
+    expect(main().querySelectorAll(`mark.${matchStyles.hit}`).length).toBeGreaterThan(0)
   })
 
   it('shows the query and match count in the summary', () => {

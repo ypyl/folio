@@ -34,8 +34,6 @@ export function chordToKeyEventInit(chord: string): KeyboardEventInit {
       else init.ctrlKey = true
     } else if (part === 'Shift') init.shiftKey = true
     else if (part === 'Alt') init.altKey = true
-    else if (part === 'Ctrl') init.ctrlKey = true
-    else if (part === 'Meta') init.metaKey = true
   }
   return init
 }

@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Fuse from 'fuse.js'
 import type { Page } from '../page'
-import {
-  FUSE_OPTIONS,
-  firstMatchLine,
-  searchDocs,
-  snippetSegments,
-  topPerGroup,
-  type SearchResult,
-} from '../search/core'
-import { rowLabel } from './months'
+import { FUSE_OPTIONS, searchDocs, topPerGroup, type SearchResult } from '../search/core'
+import { MatchBody } from './MatchBody'
+import { listKeyDown } from './listNav'
 import styles from './SearchBox.module.css'
 
 const DEBOUNCE_MS = 120
@@ -115,22 +109,20 @@ export function SearchBox({
   // list (search-results-view); the see-all row hands the rest to the
   // results view, which paginates the full set.
   const visible = results === null ? [] : topPerGroup(results)
+  const navKeyDown = listKeyDown({
+    // 0 while the dropdown is hidden, so a hidden list claims no key (Escape
+    // still clears).
+    length: shown && results ? visible.length : 0,
+    active,
+    setActive,
+    onEnter: (index) => openPath(visible[index].path),
+  })
+  // Escape stays here rather than in the shared handler: `clear` reads the
+  // debounce timer's ref, and a closure built at render that touches a ref is
+  // what the refs lint exists to catch. This one only runs on a key event.
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      clear()
-      return
-    }
-    if (!shown || !results) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActive((i) => (visible.length ? (i + 1) % visible.length : -1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActive((i) => (visible.length ? (i - 1 + visible.length) % visible.length : -1))
-    } else if (e.key === 'Enter' && visible.length) {
-      const idx = active >= 0 ? active : 0
-      openPath(visible[idx].path)
-    }
+    if (e.key === 'Escape') clear()
+    else navKeyDown(e)
   }
 
   const sections = (
@@ -189,8 +181,6 @@ export function SearchBox({
                 <div className={styles.head}>{sec.label}</div>
                 {sec.items.map((r) => {
                   const index = visible.indexOf(r)
-                  const segments = snippetSegments(r.text, r.ranges)
-                  const line = firstMatchLine(r.text, r.ranges)
                   return (
                     <button
                       key={r.path}
@@ -201,25 +191,7 @@ export function SearchBox({
                       onClick={() => openPath(r.path)}
                       onMouseEnter={() => setActive(index)}
                     >
-                      <span className={styles.label}>
-                        {rowLabel(r)}
-                        {line !== null && (
-                          <span className={styles.line}>{` \u00B7 line ${line}`}</span>
-                        )}
-                      </span>
-                      {segments.length > 0 && (
-                        <span className={styles.snip}>
-                          {segments.map((s, j) =>
-                            s.hit ? (
-                              <mark key={j} className={styles.hit}>
-                                {s.text}
-                              </mark>
-                            ) : (
-                              <span key={j}>{s.text}</span>
-                            ),
-                          )}
-                        </span>
-                      )}
+                      <MatchBody result={r} compact />
                     </button>
                   )
                 })}

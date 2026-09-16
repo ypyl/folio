@@ -192,7 +192,6 @@ export function parsePins(content: string): string[] {
 export function orderPages(pages: Iterable<IndexPage>, pins: string[]): IndexPage[] {
   const byPath = new Map<string, IndexPage>()
   for (const page of pages) byPath.set(page.path, page)
-  const pinned = new Set(pins)
   const pinnedRows: IndexPage[] = []
   const shown = new Set<string>()
   for (const path of pins) {
@@ -202,7 +201,7 @@ export function orderPages(pages: Iterable<IndexPage>, pins: string[]): IndexPag
       shown.add(page.path)
     }
   }
-  const rest = [...byPath.values()].filter((page) => !pinned.has(page.path))
+  const rest = [...byPath.values()].filter((page) => !shown.has(page.path))
   rest.sort((a, b) => b.lastModified - a.lastModified || a.path.localeCompare(b.path))
   return [...pinnedRows, ...rest]
 }
