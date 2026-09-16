@@ -119,8 +119,6 @@ describe('referenceTrigger', () => {
       kind: 'word',
       text: '#rea',
       query: 'rea',
-      from: 4,
-      to: 8,
     })
   })
 
@@ -133,13 +131,11 @@ describe('referenceTrigger', () => {
       kind: 'bracketed',
       text: '#[[reading list',
       query: 'reading list',
-      from: 0,
-      to: 15,
     })
   })
 
   it('takes the last opener on a line', () => {
-    expect(atCaret('#[[a #[[b|')).toMatchObject({ query: 'b', from: 5 })
+    expect(atCaret('#[[a #[[b|')).toMatchObject({ query: 'b' })
   })
 
   it('finds nothing without a hash', () => {

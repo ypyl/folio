@@ -55,9 +55,8 @@ const CLOSING_BRACKET = /\]/
 /**
  * The reference being typed at the caret, or null (add-reference-autocomplete,
  * design D1). `before`/`after` are the textblock's text on either side of the
- * caret; `from`/`to` are the token's offsets in `before`. The trigger is the
- * longest token prefix `REF` would accept, so the popup's replace range is
- * exactly the text the user is typing.
+ * caret. The trigger is the longest token prefix `REF` would accept, so the
+ * popup's replace range is exactly the text the user is typing.
  */
 export type ReferenceTrigger = {
   kind: 'word' | 'bracketed'
@@ -65,8 +64,6 @@ export type ReferenceTrigger = {
   text: string
   /** The typed name fragment: `rea`, `read`. Never empty. */
   query: string
-  from: number
-  to: number
 }
 
 /**
@@ -91,11 +88,11 @@ export function referenceTrigger(before: string, after: string): ReferenceTrigge
     // inside it; a ']' after the caret would be left behind by the
     // replacement. Both are debris, so neither is a trigger.
     if (query === '' || query.includes(']') || CLOSING_BRACKET.test(after)) return null
-    return { kind: 'bracketed', text, query, from: hash, to: before.length }
+    return { kind: 'bracketed', text, query }
   }
   if (rest === '' || !WORD_FORM.test(rest)) return null
   if (WORD_TAIL.test(after[0] ?? '')) return null
-  return { kind: 'word', text, query: rest, from: hash, to: before.length }
+  return { kind: 'word', text, query: rest }
 }
 
 /**

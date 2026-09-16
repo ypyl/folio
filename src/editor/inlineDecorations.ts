@@ -29,9 +29,6 @@ import type { EditorView } from '@milkdown/prose/view'
 import { Decoration, DecorationSet } from '@milkdown/prose/view'
 import { findReferenceRanges } from '../vault/parse'
 
-/** The chord that opens the reference at the caret (design D3). */
-export const REFERENCE_OPEN_SHORTCUT = 'Mod-Enter'
-
 /** One reference token's document positions and its page-name target. */
 export type ReferenceRef = {
   from: number

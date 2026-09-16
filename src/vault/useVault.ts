@@ -68,12 +68,12 @@ export function useVault() {
       await setLastActiveId(id)
       return
     }
-    const permission = await requestPermission(target.handle)
-    if (permission === 'granted') {
+    const granted = await permission(target.handle, 'request')
+    if (granted === 'granted') {
       const open = await openVault(target.handle)
       upsert(setFolders, {
         ...target,
-        permission,
+        permission: granted,
         storage: open.storage,
         fileCount: open.fileCount,
       })
@@ -151,21 +151,21 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
   const lastActiveId = await getLastActiveId()
   const restored: VaultFolder[] = []
   for (const row of rows) {
-    const permission = await queryPermission(row.handle)
-    if (permission === 'denied') {
+    const state = await permission(row.handle, 'query')
+    if (state === 'denied') {
       await clearVaultHandle(row.id)
       continue
     }
     restored.push(
-      permission === 'granted'
+      state === 'granted'
         ? {
             id: row.id,
             name: row.name,
             handle: row.handle,
-            permission,
+            permission: state,
             storage: new FileSystemVaultStorage(row.handle),
           }
-        : { id: row.id, name: row.name, handle: row.handle, permission },
+        : { id: row.id, name: row.name, handle: row.handle, permission: state },
     )
   }
   const active =
@@ -184,17 +184,16 @@ async function openVault(handle: FileSystemDirectoryHandle) {
   return { storage, fileCount: files.length }
 }
 
-async function queryPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
+/** A permission request's outcome, or 'denied' when the browser throws
+ *  (jsdom has neither method). */
+async function permission(
+  handle: FileSystemDirectoryHandle,
+  kind: 'query' | 'request',
+): Promise<PermissionState> {
   try {
-    return await handle.queryPermission({ mode: 'readwrite' })
-  } catch {
-    return 'denied'
-  }
-}
-
-async function requestPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
-  try {
-    return await handle.requestPermission({ mode: 'readwrite' })
+    return kind === 'query'
+      ? await handle.queryPermission({ mode: 'readwrite' })
+      : await handle.requestPermission({ mode: 'readwrite' })
   } catch {
     return 'denied'
   }

@@ -21,7 +21,6 @@ import {
   strongKeymap,
 } from '@milkdown/preset-commonmark'
 import { MilkdownAdapter } from '../editor/milkdown'
-import { REFERENCE_OPEN_SHORTCUT } from '../editor/inlineDecorations'
 import { tableKeymap } from '@milkdown/preset-gfm'
 import { tableChords } from '../editor/tableSetup'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
@@ -55,12 +54,7 @@ const sheetItem = (label: string) => sheetItems.find((item) => item.label === la
 // owns its own chord, and the app's search listener owns Mod-k. They are listed
 // explicitly rather than omitted, so a chord moved out of a ProseMirror keymap
 // fails the union check below instead of silently drifting.
-const CHORDS_BOUND_ELSEWHERE = new Set<string>([
-  'Mod-Enter',
-  'Backspace',
-  REFERENCE_OPEN_SHORTCUT,
-  'Mod-k',
-])
+const CHORDS_BOUND_ELSEWHERE = new Set<string>(['Mod-Enter', 'Backspace', 'Mod-k'])
 
 // Drift guard (keyboard-shortcuts-help design; extended by
 // move-help-to-right-panel and apply-shortcuts-on-click): every row the sheet
@@ -119,9 +113,8 @@ describe('sheet vs editor bindings', () => {
   it('the sheet Open reference row matches the badge binding', () => {
     // The decoration plugin binds this chord (inlineDecorations); the sheet must list
     // the same one so the reference stays discoverable.
-    expect(REFERENCE_OPEN_SHORTCUT).toBe('Mod-Enter')
-    expect(sheetItem('Open reference')?.keys).toEqual([REFERENCE_OPEN_SHORTCUT])
-    expect(displayKeys(REFERENCE_OPEN_SHORTCUT)).toMatch(/^(Ctrl|Cmd)\+Enter$/)
+    expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
+    expect(displayKeys('Mod-Enter')).toMatch(/^(Ctrl|Cmd)\+Enter$/)
   })
 
   it('the sheet lists the code-block exit and convert shortcuts', () => {
