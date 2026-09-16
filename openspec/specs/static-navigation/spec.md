@@ -130,7 +130,7 @@ The pane's content column SHALL start near the pane's top edge: its top padding 
 - **THEN** the editable content begins at the compact top padding, and the side and bottom padding remain unchanged
 
 ### Requirement: Links pane rows navigate to pages
-The meta panel's Backlinks and Forwardlinks rows SHALL navigate: clicking a row opens the page it names, exactly like clicking a sidebar row, with the same active-row marking. Backlinks rows SHALL list the pages that reference the open page; Forwardlinks rows SHALL list the pages the open page references. A row targeting a page with no file on disk SHALL still navigate, opening the page as a blank in-memory page (see the unmaterialized-pages requirement).
+The meta panel's Backlinks and Forwardlinks rows SHALL navigate: clicking a row opens the page it names, exactly like clicking a sidebar row, with the same active-row marking. Backlinks rows SHALL list the pages that reference the open page; Forwardlinks rows SHALL list the pages the open page references. A row targeting a page with no file on disk SHALL still navigate, opening the page as a blank in-memory page (see the unmaterialized-pages requirement). A row whose reference name is a valid calendar date SHALL open the journal day for that date, under `journals/`, whether or not that file exists.
 
 #### Scenario: Clicking a backlink row opens the referring page
 - **GIVEN** a page `Topic.md` that is referenced by `Ideas.md`
@@ -146,6 +146,11 @@ The meta panel's Backlinks and Forwardlinks rows SHALL navigate: clicking a row 
 - **GIVEN** an open page whose content references `Missing`, and no `Missing.md` exists
 - **WHEN** the user clicks the `Missing` row in Forwardlinks
 - **THEN** the editor pane shows a blank page for `Missing`, no file is created on disk, and the active row marking moves to it
+
+#### Scenario: A forwardlink to a date opens the journal day
+- **GIVEN** an open page whose content references `#[[2026-09-16]]`, and no journal file exists for that day
+- **WHEN** the user clicks the `2026-09-16` row in Forwardlinks
+- **THEN** the editor pane shows the blank journal day for 2026-09-16, the journal calendar marks that day as open, and no file is created on disk
 
 ### Requirement: A page with no file opens blank and materializes on first save
 Navigating to a page that has no `.md` file on disk — through a links-pane row, a sidebar-like action, or a journal day — SHALL open a blank editable page that exists only in memory. Merely opening or viewing the page SHALL NOT create a file. The file SHALL be created on disk only when the user's edits are saved for the first time; reading the vault folder SHALL show no orphan files for pages merely viewed. Pages materialize under `pages/` (e.g., `pages/Missing.md`); journals materialize under `journals/`.

@@ -5,9 +5,12 @@ import {
   buildIndex,
   isPagePath,
   journalDate,
+  journalDayName,
+  journalDayPath,
   kindOf,
   orderPages,
   parsePins,
+  resolveReferencePath,
   stem,
   upsertPage,
   upsertPins,
@@ -60,6 +63,13 @@ describe('isPagePath (scan scope, pages-folder-layout design D2)', () => {
     expect(isPagePath('.folio/pins.md')).toBe(false)
     expect(isPagePath('.obsidian/plugins/x.md')).toBe(false)
   })
+
+  it('rejects date-named files under pages/ but not under journals/', () => {
+    expect(isPagePath('pages/2026-09-16.md')).toBe(false)
+    expect(isPagePath('pages/notes/2026-09-16.md')).toBe(false)
+    expect(isPagePath('pages/2026-13-45.md')).toBe(true)
+    expect(isPagePath('journals/2026-09-16.md')).toBe(true)
+  })
 })
 
 describe('page name and kind (pages-folder-layout)', () => {
@@ -109,6 +119,17 @@ describe('buildIndex', () => {
     const tree = buildTree({ 'Welcome.md': 'root', pages: { 'Real.md': 'page' } })
     const index = await buildIndex(vault(tree))
     expect([...index.graph.pages.keys()]).toEqual(['pages/Real.md'])
+  })
+
+  it('drops a date-named file under pages/ and the references it holds', async () => {
+    const tree = buildTree({
+      pages: { '2026-09-16.md': 'see #Roadmap', '2026-13-45.md': 'not a day' },
+    })
+    const index = await buildIndex(vault(tree))
+
+    expect([...index.graph.pages.keys()]).toEqual(['pages/2026-13-45.md'])
+    expect(index.graph.byName.has('2026-09-16')).toBe(false)
+    expect(index.graph.backlinks.get('roadmap')).toBeUndefined()
   })
 
   it('extracts outgoing links per page', async () => {
@@ -511,5 +532,37 @@ describe('journalDate (calendar day derivation, journal-calendar)', () => {
   it('returns null for non-journal pages', () => {
     expect(journalDate('pages/Welcome.md')).toBeNull()
     expect(journalDate('pages/notes/2026-09-06.md')).toBeNull()
+  })
+})
+
+describe('journalDayName and resolveReferencePath (date-references-resolve-to-journals)', () => {
+  it('accepts real calendar days, leap day included', () => {
+    expect(journalDayName('2026-09-16')).toBe('2026-09-16')
+    expect(journalDayName('2024-02-29')).toBe('2024-02-29')
+    expect(journalDayPath('2026-09-16')).toBe('journals/2026-09-16.md')
+  })
+
+  it('rejects names that are not real zero-padded days', () => {
+    expect(journalDayName('2026-02-29')).toBeNull() // 2026 is not a leap year
+    expect(journalDayName('2026-13-45')).toBeNull()
+    expect(journalDayName('2026-9-6')).toBeNull()
+    expect(journalDayName('09-16-2026')).toBeNull()
+    expect(journalDayName('2026-09-16T00:00')).toBeNull()
+    expect(journalDayName('2026-00-10')).toBeNull()
+  })
+
+  it('sends a date name to the journal, whatever the name map says', () => {
+    expect(resolveReferencePath('2026-09-16', new Map())).toBe('journals/2026-09-16.md')
+    expect(
+      resolveReferencePath('2026-09-16', new Map([['2026-09-16', 'pages/2026-09-16.md']])),
+    ).toBe('journals/2026-09-16.md')
+  })
+
+  it('keeps the ordinary rule for every other name', () => {
+    const byName = new Map([['folio', 'pages/Folio.md']])
+    expect(resolveReferencePath('Folio', byName)).toBe('pages/Folio.md')
+    expect(resolveReferencePath('2026-9-6', new Map())).toBe('pages/2026-9-6.md')
+    expect(resolveReferencePath('2026-13-45', new Map())).toBe('pages/2026-13-45.md')
+    expect(resolveReferencePath('Missing', new Map())).toBe('pages/Missing.md')
   })
 })

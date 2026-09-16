@@ -154,7 +154,10 @@ function carryOver(
 
 /** Scan scope (pages-folder-layout, design D2): `.md` file under `pages/` or
  *  `journals/`, no hidden path segment. Root-level and other-directory
- *  Markdown files are not pages, so `assets/` is unreachable by construction. */
+ *  Markdown files are not pages, so `assets/` is unreachable by construction.
+ *  A date-shaped name belongs to the journal, so a date-named file under
+ *  `pages/` is excluded too, at any depth (design D3): `byName` must never
+ *  hand a date name to a `pages/` path. */
 export function isPagePath(path: string): boolean {
   const lower = path.toLowerCase()
   if (!lower.startsWith('pages/') && !lower.startsWith('journals/')) return false
@@ -162,6 +165,7 @@ export function isPagePath(path: string): boolean {
   for (const segment of path.split('/')) {
     if (segment.startsWith('.')) return false
   }
+  if (lower.startsWith('pages/') && journalDayName(stem(path)) !== null) return false
   return true
 }
 
@@ -229,6 +233,48 @@ export function localDayString(date: Date): string {
   const mm = String(date.getMonth() + 1).padStart(2, '0')
   const dd = String(date.getDate()).padStart(2, '0')
   return `${date.getFullYear()}-${mm}-${dd}`
+}
+
+/** The zero-padded date-name shape the journal directory and the calendar
+ *  agree on. Shape alone is not enough: see `journalDayName`. */
+const DATE_NAME = /^(\d{4})-(\d{2})-(\d{2})$/
+
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+/** The date string when `name` is a real calendar day in zero-padded
+ *  `YYYY-MM-DD` form, else null (design D1). Checked by component, never by
+ *  `Date`: `new Date('2026-09-16')` parses as UTC and `new Date(y, m, d)` maps
+ *  years 0-99 to 1900+, so both would answer a different question than "is this
+ *  a day the journal calendar can show". A name that is not a real day is not
+ *  a journal day and keeps the ordinary page rule. */
+export function journalDayName(name: string): string | null {
+  const match = DATE_NAME.exec(name)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (month < 1 || month > 12 || day < 1) return null
+  const length = month === 2 && isLeapYear(year) ? 29 : MONTH_LENGTHS[month - 1]
+  return day <= length ? name : null
+}
+
+/** The journal day's vault path for a date name (design D1). */
+export function journalDayPath(name: string): string {
+  return `journals/${name}.md`
+}
+
+/** The path a reference navigates to (design D2): a date name is the journal
+ *  day, every other name is the page it matches, else a page under `pages/`
+ *  that materializes on first save. No normalization — an unpadded date stays
+ *  a page name, so it still matches its own reference text and backlinks. */
+export function resolveReferencePath(name: string, byName: Map<string, string>): string {
+  return journalDayName(name) !== null
+    ? journalDayPath(name)
+    : (byName.get(name.toLowerCase()) ?? `pages/${name}.md`)
 }
 
 /** Fold scanned pages into the graph: name resolution + backlinks (D5). */

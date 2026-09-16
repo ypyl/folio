@@ -568,6 +568,35 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together')
     vi.unstubAllGlobals()
   })
+
+  it('a forwardlink to a date opens the journal day', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
+    // The auto-opened today journal gains a date reference; wait for the save
+    // so the row derives from the index.
+    editor().emitChange('See #[[2026-09-19]] for that day')
+    await waitFor(
+      () => expect(journalsDir.children.has(`${localDayString(new Date())}.md`)).toBe(true),
+      { timeout: 3000 },
+    )
+
+    // No journal file for the day: the row is dimmed, and clicking it opens
+    // the journal day without writing a file.
+    const row = await within(meta()).findByRole(
+      'button',
+      { name: '2026-09-19' },
+      {
+        timeout: 3000,
+      },
+    )
+    expect(row.className).toContain('dimmed')
+    fireEvent.click(row)
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    expect(journalsDir.children.get('2026-09-19.md')).toBeUndefined()
+    expect(screen.getByTitle('journals/2026-09-19.md').textContent).toBe('journals/2026-09-19.md')
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('journal calendar (static-navigation + ui-shell spec)', () => {
@@ -933,6 +962,29 @@ describe('reference badges (add-reference-badges)', () => {
     editor().emitReferenceClick('notes')
     await waitFor(() => expect(editor().setContents[0]).toBe(''))
     expect(pagesDir(tree).children.get('notes.md')).toBeUndefined()
+    vi.unstubAllGlobals()
+  })
+
+  it('clicking a reference to a date opens the journal day, not a page', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+
+    // 2026-09-19 has no journal file: the badge opens the day, the breadcrumb
+    // names the journal path, and nothing is written under pages/ or journals/.
+    editor().emitReferenceClick('2026-09-19')
+    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    expect(screen.getByTitle('journals/2026-09-19.md').textContent).toBe('journals/2026-09-19.md')
+    expect(journalsDir.children.get('2026-09-19.md')).toBeUndefined()
+    expect(pagesDir(tree).children.get('2026-09-19.md')).toBeUndefined()
+    // The calendar anchors to the day that opened.
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'September 19, 2026' }).getAttribute('aria-current'),
+      ).toBe('date'),
+    )
     vi.unstubAllGlobals()
   })
 

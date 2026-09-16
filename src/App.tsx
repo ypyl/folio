@@ -16,7 +16,14 @@ import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } f
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import { canOpenFolders } from './vault/fs'
-import { kindOf, localDayString, orderPages, stem, type IndexPage } from './vault/index'
+import {
+  kindOf,
+  localDayString,
+  orderPages,
+  resolveReferencePath,
+  stem,
+  type IndexPage,
+} from './vault/index'
 import { candidateNames, suggestPages, type Suggestion } from './vault/suggest'
 import type { SearchResult } from './search/core'
 
@@ -132,14 +139,15 @@ function App() {
     handleSelect(`journals/${localDayString(new Date())}.md`)
   }, [handleSelect])
 
-  // Opening a reference badge (add-reference-badges): resolve the name exactly
-  // as the Forwardlinks panel does — the existing page, else a blank page under
-  // `pages/` that materializes on first save — skip a link back to the open
-  // page, and route through handleSelect. Resolution stays here, never in the
-  // editor (ADR-0010).
+  // Opening a reference badge (add-reference-badges): resolve the name through
+  // the shared resolver (date-references-resolve-to-journals) — a date names
+  // the journal day, every other name the existing page, else a blank page
+  // under `pages/` that materializes on first save — skip a link back to the
+  // open page, and route through handleSelect. Resolution stays here, never in
+  // the editor (ADR-0010).
   const handleOpenReference = (target: string) => {
     if (!graph) return
-    const path = graph.byName.get(target.toLowerCase()) ?? `pages/${target}.md`
+    const path = resolveReferencePath(target, graph.byName)
     if (path === activePath) return
     handleSelect(path)
   }
@@ -345,15 +353,14 @@ function App() {
       graph && page
         ? page.links
             .map((l) => {
-              const targetPath = graph.byName.get(l.target.toLowerCase())
-              if (targetPath) {
-                const p = graph.pages.get(targetPath)
-                return p ? { title: p.title, path: targetPath, materialized: true } : null
-              }
-              // No page matches the reference: it is unmaterialized. Pages
-              // materialize under `pages/`, preserving any directory part in
-              // bracketed names.
-              return { title: l.target, path: `pages/${l.target}.md`, materialized: false }
+              const targetPath = resolveReferencePath(l.target, graph.byName)
+              const p = graph.pages.get(targetPath)
+              if (p) return { title: p.title, path: targetPath, materialized: true }
+              // No page matches the reference: it is unmaterialized. A name
+              // that is not a date materializes under `pages/`, preserving any
+              // directory part in bracketed names; a date name is the journal
+              // day, which materializes under `journals/`.
+              return { title: l.target, path: targetPath, materialized: false }
             })
             .filter(
               (r): r is LinkRow =>
