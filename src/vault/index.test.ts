@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './fakeHandle'
 import { FileSystemVaultStorage } from './fs'
 import {
+  assetName,
   buildIndex,
+  hasHiddenSegment,
   isPagePath,
   journalDate,
   journalDayName,
   journalDayPath,
   kindOf,
+  listAssets,
   orderPages,
+  pageAssets,
   parsePins,
   resolveReferencePath,
   stem,
@@ -351,6 +355,7 @@ describe('orderPages (sidebar list order, design D5)', () => {
     kind: 'page',
     content: '',
     links: [],
+    assets: [],
     lastModified,
   })
 
@@ -466,6 +471,9 @@ describe('buildIndex (diff-rescan)', () => {
     const second = await buildIndex(storage, first)
     expect(second.graph.pages.has('assets/notes.md')).toBe(false)
     expect(second.graph.pages.has('pages/Ideas.md')).toBe(true)
+    // ...but it is inventoried, and the page set is otherwise untouched.
+    expect(second.graph.assets).toEqual(['assets/notes.md'])
+    expect(second.graph.pages.size).toBe(first.graph.pages.size)
   })
 
   it('upserts a saved page into the index immediately (B1)', async () => {
@@ -516,6 +524,126 @@ describe('buildIndex (diff-rescan)', () => {
     }
     await expect(failWrite).rejects.toThrow('denied')
     expect(first.graph.pages.get('pages/a.md')!.content).toBe('v1')
+  })
+})
+
+describe('asset inventory and references (add-asset-navigation)', () => {
+  it('inventories the assets folder path-ordered and never as pages', async () => {
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'v1' },
+      assets: {
+        'shot.png': 'png',
+        'q3-report.pdf': 'pdf',
+        '2026': { 'q3.pdf': 'pdf' },
+        '.thumbs': { 'x.png': 'png' },
+      },
+    })
+    const index = await buildIndex(vault(tree))
+    expect(index.graph.assets).toEqual([
+      'assets/2026/q3.pdf',
+      'assets/q3-report.pdf',
+      'assets/shot.png',
+    ])
+    expect(index.graph.pages.has('assets/shot.png')).toBe(false)
+    expect(index.graph.assets.some((path) => path.includes('.thumbs'))).toBe(false)
+  })
+
+  it('reports the destinations of a page in order and deduped', async () => {
+    const tree = buildTree({
+      pages: { 'Ideas.md': '[a](assets/a.pdf) ![b](assets/b.png) again [a2](assets/a.pdf)' },
+      assets: { 'a.pdf': 'a', 'b.png': 'b' },
+    })
+    const index = await buildIndex(vault(tree))
+    expect(index.graph.pages.get('pages/Ideas.md')!.assets).toEqual([
+      'assets/a.pdf',
+      'assets/b.png',
+    ])
+  })
+
+  it('keeps a destination that names no file as a candidate, leaving the answer to the listing', async () => {
+    const tree = buildTree({ pages: { 'Ideas.md': '[gone](assets/gone.pdf)' } })
+    const index = await buildIndex(vault(tree))
+    expect(index.graph.pages.get('pages/Ideas.md')!.assets).toEqual(['assets/gone.pdf'])
+    expect(index.graph.files.has('assets/gone.pdf')).toBe(false)
+  })
+
+  it('carries candidates with the carried page and re-checks existence from the folder', async () => {
+    const tree = buildTree({
+      pages: { 'Ideas.md': '[shot](assets/shot.png)' },
+      assets: { 'shot.png': 'png' },
+    })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    expect(first.graph.files.has('assets/shot.png')).toBe(true)
+
+    await storage.delete('assets/shot.png')
+    const second = await buildIndex(storage, first)
+
+    // The page did not change, so it is carried over by identity with its
+    // candidates intact (design D1)...
+    expect(second.graph.pages.get('pages/Ideas.md')).toBe(first.graph.pages.get('pages/Ideas.md'))
+    // ...while the folder's answer — the listing the rows are filtered by — did.
+    expect(second.graph.files.has('assets/shot.png')).toBe(false)
+    expect(second.graph.assets).toEqual([])
+  })
+
+  it('adds a written page to the file listing', async () => {
+    const tree = buildTree({ pages: { 'Ideas.md': 'v1' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    const second = await upsertPage(storage, first, 'pages/New.md', 'hello')
+    expect(second.graph.files.has('pages/New.md')).toBe(true)
+  })
+
+  it('re-derives destinations for a saved edit (write-through)', async () => {
+    const tree = buildTree({ pages: { 'Ideas.md': 'v1' }, assets: { 'a.pdf': 'a' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    const second = await upsertPage(storage, first, 'pages/Ideas.md', '[a](assets/a.pdf)')
+    expect(second.graph.pages.get('pages/Ideas.md')!.assets).toEqual(['assets/a.pdf'])
+  })
+
+  it('pageAssets keeps only what the vault holds and is not a page', async () => {
+    const tree = buildTree({
+      pages: { 'Ideas.md': '[a](assets/a.pdf) [gone](assets/gone.pdf) [p](pages/Other.md)' },
+      assets: { 'a.pdf': 'a' },
+    })
+    const index = await buildIndex(vault(tree))
+    const page = index.graph.pages.get('pages/Ideas.md')!
+    expect(page.assets).toHaveLength(3)
+    expect(pageAssets(page, index.graph)).toEqual(['assets/a.pdf'])
+  })
+
+  it('labels an asset by its path inside assets/', () => {
+    expect(assetName('assets/shot.png')).toBe('shot.png')
+    expect(assetName('assets/2026/q3.pdf')).toBe('2026/q3.pdf')
+    expect(assetName('media/x.png')).toBe('media/x.png')
+  })
+})
+
+describe('listAssets (the Assets listing source)', () => {
+  it('keeps assets/ paths in path order', () => {
+    expect(listAssets(['pages/a.md', 'assets/z.png', 'assets/a.png', 'notes/random.md'])).toEqual([
+      'assets/a.png',
+      'assets/z.png',
+    ])
+  })
+
+  it('is empty for a vault with no assets', () => {
+    expect(listAssets(['pages/a.md'])).toEqual([])
+  })
+})
+
+describe('hasHiddenSegment', () => {
+  it('flags a dot segment at any depth', () => {
+    expect(hasHiddenSegment('.folio/pins.md')).toBe(true)
+    expect(hasHiddenSegment('assets/.thumbs/x.png')).toBe(true)
+    expect(hasHiddenSegment('.hidden.md')).toBe(true)
+  })
+
+  it('passes ordinary paths', () => {
+    expect(hasHiddenSegment('assets/a.png')).toBe(false)
+    expect(hasHiddenSegment('pages/a.b.md')).toBe(false)
   })
 })
 

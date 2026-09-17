@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { isDisplayable, mimeFor, openVaultTarget, vaultTarget } from './assetTarget'
+import { isDisplayable, mimeFor, openVaultPath, openVaultTarget, vaultTarget } from './assetOpen'
 
 // open-vault-assets: which targets in a page open a vault file, what type they
 // are served as, and which of the two branches (a window, or a download) they
 // take. The openers are stubbed, so these are the decisions alone (design D8).
+// `openVaultTarget` takes an href from the document, where a destination is a
+// URL; `openVaultPath` (add-asset-navigation) takes a path the vault itself
+// listed, which is the file's literal name and must not be decoded.
 
 describe('vaultTarget', () => {
   it('accepts a vault-relative path as it is written', () => {
@@ -152,5 +155,43 @@ describe('openVaultTarget', () => {
     expect(revoke).toHaveBeenCalledWith(url)
     vi.useRealTimers()
     revoke.mockRestore()
+  })
+})
+
+// The second entry point (add-asset-navigation, ADR-0021): a path read from the
+// folder listing is the file's literal name, so it is opened exactly as the
+// vault spells it rather than as a URL would decode it.
+describe('openVaultPath', () => {
+  it('reads the literal path, without decoding it', async () => {
+    const o = openers()
+    const read = reader()
+    expect(await openVaultPath('assets/100% done.pdf', read, o)).toBe(true)
+    expect(read.calls).toEqual(['assets/100% done.pdf'])
+    expect(o.openTab).toHaveBeenCalledTimes(1)
+    expect(o.setUrl).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves a path that looks percent-encoded alone', async () => {
+    const o = openers()
+    const read = reader()
+    expect(await openVaultPath('assets/a%20b.pdf', read, o)).toBe(true)
+    // The decode belongs to the href side; doing it here would look for a file
+    // named `a b.pdf` that the vault does not hold.
+    expect(read.calls).toEqual(['assets/a%20b.pdf'])
+  })
+
+  it('downloads a type the browser cannot display', async () => {
+    const o = openers()
+    expect(await openVaultPath('assets/2026/archive.zip', reader(), o)).toBe(true)
+    expect(o.openTab).not.toHaveBeenCalled()
+    expect(o.download.mock.calls[0][1]).toBe('archive.zip')
+  })
+
+  it('closes the window it opened when the file is gone', async () => {
+    const o = openers()
+    expect(await openVaultPath('assets/gone.pdf', reader(undefined, true), o)).toBe(false)
+    expect(o.openTab).toHaveBeenCalledTimes(1)
+    expect(o.close).toHaveBeenCalledTimes(1)
+    expect(o.setUrl).not.toHaveBeenCalled()
   })
 })

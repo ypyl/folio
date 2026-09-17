@@ -13,7 +13,7 @@ import {
   syncAssetImages,
   type AssetImages,
 } from '../editor/assetImages'
-import { noVaultReader } from '../editor/assetTarget'
+import { noVaultReader } from '../vault/assetOpen'
 import styles from './EditorPane.module.css'
 
 // The editor surface for an open page (design D1/D2). The pane owns the DOM

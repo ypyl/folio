@@ -1,6 +1,9 @@
-// Pure Markdown page-reference extraction (ADR-0012, page-references spec).
-// No IO. The canonical token regex lives here so the vault index tokenizes
-// references exactly as the editor preserves them (design D6).
+// Pure Markdown extraction, no IO. The canonical token regex lives here so the
+// vault index tokenizes references exactly as the editor preserves them (design
+// D6), and the inline-link scanner lives here so the index reads a page's asset
+// destinations by the same syntax the editor writes them with.
+
+import { isVaultRelative } from './assetOpen'
 
 export type Link = {
   target: string // page name, exactly as referenced (trimmed)
@@ -124,4 +127,89 @@ export function parseLinks(content: string): Link[] {
     links.push({ target, via: bracketed !== undefined ? 'bracketed' : 'word' })
   }
   return links
+}
+
+/**
+ * Every vault-relative path a page's inline links and images target, in order
+ * of appearance and deduplicated (add-asset-navigation, design D3). The index
+ * keeps the ones that name a file it holds; this function only reads the
+ * document, so it stays a pure function of content — the property that lets a
+ * page's candidates be carried over on refresh exactly like its references.
+ *
+ * A destination is a URL, so it is percent-decoded before it is returned
+ * (`assets/my%20report.pdf` names the file with a space); a destination whose
+ * escapes cannot be decoded is kept as the literal path it spells, so a file
+ * named `100% done.pdf` still resolves. Angle brackets and a quoted title are
+ * Markdown's own syntax, not part of the path, and are removed. Destinations
+ * are read per line: an inline link cannot span one, and not bounding the scan
+ * would let an unmatched `](` swallow the rest of the document.
+ */
+export function parseAssetPaths(content: string): string[] {
+  const paths: string[] = []
+  const seen = new Set<string>()
+  for (const body of inlineDestinations(content)) {
+    const path = assetPath(body)
+    if (path === null || seen.has(path)) continue
+    seen.add(path)
+    paths.push(path)
+  }
+  return paths
+}
+
+/** The body of every `](` … `)` on each line, in order (the destination of an
+ *  inline link or image; the `!` of an image never changes it). */
+function* inlineDestinations(content: string): Generator<string> {
+  let lineStart = 0
+  while (lineStart <= content.length) {
+    const lineEnd = content.indexOf('\n', lineStart)
+    const line = lineEnd === -1 ? content.slice(lineStart) : content.slice(lineStart, lineEnd)
+    let opened = line.indexOf('](')
+    while (opened !== -1) {
+      const close = matchingParen(line, opened + 1)
+      if (close === -1) break
+      yield line.slice(opened + 2, close)
+      opened = line.indexOf('](', close + 1)
+    }
+    if (lineEnd === -1) return
+    lineStart = lineEnd + 1
+  }
+}
+
+/** The index of the `)` matching the `(` at `open`, counting nesting so a
+ *  destination may contain its own parentheses (`assets/a (draft).pdf`); -1
+ *  when the line has no matching close. */
+function matchingParen(line: string, open: number): number {
+  let depth = 0
+  for (let i = open; i < line.length; i++) {
+    const char = line[i]
+    if (char === '(') depth++
+    else if (char === ')' && --depth === 0) return i
+  }
+  return -1
+}
+
+/** A link destination as a vault path, or null when it is not one. */
+function assetPath(body: string): string | null {
+  let path = body.trim()
+  // A fragment names a place in this document, not a file — the same rule the
+  // open gesture applies to an href.
+  if (path.startsWith('#')) return null
+  if (path.startsWith('<') && path.endsWith('>')) path = path.slice(1, -1)
+  // A title is followed by more of the link, not by its close, so only a
+  // *trailing* quoted string can be one. The parenthesized title form is left
+  // alone: it is indistinguishable from a filename ending in ` (something)`.
+  const titled = /^(.*?)\s+("[^"]*"|'[^']*')$/.exec(path)
+  if (titled) path = titled[1]
+  const decoded = decodePath(path)
+  return isVaultRelative(decoded) ? decoded : null
+}
+
+/** Percent-decoding, with the literal path as the fallback for a destination
+ *  that carries a `%` the browser cannot decode. */
+function decodePath(path: string): string {
+  try {
+    return decodeURIComponent(path)
+  } catch {
+    return path
+  }
 }

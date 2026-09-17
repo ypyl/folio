@@ -17,6 +17,14 @@ const row = (path: string, materialized = true): LinkRow => ({
   materialized,
 })
 
+/** An asset row as App builds it (vault-assets): a file the vault holds. */
+const assetRow = (path: string): LinkRow => ({
+  title: path.slice(path.lastIndexOf('/') + 1),
+  path,
+  materialized: true,
+  kind: 'asset',
+})
+
 const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
 
 describe('MetaPanel', () => {
@@ -28,6 +36,7 @@ describe('MetaPanel', () => {
         forwardlinks={[]}
         activePath={null}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
@@ -47,6 +56,7 @@ describe('MetaPanel', () => {
         forwardlinks={[]}
         activePath={null}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         shortcuts={shortcuts}
         loading
       />,
@@ -71,6 +81,7 @@ describe('MetaPanel', () => {
         forwardlinks={[row('Beta.md'), row('Gama.md')]}
         activePath={null}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
@@ -91,6 +102,7 @@ describe('MetaPanel', () => {
         forwardlinks={[row('Beta.md')]}
         activePath={null}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
@@ -107,6 +119,7 @@ describe('MetaPanel', () => {
         forwardlinks={[row('missing.md', false)]}
         activePath={null}
         onSelect={onSelect}
+        onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
@@ -124,6 +137,7 @@ describe('MetaPanel', () => {
         forwardlinks={[]}
         activePath="Beta.md"
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
@@ -133,6 +147,47 @@ describe('MetaPanel', () => {
     expect(
       within(meta()).getByRole('button', { name: 'Alpha' }).getAttribute('aria-current'),
     ).toBeNull()
+  })
+
+  it('sorts page and asset rows into one order', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        backlinks={[]}
+        forwardlinks={[
+          assetRow('assets/q3-report.pdf'),
+          row('Roadmap.md'),
+          assetRow('assets/a.png'),
+        ]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const buttons = [...meta().querySelectorAll('button')].map((b) => b.textContent)
+    expect(buttons).toEqual(['a.png', 'q3-report.pdf', 'Roadmap'])
+  })
+
+  it('opens an asset row instead of navigating, and never dims it', () => {
+    const onSelect = vi.fn()
+    const onOpenAsset = vi.fn()
+    render(
+      <MetaPanel
+        pageOpen
+        backlinks={[]}
+        forwardlinks={[assetRow('assets/q3-report.pdf')]}
+        activePath={null}
+        onSelect={onSelect}
+        onOpenAsset={onOpenAsset}
+        shortcuts={shortcuts}
+      />,
+    )
+    const btn = within(meta()).getByRole('button', { name: 'q3-report.pdf' })
+    expect(btn.className).not.toContain(styles.dimmed)
+    fireEvent.click(btn)
+    expect(onOpenAsset).toHaveBeenCalledWith('assets/q3-report.pdf')
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })
 
@@ -146,6 +201,7 @@ describe('keyboard-shortcuts section', () => {
       forwardlinks={[]}
       activePath={null}
       onSelect={() => {}}
+      onOpenAsset={() => {}}
       shortcuts={shortcuts}
       loading={props.loading}
     />

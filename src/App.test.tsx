@@ -131,8 +131,9 @@ const FIXTURE = {
   },
 }
 
-async function openFixture(): Promise<FakeDirectoryHandle> {
-  const tree = buildTree(FIXTURE)
+async function openFixture(
+  tree: FakeDirectoryHandle = buildTree(FIXTURE),
+): Promise<FakeDirectoryHandle> {
   tree.name = 'notes'
   vi.stubGlobal(
     'showDirectoryPicker',
@@ -333,6 +334,68 @@ describe('navigation over the real index', () => {
     expect(within(meta()).getByRole('button', { name: 'Welcome' })).toBeTruthy()
     const dimmed = within(meta()).getByRole('button', { name: 'architecture' })
     expect(dimmed.className).toContain('dimmed')
+    vi.unstubAllGlobals()
+  })
+
+  it("forwardlinks list the open page's files and open them without leaving the page", async () => {
+    const tree = buildTree({
+      pages: { 'Report.md': 'Started the report: [Q3 report](assets/q3-report.pdf).' },
+      journals: { '2026-09-02.md': 'start' },
+      assets: { 'q3-report.pdf': 'pdf bytes' },
+    })
+    // The open gesture hands the bytes to a new window (ADR-0021); stubbed so
+    // the test can see the window was filled without a browser to open one.
+    const tab = { opener: null, location: { href: '' }, close: vi.fn() }
+    const opened = vi.fn(() => tab)
+    vi.stubGlobal('open', opened)
+
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.click(await screen.findByRole('button', { name: 'Report' }))
+
+    const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
+    // The file sits beside the page's references, named for the file, and is
+    // not dimmed: an asset row exists only for a file the vault holds.
+    const row = await within(meta()).findByRole('button', { name: 'q3-report.pdf' })
+    expect(row.className).not.toContain('dimmed')
+    expect(row.getAttribute('aria-current')).toBeNull()
+
+    fireEvent.click(row)
+    await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
+    expect(tab.location.href).toMatch(/^blob:/)
+    // Opening a file is not navigation: the same page is still open.
+    expect(editor().setContents[0]).toContain('Started the report')
+    vi.unstubAllGlobals()
+  })
+
+  it("lists the vault's files in the sidebar and opens one from there", async () => {
+    const tree = buildTree({
+      pages: { 'Report.md': 'no references here' },
+      journals: { '2026-09-02.md': 'start' },
+      assets: { 'q3-report.pdf': 'pdf bytes', 'shot.png': 'png bytes' },
+    })
+    const tab = { opener: null, location: { href: '' }, close: vi.fn() }
+    const opened = vi.fn(() => tab)
+    vi.stubGlobal('open', opened)
+
+    render(<App />)
+    await openFixture(tree)
+
+    // Path-ordered, labelled by the path inside assets/.
+    const rows = section('Assets')
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+    expect(rows).toEqual(['q3-report.pdf', 'shot.png'])
+
+    // Rows are in the document even while the section is collapsed, so a file
+    // is reachable without opening it first (the summary is always rendered).
+    expect(
+      (screen.getByText('Assets').closest('details') as HTMLElement).hasAttribute('open'),
+    ).toBe(false)
+
+    fireEvent.click(section('Assets').getByRole('button', { name: 'shot.png' }))
+    await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
+    expect(tab.location.href).toMatch(/^blob:/)
     vi.unstubAllGlobals()
   })
 

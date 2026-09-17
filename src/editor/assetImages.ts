@@ -5,9 +5,12 @@
 // seam, and leaves the document text alone — the markdown stays canonical
 // (ADR-0001), only the DOM is derived.
 //
-// A plain function over a DOM subtree: no React, no vault import, no Milkdown.
-// The pane owns the cache's lifetime and drives the pass where it already
-// drives the gutter (design D2, D5).
+// A plain function over a DOM subtree: no React, no Milkdown. The pane owns the
+// cache's lifetime and drives the pass where it already drives the gutter
+// (design D2, D5). The one vault import is the shared "what counts as a vault
+// path" predicate, which the index's asset extraction reads too.
+
+import { isVaultRelative } from '../vault/assetOpen'
 
 /** Per-page resolution state. `urls` are live object URLs to revoke on
  *  release; `attempted` holds every path already read or in flight, so a path
@@ -20,14 +23,6 @@ export type AssetImages = {
 
 export function createAssetImages(): AssetImages {
   return { urls: new Map(), attempted: new Set(), released: false }
-}
-
-/** Vault-relative only (design D4): a `src` carrying a scheme (`http:`,
- *  `https:`, `data:`, `blob:`) or starting at `/` is left to the browser. Shared
- *  with the image node view (fit-vault-images-to-pane), which shows its control
- *  for exactly the references this pass resolves. */
-export function isVaultRelative(src: string): boolean {
-  return src !== '' && !src.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(src)
 }
 
 /** Point every vault-relative image under `host` at its file's bytes. Safe to

@@ -139,7 +139,7 @@ The index SHALL retain the full text content of every page it indexes, so openin
 - **THEN** the body text matches the page's file content, read from the index
 
 ### Requirement: External folder changes reach the index
-Changes made to the vault folder outside the app SHALL appear in the index without restarting the app: the index SHALL refresh when the window gains focus, when it becomes visible, and periodically while it is visible. After a refresh, the index SHALL match the folder: added pages appear, removed pages disappear, and changed pages carry updated content and references.
+Changes made to the vault folder outside the app SHALL appear in the index without restarting the app: the index SHALL refresh when the window gains focus, when it becomes visible, and periodically while it is visible. After a refresh, the index SHALL match the folder: added pages appear, removed pages disappear, and changed pages carry updated content and references. The same refresh SHALL re-derive the asset inventory and re-check the existence of every page's asset references, so a file added, removed, or changed under `assets/` is reflected without any page being edited.
 
 #### Scenario: A file added externally appears
 - **WHEN** a file `New.md` appears in the folder while the app is open, and the window later gains focus
@@ -152,6 +152,10 @@ Changes made to the vault folder outside the app SHALL appear in the index witho
 #### Scenario: A file removed externally disappears
 - **WHEN** `Old.md` is deleted from the folder while the app is open, and a refresh occurs
 - **THEN** `Old.md` no longer appears in the index or the sidebar
+
+#### Scenario: An asset added externally is inventoried on refresh
+- **WHEN** a file is copied into `assets/` while the app is open, and a refresh occurs
+- **THEN** the vault's asset inventory contains the new file, and no page was created, moved, or removed
 
 ### Requirement: The index follows the active folder
 The app SHALL bind its index to the currently active vault folder: opening or switching to a folder SHALL build that folder's index, and the sidebar and editor SHALL show that folder's pages. With no folder open, no index SHALL be shown.
@@ -183,19 +187,6 @@ A page saved by the app SHALL reach the index immediately, without waiting for a
 - **WHEN** a save fails
 - **THEN** the index still holds the page's previous content and references
 
-### Requirement: The assets folder is referenced, not navigated
-The index scan SHALL exclude the vault's `assets/` folder: no file under `assets/` — regardless of extension — becomes a page, contributes to backlinks, or appears in navigation. Assets are reachable only through the markdown links that reference them.
-
-#### Scenario: A dropped markdown file under assets is not a page
-- **GIVEN** a vault containing `assets/notes.md`
-- **WHEN** the vault is scanned and indexed
-- **THEN** no page is derived from `assets/notes.md`, and it never appears in the sidebar or backlinks
-
-#### Scenario: Asset writes do not disturb the page index
-- **GIVEN** an open vault whose index is up to date
-- **WHEN** a binary asset is added to or changed under `assets/`
-- **THEN** the index's page set is unchanged and no page is created, moved, or removed by the asset write
-
 ### Requirement: The index exposes an ordered pins list from the vault meta file
 Reading a vault SHALL expose an ordered list of page paths derived from the vault's hidden pin meta file — `.folio/pins.md` — in the file's own order, with the most recently pinned page first. The meta file SHALL NOT be indexed as a page: it produces no page record, no search content, and no reference source. When the meta file is absent, the pins list SHALL be empty. Refresh SHALL re-derive the pins list when the meta file changes, exactly as page records re-derive for changed files, so external edits take effect on the app's next scan.
 
@@ -215,3 +206,96 @@ Reading a vault SHALL expose an ordered list of page paths derived from the vaul
 - **GIVEN** an index built when `.folio/pins.md` listed `a.md`
 - **WHEN** another tool rewrites it to list `b.md` first and a refresh occurs
 - **THEN** the refreshed index exposes pins `['b.md', 'a.md']`
+
+### Requirement: No asset becomes a page
+No file under the vault's `assets/` folder SHALL produce a page, whatever its extension or name: it SHALL NOT appear among the vault's pages, contribute to a page's backlinks, enter the reference namespace, or be found by search. Assets are listed and referenced as assets (vault-assets capability), never as pages.
+
+#### Scenario: A dropped markdown file under assets is not a page
+
+- **GIVEN** a vault containing `assets/notes.md`
+- **WHEN** the vault is scanned and indexed
+- **THEN** no page is derived from `assets/notes.md`, and it never appears among the vault's pages or in backlinks
+
+#### Scenario: An asset's references do not contribute to backlinks
+
+- **GIVEN** a vault containing `assets/notes.md` whose content references `#Roadmap`
+- **WHEN** the vault is scanned and indexed
+- **THEN** `Roadmap`'s backlinks do not include `assets/notes.md`
+
+### Requirement: The index exposes the vault's asset inventory
+Reading a vault SHALL expose the paths of every non-hidden file under the vault's `assets/` folder, at any depth within it, whatever the file's extension. The inventory SHALL be derived from the folder on every scan, so a file added, removed, or renamed under `assets/` is reflected on the next refresh without any page being edited. Changing the inventory SHALL NOT change the vault's page set: no page is created, moved, or removed by an asset write. The inventory is derived data and SHALL NOT persist (ADR-0001, ADR-0004).
+
+#### Scenario: Every file under assets is inventoried
+
+- **GIVEN** a vault containing `assets/shot.png`, `assets/2026/q3-report.pdf`, and `assets/notes.md`
+- **WHEN** the vault is scanned and indexed
+- **THEN** the inventory contains `assets/shot.png`, `assets/2026/q3-report.pdf`, and `assets/notes.md`
+
+#### Scenario: Hidden paths are not inventoried
+
+- **GIVEN** a vault containing `assets/.thumbs/x.png` and `assets/.DS_Store`
+- **WHEN** the vault is scanned and indexed
+- **THEN** neither path is in the inventory
+
+#### Scenario: Asset writes do not disturb the page index
+
+- **GIVEN** an open vault whose index is up to date
+- **WHEN** a binary asset is added to or changed under `assets/`
+- **THEN** the page set is unchanged and no page is created, moved, or removed by the asset write
+
+#### Scenario: A removed asset leaves the inventory
+
+- **GIVEN** an index whose inventory contains `assets/shot.png`
+- **WHEN** the file is deleted from the folder and the index refreshes
+- **THEN** the inventory no longer contains `assets/shot.png`
+
+### Requirement: The index derives each page's asset references
+For every page, the index SHALL report the vault paths that the page's Markdown links and images target, in order of appearance and deduplicated. A target SHALL be reported only when it is vault-relative — no URL scheme, no leading `/`, no fragment — is not a page, and names a file the vault holds. A percent-encoded destination SHALL be decoded before it is matched against the vault, and a destination that cannot be decoded SHALL be matched as the literal path it spells. A page's asset references SHALL be re-derived when the page's content changes, and their existence SHALL be re-checked whenever the vault's listing changes, so a file deleted from the folder stops being reported without the page being edited. Asset references are derived data and SHALL NOT persist (ADR-0001, ADR-0004).
+
+#### Scenario: Link and image destinations are both reported
+
+- **GIVEN** a page whose content is `[Q3 report](assets/q3-report.pdf) and ![shot](assets/shot.png)`
+- **WHEN** the page is indexed
+- **THEN** its asset references are `assets/q3-report.pdf` and `assets/shot.png`, in that order
+
+#### Scenario: Repeated destinations collapse
+
+- **GIVEN** a page that links `assets/shot.png` twice
+- **WHEN** the page is indexed
+- **THEN** its asset references contain `assets/shot.png` once
+
+#### Scenario: External and fragment destinations are not asset references
+
+- **GIVEN** a page whose content is `[site](https://example.com/x.pdf) and [here](#section)`
+- **WHEN** the page is indexed
+- **THEN** it has no asset references
+
+#### Scenario: A percent-encoded destination resolves
+
+- **GIVEN** the vault contains `assets/my report.pdf` and a page whose content is `[report](assets/my%20report.pdf)`
+- **WHEN** the page is indexed
+- **THEN** its asset references include `assets/my report.pdf`
+
+#### Scenario: A destination that cannot be decoded still resolves
+
+- **GIVEN** the vault contains `assets/100% done.pdf` and a page whose content is `[done](assets/100% done.pdf)`
+- **WHEN** the page is indexed
+- **THEN** its asset references include `assets/100% done.pdf`
+
+#### Scenario: A link to a page file is not an asset reference
+
+- **GIVEN** the vault contains `pages/other.md` and a page whose content is `[see](pages/other.md)`
+- **WHEN** the page is indexed
+- **THEN** the page has no asset references
+
+#### Scenario: A destination naming no file is not reported
+
+- **GIVEN** a page whose content is `[gone](assets/gone.pdf)` and no such file in the vault
+- **WHEN** the page is indexed
+- **THEN** the page has no asset references
+
+#### Scenario: A file deleted outside the app stops being referenced
+
+- **GIVEN** a page referencing `assets/shot.png`, and an index that reports it
+- **WHEN** `assets/shot.png` is deleted from the folder and the index refreshes
+- **THEN** the page's asset references no longer include it, although the page's own file did not change

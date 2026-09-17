@@ -28,7 +28,7 @@ import type { Step } from '@milkdown/prose/transform'
 import type { EditorView } from '@milkdown/prose/view'
 import { Decoration, DecorationSet } from '@milkdown/prose/view'
 import { findReferenceRanges } from '../vault/parse'
-import { openVaultTarget, vaultTarget, type AssetReader } from './assetTarget'
+import { openVaultTarget, vaultTarget, type AssetReader } from '../vault/assetOpen'
 
 /** One reference token's document positions and its page-name target. */
 export type ReferenceRef = {

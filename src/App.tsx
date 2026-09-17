@@ -12,14 +12,17 @@ import { DraftStore } from './editor/drafts'
 import { chordToKeyEventInit } from './editor/chord'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
+import { openVaultPath } from './vault/assetOpen'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import { canOpenFolders } from './vault/fs'
 import {
+  assetName,
   kindOf,
   localDayString,
   orderPages,
+  pageAssets,
   resolveReferencePath,
   stem,
   type IndexPage,
@@ -28,6 +31,11 @@ import { candidateNames, suggestPages, type Suggestion } from './vault/suggest'
 import type { SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
+
+/** One shared empty assets list for the no-graph state (add-asset-navigation):
+ *  the sidebar is memoized, so a fresh [] on every render would defeat the memo
+ *  while the index builds. */
+const EMPTY_ASSETS: string[] = []
 
 function App() {
   const { status, folders, activeId, addFolder, activate, closeFolder, goHome } = useVault()
@@ -157,6 +165,19 @@ function App() {
     handleSelect(path)
   }
 
+  // Activating an asset (vault-assets): open the file and change nothing else —
+  // no navigation, no draft, no trail entry, no search state. Stable identity
+  // (it reads only the active folder) so the memoized Sidebar and MetaPanel skip
+  // re-rendering while typing.
+  const handleOpenAsset = useCallback(
+    (path: string) => {
+      const store = activeFolder?.storage
+      if (!store) return
+      void openVaultPath(path, (assetPath) => store.readBinary(assetPath))
+    },
+    [activeFolder],
+  )
+
   // Every landed run updates the pane's source; a run with no matches leaves
   // nothing to browse, so the results mode closes back to the open page and
   // the dropdown shows its empty state (search-results-view spec).
@@ -273,6 +294,7 @@ function App() {
           kind: kindOf(activePath),
           content: '',
           links: [],
+          assets: [],
           lastModified: 0,
         }
       : null
@@ -354,25 +376,41 @@ function App() {
   const forwardlinkRows = useMemo<LinkRow[]>(
     () =>
       graph && page
-        ? page.links
-            .map((l) => {
-              const targetPath = resolveReferencePath(l.target, graph.byName)
-              const p = graph.pages.get(targetPath)
-              if (p) return { title: p.title, path: targetPath, materialized: true }
-              // No page matches the reference: it is unmaterialized. A name
-              // that is not a date materializes under `pages/`, preserving any
-              // directory part in bracketed names; a date name is the journal
-              // day, which materializes under `journals/`.
-              return { title: l.target, path: targetPath, materialized: false }
-            })
-            .filter(
-              // A page's link to itself isn't useful navigation (mirrors the
-              // index's backlink self-exclusion).
-              (r) => r.path !== page.path,
-            )
+        ? [
+            ...page.links
+              .map((l) => {
+                const targetPath = resolveReferencePath(l.target, graph.byName)
+                const p = graph.pages.get(targetPath)
+                if (p) return { title: p.title, path: targetPath, materialized: true }
+                // No page matches the reference: it is unmaterialized. A name
+                // that is not a date materializes under `pages/`, preserving any
+                // directory part in bracketed names; a date name is the journal
+                // day, which materializes under `journals/`.
+                return { title: l.target, path: targetPath, materialized: false }
+              })
+              .filter(
+                // A page's link to itself isn't useful navigation (mirrors the
+                // index's backlink self-exclusion).
+                (r) => r.path !== page.path,
+              ),
+            // The page's files (vault-assets, design D1), labelled with the
+            // file's name. Whether one exists is read from the vault's own
+            // listing, so a file deleted outside the app drops out on the next
+            // scan even though this page's record is carried over untouched.
+            ...pageAssets(page, graph).map((path) => ({
+              title: assetName(path),
+              path,
+              materialized: true,
+              kind: 'asset' as const,
+            })),
+          ]
         : [],
     [graph, page],
   )
+
+  // The vault's assets, path-ordered (vault-assets): App hands the index's own
+  // array through, so the memoized sidebar sees a new one only on a scan.
+  const assets = graph ? graph.assets : EMPTY_ASSETS
 
   // Ordered pages for the sidebar (add-pinned-pages, design D5): pinned
   // first in pin order, then the rest by last-modified descending — the
@@ -455,8 +493,10 @@ function App() {
         <Sidebar
           pages={pages}
           journalEntries={journalEntries}
+          assets={assets}
           activePath={activePath}
           onSelect={handleSelect}
+          onOpenAsset={handleOpenAsset}
           pinnedPaths={pins}
           hasVault={graph !== null}
           loading={indexing}
@@ -523,6 +563,7 @@ function App() {
           forwardlinks={mode === 'page' ? forwardlinkRows : []}
           activePath={mode === 'page' ? activePath : null}
           onSelect={handleSelect}
+          onOpenAsset={handleOpenAsset}
           loading={indexing}
           shortcuts={<ShortcutsList onApply={applyShortcut} canApply={canApply} />}
           /* oxlint-enable react/refs */

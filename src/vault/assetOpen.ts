@@ -1,18 +1,31 @@
-// Opening a vault asset (open-vault-assets): a page's markdown can link to a
-// file in the vault by path — `[Q3 report](assets/q3-report.pdf)` — and the
-// browser has nothing served at that path, so the link is dead. This module
-// turns such a target into an openable one: the file's bytes, read through the
-// storage seam, handed to the browser as a `blob:` URL, either in a new tab or
-// as a download.
+// Opening a vault file (open-vault-assets, ADR-0021, ADR-0022): a page's
+// markdown can link to a file in the vault by path — `[Q3 report](assets/q3-report.pdf)`
+// — and the browser has nothing served at that path, so the link is dead. This
+// module turns such a target into an openable one: the file's bytes, read
+// through the storage seam, handed to the browser as a `blob:` URL, either in a
+// new tab or as a download.
+//
+// It lives in the vault layer because it has two callers with two different
+// questions: the editor hands in an href from the document, where a destination
+// is a URL and may be percent-encoded, and the app hands in a path from the
+// folder listing, which is already the file's literal name and must not be
+// decoded. `openVaultTarget` answers the first, `openVaultPath` the second;
+// neither the classification nor the IO is editor-specific (ADR-0010).
 //
 // The decision half — which targets qualify, what type they are, which of the
 // two branches they take — is pure and tested directly; the DOM calls sit
-// behind `Openers`, so the decisions are exercised without a browser (design
-// D8). What opens is a copy: the browser cannot hand a file on disk to the
-// operating system in place, so the vault file is never written and never
-// watched for a change made outside. Markdown stays canonical (ADR-0001).
+// behind `Openers`, so the decisions are exercised without a browser. What
+// opens is a copy: the browser cannot hand a file on disk to the operating
+// system in place, so the vault file is never written and never watched for a
+// change made outside. Markdown stays canonical (ADR-0001).
 
-import { isVaultRelative } from './assetImages'
+/** Vault-relative only: a path carrying a scheme (`http:`, `https:`, `data:`,
+ *  `blob:`) or starting at `/` is not a vault path. Shared with the image
+ *  resolver (`fit-vault-images-to-pane`) and with the index's asset-reference
+ *  extraction, so "what counts as a vault path" has exactly one definition. */
+export function isVaultRelative(src: string): boolean {
+  return src !== '' && !src.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(src)
+}
 
 /** Extensions the browser displays when a window is pointed at their bytes,
  *  and the type to point it with. Everything else takes the download branch,
@@ -132,18 +145,17 @@ export const domOpeners: Openers = {
   },
 }
 
-/** Read `href`'s vault file and open it, reporting whether anything opened. A
- *  target that is not a vault path, or a file the vault cannot resolve, opens
- *  nothing and leaves the app as it is (spec: an unresolvable vault target
- *  opens nothing). A window that could not be opened falls back to the download
- *  branch, so the file still reaches the user. */
-export async function openVaultTarget(
-  href: string,
+/** Open a path the vault already holds: a listing row, or a reference that was
+ *  matched against the listing. The path is used as the file's literal name —
+ *  no percent-decoding, because it did not come from a URL — which is what lets
+ *  a name carrying a `%` open the file it actually names (ADR-0021). What opens
+ *  is a copy (ADR-0021): the vault file is never written, and nothing in the app
+ *  changes state. Reporting is the same as `openVaultTarget`'s. */
+export async function openVaultPath(
+  path: string,
   read: AssetReader,
   openers: Openers = domOpeners,
 ): Promise<boolean> {
-  const path = vaultTarget(href)
-  if (path === null) return false
   const tab = isDisplayable(path) ? openers.openTab() : null
   let bytes: Blob
   try {
@@ -159,4 +171,19 @@ export async function openVaultTarget(
   else openers.download(url, path.slice(path.lastIndexOf('/') + 1))
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS)
   return true
+}
+
+/** Read `href`'s vault file and open it, reporting whether anything opened. A
+ *  target that is not a vault path, or a file the vault cannot resolve, opens
+ *  nothing and leaves the app as it is (spec: an unresolvable vault target
+ *  opens nothing). A window that could not be opened falls back to the download
+ *  branch, so the file still reaches the user. */
+export async function openVaultTarget(
+  href: string,
+  read: AssetReader,
+  openers: Openers = domOpeners,
+): Promise<boolean> {
+  const path = vaultTarget(href)
+  if (path === null) return false
+  return openVaultPath(path, read, openers)
 }

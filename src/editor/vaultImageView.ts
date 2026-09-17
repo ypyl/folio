@@ -19,7 +19,7 @@ import { imageSchema } from '@milkdown/preset-commonmark'
 import type { Node as ProseNode } from '@milkdown/prose/model'
 import type { NodeView, NodeViewConstructor } from '@milkdown/prose/view'
 import { $view } from '@milkdown/utils'
-import { isVaultRelative } from './assetImages'
+import { isVaultRelative } from '../vault/assetOpen'
 
 /** The wrapper and control classes the pane's stylesheet targets. Global names,
  *  like the badge and struck-run classes the decorations write. */

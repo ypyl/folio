@@ -5,25 +5,32 @@ import styles from './MetaPanel.module.css'
 // One link row in the meta panel (links-pane). `path` is the target's
 // vault-relative path; `materialized` is false when the target has no file on
 // disk yet — the row is dimmed but still navigable, opening a blank page that
-// materializes on first save (static-navigation spec).
+// materializes on first save (static-navigation spec). `kind` decides what
+// activating the row does: a page row navigates, and an asset row (vault-assets)
+// opens the file it names and leaves the app where it is.
 export type LinkRow = {
   title: string
   path: string
   materialized: boolean
+  /** Defaults to a page row, which is all the backlinks list can hold. */
+  kind?: 'page' | 'asset'
 }
 
 function LinkList({
   rows,
   activePath,
   onSelect,
+  onOpenAsset,
   emptyCopy,
 }: {
   rows: LinkRow[]
   activePath: string | null
   onSelect: (path: string) => void
+  onOpenAsset: (path: string) => void
   emptyCopy: string
 }) {
-  // Alphabetical, case-insensitive (design D5).
+  // Alphabetical, case-insensitive (design D5): page names and file names sort
+  // together, since a row's label is what the reader is scanning.
   const sorted = [...rows].sort((a, b) => {
     const x = a.title.toLowerCase()
     const y = b.title.toLowerCase()
@@ -34,18 +41,24 @@ function LinkList({
   }
   return (
     <div className={styles.list}>
-      {sorted.map((row) => (
-        <button
-          key={row.path}
-          type="button"
-          className={row.materialized ? styles.row : `${styles.row} ${styles.dimmed}`}
-          data-active={row.path === activePath || undefined}
-          aria-current={row.path === activePath ? 'page' : undefined}
-          onClick={() => onSelect(row.path)}
-        >
-          <span className={styles.rowText}>{row.title}</span>
-        </button>
-      ))}
+      {sorted.map((row) => {
+        const isAsset = row.kind === 'asset'
+        // Only a page row can be dimmed: an asset row exists by definition,
+        // because the row is built from the vault's own listing.
+        const dimmed = !isAsset && !row.materialized
+        return (
+          <button
+            key={row.path}
+            type="button"
+            className={dimmed ? `${styles.row} ${styles.dimmed}` : styles.row}
+            data-active={!isAsset && row.path === activePath ? true : undefined}
+            aria-current={!isAsset && row.path === activePath ? 'page' : undefined}
+            onClick={() => (isAsset ? onOpenAsset(row.path) : onSelect(row.path))}
+          >
+            <span className={styles.rowText}>{row.title}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -64,6 +77,7 @@ export function MetaPanel({
   forwardlinks,
   activePath,
   onSelect,
+  onOpenAsset,
   loading = false,
   shortcuts,
 }: {
@@ -72,6 +86,9 @@ export function MetaPanel({
   forwardlinks: LinkRow[]
   activePath: string | null
   onSelect: (path: string) => void
+  /** Open an asset row's file (vault-assets). Read by Forwardlinks only, which
+   *  is the one list that carries asset rows. */
+  onOpenAsset: (path: string) => void
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
   /** The keyboard-shortcuts reference body (apply-shortcuts-on-click). */
@@ -92,6 +109,7 @@ export function MetaPanel({
             rows={backlinks}
             activePath={activePath}
             onSelect={onSelect}
+            onOpenAsset={onOpenAsset}
             emptyCopy="Nothing links here yet."
           />
         ) : (
@@ -108,6 +126,7 @@ export function MetaPanel({
             rows={forwardlinks}
             activePath={activePath}
             onSelect={onSelect}
+            onOpenAsset={onOpenAsset}
             emptyCopy="This page links to nothing."
           />
         ) : (

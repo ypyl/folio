@@ -43,3 +43,10 @@
 .body {
   padding: 2px 4px 14px;
 }
+
+/* A closed section shows its summary and nothing of its body — not even the
+   body's own padding, which is what a content-visibility-hidden box keeps. The
+   sidebar's bands depend on this: a collapsed section is exactly one row. */
+.accordion:not([open]) .body {
+  display: none;
+}

@@ -26,7 +26,7 @@ The alternatives were therefore not variations of the same feature:
 A vault file opens as a derived copy.
 
 - The app reads the file once through the storage seam's binary read and gives the bytes to the browser: a `blob:` URL in a new window for a type the browser displays (PDF, images, media, plain text), a download for everything else, so the operating system's registered application can open it.
-- The gesture is the one the app already uses for links: Ctrl+Click, Cmd+Click on macOS (`open-links-on-ctrl-click`).
+- The gesture is Ctrl+Click, Cmd+Click on macOS (`open-links-on-ctrl-click`) for a link in the editor, and a plain click on an asset row — the sidebar's Assets section and a page's Forwardlinks (ADR-0022) — where the row itself is what the user clicked and there is no caret to place. One verb, one behaviour, two surfaces.
 - The vault file is never written and the page's Markdown is never touched, so the file stays canonical (ADR-0001). The app writes nothing anywhere as part of the gesture; the download, where there is one, is the browser's.
 - No native companion, no in-app viewer, no protocol handler, no write-back, and no watching for a change made outside.
 
@@ -45,4 +45,5 @@ Rejected: copying the file into the vault on open, or writing a cached copy for 
 - A window opened this way is an opaque origin with `opener` cleared: a file that carries script of its own (`svg`) can draw, and can reach neither the app nor the vault.
 - Nothing new is persisted, no index or derived data changes, and the vault is read on a click and not on a keystroke, so the typing budget is untouched.
 - The storage seam keeps the shape ADR-0003 gave it: one more consumer of the binary read that already existed.
+- Opening lives in the vault layer (`src/vault/assetOpen.ts`), not the editor layer: it has two callers, one holding an href from the document and one holding a path from the folder listing, and those two need different treatment. A Markdown destination may be percent-encoded and must be decoded before it names a file; a listed path is already the file's literal name and must not be.
 - If an edit round-trip is ever wanted, it needs the companion this record rejects, and it supersedes this decision rather than extending it.

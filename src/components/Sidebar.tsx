@@ -1,8 +1,18 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { Accordion } from './Accordion'
 import { JournalCalendar } from './JournalCalendar'
 import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
+import { assetName } from '../vault/index'
 import styles from './Sidebar.module.css'
 
 // A 24-viewBox chevron. aria-hidden: the control's accessible name says which
@@ -30,28 +40,66 @@ function ChevronIcon({
   )
 }
 
+/** One listing's scroll geometry (add-history-navigation D5): what
+ *  `windowPieces` needs, and nothing about which listing it is. Each sidebar
+ *  listing measures its own body, so a scroll in one never re-windows the
+ *  other (add-asset-navigation D5). */
+type ListView = { scrollTop: number; viewportHeight: number; listTop: number }
+
+/** Before anything is measured — a collapsed section, or a first render — the
+ *  head of a listing is drawn: a zero-height viewport is exactly that. */
+const UNMEASURED: ListView = { scrollTop: 0, viewportHeight: 0, listTop: 0 }
+
+/** Where a listing sits inside its own scroll body: the body scrolls, the list
+ *  inside it does not. */
+function measureList(body: HTMLElement | null, list: HTMLElement | null): ListView {
+  if (!body || !list) return UNMEASURED
+  return {
+    scrollTop: body.scrollTop,
+    viewportHeight: body.clientHeight,
+    listTop: list.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop,
+  }
+}
+
+/** The listing's own spacer convention, as a predicate: nothing to re-window
+ *  when neither the scroll position nor the measurable box moved. */
+function sameView(a: ListView, b: ListView): boolean {
+  return (
+    a.scrollTop === b.scrollTop && a.viewportHeight === b.viewportHeight && a.listTop === b.listTop
+  )
+}
+
 // Receives page data via props (design decision 3): components never import the
 // vault directly, so the index can swap per folder at App only. Rows are keyed
 // and tracked by vault-relative path (design D1/D6), not object identity -
 // index pages are re-derived on every refresh.
+//
+// The sidebar is a column of bands (add-asset-navigation, D5): the navigation
+// controls, then Journal sized to its calendar, then the Pages and Assets
+// sections, which share whatever height is left and each scroll inside their
+// own body. Every section summary is always in the document, so nothing can be
+// buried below a long listing the way the removed History section was.
 //
 // Memoized so a keystroke in the open page does not re-create a row element per
 // page (add-page-history, design D8, AGENTS.md: the keystroke budget). The memo
 // only bails while every prop keeps its identity, so App must keep this
 // inventory referentially stable:
 //   pages / journalEntries - useMemo on graph identity
+//   assets                 - graph.assets, which changes only on a scan
 //   pinnedPaths            - useIndex's pins, a constant empty array while the
 //                            graph is null
-//   onSelect / onBack / onForward / onToday - useCallback reading only what
-//                            they need
+//   onSelect / onOpenAsset / onBack / onForward / onToday - useCallback reading
+//                            only what they need
 //   canBack / canForward, activePath, hasVault, loading - primitives
 // A new prop that is rebuilt on every render silently disables this, so
 // re-run the change's measurement when this list changes.
 export const Sidebar = memo(function Sidebar({
   pages,
   journalEntries,
+  assets,
   activePath,
   onSelect,
+  onOpenAsset,
   pinnedPaths = [],
   hasVault,
   loading = false,
@@ -63,12 +111,19 @@ export const Sidebar = memo(function Sidebar({
 }: {
   pages: Page[]
   journalEntries: Page[]
+  /** The vault's assets, path-ordered (vault-assets). App passes the index's
+   *  own array, so a scan is the only thing that changes it. */
+  assets: string[]
   activePath: string | null
   onSelect: (path: string) => void
+  /** Activate an asset row: open the file (ADR-0021). An asset row never
+   *  navigates, so this is the whole of what a click does. */
+  onOpenAsset: (path: string) => void
   /** Pinned page paths, in pin order (most recently pinned first); pinned
    *  rows render a non-interactive star marker (add-pinned-pages). */
   pinnedPaths?: string[]
-  /** A folder is open and indexed; gates the journal calendar (D6). */
+  /** A folder is open and indexed; gates the journal calendar and the Assets
+   *  section's empty state (D6). */
   hasVault: boolean
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
@@ -89,31 +144,26 @@ export const Sidebar = memo(function Sidebar({
   // (move-today-into-nav-controls, design D3).
   const [todayTick, setTodayTick] = useState(0)
 
-  // The listing is windowed (add-history-navigation, D5): the sidebar is the
-  // scroll container, and only the rows near its viewport are in the document.
-  // `view` holds the three measurements the range needs; pieces derive from
-  // them, so a render never re-measures and a scroll never re-renders unless
-  // the range actually changes.
-  const scrollRef = useRef<HTMLElement | null>(null)
-  const listRef = useRef<HTMLUListElement | null>(null)
-  const [view, setView] = useState({ scrollTop: 0, viewportHeight: 0, listTop: 0 })
+  // Two windowed listings, two measured bodies (add-asset-navigation, D5). The
+  // aside is watched, not measured: its children are the bands whose height the
+  // flex split changes when a section opens or closes.
+  const asideRef = useRef<HTMLElement | null>(null)
+  const pagesBodyRef = useRef<HTMLDivElement | null>(null)
+  const pagesListRef = useRef<HTMLUListElement | null>(null)
+  const assetsBodyRef = useRef<HTMLDivElement | null>(null)
+  const assetsListRef = useRef<HTMLUListElement | null>(null)
+  const [views, setViews] = useState<{ pages: ListView; assets: ListView }>({
+    pages: UNMEASURED,
+    assets: UNMEASURED,
+  })
 
   const measure = useCallback(() => {
-    const container = scrollRef.current
-    const list = listRef.current
-    if (!container || !list) return
-    const containerTop = container.getBoundingClientRect().top
     const next = {
-      scrollTop: container.scrollTop,
-      viewportHeight: container.clientHeight,
-      listTop: list.getBoundingClientRect().top - containerTop + container.scrollTop,
+      pages: measureList(pagesBodyRef.current, pagesListRef.current),
+      assets: measureList(assetsBodyRef.current, assetsListRef.current),
     }
-    setView((prev) =>
-      prev.scrollTop === next.scrollTop &&
-      prev.viewportHeight === next.viewportHeight &&
-      prev.listTop === next.listTop
-        ? prev
-        : next,
+    setViews((prev) =>
+      sameView(prev.pages, next.pages) && sameView(prev.assets, next.assets) ? prev : next,
     )
   }, [])
 
@@ -130,12 +180,13 @@ export const Sidebar = memo(function Sidebar({
     })
   }, [measure])
 
-  // Sections above the listing open, and the calendar changes month, without
-  // re-rendering this component, so their boxes are watched rather than assumed.
-  // The listing itself is watched too: its spacers keep its height constant, so
-  // watching it cannot feed back into another measure.
+  // Sections above a listing open, and the calendar changes month, without
+  // re-rendering this component, so the bands' boxes are watched rather than
+  // assumed. A band's height comes from the flex split and never from its
+  // content — the listing scrolls inside it — so watching it cannot feed back
+  // into another measure.
   useEffect(() => {
-    const container = scrollRef.current
+    const container = asideRef.current
     if (!container || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(() => measure())
     for (const child of container.children) observer.observe(child)
@@ -151,9 +202,14 @@ export const Sidebar = memo(function Sidebar({
     [pages, activePath],
   )
 
-  const pieces = useMemo(
-    () => windowPieces({ total: pages.length, ...view, keep: activeIndex }),
-    [pages.length, view, activeIndex],
+  const pagesPieces = useMemo(
+    () => windowPieces({ total: pages.length, ...views.pages, keep: activeIndex }),
+    [pages.length, views.pages, activeIndex],
+  )
+
+  const assetPieces = useMemo(
+    () => windowPieces({ total: assets.length, ...views.assets }),
+    [assets.length, views.assets],
   )
 
   // Pinned rows are marked by the row's own style (bolder title) — no icon
@@ -184,9 +240,45 @@ export const Sidebar = memo(function Sidebar({
     )
   }
 
+  // An asset row (vault-assets): labelled by its path inside `assets/`, and a
+  // single button that opens the file. It carries no active marking — the open
+  // page is a page — and is never dimmed: a row exists only for a file the
+  // vault holds.
+  const renderAssetRow = (index: number) => {
+    const path = assets[index]
+    return (
+      <li key={path} className={styles.item} aria-setsize={assets.length} aria-posinset={index + 1}>
+        <button type="button" className={styles.row} onClick={() => onOpenAsset(path)}>
+          <span className={styles.rowText}>{assetName(path)}</span>
+        </button>
+      </li>
+    )
+  }
+
+  // A windowed listing: the rows near the visible part of its body, plus the
+  // spacers standing in for the rest, so the body's scroll extent is the whole
+  // listing (add-history-navigation, D5).
+  const renderListing = (
+    pieces: ReturnType<typeof windowPieces>,
+    row: (index: number) => ReactNode,
+  ) =>
+    pieces.map((piece, i) =>
+      piece.kind === 'gap' ? (
+        <li
+          key={`gap-${i}`}
+          className={styles.gap}
+          role="presentation"
+          aria-hidden="true"
+          style={{ height: piece.rows * ROW_STRIDE }}
+        />
+      ) : (
+        piece.indexes.map(row)
+      ),
+    )
+
   // Placeholder rows (indexing-loading-state): decorative, never read as
   // content; sized to the real rows they replace (6px 8px padding + 14px
-  // text) so the Pages section doesn't jump when the listing lands.
+  // text) so a section doesn't jump when its listing lands.
   const skeletonRows = [0, 1, 2].map((i) => (
     <span key={i} className={`skeleton ${styles.skeletonRow}`} />
   ))
@@ -211,10 +303,10 @@ export const Sidebar = memo(function Sidebar({
   )
 
   return (
-    <aside className={styles.sidebar} aria-label="Notes" ref={scrollRef} onScroll={onScroll}>
+    <aside className={styles.sidebar} aria-label="Notes" ref={asideRef}>
       {/* The session controls (add-history-navigation D4, move-today-into-nav-
-          controls): sticky, so Back, Forward, and Today stay reachable however
-          long the listing below them is. */}
+          controls): the first band, so Back, Forward, and Today stay in reach
+          however long the listings below them get. */}
       <div className={styles.controls}>
         <button
           type="button"
@@ -249,7 +341,7 @@ export const Sidebar = memo(function Sidebar({
           Today
         </button>
       </div>
-      <Accordion title="Journal" defaultOpen>
+      <Accordion title="Journal" defaultOpen className={styles.sectionFixed}>
         {/* The journal calendar owns the section (journal-calendar D1); it
             stays hidden until a vault is open (no-inert-grid rule). */}
         {loading
@@ -263,30 +355,42 @@ export const Sidebar = memo(function Sidebar({
               />
             )}
       </Accordion>
-      <Accordion title="Pages" defaultOpen>
-        {loading ? (
-          <div className={styles.list} aria-hidden="true">
-            {skeletonRows}
-          </div>
-        ) : (
-          <ul className={styles.list} ref={listRef}>
-            {pieces.map((piece, i) =>
-              piece.kind === 'gap' ? (
-                // Stands in for the rows outside the window, so the listing's
-                // scroll extent is the whole listing (add-history-navigation, D5).
-                <li
-                  key={`gap-${i}`}
-                  className={styles.gap}
-                  role="presentation"
-                  aria-hidden="true"
-                  style={{ height: piece.rows * ROW_STRIDE }}
-                />
-              ) : (
-                piece.indexes.map((index) => renderRow(pages[index], index))
-              ),
-            )}
-          </ul>
-        )}
+      <Accordion
+        title="Pages"
+        defaultOpen
+        className={styles.section}
+        bodyClassName={styles.fillBody}
+      >
+        <div className={styles.scrollBody} ref={pagesBodyRef} onScroll={onScroll}>
+          {loading ? (
+            <div className={styles.list} aria-hidden="true">
+              {skeletonRows}
+            </div>
+          ) : (
+            <ul className={styles.list} ref={pagesListRef}>
+              {renderListing(pagesPieces, (index) => renderRow(pages[index], index))}
+            </ul>
+          )}
+        </div>
+      </Accordion>
+      {/* Assets (vault-assets) closes the sidebar, collapsed: its summary is
+          always in the document, and opening it takes its height from Pages. */}
+      <Accordion title="Assets" className={styles.section} bodyClassName={styles.fillBody}>
+        <div className={styles.scrollBody} ref={assetsBodyRef} onScroll={onScroll}>
+          {loading ? (
+            <div className={styles.list} aria-hidden="true">
+              {skeletonRows}
+            </div>
+          ) : assets.length === 0 ? (
+            hasVault ? (
+              <p className="section-placeholder">No assets yet.</p>
+            ) : null
+          ) : (
+            <ul className={styles.list} ref={assetsListRef}>
+              {renderListing(assetPieces, renderAssetRow)}
+            </ul>
+          )}
+        </div>
       </Accordion>
     </aside>
   )

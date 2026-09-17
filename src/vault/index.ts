@@ -4,10 +4,18 @@
 // case-insensitively through a name map (ADR-0012).
 
 import type { Page } from '../page'
-import { parseLinks, type Link } from './parse'
+import { parseAssetPaths, parseLinks, type Link } from './parse'
 import type { VaultStorage } from './storage'
 
-export type IndexPage = Page & { links: Link[]; lastModified: number }
+export type IndexPage = Page & {
+  links: Link[]
+  /** Vault-relative paths this page's Markdown links and images name, in order
+   *  and deduped (add-asset-navigation, design D1). Candidates: whether the
+   *  file exists is the folder's answer, checked against `Graph.files` where
+   *  the rows are built. */
+  assets: string[]
+  lastModified: number
+}
 
 export type Graph = {
   /** Pages keyed by vault-relative path (design D1). */
@@ -16,6 +24,13 @@ export type Graph = {
   byName: Map<string, string>
   /** Lowercased target name -> referring paths; self-references excluded. */
   backlinks: Map<string, string[]>
+  /** Every non-hidden file path in the vault, from the same listing the pages
+   *  came from (design D2). It is what a page's asset references are matched
+   *  against, so a file deleted outside the app drops out on the next scan
+   *  while the page that named it is still carried over unchanged. */
+  files: Set<string>
+  /** The vault's `assets/` files, path-ordered: the sidebar's Assets listing. */
+  assets: string[]
 }
 
 /** The vault's hidden pin meta file (design D1): an ordered list of page
@@ -39,6 +54,7 @@ export async function buildIndex(
   previous?: VaultIndex,
 ): Promise<VaultIndex> {
   const paths = (await storage.list('')).sort()
+  const files = new Set(paths.filter((path) => !hasHiddenSegment(path)))
   const snapshot = new Map<string, number>()
   const pages = new Map<string, IndexPage>()
   for (const path of paths) {
@@ -59,11 +75,12 @@ export async function buildIndex(
       kind: kindOf(path),
       content,
       links: parseLinks(content),
+      assets: parseAssetPaths(content),
       lastModified,
     })
   }
   const pins = await readPins(storage, previous, snapshot)
-  return { graph: fold(pages), snapshot, pins }
+  return { graph: fold(pages, files), snapshot, pins }
 }
 
 /** Read the pins meta file into the index (design D1/D3). A missing file is
@@ -109,11 +126,16 @@ export async function upsertPage(
     kind: kindOf(path),
     content,
     links: parseLinks(content),
+    assets: parseAssetPaths(content),
     lastModified,
   })
   const snapshot = new Map(current.snapshot)
   snapshot.set(path, lastModified)
-  return { graph: fold(pages), snapshot, pins: current.pins }
+  // A page the app just wrote is a file the vault now holds, so the listing the
+  // asset check reads includes it (design D2).
+  const files = new Set(current.graph.files)
+  files.add(path)
+  return { graph: fold(pages, files), snapshot, pins: current.pins }
 }
 
 /** Write-through for pin edits (design D1/D3), mirroring upsertPage: write
@@ -162,11 +184,45 @@ export function isPagePath(path: string): boolean {
   const lower = path.toLowerCase()
   if (!lower.startsWith('pages/') && !lower.startsWith('journals/')) return false
   if (!lower.endsWith('.md')) return false
-  for (const segment of path.split('/')) {
-    if (segment.startsWith('.')) return false
-  }
+  if (hasHiddenSegment(path)) return false
   if (lower.startsWith('pages/') && journalDayName(stem(path)) !== null) return false
   return true
+}
+
+/** Whether any path segment begins with `.`: the one rule that keeps hidden
+ *  files — and `.folio/`, the app's own meta directory — out of both the page
+ *  set and the asset listing (design D2). */
+export function hasHiddenSegment(path: string): boolean {
+  for (const segment of path.split('/')) {
+    if (segment.startsWith('.')) return true
+  }
+  return false
+}
+
+/** The vault's assets, path-ordered (ADR-0022): every non-hidden file under
+ *  `assets/`, whatever its extension. `Graph.assets` is this, and the Assets
+ *  section renders it — the rule lives here so the sidebar stays a renderer. */
+export function listAssets(files: Iterable<string>): string[] {
+  return [...files].filter((path) => path.startsWith(ASSETS_DIR)).sort()
+}
+
+/** Where the app writes dropped and pasted files (asset-drag-drop). */
+const ASSETS_DIR = 'assets/'
+
+/** A listed asset's row label: its path inside `assets/`, so two files with the
+ *  same name in different folders read differently (vault-assets spec). A file
+ *  referenced from outside `assets/` has no such form and keeps its path. */
+export function assetName(path: string): string {
+  return path.startsWith(ASSETS_DIR) ? path.slice(ASSETS_DIR.length) : path
+}
+
+/** The asset rows an open page shows (add-asset-navigation, design D1): the
+ *  destinations its Markdown names, kept when the vault holds the file and it
+ *  is not a page. Existence is read from `Graph.files` — the current listing —
+ *  rather than from the page's own record, so a file deleted outside the app
+ *  drops out on the next scan even though the page itself is carried over. */
+export function pageAssets(page: IndexPage, graph: Graph): string[] {
+  return page.assets.filter((path) => graph.files.has(path) && !isPagePath(path))
 }
 
 /** Parse the pins meta file: an ordered list of page paths (design D1).
@@ -277,7 +333,7 @@ export function resolveReferencePath(name: string, byName: Map<string, string>):
 }
 
 /** Fold scanned pages into the graph: name resolution + backlinks (D5). */
-function fold(pages: Map<string, IndexPage>): Graph {
+function fold(pages: Map<string, IndexPage>, files: Set<string>): Graph {
   const byName = new Map<string, string>()
   const backlinks = new Map<string, string[]>()
   for (const [path, page] of pages) {
@@ -292,5 +348,5 @@ function fold(pages: Map<string, IndexPage>): Graph {
       else backlinks.set(target, [path])
     }
   }
-  return { pages, byName, backlinks }
+  return { pages, byName, backlinks, files, assets: listAssets(files) }
 }

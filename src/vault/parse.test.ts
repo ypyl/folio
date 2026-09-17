@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { findReferenceRanges, parseLinks, referenceToken, referenceTrigger } from './parse'
+import {
+  findReferenceRanges,
+  parseAssetPaths,
+  parseLinks,
+  referenceToken,
+  referenceTrigger,
+} from './parse'
 
 describe('parseLinks', () => {
   it('extracts both reference forms with their lexical form', () => {
@@ -213,5 +219,73 @@ describe('referenceToken', () => {
 
   it('cannot express a name whose whitespace reference parsing trims', () => {
     expect(findReferenceRanges(referenceToken(' spaced ', 'bracketed'))[0]?.target).toBe('spaced')
+  })
+})
+
+// add-asset-navigation: the destinations a page's Markdown points at, which the
+// index matches against the vault's file listing (design D3).
+describe('parseAssetPaths', () => {
+  it('reads link and image destinations in order of appearance', () => {
+    expect(
+      parseAssetPaths('[Q3 report](assets/q3-report.pdf) and ![shot](assets/shot.png)'),
+    ).toEqual(['assets/q3-report.pdf', 'assets/shot.png'])
+  })
+
+  it('collapses a repeated destination', () => {
+    expect(parseAssetPaths('![a](assets/shot.png) ![b](assets/shot.png)')).toEqual([
+      'assets/shot.png',
+    ])
+  })
+
+  it('reads a destination containing a space', () => {
+    expect(parseAssetPaths('[p](assets/my photo.png)')).toEqual(['assets/my photo.png'])
+  })
+
+  it('unwraps an angle-bracket destination', () => {
+    expect(parseAssetPaths('[p](<assets/my photo.png>)')).toEqual(['assets/my photo.png'])
+  })
+
+  it('drops a trailing quoted title', () => {
+    expect(parseAssetPaths('[p](assets/a.pdf "the notes")')).toEqual(['assets/a.pdf'])
+    expect(parseAssetPaths("[p](assets/a.pdf 'the notes')")).toEqual(['assets/a.pdf'])
+  })
+
+  it('keeps a destination whose own parens are balanced', () => {
+    expect(parseAssetPaths('[p](assets/a (draft).pdf)')).toEqual(['assets/a (draft).pdf'])
+  })
+
+  it('decodes a percent-encoded destination', () => {
+    expect(parseAssetPaths('[p](assets/my%20report.pdf)')).toEqual(['assets/my report.pdf'])
+  })
+
+  it('falls back to the literal path when decoding fails', () => {
+    expect(parseAssetPaths('[p](assets/100% done.pdf)')).toEqual(['assets/100% done.pdf'])
+  })
+
+  it('refuses anything that is not a vault path', () => {
+    expect(
+      parseAssetPaths(
+        '[a](https://example.com/x.pdf) [b](#section) [c](/absolute.pdf) [d](mailto:x@y.z) [e](data:image/png,AAA)',
+      ),
+    ).toEqual([])
+  })
+
+  it('reads a path with no directory part too', () => {
+    expect(parseAssetPaths('[p](notes.txt)')).toEqual(['notes.txt'])
+  })
+
+  it('reads several destinations on one line', () => {
+    expect(parseAssetPaths('[a](assets/a.pdf) [b](assets/b.pdf)')).toEqual([
+      'assets/a.pdf',
+      'assets/b.pdf',
+    ])
+  })
+
+  it('does not let an unmatched opener swallow the next line', () => {
+    expect(parseAssetPaths('[broken](assets/a.pdf\n[b](assets/b.pdf)')).toEqual(['assets/b.pdf'])
+  })
+
+  it('reads nothing from text without links', () => {
+    expect(parseAssetPaths('plain words, no links')).toEqual([])
   })
 })

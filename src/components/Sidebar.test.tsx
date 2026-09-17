@@ -26,11 +26,20 @@ const manyPages = (count: number): Page[] =>
 const section = (title: string) =>
   within((screen.getByText(title) as HTMLElement).closest('details') as HTMLElement)
 
+/** A section's own scroll body (add-asset-navigation): the element its listing
+ *  is windowed against, since the sections share the pane. */
+const scrollBody = (title: string) =>
+  (screen.getByText(title) as HTMLElement)
+    .closest('details')!
+    .querySelector(`.${styles.scrollBody}`) as HTMLElement
+
 function sidebar(loading: boolean) {
   return render(
     <Sidebar
       pages={[page]}
       journalEntries={[journal]}
+      assets={[]}
+      onOpenAsset={() => {}}
       activePath={null}
       onSelect={() => {}}
       hasVault={!loading}
@@ -60,16 +69,20 @@ describe('Sidebar', () => {
       expect(within(el).queryByRole('button', { name: '2026-09-06' })).toBeNull()
     }
     const sections = screen.getAllByRole('group')
-    expect(sections.length).toBe(2)
+    expect(sections.length).toBe(3)
     // Journal mirrors the calendar geometry (month bar + weekday letters + a
-    // 6x7 day grid = 43 placeholders); Pages shows three text-height rows.
+    // 6x7 day grid = 43 placeholders); Pages and Assets each show three
+    // text-height rows.
     expect(sections[0].querySelectorAll('.skeleton').length).toBe(43)
     expect(sections[1].querySelectorAll('.skeleton').length).toBe(3)
+    expect(sections[2].querySelectorAll('.skeleton').length).toBe(3)
     // Switching back to loaded content shows the real rows again.
     rerender(
       <Sidebar
         pages={[page]}
         journalEntries={[journal]}
+        assets={[]}
+        onOpenAsset={() => {}}
         activePath={null}
         onSelect={() => {}}
         hasVault
@@ -91,6 +104,8 @@ describe('Sidebar navigation controls (add-history-navigation)', () => {
       <Sidebar
         pages={[page]}
         journalEntries={[journal]}
+        assets={[]}
+        onOpenAsset={() => {}}
         activePath={null}
         onSelect={() => {}}
         hasVault
@@ -155,6 +170,8 @@ describe('Sidebar navigation controls (add-history-navigation)', () => {
       <Sidebar
         pages={[page]}
         journalEntries={[journal]}
+        assets={[]}
+        onOpenAsset={() => {}}
         activePath={null}
         onSelect={() => {}}
         hasVault={false}
@@ -170,6 +187,8 @@ describe('Sidebar navigation controls (add-history-navigation)', () => {
       <Sidebar
         pages={[page]}
         journalEntries={[journal]}
+        assets={[]}
+        onOpenAsset={() => {}}
         activePath={today}
         onSelect={() => {}}
         hasVault
@@ -208,31 +227,34 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
     pages: Page[],
     activePath: string | null = null,
     { clientHeight = 600, listOffset = 200, pinnedPaths = [] as string[] } = {},
+    assets: string[] = [],
   ) => {
     render(
       <Sidebar
         pages={pages}
         journalEntries={[]}
+        assets={assets}
+        onOpenAsset={() => {}}
         activePath={activePath}
         onSelect={() => {}}
         pinnedPaths={pinnedPaths}
         hasVault
       />,
     )
-    const aside = screen.getByRole('complementary')
-    const list = aside.querySelector('ul') as HTMLUListElement
-    Object.defineProperty(aside, 'clientHeight', { value: clientHeight, configurable: true })
-    Object.defineProperty(aside, 'scrollTop', { value: 0, writable: true, configurable: true })
-    Object.defineProperty(aside, 'getBoundingClientRect', {
+    const body = scrollBody('Pages')
+    const list = body.querySelector('ul') as HTMLUListElement
+    Object.defineProperty(body, 'clientHeight', { value: clientHeight, configurable: true })
+    Object.defineProperty(body, 'scrollTop', { value: 0, writable: true, configurable: true })
+    Object.defineProperty(body, 'getBoundingClientRect', {
       value: () => rectAt(0),
       configurable: true,
     })
     Object.defineProperty(list, 'getBoundingClientRect', {
-      value: () => rectAt(listOffset - aside.scrollTop),
+      value: () => rectAt(listOffset - body.scrollTop),
       configurable: true,
     })
-    fireEvent.scroll(aside) // pick up the stubbed geometry
-    return { aside, list }
+    fireEvent.scroll(body) // pick up the stubbed geometry
+    return { aside: body, list }
   }
 
   const scrollTo = (aside: HTMLElement, scrollTop: number) => {
@@ -305,12 +327,122 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
   })
 })
 
+describe('Sidebar assets (vault-assets)', () => {
+  const manyAssets = (count: number): string[] =>
+    Array.from({ length: count }, (_, i) => `assets/a${i}.png`)
+
+  const renderAssets = (
+    assets: string[],
+    { onOpenAsset = vi.fn(), onSelect = vi.fn(), hasVault = true } = {},
+  ) => {
+    render(
+      <Sidebar
+        pages={[]}
+        journalEntries={[]}
+        assets={assets}
+        onOpenAsset={onOpenAsset}
+        activePath={null}
+        onSelect={onSelect}
+        hasVault={hasVault}
+      />,
+    )
+    return { onOpenAsset, onSelect }
+  }
+
+  it('renders all three summaries, with Assets last and collapsed', () => {
+    renderAssets(['assets/shot.png'])
+    const details = [...screen.getByRole('complementary').querySelectorAll('details')]
+    expect(details.map((d) => d.querySelector('summary')?.textContent)).toEqual([
+      'Journal',
+      'Pages',
+      'Assets',
+    ])
+    expect(details[0].hasAttribute('open')).toBe(true)
+    expect(details[1].hasAttribute('open')).toBe(true)
+    expect(details[2].hasAttribute('open')).toBe(false)
+  })
+
+  it('keeps the controls and every summary outside the scrolling bodies', () => {
+    renderAssets(['assets/a.png'])
+    const aside = screen.getByRole('complementary')
+    for (const title of ['Journal', 'Pages', 'Assets']) {
+      expect((screen.getByText(title) as HTMLElement).closest(`.${styles.scrollBody}`)).toBeNull()
+    }
+    const controls = aside.firstElementChild as HTMLElement
+    expect(controls.className).toContain(styles.controls)
+    expect(controls.closest(`.${styles.scrollBody}`)).toBeNull()
+  })
+
+  it('gives each listing its own scroll body', () => {
+    renderAssets(['assets/a.png'])
+    const pages = scrollBody('Pages')
+    const assets = scrollBody('Assets')
+    expect(pages).not.toBe(assets)
+    expect(pages.className).toContain(styles.scrollBody)
+    expect(assets.className).toContain(styles.scrollBody)
+  })
+
+  it('labels a row by its path inside assets/', () => {
+    renderAssets(['assets/shot.png', 'assets/2026/q3.pdf'])
+    expect(section('Assets').getByRole('button', { name: 'shot.png' })).toBeTruthy()
+    expect(section('Assets').getByRole('button', { name: '2026/q3.pdf' })).toBeTruthy()
+  })
+
+  it('opens the file when its row is activated, without navigating', () => {
+    const { onOpenAsset, onSelect } = renderAssets(['assets/q3-report.pdf'])
+    fireEvent.click(screen.getByRole('button', { name: 'q3-report.pdf' }))
+    expect(onOpenAsset).toHaveBeenCalledWith('assets/q3-report.pdf')
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('marks no asset row as the open page', () => {
+    renderAssets(['assets/shot.png'])
+    const row = screen.getByRole('button', { name: 'shot.png' })
+    expect(row.getAttribute('aria-current')).toBeNull()
+    expect(row.getAttribute('data-active')).toBeNull()
+  })
+
+  it('shows empty-state copy for a vault with no assets', () => {
+    renderAssets([])
+    expect(section('Assets').getByText('No assets yet.')).toBeTruthy()
+  })
+
+  it('renders no copy or rows while no vault is open', () => {
+    renderAssets([], { hasVault: false })
+    expect(section('Assets').queryByText('No assets yet.')).toBeNull()
+    expect(section('Assets').queryAllByRole('button')).toHaveLength(0)
+  })
+
+  it('renders a bounded number of rows however many assets the vault holds', () => {
+    renderAssets(manyAssets(10_000))
+    const rows = section('Assets').getAllByRole('button')
+    expect(rows.length).toBeLessThan(50)
+    // The spacers stand in for the rest, so the listing's scroll extent is the
+    // whole listing rather than the rendered slice.
+    const gaps = section('Assets')
+      .getAllByRole('presentation', { hidden: true })
+      .reduce((sum, el) => sum + Number.parseInt((el as HTMLElement).style.height, 10), 0)
+    expect(gaps).toBeGreaterThan(0)
+    expect(gaps + rows.length * 35).toBe(10_000 * 35)
+  })
+
+  it('reports each asset row position and the listing size', () => {
+    renderAssets(manyAssets(1000))
+    const rows = section('Assets').getAllByRole('button')
+    const first = rows[0].closest('li') as HTMLElement
+    expect(first.getAttribute('aria-setsize')).toBe('1000')
+    expect(first.getAttribute('aria-posinset')).toBe('1')
+  })
+})
+
 describe('Sidebar pinned rows (add-pinned-pages)', () => {
   const renderRows = (pages: (typeof page)[], pinnedPaths: string[], onSelect = vi.fn()) =>
     render(
       <Sidebar
         pages={pages}
         journalEntries={[]}
+        assets={[]}
+        onOpenAsset={() => {}}
         activePath={null}
         onSelect={onSelect}
         pinnedPaths={pinnedPaths}
