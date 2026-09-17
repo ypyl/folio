@@ -20,6 +20,9 @@ export class FakeEditor implements EditorAdapter {
   readonly chords: string[] = []
   private listeners: ((markdown: string) => void)[] = []
   private referenceListeners: ((target: string) => void)[] = []
+  /** Every attached vault reader, in order (open-vault-assets) — lets pane
+   *  tests assert the pane wired one, and read a vault file as it would. */
+  readonly assetReaders: ((path: string) => Promise<Blob>)[] = []
   private suggestionSources: ((query: string) => Suggestion[])[] = []
   private host: HTMLElement | null = null
 
@@ -92,6 +95,10 @@ export class FakeEditor implements EditorAdapter {
 
   onReferenceClick(listener: (target: string) => void): void {
     this.referenceListeners.push(listener)
+  }
+
+  setAssetReader(reader: (path: string) => Promise<Blob>): void {
+    this.assetReaders.push(reader)
   }
 
   setSuggestionSource(source: (query: string) => Suggestion[]): void {

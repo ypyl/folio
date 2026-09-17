@@ -24,6 +24,7 @@ import { keepTableHandlesInThePane } from './tableHandleClamp'
 import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
+import { noVaultReader, type AssetReader } from './assetTarget'
 import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
@@ -41,6 +42,12 @@ export class MilkdownAdapter implements EditorAdapter {
   private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
   private referenceClickListener: ((target: string) => void) | null = null
+  /** Vault bytes for a link a page points into the vault, read through this at
+   *  activation time for the same reason the reference listener is consulted
+   *  then: the reader is attached after mount, and a folder switch replaces the
+   *  vault behind it (open-vault-assets). Starts as the reader that cannot
+   *  answer, so a link opens nothing until the app attaches one. */
+  private assetReader: AssetReader = noVaultReader
   /** Completion candidates, read through a getter at query time: the app
    *  replaces its pool on every save, and the adapter mounts once. */
   private suggestSource: ((query: string) => Suggestion[]) | null = null
@@ -181,8 +188,15 @@ export class MilkdownAdapter implements EditorAdapter {
       // Reference badges (add-reference-badges): inline decorations over
       // `#word` / `#[[Page]]`, and a click / Mod+Enter path that reports the
       // target across the seam. The listener is read at activation time, so
-      // onReferenceClick may be attached after mount.
-      .use(inlineDecorations((target) => this.referenceClickListener?.(target)))
+      // onReferenceClick may be attached after mount. The same goes for the
+      // vault reader a vault-relative link is opened with (open-vault-assets):
+      // with no vault open there is none, and the gesture opens nothing.
+      .use(
+        inlineDecorations(
+          (target) => this.referenceClickListener?.(target),
+          (path) => this.assetReader(path),
+        ),
+      )
       // Tables (add-table-editing, design D1): GFM's table slice and the
       // component block that gives it controls. Registered after the decoration
       // plugin, so the reference chord keeps its meaning inside a cell (D8): the
@@ -263,6 +277,7 @@ export class MilkdownAdapter implements EditorAdapter {
     this.destroyed = true
     this.changeListener = null
     this.referenceClickListener = null
+    this.assetReader = noVaultReader
     this.suggestSource = null
     if (this.copyRoot && this.copySnapshot && this.copyWrite) {
       this.copyRoot.removeEventListener('copy', this.copySnapshot, true)
@@ -425,6 +440,10 @@ export class MilkdownAdapter implements EditorAdapter {
 
   onReferenceClick(listener: (target: string) => void): void {
     this.referenceClickListener = listener
+  }
+
+  setAssetReader(reader: AssetReader): void {
+    this.assetReader = reader
   }
 
   setSuggestionSource(source: (query: string) => Suggestion[]): void {

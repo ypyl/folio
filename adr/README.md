@@ -36,6 +36,8 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0017](0017-adopt-gfm-table-slice-and-table-block.md) | Adopt the GFM table slice and the component table block | Accepted |
 | [0018](0018-image-node-view.md) | Folio owns the image node's DOM through a node view | Accepted |
 | [0019](0019-date-names-are-journal-days.md) | Date-shaped names are journal days | Accepted |
+| [0020](0020-list-markers-stay-put.md) | List markers stay where the browser places them | Accepted |
+| [0021](0021-vault-files-open-as-derived-copies.md) | A vault file opens as a derived copy, never in place | Accepted |
 
 ## Adding a new ADR
 

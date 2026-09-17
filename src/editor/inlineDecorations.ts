@@ -28,6 +28,7 @@ import type { Step } from '@milkdown/prose/transform'
 import type { EditorView } from '@milkdown/prose/view'
 import { Decoration, DecorationSet } from '@milkdown/prose/view'
 import { findReferenceRanges } from '../vault/parse'
+import { openVaultTarget, vaultTarget, type AssetReader } from './assetTarget'
 
 /** One reference token's document positions and its page-name target. */
 export type ReferenceRef = {
@@ -292,6 +293,10 @@ function isOpenChord(event: KeyboardEvent): boolean {
 type ReferencePluginOptions = {
   /** Called with the target when a badge is clicked or Mod+Enter is pressed. */
   onActivate?: (target: string) => void
+  /** Reads a vault file's bytes for a vault-relative link; absent when there is
+   *  no vault behind the page, in which case the gesture opens nothing
+   *  (open-vault-assets). Read at activation time, never on the keystroke path. */
+  readAsset?: AssetReader
   /** Document scan, injectable for tests. Called with a block range for an
    *  incremental rescan, or without one for the whole document. */
   scan?: (doc: ProseNode, range?: BlockRange) => ScanResult
@@ -351,8 +356,19 @@ export function createInlineDecorationPlugin(
           if (!href) return false
           // A link is never opened by the browser itself: a plain click edits,
           // and a vault path has nothing served at it, so its tab would only
-          // show a 404. Only an external URL is opened, and only by this code.
+          // show a 404. An external URL is opened by this code, and so is a
+          // vault path — with the file's own bytes, in a window for a type the
+          // browser shows and as a download for the rest (open-vault-assets).
+          // Neither touches the document or the file on disk.
           event.preventDefault()
+          if (vaultTarget(href) !== null) {
+            const read = options.readAsset
+            // No vault behind the page: nothing to open. The default is stopped
+            // either way, and the click stays the editor's.
+            if (read === undefined) return false
+            void openVaultTarget(href, read)
+            return true
+          }
           return openExternal(href)
         },
       },
@@ -370,8 +386,8 @@ export function createInlineDecorationPlugin(
   })
 }
 
-/** Milkdown wrapper for the adapter (design D7): the activation callback reads
- *  through a getter so the listener can be attached after mount. */
-export function inlineDecorations(onActivate: (target: string) => void) {
-  return $prose(() => createInlineDecorationPlugin({ onActivate }))
+/** Milkdown wrapper for the adapter (design D7): both callbacks read through
+ *  getters so they can be attached after mount. */
+export function inlineDecorations(onActivate: (target: string) => void, readAsset?: AssetReader) {
+  return $prose(() => createInlineDecorationPlugin({ onActivate, readAsset }))
 }

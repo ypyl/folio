@@ -243,6 +243,29 @@ describe('buildReferenceState', () => {
       return { calls, restore: () => spy.mockRestore() }
     }
 
+    /** A window `window.open` hands back, so the display branch runs to the end
+     *  and the URL it was pointed at can be read. */
+    const displayWindow = () => {
+      const opened = { opener: {} as unknown, location: { href: '' }, close: vi.fn() }
+      const spy = vi.spyOn(window, 'open').mockImplementation(() => opened as unknown as Window)
+      return { opened, restore: () => spy.mockRestore() }
+    }
+
+    /** A vault reader that records the paths it was asked for. */
+    const vaultReader = (fail = false) => {
+      const calls: string[] = []
+      const read = (path: string) => {
+        calls.push(path)
+        return fail
+          ? Promise.reject(new Error('missing'))
+          : Promise.resolve(new Blob(['bytes'], { type: 'application/pdf' }))
+      }
+      return Object.assign(read, { calls })
+    }
+
+    /** Let the activation's read and its continuation settle. */
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
     const click = (
       plugin: ReturnType<typeof createInlineDecorationPlugin>,
       view: EditorView,
@@ -274,7 +297,7 @@ describe('buildReferenceState', () => {
       restore()
     })
 
-    it('opens nothing for a vault-relative target, in any modifier state', () => {
+    it('opens nothing for a vault target when no vault reader is attached', () => {
       const plugin = createInlineDecorationPlugin()
       const state = EditorState.create({ schema, doc: doc(para(text('asset'))), plugins: [plugin] })
       const { calls, restore } = opens()
@@ -284,6 +307,125 @@ describe('buildReferenceState', () => {
       // The default is stopped — a tab to a vault path would 404 — but the
       // click is not claimed, so the editor still places the caret.
       expect(event.preventDefault).toHaveBeenCalled()
+      restore()
+    })
+
+    // open-vault-assets: a link into the vault is opened with the file's own
+    // bytes, read once, on the same gesture as an external link.
+    it('opens a vault link from its file bytes, once, on a modifier click', async () => {
+      const read = vaultReader()
+      const plugin = createInlineDecorationPlugin({ readAsset: read })
+      const state = EditorState.create({ schema, doc: doc(para(text('asset'))), plugins: [plugin] })
+      const { opened, restore } = displayWindow()
+      const event = clickEvent(anchorTag('assets/q3%20report.pdf'), { ctrl: true })
+      expect(click(plugin, viewAt(state, 1), event)).toBe(true)
+      expect(event.preventDefault).toHaveBeenCalled()
+      await settle()
+      expect(read.calls).toEqual(['assets/q3 report.pdf'])
+      expect(opened.location.href).toMatch(/^blob:/)
+      expect(opened.close).not.toHaveBeenCalled()
+      restore()
+    })
+
+    it('opens nothing, and navigates nowhere, for a vault path that will not resolve', async () => {
+      const read = vaultReader(true)
+      const plugin = createInlineDecorationPlugin({ readAsset: read })
+      const state = EditorState.create({ schema, doc: doc(para(text('asset'))), plugins: [plugin] })
+      const { opened, restore } = displayWindow()
+      const event = clickEvent(anchorTag('assets/missing.pdf'), { ctrl: true })
+      expect(click(plugin, viewAt(state, 1), event)).toBe(true)
+      await settle()
+      expect(read.calls).toEqual(['assets/missing.pdf'])
+      // The window opened before the read is discarded with nothing in it.
+      expect(opened.location.href).toBe('')
+      expect(opened.close).toHaveBeenCalled()
+      restore()
+    })
+
+    it('reads nothing for a vault link on a plain click', async () => {
+      const read = vaultReader()
+      const plugin = createInlineDecorationPlugin({ readAsset: read })
+      const state = EditorState.create({ schema, doc: doc(para(text('asset'))), plugins: [plugin] })
+      const { calls, restore } = opens()
+      const event = clickEvent(anchorTag('assets/q3-report.pdf'))
+      expect(click(plugin, viewAt(state, 1), event)).toBe(false)
+      await settle()
+      expect(read.calls).toEqual([])
+      expect(calls).toEqual([])
+      expect(event.preventDefault).not.toHaveBeenCalled()
+      restore()
+    })
+
+    it('sends an external link to the browser and never to the vault', () => {
+      const read = vaultReader()
+      const plugin = createInlineDecorationPlugin({ readAsset: read })
+      const state = EditorState.create({ schema, doc: doc(para(text('link'))), plugins: [plugin] })
+      const { calls, restore } = opens()
+      const event = clickEvent(anchorTag('https://example.com/x'), { ctrl: true })
+      expect(click(plugin, viewAt(state, 1), event)).toBe(true)
+      expect(calls).toEqual(['https://example.com/x'])
+      expect(read.calls).toEqual([])
+      restore()
+    })
+
+    it('opens nothing for a fragment, even with a reader attached', async () => {
+      const read = vaultReader()
+      const plugin = createInlineDecorationPlugin({ readAsset: read })
+      const state = EditorState.create({
+        schema,
+        doc: doc(para(text('#section'))),
+        plugins: [plugin],
+      })
+      const { calls, restore } = opens()
+      const event = clickEvent(anchorTag('#section'), { ctrl: true })
+      expect(click(plugin, viewAt(state, 1), event)).toBe(false)
+      await settle()
+      expect(read.calls).toEqual([])
+      expect(calls).toEqual([])
+      expect(event.preventDefault).toHaveBeenCalled()
+      restore()
+    })
+
+    // open-vault-assets, the read budget (AGENTS.md): the vault is read on the
+    // activation and nowhere else. Fails if a read is ever moved onto a
+    // document change.
+    it('reads nothing while the document changes, then once for the activation', async () => {
+      const read = vaultReader()
+      const plugin = createInlineDecorationPlugin({ readAsset: read })
+      let state = EditorState.create({
+        schema,
+        doc: doc(para(text('see assets/q3-report.pdf'))),
+        plugins: [plugin],
+      })
+      for (let i = 0; i < 5; i++) {
+        state = state.apply(state.tr.insertText('x', 1))
+        expect(read.calls).toEqual([])
+      }
+      const { restore } = displayWindow()
+      click(plugin, viewAt(state, 1), clickEvent(anchorTag('assets/q3-report.pdf'), { ctrl: true }))
+      await settle()
+      expect(read.calls).toEqual(['assets/q3-report.pdf'])
+      restore()
+    })
+
+    // open-vault-assets: the gesture is a read. Nothing it does touches the
+    // document, so nothing can reach the file on disk (ADR-0001).
+    it('writes nothing: the activation dispatches no transaction', async () => {
+      const read = vaultReader()
+      const plugin = createInlineDecorationPlugin({ readAsset: read })
+      const state = EditorState.create({ schema, doc: doc(para(text('asset'))), plugins: [plugin] })
+      const dispatch = vi.fn()
+      const view = {
+        state,
+        dispatch,
+        posAtCoords: () => ({ pos: 1, inside: -1 }),
+      } as unknown as EditorView
+      const { restore } = displayWindow()
+      click(plugin, view, clickEvent(anchorTag('assets/q3-report.pdf'), { ctrl: true }))
+      await settle()
+      expect(read.calls).toEqual(['assets/q3-report.pdf'])
+      expect(dispatch).not.toHaveBeenCalled()
+      expect(state.doc.textBetween(0, state.doc.content.size)).toContain('asset')
       restore()
     })
 

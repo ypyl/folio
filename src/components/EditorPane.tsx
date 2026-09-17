@@ -13,6 +13,7 @@ import {
   syncAssetImages,
   type AssetImages,
 } from '../editor/assetImages'
+import { noVaultReader } from '../editor/assetTarget'
 import styles from './EditorPane.module.css'
 
 // The editor surface for an open page (design D1/D2). The pane owns the DOM
@@ -200,6 +201,11 @@ export function EditorPane({
       updateImages()
     })
     adapter.onReferenceClick((target) => openReferenceRef.current?.(target))
+    // Vault links (open-vault-assets): the bytes behind a link that points into
+    // the vault, read at activation time through the live prop, exactly as the
+    // image pass reads it. A pane with no reader leaves the adapter's own
+    // reader in place, which answers nothing.
+    adapter.setAssetReader((path) => readAssetRef.current?.(path) ?? noVaultReader(path))
     adapter.setSuggestionSource((query) => suggestRef.current?.(query) ?? [])
     void adapter
       .mount(el)

@@ -34,6 +34,7 @@ type FakeEditorView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
   chords: string[]
+  assetReaders: ((path: string) => Promise<Blob>)[]
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string) => void
   destructed: boolean
@@ -202,6 +203,62 @@ describe('EditorPane', () => {
       return el as HTMLImageElement
     })
     expect(img.getAttribute('src')).toBe('assets/photo.png')
+  })
+
+  // open-vault-assets: the pane hands the adapter the vault reader a link into
+  // the vault is opened with, read at activation time through the live prop.
+  it('attaches the vault reader to the adapter and reads through the prop', async () => {
+    const read = vi.fn(async () => new Blob(['pdf']))
+    render(<EditorPane page={page} initialContent="" onChange={() => {}} readAsset={read} />)
+    await act(async () => {})
+    const attached = fake().assetReaders
+    expect(attached).toHaveLength(1)
+    await expect(attached[0]('assets/a.pdf')).resolves.toBeInstanceOf(Blob)
+    expect(read).toHaveBeenCalledWith('assets/a.pdf')
+  })
+
+  it('answers a vault read with nothing when the pane has no reader', async () => {
+    render(<EditorPane page={page} initialContent="" onChange={() => {}} />)
+    await act(async () => {})
+    const attached = fake().assetReaders
+    expect(attached).toHaveLength(1)
+    await expect(attached[0]('assets/a.pdf')).rejects.toThrow()
+  })
+
+  it('does not read the vault for an edit that leaves a vault link in the page', async () => {
+    const read = vi.fn(async () => new Blob(['pdf']))
+    render(
+      <EditorPane
+        page={page}
+        initialContent={'[Q3](assets/a.pdf)'}
+        onChange={() => {}}
+        readAsset={read}
+      />,
+    )
+    await act(async () => {})
+    act(() => fake().emitChange('[Q3](assets/a.pdf)\n\nmore'))
+    expect(read).not.toHaveBeenCalled()
+  })
+
+  it('writes nothing when a vault file is read for a link', async () => {
+    const read = vi.fn(async () => new Blob(['pdf']))
+    const onChange = vi.fn()
+    render(
+      <EditorPane
+        page={page}
+        initialContent={'[Q3](assets/a.pdf)'}
+        onChange={onChange}
+        readAsset={read}
+      />,
+    )
+    await act(async () => {})
+    await fake().assetReaders[0]('assets/a.pdf')
+    expect(read).toHaveBeenCalledWith('assets/a.pdf')
+    // The gesture reads: the reference, the document, and the save stream are
+    // all exactly as they were.
+    expect(fake().insertions).toEqual([])
+    expect(fake().content).toBe('[Q3](assets/a.pdf)')
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('shows the empty states without mounting an editor', async () => {
