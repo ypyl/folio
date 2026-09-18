@@ -1,0 +1,28 @@
+## 1. Lexical rules (vault layer, no editor, no DOM)
+
+- [x] 1.1 Move `insertable` from `src/vault/suggest.ts` to `src/vault/parse.ts` as `export function isReferenceable(name: string): boolean` (`findReferenceRanges(referenceToken(name, 'word'))[0]?.target === name`), and have `suggest.ts` call it. Verify with the existing `suggest` and `parse` tests, plus unit cases in `src/vault/parse.test.ts` for a word name, a spaced name, a `]`-carrying name, and a name with surrounding whitespace.
+- [x] 1.2 Add `src/components/dragRefs.ts`: the two payload type constants (`application/x-folio-asset`, `application/x-folio-page`), the `DragRef` union (`{kind:'asset', path}` | `{kind:'page', name}`), `writeDragRef(dt, ref)` (both `setData` plus `effectAllowed = 'copy'`), `readDragRef(dt)`, and `dragRefText(ref)` calling `linkForAsset` / `referenceToken(name, 'word')`. Verify with unit tests that an asset payload yields `[q3-report](assets/q3-report.pdf)` and an image payload `![shot](assets/shot.png)`, that a page payload yields `#reading` for a word name and `#[[reading list]]` otherwise, that a foreign `DataTransfer` reads as `null`, and that a payload written by `writeDragRef` reads back identically.
+
+## 2. Insertion at a point (editor layer)
+
+- [x] 2.1 Widen the adapter seam: `EditorAdapter.insertMarkdown(markdown, point?)` with an exported `DropPoint = { left: number; top: number }`, documented as "the drop point, when the caller has one; the caret otherwise". Verify with `src/editor/fakeEditor.ts` recording each call's point alongside its markdown.
+- [x] 2.2 Resolve the point in `MilkdownAdapter.insertParsedMarkdown`: after parsing, compute the payload content (the unwrapped inline fragment for a single paragraph, the parsed fragment otherwise), call `view.posAtCoords(point)`, and move the selection only when `doc.resolve(pos).parent.canReplace(index, index, content)` holds. Leave the caret alone when the point is null or refused, then run the existing three branches unchanged. Verify with `src/editor/milkdown.test.ts`: a point inside a paragraph inserts there while the caret is elsewhere, a point inside a code block leaves the code block's text intact and inserts at the caret, a point outside the document (`posAtCoords` returning null) inserts at the caret, and an insertion with no point behaves exactly as before.
+- [x] 2.3 Confirm the selection-only transaction is not an undo step: dropping into a page and pressing undo restores the page's text in one step. Verify with a test over the real adapter's history behaviour.
+
+## 3. Drag sources (sidebar)
+
+- [x] 3.1 `src/components/Sidebar.tsx`: give an asset row `draggable` and an `onDragStart` writing the `asset` payload for its path; give a page row `draggable` and an `onDragStart` writing the `page` payload for its title, only when `isReferenceable(page.title)`. No new prop. Verify in `src/components/Sidebar.test.tsx` that dragging an asset row and dragging a draggable page row each put the expected MIME type and value on the `DataTransfer`, that a page row whose title carries `]` carries no payload, and that the row's click still calls its select/open handler.
+- [x] 3.2 Keep the drag source off the keystroke path: re-run the existing sidebar memo assertion (`src/App.test.tsx`) to confirm the sidebar still skips re-rendering while typing, and record in the change notes that rows gained attributes rather than work.
+
+## 4. Drop target (pane)
+
+- [x] 4.1 `src/components/EditorPane.tsx`: read the payload in `handleDrop` before the files branch; when a payload is present and a page is open, `insertMarkdown(dragRefText(payload), point(e))` and return; otherwise fall through to the existing copy-then-link path, which now also passes `point(e)`. Set `dropEffect = 'copy'` in `handleDragover` for these payloads. Verify in `src/components/EditorPane.test.tsx`: an asset payload inserts the link at the drop point and never calls the attach/copy callback, a page payload inserts the reference, a payload with no page open writes nothing, an unrelated `DataTransfer` still takes the files path, and the drop is always `preventDefault`ed.
+- [x] 4.2 Verify the two fallbacks through `EditorPane`: a payload whose ref text cannot be produced (an empty value) changes nothing, and a drag whose point names no document position still writes the reference.
+
+## 5. Verification and release
+
+- [x] 5.1 Walk every scenario in the three delta specs and confirm each is covered by a test or verified by hand; note any scenario left to the browser check. The code-block, code-block-adjacent, end-of-page, no-page-open, non-draggable-name, click-still-works, and no-write scenarios are the ones to name explicitly.
+- [x] 5.2 Run `npx oxlint --fix`, `npm run fmt`, `npm test`, and `npm run build`; then `npx oxlint --deny-warnings --format=agent` clean.
+- [ ] 5.3 (left for the user's own browser session) Browser check with `npm run dev:test` (confirm the log says `ready in`) over a vault holding a nested asset and a multi-word page: drag an image row into a paragraph and confirm the image renders at that paragraph; drag a PDF row below the last block and confirm the link appends; drag a page row into the middle of a sentence; confirm the file on disk holds the expected Markdown, the References section lists the new file, and clicking an asset row still opens it. Sweep with `npm run kill:dev`.
+- [x] 5.4 Write `adr/0023-drops-land-at-the-drop-point.md`, add its row to `adr/README.md`, and record in it that ADR-0021 and ADR-0022 are unchanged.
+- [x] 5.5 Bump `package.json` to 0.13.0 (new user-facing capability) and add the numbered task to `PLAN.md` describing what shipped.
