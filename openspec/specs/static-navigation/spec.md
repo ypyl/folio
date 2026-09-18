@@ -130,7 +130,7 @@ The pane's content column SHALL start near the pane's top edge: its top padding 
 - **THEN** the editable content begins at the compact top padding, and the side and bottom padding remain unchanged
 
 ### Requirement: Links pane rows navigate to pages
-The meta panel's Backlinks and Forwardlinks page rows SHALL navigate: clicking a page row opens the page it names, exactly like clicking a sidebar row, with the same active-row marking. Backlinks rows SHALL list the pages that reference the open page; Forwardlinks page rows SHALL list the pages the open page references, alongside the asset rows the vault-assets capability specifies. A row targeting a page with no file on disk SHALL still navigate, opening the page as a blank in-memory page (see the unmaterialized-pages requirement). A row whose reference name is a valid calendar date SHALL open the journal day for that date, under `journals/`, whether or not that file exists. An asset row is not a page row: it opens the file it names and navigates nowhere.
+The meta panel's Backlinks and Forwardlinks page rows SHALL navigate: clicking a page row opens the page it names, exactly like clicking a sidebar row, with the same active-row marking. Backlinks rows SHALL list the pages that reference the open page; Forwardlinks page rows SHALL list the pages the open page references. The panel's asset rows — the page's referenced files, listed by the vault-assets capability — live in the panel's References section, not in Forwardlinks. A row targeting a page with no file on disk SHALL still navigate, opening the page as a blank in-memory page (see the unmaterialized-pages requirement). A row whose reference name is a valid calendar date SHALL open the journal day for that date, under `journals/`, whether or not that file exists. An asset row is not a page row: it opens the file it names and navigates nowhere.
 
 #### Scenario: Clicking a backlink row opens the referring page
 - **GIVEN** a page `Topic.md` that is referenced by `Ideas.md`
@@ -141,6 +141,11 @@ The meta panel's Backlinks and Forwardlinks page rows SHALL navigate: clicking a
 - **GIVEN** an open page whose content references `Roadmap` and `Roadmap.md` exists
 - **WHEN** the user clicks the `Roadmap` row in Forwardlinks
 - **THEN** the editor pane opens `Roadmap.md` and the active row marking moves to it
+
+#### Scenario: A page's file rows are not forwardlink rows
+- **GIVEN** an open page whose content is `[Q3 report](assets/q3-report.pdf) and #Roadmap`
+- **WHEN** the user looks at the panel
+- **THEN** `q3-report.pdf` is listed in References and `Roadmap` in Forwardlinks, and only the `Roadmap` row is a forwardlink row
 
 #### Scenario: A forwardlink to a missing page still opens it
 - **GIVEN** an open page whose content references `Missing`, and no `Missing.md` exists
@@ -153,7 +158,7 @@ The meta panel's Backlinks and Forwardlinks page rows SHALL navigate: clicking a
 - **THEN** the editor pane shows the blank journal day for 2026-09-16, the journal calendar marks that day as open, and no file is created on disk
 
 #### Scenario: An asset row opens without navigating
-- **GIVEN** an open page whose Forwardlinks lists `q3-report.pdf`
+- **GIVEN** an open page whose References section lists `q3-report.pdf`
 - **WHEN** the user clicks that row
 - **THEN** the file opens, the editor keeps showing the same page, and the active row marking does not move
 
