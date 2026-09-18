@@ -156,6 +156,32 @@ the floors do not fit. Because surfaces stay flat, a band anchored to the
 pane's bottom edge (the keyboard-shortcuts row) sits on the pane's own fill
 rather than a shadow.
 
+### Scroll regions
+
+A scroll region the app owns reserves the lane its scrollbar will occupy, so
+its content keeps the same width whether or not it is overflowing:
+`scrollbar-gutter: stable` beside `overflow-y: auto`. Without it, content
+reflows sideways every time it crosses the pane's or the band's height, in both
+directions. The regions are the editor pane, the sidebar pane and its Pages and
+Assets bodies, the meta panel and its Backlinks, Forwardlinks, and References
+bodies, and the search results list.
+
+Nothing about the scrollbar itself changes. It stays the platform's own — never
+recolored, thinned, hidden, or replaced by a thumb the app draws over the
+content. Restyling it opts a Chromium region out of the platform's own
+rendering (`scrollbar-width` and `scrollbar-color` do exactly that), which is a
+much larger change than this rule.
+
+Two regions reserve nothing, because their content is sized to their own fixed
+extent and a lane would shrink what it was sized for: the folder rail (a 44px
+content box holding 40px controls) and an overlay popup such as a code block's
+language list, whose width comes from its content.
+
+`scrollbar-gutter: stable` reserves nothing where the platform draws its
+scrollbars over the content rather than in a gutter, so this rule needs no
+per-platform variant: it is a no-op on macOS and touch, and exactly the fix on
+Windows and Linux.
+
 ### Links
 
 One link behavior across the whole app: brand color, no underline, hover

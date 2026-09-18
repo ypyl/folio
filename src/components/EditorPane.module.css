@@ -1,6 +1,10 @@
 .pane {
   background: var(--parchment);
   overflow-y: auto;
+  /* Reserve the lane the scrollbar will occupy (DESIGN.md, scroll regions), so
+     growing a page past the pane's height does not reflow its text. The
+     language popup below opts out: its width comes from its content. */
+  scrollbar-gutter: stable;
   min-width: 0;
 }
 

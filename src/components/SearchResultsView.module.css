@@ -6,6 +6,9 @@
 .pane {
   background: var(--parchment);
   overflow-y: auto;
+  /* Reserve the scrollbar's lane (DESIGN.md, scroll regions) so a match list
+     crossing the viewport's height does not reflow the rows. */
+  scrollbar-gutter: stable;
   min-width: 0;
 }
 

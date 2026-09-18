@@ -2,6 +2,10 @@
   background: var(--ivory);
   border-left: 1px solid var(--border);
   overflow-y: auto;
+  /* Reserve the scrollbar's lane (DESIGN.md, scroll regions), mirroring the
+     sidebar: neither the fallback pane scroll nor a band's body may change the
+     content's width as it crosses the overflow threshold. */
+  scrollbar-gutter: stable;
   padding: 4px 16px 4px 4px; /* top aligned with the other workspace columns */
   min-width: 0;
   /* A column of bands (design D3): the three link sections share the leftover
@@ -51,6 +55,7 @@
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable; /* DESIGN.md, scroll regions */
 }
 
 /* Bottom-anchored keyboard-shortcuts section: the three bands above it claim

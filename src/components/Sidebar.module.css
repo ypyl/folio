@@ -12,6 +12,10 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  /* Reserve the scrollbar's lane (DESIGN.md, scroll regions): the fallback pane
+     scroll must not narrow the bands when it starts, nor widen them when it
+     stops. */
+  scrollbar-gutter: stable;
 }
 
 /* A band that sizes to its content and never scrolls internally: the
@@ -69,6 +73,11 @@
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
+  /* Reserve the scrollbar's lane (DESIGN.md, scroll regions) so a listing that
+     crosses its band's height does not shift its rows. A reserved gutter changes
+     a body's content width only, never its box, so the band measurement and the
+     listing window are untouched. */
+  scrollbar-gutter: stable;
   padding: 2px 4px 14px;
 }
 
