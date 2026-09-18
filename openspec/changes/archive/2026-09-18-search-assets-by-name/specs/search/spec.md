@@ -1,29 +1,4 @@
-# search Specification
-
-## Purpose
-
-Full-text search over the open vault's notes: type in the header search box, get a results dropdown of matching pages and journal days, open one with a click or keyboard.
-
-## Requirements
-
-### Requirement: Search input deploys a results dropdown
-When a vault folder is open, the header search input SHALL be functional: typing a query of at least 3 characters SHALL deploy a results dropdown immediately below the input, attached to its width. An empty or shorter query SHALL NOT deploy the dropdown. Clicking outside the search UI SHALL close the dropdown while keeping the query text, and refocusing the input or typing again SHALL re-deploy it. Displayed results SHALL be derived from the open vault's live index.
-
-#### Scenario: Typing deploys the dropdown
-- **WHEN** the user types a query of 3 or more characters into the header search input with a vault open
-- **THEN** a results dropdown appears directly below the input, listing matches from the vault's index
-
-#### Scenario: Short queries do not deploy
-- **WHEN** the query is empty or shorter than 3 characters
-- **THEN** no dropdown is shown
-
-#### Scenario: Outside click closes but keeps the query
-- **WHEN** the dropdown is open and the user clicks outside the search UI
-- **THEN** the dropdown closes and the query text stays in the input
-
-#### Scenario: Refocusing restores results
-- **WHEN** the dropdown was closed by an outside click and the user refocuses the input with the query still present
-- **THEN** the dropdown re-opens with the same results
+## MODIFIED Requirements
 
 ### Requirement: Search matches titles and content across the vault
 Search SHALL match every indexed page and journal day of the open vault. A page SHALL match when its title matches the query, and SHALL match when its content matches the query, with title matches ranking above content matches (title weighted higher). Search SHALL also match the open vault's assets: every file under `assets/` SHALL match when its label — its path inside `assets/` — matches the query, and an asset's file contents SHALL NOT be read, indexed, or matched. The query SHALL be split into terms; a page, journal day, or asset SHALL be returned only when every term of at least 3 characters matches it (AND semantics). Results SHALL be ordered by overall relevance (best match first). Unmaterialized pages — references to pages not yet created — SHALL NOT be searchable.
@@ -92,17 +67,6 @@ The dropdown SHALL render results in three groups — Pages, Journal, and Assets
 - **WHEN** a group's matches exceed the per-group cap
 - **THEN** the dropdown shows at most the capped number of rows for that group and the see-all row is shown so all matches remain reachable
 
-### Requirement: The dropdown offers a see-all handoff to a search results view
-The search dropdown SHALL show a pinned row offering to open a search results view whenever the active query has at least one match. Activating the row SHALL open the search results view for the query. The row SHALL remain available after a result has been opened (the query is kept), so returning to the results from the editor is possible without retyping. The previous passive "Showing up to 20 matches per section." note SHALL NOT be shown.
-
-#### Scenario: See-all row is offered when a query matches
-- **WHEN** the user runs a query that has matching pages or journal days
-- **THEN** the dropdown shows a pinned row stating the total match count and offering to open the search results view
-
-#### Scenario: See-all row returns to results after opening a result
-- **WHEN** the user opened a result, the dropdown is closed with the query kept, and the user re-deploys the dropdown and activates the see-all row
-- **THEN** the search results view reopens for the same query
-
 ### Requirement: Selecting a result opens the page
 Clicking a page or journal-day result row, or pressing Enter on the active row, SHALL open that page in the editor pane exactly as selecting it in the sidebar would: the pane SHALL render the page's content and the opening SHALL close the dropdown while keeping the query text. Opening a journal day without a file SHALL behave like the calendar's day: a blank page whose file materializes on first write. Selecting an asset result SHALL NOT navigate: it opens the file instead, as that requirement states.
 
@@ -137,62 +101,6 @@ The search results view SHALL display the complete match set for the active quer
 - **WHEN** the user leaves the results view (opens a result or dismisses with Escape)
 - **THEN** no file is created, modified, or removed in the vault, and the previously open page is shown again
 
-### Requirement: Search results view paginates its match list
-The search results view SHALL paginate the match list when it exceeds the page size, showing at most one page of results at a time with controls to move to the previous and next pages. The view SHALL show the total match count and which portion of the list is currently displayed. Navigating to another page SHALL reset the view's scroll to the top.
-
-#### Scenario: Matches beyond one page are reachable
-- **WHEN** the match set exceeds the page size and the user advances to the next page
-- **THEN** the view shows the next slice of matches, the displayed range updates, and the view scrolls to the top
-
-#### Scenario: A short match set has no pager
-- **WHEN** the match set fits within the page size
-- **THEN** the view shows the full list with no pagination controls
-
-### Requirement: Search results view responds to the keyboard
-The keyboard SHALL control the search results view: Arrow Up and Arrow Down SHALL move the active row through the current page, Enter SHALL open the active row, and Escape SHALL close the results view and return to the previously open page. Editing the query in the header input SHALL update both surfaces from the same search run: the dropdown shows the top matches and the results view shows the full set.
-
-#### Scenario: Arrows and Enter navigate the results view
-- **WHEN** the results view is open and the user presses Arrow Down and Enter
-- **THEN** the active row moves to the next result and Enter opens that result in the editor pane
-
-#### Scenario: Escape closes the results view
-- **WHEN** the results view is open and the user presses Escape
-- **THEN** the results view closes and the previously open page is shown again
-
-#### Scenario: A query with no matches closes the results view
-- **WHEN** the user edits the query so that it has no matches while the results view is open
-- **THEN** the results view closes, the previously open page is shown, and the dropdown shows its empty state for the query
-
-### Requirement: Search responds to keyboard shortcuts
-The keyboard SHALL control search: Cmd/Ctrl+K SHALL focus the header search input and select its text; Arrow Up and Arrow Down SHALL move an active row through the results, with hovering a row moving the active row to it; Enter SHALL open the active row; Escape SHALL clear the query and close the dropdown.
-
-#### Scenario: Cmd/Ctrl+K focuses search
-- **WHEN** the user presses Cmd/Ctrl+K anywhere in the app
-- **THEN** the search input gains focus with its text selected
-
-#### Scenario: Arrows move the active row
-- **WHEN** the dropdown is open and the user presses Arrow Down then Arrow Up
-- **THEN** the active row moves down one result and back up, and hovering a row moves the active row to the hovered one
-
-#### Scenario: Enter opens the active row
-- **WHEN** the user presses Enter while a row is active
-- **THEN** that row's page opens in the editor pane
-
-#### Scenario: Escape clears the search
-- **WHEN** the user presses Escape in the search input
-- **THEN** the query is cleared and the dropdown closes
-
-### Requirement: Search is scoped to the active vault
-Search SHALL search only the open vault's index. Switching the active folder SHALL clear the query and close the dropdown. When no vault folder is open, the search input SHALL be disabled and SHALL NOT accept typing.
-
-#### Scenario: Folder switch clears the search
-- **WHEN** the user switches the active folder while a query is present
-- **THEN** the query is cleared and the dropdown closes
-
-#### Scenario: No vault disables search
-- **WHEN** no vault folder is open
-- **THEN** the search input is disabled and typing is not accepted
-
 ### Requirement: Search shows an empty state
 When a query of at least 3 characters matches nothing, the dropdown SHALL show an empty state stating that no matches were found for the query.
 
@@ -200,29 +108,7 @@ When a query of at least 3 characters matches nothing, the dropdown SHALL show a
 - **WHEN** a query matches no page, journal day, or asset
 - **THEN** the dropdown shows an empty state naming the query as unmatched
 
-### Requirement: Search results report the match's line
-
-A search result row SHALL report the canonical block-anchored start line of the page's **first** text match, rendered as `· line N` beside the result's label, in both the header dropdown and the full search results view. A result whose match occurs only in the page title — no text match — SHALL show no line number. The reported number SHALL be computed with the same block-start rule the editor gutter uses, so a result's line exists in the gutter when the page opens.
-
-#### Scenario: A text match shows its line
-
-- **WHEN** the user searches for a term that appears in a page's content
-- **THEN** the result row shows the page label followed by `· line N`, where N is the block-anchored start line of the first match
-
-#### Scenario: A title-only match shows no line
-
-- **WHEN** the user searches for a term that matches only a page's title
-- **THEN** the result row shows the label without any line number
-
-#### Scenario: Multiple matches report the first
-
-- **WHEN** a page contains several matches across different blocks
-- **THEN** the row reports the block-anchored line of the first match only
-
-#### Scenario: The dropdown and results view agree
-
-- **WHEN** the user moves from the header dropdown to the full results view on the same query
-- **THEN** each row shows the same `· line N` for the same page
+## ADDED Requirements
 
 ### Requirement: Selecting an asset result opens the file
 Selecting an asset result — clicking its row or pressing Enter on the active row, in the header dropdown or in the results view — SHALL open the file exactly as activating an asset row in the sidebar does (ADR-0021): a type the browser displays SHALL be shown in a new window, and every other type SHALL be downloaded for the operating system's registered application. The path SHALL be used as the file's literal name, without percent-decoding.
