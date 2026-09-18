@@ -5,14 +5,28 @@
 
 import type Fuse from 'fuse.js'
 import { type IFuseOptions } from 'fuse.js'
-import type { Page } from '../page'
+import { assetName } from '../vault/index'
 import { blockStartLines } from '../lineAnchors'
+
+/** What a result can name (search-assets-by-name): a page, a journal day, or a
+ *  file under `assets/`. The surfaces group by this, so a new kind earns its
+ *  own header and its own per-group cap without either surface knowing about it. */
+export type SearchKind = 'page' | 'journal' | 'asset'
 
 export type SearchDoc = {
   path: string
   title: string
-  kind: Page['kind']
+  kind: SearchKind
   text: string
+}
+
+/** One search document for a vault file (search-assets-by-name, design D1): the
+ *  label is the rule the sidebar already uses, and `text` is empty because the
+ *  app never reads a file's bytes (ADR-0022). The search layer's title-only path
+ *  already handles empty text — no ranges, no line, no snippet — so an asset
+ *  needs no branch of its own. */
+export function assetSearchDoc(path: string): SearchDoc {
+  return { path, title: assetName(path), kind: 'asset', text: '' }
 }
 
 /** Per-group launcher cap (search-results-view): the dropdown stays a bounded
@@ -40,7 +54,7 @@ export type SearchRange = [start: number, end: number]
 export type SearchResult = {
   path: string
   title: string
-  kind: Page['kind']
+  kind: SearchKind
   score: number
   /** [start, end) offsets into `text` to highlight. */
   ranges: SearchRange[]
@@ -117,7 +131,7 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
  *  first PER_GROUP matches of each kind in relevance order. The launcher
  *  dropdown renders this; the full list powers the results view. */
 export function topPerGroup(results: SearchResult[]): SearchResult[] {
-  const counts = new Map<Page['kind'], number>()
+  const counts = new Map<SearchKind, number>()
   const out: SearchResult[] = []
   for (const r of results) {
     if ((counts.get(r.kind) ?? 0) >= PER_GROUP) continue

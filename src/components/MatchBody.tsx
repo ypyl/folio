@@ -22,7 +22,10 @@ export function MatchBody({
         {rowLabel(result)}
         {line !== null && <span className={styles.line}>{` \u00B7 line ${line}`}</span>}
       </span>
-      {segments.length > 0 && (
+      {/* A snippet needs text to quote: an asset has none, and always carries a
+          title. Gating on the text (rather than on whether segments exist) also
+          keeps an empty document from rendering one empty segment. */}
+      {result.text !== '' && (
         <span className={`${styles.snip}${compact ? ` ${styles.snipCompact}` : ''}`}>
           {segments.map((s, j) =>
             s.hit ? (

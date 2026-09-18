@@ -1325,3 +1325,73 @@ describe('history navigation (add-history-navigation spec)', () => {
     vi.unstubAllGlobals()
   })
 })
+
+// search-assets-by-name: a vault file is findable by name from the one surface
+// that is already the app's "find the thing" gesture, and selecting it opens the
+// file rather than navigating (ADR-0021).
+describe('search over the vault assets (search-assets-by-name)', () => {
+  const search = () => screen.getByLabelText('Search notes') as HTMLInputElement
+
+  it('finds a file by name and opens it without navigating', async () => {
+    const tree = buildTree({
+      pages: { 'Report.md': 'no references here' },
+      journals: { '2026-09-02.md': 'start' },
+      assets: { 'q3-report.pdf': 'pdf bytes' },
+    })
+    const tab = { opener: null, location: { href: '' }, close: vi.fn() }
+    const opened = vi.fn(() => tab)
+    vi.stubGlobal('open', opened)
+
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.click(await screen.findByRole('button', { name: 'Report' }))
+
+    fireEvent.change(search(), { target: { value: 'q3-report' } })
+    const row = await screen.findByRole('option', { name: /q3-report\.pdf/ })
+    const dropdown = screen.getByRole('listbox', { name: 'Search results' })
+    expect(within(dropdown).getByText('Assets')).toBeTruthy()
+
+    fireEvent.click(row)
+    await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
+    expect(tab.location.href).toMatch(/^blob:/)
+    // Opening a file is not navigation: the same page is still open behind it.
+    expect(editor().setContents[0]).toContain('no references here')
+    vi.unstubAllGlobals()
+  })
+
+  it('does not match the contents of a file', async () => {
+    const tree = buildTree({
+      pages: { 'Report.md': 'plain body' },
+      journals: { '2026-09-02.md': 'start' },
+      assets: { 'report.pdf': 'confidential revenue figures' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.change(search(), { target: { value: 'confidential' } })
+    await waitFor(() => expect(screen.getByText(/No matches for/)).toBeTruthy())
+    vi.unstubAllGlobals()
+  })
+
+  it('selects a file from the full results view and keeps the view', async () => {
+    const tree = buildTree({
+      pages: { 'Report.md': 'plain body' },
+      journals: { '2026-09-02.md': 'start' },
+      assets: { 'q3-report.pdf': 'pdf bytes' },
+    })
+    const tab = { opener: null, location: { href: '' }, close: vi.fn() }
+    const opened = vi.fn(() => tab)
+    vi.stubGlobal('open', opened)
+
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.change(search(), { target: { value: 'q3-report' } })
+    fireEvent.click(await screen.findByRole('button', { name: /See all/ }))
+
+    const view = await screen.findByRole('main', { name: 'Search results' })
+    fireEvent.click(within(view).getByRole('button', { name: /q3-report\.pdf/ }))
+    await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
+    // The view is still there: nothing navigated, so there is no page to return to.
+    expect(screen.getByRole('main', { name: 'Search results' })).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+})

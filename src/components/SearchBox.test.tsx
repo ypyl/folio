@@ -3,24 +3,33 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { SearchBox } from './SearchBox'
 import styles from './SearchBox.module.css'
 import matchStyles from './MatchBody.module.css'
-import type { Page } from '../page'
+import type { SearchDoc } from '../search/core'
 
 // The search box is prop-driven (components never import the vault): docs
 // arrive via props, selection reports through onSelect. All behavior is
 // exercised without the editor or the index.
 
-const page = (path: string, content = ''): Page => ({
+const page = (path: string, content = ''): SearchDoc => ({
   path,
   title: path.replace(/\.md$/, '').split('/').pop()!,
   kind: 'page',
-  content,
+  text: content,
 })
 
-const journal = (path: string, content = ''): Page => ({
+const journal = (path: string, content = ''): SearchDoc => ({
   path,
   title: path.split('/').pop()!.replace('.md', ''),
   kind: 'journal',
-  content,
+  text: content,
+})
+
+/** A vault file document (search-assets-by-name): labelled by its path inside
+ *  `assets/`, and carrying no text — the app never reads a file's bytes. */
+const asset = (path: string): SearchDoc => ({
+  path,
+  title: path.replace(/^assets\//, ''),
+  kind: 'asset',
+  text: '',
 })
 
 const input = () => screen.getByRole('textbox', { name: 'Search notes' })
@@ -41,6 +50,7 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
           journal('journals/2026-09-02.md', 'docker setup notes'),
         ]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -56,6 +66,7 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
       <SearchBox
         docs={[journal('journals/2026-09-02.md', 'docker body')]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -69,6 +80,7 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
       <SearchBox
         docs={[page('Ops.md', 'We run docker in production daily')]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -79,15 +91,22 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
   })
 
   it('shows an empty state when nothing matches', async () => {
-    render(<SearchBox docs={[page('Welcome.md', 'hello')]} onSelect={() => {}} disabled={false} />)
+    render(
+      <SearchBox
+        docs={[page('Welcome.md', 'hello')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
+    )
     fireEvent.change(input(), { target: { value: 'xyzzy' } })
     await waitFor(() => expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy())
   })
 
   it('caps a group in the dropdown and offers the see-all row', async () => {
-    const docs: Page[] = []
+    const docs: SearchDoc[] = []
     for (let i = 0; i < 23; i++) docs.push(page(`p${i}.md`, 'docker body'))
-    render(<SearchBox docs={docs} onSelect={() => {}} disabled={false} />)
+    render(<SearchBox docs={docs} onSelect={() => {}} onOpenAsset={() => {}} disabled={false} />)
     await type('docker')
     expect(options()).toHaveLength(20)
     expect(screen.getByRole('button', { name: 'See all 23 results' })).toBeTruthy()
@@ -98,6 +117,7 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
       <SearchBox
         docs={[page('Alpha.md', 'docker one'), page('Beta.md', 'docker two')]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -106,7 +126,14 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
   })
 
   it('hides the see-all row when nothing matches', async () => {
-    render(<SearchBox docs={[page('Welcome.md', 'hello')]} onSelect={() => {}} disabled={false} />)
+    render(
+      <SearchBox
+        docs={[page('Welcome.md', 'hello')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
+    )
     fireEvent.change(input(), { target: { value: 'xyzzy' } })
     await waitFor(() => expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy())
     expect(screen.queryByRole('button', { name: /See all/ })).toBeNull()
@@ -117,6 +144,7 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
       <SearchBox
         docs={[page('Docker.md', 'First line\nSecond line')]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -128,7 +156,12 @@ describe('SearchBox rendering (search spec: groups, labels, snippets)', () => {
 describe('SearchBox action flow (search spec: debounce, outside click, clear, escape)', () => {
   it('stays hidden until results are computed (no empty-state flash while typing)', async () => {
     render(
-      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+      <SearchBox
+        docs={[page('Welcome.md', 'docker here')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
     )
     fireEvent.change(input(), { target: { value: 'doc' } })
     expect(screen.queryByRole('listbox')).toBeNull()
@@ -138,7 +171,12 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
 
   it('closes on outside click keeping the query; refocus restores results', async () => {
     render(
-      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+      <SearchBox
+        docs={[page('Welcome.md', 'docker here')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
     )
     await type('docker')
     fireEvent.click(document.body)
@@ -154,6 +192,7 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
       <SearchBox
         docs={[page('Alpha.md', 'docker one')]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
         onSeeAll={onSeeAll}
       />,
@@ -167,10 +206,16 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
 
   it('reports the full uncapped match set on every run', async () => {
     const onQueryResult = vi.fn()
-    const docs: Page[] = []
+    const docs: SearchDoc[] = []
     for (let i = 0; i < 23; i++) docs.push(page(`p${i}.md`, 'docker body'))
     render(
-      <SearchBox docs={docs} onSelect={() => {}} disabled={false} onQueryResult={onQueryResult} />,
+      <SearchBox
+        docs={docs}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+        onQueryResult={onQueryResult}
+      />,
     )
     await type('docker')
     // The dropdown still slices to PER_GROUP; the full list goes up.
@@ -182,7 +227,12 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
 
   it('the clear x resets the query and refocuses the input', async () => {
     render(
-      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+      <SearchBox
+        docs={[page('Welcome.md', 'docker here')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
     )
     await type('docker')
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
@@ -193,7 +243,12 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
 
   it('Escape clears the query and closes', async () => {
     render(
-      <SearchBox docs={[page('Welcome.md', 'docker here')]} onSelect={() => {}} disabled={false} />,
+      <SearchBox
+        docs={[page('Welcome.md', 'docker here')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
     )
     await type('docker')
     fireEvent.keyDown(input(), { key: 'Escape' })
@@ -202,7 +257,14 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
   })
 
   it('a disabled input does not deploy a dropdown', async () => {
-    render(<SearchBox docs={[page('Welcome.md', 'docker')]} onSelect={() => {}} disabled />)
+    render(
+      <SearchBox
+        docs={[page('Welcome.md', 'docker')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled
+      />,
+    )
     expect((input() as HTMLInputElement).disabled).toBe(true)
     fireEvent.change(input(), { target: { value: 'docker' } })
     expect(screen.queryByRole('listbox')).toBeNull()
@@ -211,7 +273,14 @@ describe('SearchBox action flow (search spec: debounce, outside click, clear, es
 
 describe('SearchBox keyboard (search spec: Cmd/Ctrl+K, arrows, enter)', () => {
   it('Cmd/Ctrl+K focuses and selects the input', () => {
-    render(<SearchBox docs={[page('Welcome.md', 'x')]} onSelect={() => {}} disabled={false} />)
+    render(
+      <SearchBox
+        docs={[page('Welcome.md', 'x')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
+    )
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
     const el = input() as HTMLInputElement
     expect(document.activeElement).toBe(el)
@@ -227,6 +296,7 @@ describe('SearchBox keyboard (search spec: Cmd/Ctrl+K, arrows, enter)', () => {
           page('Gamma.md', 'docker three'),
         ]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -247,6 +317,7 @@ describe('SearchBox keyboard (search spec: Cmd/Ctrl+K, arrows, enter)', () => {
       <SearchBox
         docs={[page('Alpha.md', 'docker one'), page('Beta.md', 'docker two')]}
         onSelect={onSelect}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -261,7 +332,12 @@ describe('SearchBox keyboard (search spec: Cmd/Ctrl+K, arrows, enter)', () => {
   it('clicking a row opens its page', async () => {
     const onSelect = vi.fn()
     render(
-      <SearchBox docs={[page('Alpha.md', 'docker one')]} onSelect={onSelect} disabled={false} />,
+      <SearchBox
+        docs={[page('Alpha.md', 'docker one')]}
+        onSelect={onSelect}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
     )
     await type('docker')
     fireEvent.click(options()[0])
@@ -274,6 +350,7 @@ describe('SearchBox keyboard (search spec: Cmd/Ctrl+K, arrows, enter)', () => {
       <SearchBox
         docs={[page('Alpha.md', 'docker one'), page('Beta.md', 'docker two')]}
         onSelect={() => {}}
+        onOpenAsset={() => {}}
         disabled={false}
       />,
     )
@@ -283,5 +360,73 @@ describe('SearchBox keyboard (search spec: Cmd/Ctrl+K, arrows, enter)', () => {
     fireEvent.change(input(), { target: { value: 'docker two' } })
     await waitFor(() => expect(options().length).toBe(1))
     expect(options()[0].classList.contains(styles.active)).toBe(false)
+  })
+})
+
+// search-assets-by-name: a vault file appears under its own group, labelled as
+// the sidebar labels it, and activating it opens the file instead of navigating.
+describe('SearchBox asset results (search-assets-by-name)', () => {
+  it('renders an Assets group and labels the file by its path inside assets/', async () => {
+    render(
+      <SearchBox
+        docs={[asset('assets/2026/q3-report.pdf')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
+    )
+    await type('q3-report')
+    expect(within(listbox()).getByText('Assets')).toBeTruthy()
+    expect(screen.getByText('2026/q3-report.pdf')).toBeTruthy()
+  })
+
+  it('shows no snippet for a file row', async () => {
+    render(
+      <SearchBox
+        docs={[asset('assets/q3-report.pdf')]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
+    )
+    await type('q3-report')
+    expect(options()[0].querySelector(`.${matchStyles.snip}`)).toBeNull()
+  })
+
+  it('opens the file rather than selecting a page', async () => {
+    const onSelect = vi.fn()
+    const onOpenAsset = vi.fn()
+    render(
+      <SearchBox
+        docs={[asset('assets/q3-report.pdf')]}
+        onSelect={onSelect}
+        onOpenAsset={onOpenAsset}
+        disabled={false}
+      />,
+    )
+    await type('q3-report')
+    fireEvent.click(options()[0])
+    expect(onOpenAsset).toHaveBeenCalledWith('assets/q3-report.pdf')
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('groups pages, journal days, and files in that order', async () => {
+    render(
+      <SearchBox
+        docs={[
+          page('Ops.md', 'docker in production'),
+          journal('journals/2026-09-02.md', 'docker notes'),
+          asset('assets/docker-notes.pdf'),
+        ]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        disabled={false}
+      />,
+    )
+    await type('docker')
+    const heads = within(listbox())
+      .getAllByText(/^(Pages|Journal|Assets)$/)
+      .map((h) => h.textContent)
+    expect(heads).toEqual(['Pages', 'Journal', 'Assets'])
   })
 })

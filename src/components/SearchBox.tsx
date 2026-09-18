@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Fuse from 'fuse.js'
-import type { Page } from '../page'
-import { FUSE_OPTIONS, searchDocs, topPerGroup, type SearchResult } from '../search/core'
+import {
+  FUSE_OPTIONS,
+  searchDocs,
+  topPerGroup,
+  type SearchDoc,
+  type SearchResult,
+} from '../search/core'
 import { MatchBody } from './MatchBody'
 import { listKeyDown } from './listNav'
 import styles from './SearchBox.module.css'
@@ -15,12 +20,17 @@ const DEBOUNCE_MS = 120
 export function SearchBox({
   docs,
   onSelect,
+  onOpenAsset,
   disabled,
   onQueryResult,
   onSeeAll,
 }: {
-  docs: Page[]
+  /** The whole corpus, built once per graph by App: pages, journal days, and
+   *  the vault's assets (search-assets-by-name). */
+  docs: SearchDoc[]
   onSelect: (path: string) => void
+  /** Activating an asset result: open the file, do not navigate (ADR-0021). */
+  onOpenAsset: (path: string) => void
   /** No vault open: the input is disabled (no-inert-UI rule). */
   disabled: boolean
   /** Every landed search run, uncapped (search-results-view): App mirrors
@@ -40,14 +50,7 @@ export function SearchBox({
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
 
-  const fuse = useMemo(
-    () =>
-      new Fuse(
-        docs.map((p) => ({ path: p.path, title: p.title, kind: p.kind, text: p.content })),
-        FUSE_OPTIONS,
-      ),
-    [docs],
-  )
+  const fuse = useMemo(() => new Fuse(docs, FUSE_OPTIONS), [docs])
 
   const run = (value: string) => {
     const found = searchDocs(fuse, value)
@@ -72,8 +75,12 @@ export function SearchBox({
     window.clearTimeout(timer.current)
   }
 
-  const openPath = (path: string) => {
-    onSelect(path)
+  // A result opens what it names (search-assets-by-name, design D3): a page or
+  // journal day navigates, a file is opened in place and nothing navigates. The
+  // dropdown closes for either, keeping the query.
+  const activate = (result: SearchResult) => {
+    if (result.kind === 'asset') onOpenAsset(result.path)
+    else onSelect(result.path)
     setOpen(false) // keep the query; refocus or typing restores the dropdown
   }
 
@@ -115,7 +122,7 @@ export function SearchBox({
     length: shown && results ? visible.length : 0,
     active,
     setActive,
-    onEnter: (index) => openPath(visible[index].path),
+    onEnter: (index) => activate(visible[index]),
   })
   // Escape stays here rather than in the shared handler: `clear` reads the
   // debounce timer's ref, and a closure built at render that touches a ref is
@@ -129,6 +136,7 @@ export function SearchBox({
     [
       ['Pages', 'page'],
       ['Journal', 'journal'],
+      ['Assets', 'asset'],
     ] as const
   )
     .map(([label, kind]) => ({
@@ -188,7 +196,7 @@ export function SearchBox({
                       role="option"
                       aria-selected={index === active}
                       className={`${styles.item}${index === active ? ` ${styles.active}` : ''}`}
-                      onClick={() => openPath(r.path)}
+                      onClick={() => activate(r)}
                       onMouseEnter={() => setActive(index)}
                     >
                       <MatchBody result={r} compact />

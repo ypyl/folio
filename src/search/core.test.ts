@@ -3,6 +3,7 @@ import Fuse from 'fuse.js'
 import {
   FUSE_OPTIONS,
   PER_GROUP,
+  assetSearchDoc,
   exactRanges,
   firstMatchLine,
   searchDocs,
@@ -156,5 +157,55 @@ describe('firstMatchLine', () => {
     // list start at line 5, not to its own line.
     const ranges = exactRanges(text, 'dog')
     expect(firstMatchLine(text, ranges)).toBe(5)
+  })
+})
+
+// search-assets-by-name: a vault file joins the corpus by name only. Its bytes
+// are never read (ADR-0022), so `text` is empty and the whole title-only path
+// already applies — no ranges, no snippet, no line.
+describe('asset search documents', () => {
+  it('labels by the path inside assets/ and carries no text', () => {
+    expect(assetSearchDoc('assets/2026/q3-report.pdf')).toEqual({
+      path: 'assets/2026/q3-report.pdf',
+      title: '2026/q3-report.pdf',
+      kind: 'asset',
+      text: '',
+    })
+  })
+
+  it('matches by its file name', () => {
+    const results = searchDocs(fuse([assetSearchDoc('assets/Q3-report.pdf')]), 'q3-report')
+    expect(results).toHaveLength(1)
+    expect(results[0].kind).toBe('asset')
+    expect(results[0].title).toBe('Q3-report.pdf')
+  })
+
+  it('matches by its subfolder', () => {
+    const results = searchDocs(fuse([assetSearchDoc('assets/2026/q3-report.pdf')]), '2026')
+    expect(results).toHaveLength(1)
+  })
+
+  it('reports no ranges, so it has no snippet anchor and no line', () => {
+    const [hit] = searchDocs(fuse([assetSearchDoc('assets/q3-report.pdf')]), 'q3-report')
+    expect(hit.ranges).toEqual([])
+    expect(firstMatchLine(hit.text, hit.ranges)).toBeNull()
+    expect(snippetSegments(hit.text, hit.ranges)).toEqual([{ text: '', hit: false }])
+  })
+
+  it('has no contents to match', () => {
+    // The word exists only inside the file's bytes, which the app never reads.
+    expect(searchDocs(fuse([assetSearchDoc('assets/report.pdf')]), 'revenue')).toEqual([])
+  })
+
+  it('caps per kind, so a file is not crowded out by page matches', () => {
+    const docs = [
+      doc('a.md', 'a', 'docker body'),
+      doc('journals/2026-09-02.md', '2026-09-02', 'docker body', 'journal'),
+      assetSearchDoc('assets/docker-notes.pdf'),
+    ]
+    // The slice keeps relevance order and counts per kind; the surfaces are what
+    // order the groups (Pages, Journal, Assets).
+    const visible = topPerGroup(searchDocs(fuse(docs), 'docker'))
+    expect(visible.map((r) => r.kind).sort()).toEqual(['asset', 'journal', 'page'])
   })
 })

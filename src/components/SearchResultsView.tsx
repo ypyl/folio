@@ -16,11 +16,16 @@ export function SearchResultsView({
   query,
   results,
   onOpen,
+  onOpenAsset,
   onClose,
 }: {
   query: string
   results: SearchResult[]
   onOpen: (path: string) => void
+  /** Activating an asset result: open the file and stay on the results
+   *  (search-assets-by-name, design D3) — nothing navigated, so there is no
+   *  page to return to and closing would strand the query. */
+  onOpenAsset: (path: string) => void
   /** Escape or the Back affordance: return to the previously open page. */
   onClose: () => void
 }) {
@@ -34,8 +39,8 @@ export function SearchResultsView({
     rootRef.current?.focus()
   }, [])
 
-  // Pages then journal days, each keeping its relevance order (spec: same
-  // grouping as the dropdown, no cap).
+  // Pages, then journal days, then assets, each keeping its relevance order
+  // (spec: same grouping as the dropdown, no cap).
   const flat = useMemo(
     () => [
       ...results
@@ -44,6 +49,9 @@ export function SearchResultsView({
       ...results
         .filter((r) => r.kind === 'journal')
         .map((item) => ({ item, group: 'journal' as const })),
+      ...results
+        .filter((r) => r.kind === 'asset')
+        .map((item) => ({ item, group: 'assets' as const })),
     ],
     [results],
   )
@@ -59,11 +67,18 @@ export function SearchResultsView({
     header: i === 0 || slice[i - 1].group !== entry.group,
   }))
 
+  // A file opens in place and leaves the view open; a note navigates and so
+  // leaves it (App's open handler sets the pane back to the page).
+  const activate = (result: SearchResult) => {
+    if (result.kind === 'asset') onOpenAsset(result.path)
+    else onOpen(result.path)
+  }
+
   const onKeyDown = listKeyDown({
     length: slice.length,
     active,
     setActive,
-    onEnter: (index) => onOpen(slice[index].item.path),
+    onEnter: (index) => activate(slice[index].item),
     onEscape: onClose,
   })
 
@@ -90,12 +105,14 @@ export function SearchResultsView({
       {rows.map(({ item, group, header }, i) => (
         <div key={item.path}>
           {header && (
-            <div className={styles.groupHead}>{group === 'pages' ? 'Pages' : 'Journal'}</div>
+            <div className={styles.groupHead}>
+              {group === 'pages' ? 'Pages' : group === 'journal' ? 'Journal' : 'Assets'}
+            </div>
           )}
           <button
             type="button"
             className={`${styles.row}${i === active ? ` ${styles.active}` : ''}`}
-            onClick={() => onOpen(item.path)}
+            onClick={() => activate(item)}
             onMouseEnter={() => setActive(i)}
           >
             <MatchBody result={item} />

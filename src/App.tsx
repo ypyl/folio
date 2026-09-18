@@ -34,7 +34,7 @@ import {
   suggestPages,
   type Suggestion,
 } from './vault/suggest'
-import type { SearchResult } from './search/core'
+import { assetSearchDoc, type SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
 
@@ -447,10 +447,26 @@ function App() {
   // state) and pending-permission folders (no storage) stay outside it.
   const indexing = graph === null && activeFolder?.storage !== undefined
 
-  // Search corpus: pages with content from the live graph, memoized on graph
-  // identity so the Fuse inside SearchBox rebuilds on save/refresh (search-
-  // notes, design: Fuse lifecycle).
-  const searchDocs = useMemo(() => (graph ? [...graph.pages.values()] : []), [graph])
+  // Search corpus: pages with content from the live graph, plus one document
+  // per vault asset (search-assets-by-name, design D1) — the same `assets/`
+  // inventory the sidebar lists, matched by label and never read. Memoized on
+  // graph identity so the Fuse inside SearchBox rebuilds on save/refresh
+  // (search-notes, design: Fuse lifecycle).
+  const searchCorpus = useMemo(
+    () =>
+      graph
+        ? [
+            ...[...graph.pages.values()].map((page) => ({
+              path: page.path,
+              title: page.title,
+              kind: page.kind,
+              text: page.content,
+            })),
+            ...graph.assets.map(assetSearchDoc),
+          ]
+        : [],
+    [graph],
+  )
 
   // Reference-completion pool (add-reference-autocomplete, design D2/D8): the
   // index's resolvable names in page order, rebuilt only when the graph or the
@@ -487,9 +503,10 @@ function App() {
           // without a vault (no-inert-UI rule).
           <SearchBox
             key={activeFolder?.id ?? 'none'}
-            docs={searchDocs}
+            docs={searchCorpus}
             disabled={graph === null}
             onSelect={handleSelect}
+            onOpenAsset={handleOpenAsset}
             onQueryResult={handleQueryResult}
             onSeeAll={handleOpenResults}
           />
@@ -537,6 +554,7 @@ function App() {
             query={searchQuery}
             results={searchResults}
             onOpen={handleSelect}
+            onOpenAsset={handleOpenAsset}
             onClose={() => setMode('page')}
           />
         ) : (

@@ -23,12 +23,18 @@ const result = (path: string, over: Partial<SearchResult> = {}): SearchResult =>
 const page = (n: number): SearchResult =>
   result(`p${n}.md`, { text: 'docker body', ranges: [[0, 6]] })
 
+/** A vault file result (search-assets-by-name): labelled by its path inside
+ *  `assets/`, carrying no text. */
+const asset = (path: string): SearchResult =>
+  result(path, { kind: 'asset', title: path.replace(/^assets\//, ''), text: '' })
+
 const renderView = (props: Partial<Parameters<typeof SearchResultsView>[0]> = {}) =>
   render(
     <SearchResultsView
       query="docker"
       results={[page(0)]}
       onOpen={() => {}}
+      onOpenAsset={() => {}}
       onClose={() => {}}
       {...props}
     />,
@@ -145,5 +151,47 @@ describe('SearchResultsView interaction (search-results-view spec: keyboard)', (
     renderView({ onClose })
     fireEvent.click(screen.getByRole('button', { name: 'Back to notes' }))
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+describe('SearchResultsView asset rows (search-assets-by-name)', () => {
+  it('lists files after journal days, under an Assets header', () => {
+    renderView({
+      results: [
+        result('docker.md', { text: 'we run docker daily', ranges: [[7, 13]] }),
+        result('journals/2026-09-02.md', {
+          kind: 'journal',
+          text: 'docker notes',
+          ranges: [[0, 6]],
+        }),
+        asset('assets/docker-notes.pdf'),
+      ],
+    })
+    const heads = within(main())
+      .getAllByText(/^(Pages|Journal|Assets)$/)
+      .map((h) => h.textContent)
+    expect(heads).toEqual(['Pages', 'Journal', 'Assets'])
+    expect(within(main()).getByRole('button', { name: /docker-notes\.pdf/ })).toBeTruthy()
+    expect(main().querySelectorAll(`mark.${matchStyles.hit}`).length).toBe(2)
+  })
+
+  // A file opens in place, so nothing navigated and the view stays — closing it
+  // would strand the query with no page behind it.
+  it('opens a file result and leaves the view open', () => {
+    const onOpen = vi.fn()
+    const onOpenAsset = vi.fn()
+    renderView({ results: [asset('assets/docker-notes.pdf')], onOpen, onOpenAsset })
+    fireEvent.click(rows()[0])
+    expect(onOpenAsset).toHaveBeenCalledWith('assets/docker-notes.pdf')
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('still navigates for a page result', () => {
+    const onOpen = vi.fn()
+    const onOpenAsset = vi.fn()
+    renderView({ results: [page(1)], onOpen, onOpenAsset })
+    fireEvent.click(rows()[0])
+    expect(onOpen).toHaveBeenCalledWith('p1.md')
+    expect(onOpenAsset).not.toHaveBeenCalled()
   })
 })
