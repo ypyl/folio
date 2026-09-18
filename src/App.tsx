@@ -376,34 +376,39 @@ function App() {
   const forwardlinkRows = useMemo<LinkRow[]>(
     () =>
       graph && page
-        ? [
-            ...page.links
-              .map((l) => {
-                const targetPath = resolveReferencePath(l.target, graph.byName)
-                const p = graph.pages.get(targetPath)
-                if (p) return { title: p.title, path: targetPath, materialized: true }
-                // No page matches the reference: it is unmaterialized. A name
-                // that is not a date materializes under `pages/`, preserving any
-                // directory part in bracketed names; a date name is the journal
-                // day, which materializes under `journals/`.
-                return { title: l.target, path: targetPath, materialized: false }
-              })
-              .filter(
-                // A page's link to itself isn't useful navigation (mirrors the
-                // index's backlink self-exclusion).
-                (r) => r.path !== page.path,
-              ),
-            // The page's files (vault-assets, design D1), labelled with the
-            // file's name. Whether one exists is read from the vault's own
-            // listing, so a file deleted outside the app drops out on the next
-            // scan even though this page's record is carried over untouched.
-            ...pageAssets(page, graph).map((path) => ({
-              title: assetName(path),
-              path,
-              materialized: true,
-              kind: 'asset' as const,
-            })),
-          ]
+        ? page.links
+            .map((l) => {
+              const targetPath = resolveReferencePath(l.target, graph.byName)
+              const p = graph.pages.get(targetPath)
+              if (p) return { title: p.title, path: targetPath, materialized: true }
+              // No page matches the reference: it is unmaterialized. A name
+              // that is not a date materializes under `pages/`, preserving any
+              // directory part in bracketed names; a date name is the journal
+              // day, which materializes under `journals/`.
+              return { title: l.target, path: targetPath, materialized: false }
+            })
+            .filter(
+              // A page's link to itself isn't useful navigation (mirrors the
+              // index's backlink self-exclusion).
+              (r) => r.path !== page.path,
+            )
+        : [],
+    [graph, page],
+  )
+  // The page's files (vault-assets, design D1), labelled with the file's name
+  // and kept out of Forwardlinks so each panel section holds one kind of row.
+  // Whether one exists is read from the vault's own listing, so a file deleted
+  // outside the app drops out on the next scan even though this page's record
+  // is carried over untouched. Same [graph, page] deps as the rows above: a
+  // keystroke re-renders but re-derives neither.
+  const referenceRows = useMemo<LinkRow[]>(
+    () =>
+      graph && page
+        ? pageAssets(page, graph).map((path) => ({
+            title: assetName(path),
+            path,
+            materialized: true,
+          }))
         : [],
     [graph, page],
   )
@@ -561,6 +566,7 @@ function App() {
           pageOpen={mode === 'page' && page !== null}
           backlinks={mode === 'page' ? backlinkRows : []}
           forwardlinks={mode === 'page' ? forwardlinkRows : []}
+          references={mode === 'page' ? referenceRows : []}
           activePath={mode === 'page' ? activePath : null}
           onSelect={handleSelect}
           onOpenAsset={handleOpenAsset}

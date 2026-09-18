@@ -22,7 +22,6 @@ const assetRow = (path: string): LinkRow => ({
   title: path.slice(path.lastIndexOf('/') + 1),
   path,
   materialized: true,
-  kind: 'asset',
 })
 
 const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
@@ -34,6 +33,7 @@ describe('MetaPanel', () => {
         pageOpen={false}
         backlinks={[]}
         forwardlinks={[]}
+        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -46,6 +46,9 @@ describe('MetaPanel', () => {
     expect(
       within(meta()).getByText('Links from this page appear once a page is open.'),
     ).toBeTruthy()
+    expect(
+      within(meta()).getByText('Files this page points at appear once a page is open.'),
+    ).toBeTruthy()
   })
 
   it('shows skeleton rows instead of placeholder copy while the index builds', () => {
@@ -54,6 +57,7 @@ describe('MetaPanel', () => {
         pageOpen={false}
         backlinks={[]}
         forwardlinks={[]}
+        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -70,7 +74,7 @@ describe('MetaPanel', () => {
     ).toBeNull()
     expect(within(meta()).queryByRole('button')).toBeNull()
     // One placeholder line per section, sized like the copy it replaces.
-    expect(meta().querySelectorAll('.skeleton[aria-hidden="true"]').length).toBe(2)
+    expect(meta().querySelectorAll('.skeleton[aria-hidden="true"]').length).toBe(3)
   })
 
   it("sorts each section's rows alphabetically", () => {
@@ -79,6 +83,7 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[row('Zeta.md'), row('Alpha.md')]}
         forwardlinks={[row('Beta.md'), row('Gama.md')]}
+        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -100,6 +105,7 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[]}
         forwardlinks={[row('Beta.md')]}
+        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -117,6 +123,7 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[]}
         forwardlinks={[row('missing.md', false)]}
+        references={[]}
         activePath={null}
         onSelect={onSelect}
         onOpenAsset={() => {}}
@@ -135,6 +142,7 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[row('Alpha.md'), row('Beta.md')]}
         forwardlinks={[]}
+        references={[]}
         activePath="Beta.md"
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -149,24 +157,24 @@ describe('MetaPanel', () => {
     ).toBeNull()
   })
 
-  it('sorts page and asset rows into one order', () => {
+  it('sorts page rows and asset rows in their own sections', () => {
     render(
       <MetaPanel
         pageOpen
         backlinks={[]}
-        forwardlinks={[
-          assetRow('assets/q3-report.pdf'),
-          row('Roadmap.md'),
-          assetRow('assets/a.png'),
-        ]}
+        forwardlinks={[row('Roadmap.md')]}
+        references={[assetRow('assets/q3-report.pdf'), assetRow('assets/a.png')]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    const buttons = [...meta().querySelectorAll('button')].map((b) => b.textContent)
-    expect(buttons).toEqual(['a.png', 'q3-report.pdf', 'Roadmap'])
+    const section = (title: string) => screen.getByText(title).closest('details') as HTMLElement
+    const labels = (title: string) =>
+      [...section(title).querySelectorAll('button')].map((b) => b.textContent)
+    expect(labels('Forwardlinks')).toEqual(['Roadmap'])
+    expect(labels('References')).toEqual(['a.png', 'q3-report.pdf'])
   })
 
   it('opens an asset row instead of navigating, and never dims it', () => {
@@ -176,7 +184,8 @@ describe('MetaPanel', () => {
       <MetaPanel
         pageOpen
         backlinks={[]}
-        forwardlinks={[assetRow('assets/q3-report.pdf')]}
+        forwardlinks={[]}
+        references={[assetRow('assets/q3-report.pdf')]}
         activePath={null}
         onSelect={onSelect}
         onOpenAsset={onOpenAsset}
@@ -189,6 +198,69 @@ describe('MetaPanel', () => {
     expect(onOpenAsset).toHaveBeenCalledWith('assets/q3-report.pdf')
     expect(onSelect).not.toHaveBeenCalled()
   })
+
+  it('keeps the References section collapsed by default, after the page sections', () => {
+    const { container } = render(
+      <MetaPanel
+        pageOpen
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[assetRow('assets/shot.png')]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const sections = [...container.querySelectorAll('details')] as HTMLDetailsElement[]
+    expect(sections.map((s) => s.querySelector('summary')?.textContent)).toEqual([
+      'Backlinks',
+      'Forwardlinks',
+      'References',
+      'Keyboard shortcuts',
+    ])
+    expect(sections.map((s) => s.open)).toEqual([true, true, false, false])
+  })
+
+  it('never dims an asset row, whatever the row says about the disk', () => {
+    // An asset row is built from the vault's own listing, so it is materialized
+    // by construction; the section does not consult the flag.
+    render(
+      <MetaPanel
+        pageOpen
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[{ title: 'orphan.pdf', path: 'assets/orphan.pdf', materialized: false }]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const btn = within(meta()).getByRole('button', { name: 'orphan.pdf' })
+    expect(btn.className).not.toContain(styles.dimmed)
+  })
+
+  it('shows References its own empty copy, and copies only its own section', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        backlinks={[row('Alpha.md')]}
+        forwardlinks={[row('Beta.md')]}
+        references={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const references = screen.getByText('References').closest('details') as HTMLElement
+    expect(within(references).getByText('No files on this page.')).toBeTruthy()
+    expect(within(references).queryByRole('button')).toBeNull()
+    // The page sections keep their rows and their own empty copy.
+    expect(within(meta()).queryByText('Nothing links here yet.')).toBeNull()
+    expect(within(meta()).queryByText('This page links to nothing.')).toBeNull()
+  })
 })
 
 // Keyboard-shortcuts reference (move-help-to-right-panel): the panel's last
@@ -199,6 +271,7 @@ describe('keyboard-shortcuts section', () => {
       pageOpen={props.pageOpen ?? false}
       backlinks={[]}
       forwardlinks={[]}
+      references={[]}
       activePath={null}
       onSelect={() => {}}
       onOpenAsset={() => {}}
@@ -210,12 +283,12 @@ describe('keyboard-shortcuts section', () => {
   it('is the panel\u2019s last section and starts collapsed', () => {
     const { container } = render(panel())
     const sections = container.querySelectorAll('details')
-    expect(sections).toHaveLength(3)
-    const last = sections[2] as HTMLDetailsElement
+    expect(sections).toHaveLength(4)
+    const last = sections[3] as HTMLDetailsElement
     expect(last.open).toBe(false)
     expect(last.querySelector('summary')?.textContent).toBe('Keyboard shortcuts')
     // Nothing follows it.
-    expect(container.querySelectorAll('details')[2].nextElementSibling).toBeNull()
+    expect(container.querySelectorAll('details')[3].nextElementSibling).toBeNull()
   })
 
   it('shows the reference in every panel state', () => {
@@ -241,17 +314,27 @@ describe('keyboard-shortcuts section', () => {
     // change's final task covers where the row actually lands.
     const { container } = render(panel())
     const sections = container.querySelectorAll('details')
-    expect(sections[2].className).toContain(styles.footer)
+    expect(sections[3].className).toContain(styles.footer)
     expect(sections[0].className).not.toContain(styles.footer)
   })
 
   it('opens independently of the link sections', () => {
     const { container } = render(panel({ pageOpen: true }))
     const sections = container.querySelectorAll('details')
-    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, false])
+    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ])
     fireEvent.click(within(meta()).getByText('Keyboard shortcuts'))
-    expect(sections[2].open).toBe(true)
+    expect(sections[3].open).toBe(true)
     // Opening the reference leaves the link sections as they were.
-    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, true])
+    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([
+      true,
+      true,
+      false,
+      true,
+    ])
   })
 })

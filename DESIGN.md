@@ -142,6 +142,20 @@ A lifted surface is carried by the fill, not an outline: `--ivory` against
 `--parchment` is the whole gesture. Do not add a closed hairline border around
 a filled card.
 
+### Side panes are columns of bands
+
+Both side panes — the left sidebar and the right meta panel — are columns of
+bands. A band either sizes to its content (the sidebar's control row and
+calendar, the meta panel's keyboard-shortcuts reference) or shares the pane's
+leftover height with the other bands: `flex: 1 1 0` while open, with a floor
+of 120px so a short window cannot collapse a listing to nothing, and exactly
+its summary row while closed. A listing that outgrows its band scrolls inside
+that band's own body — it never grows the pane and never pushes another band's
+summary out of reach. The pane itself scrolls only as a fallback, when even
+the floors do not fit. Because surfaces stay flat, a band anchored to the
+pane's bottom edge (the keyboard-shortcuts row) sits on the pane's own fill
+rather than a shadow.
+
 ### Links
 
 One link behavior across the whole app: brand color, no underline, hover

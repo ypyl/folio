@@ -337,7 +337,7 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
-  it("forwardlinks list the open page's files and open them without leaving the page", async () => {
+  it("references list the open page's files and open them without leaving the page", async () => {
     const tree = buildTree({
       pages: { 'Report.md': 'Started the report: [Q3 report](assets/q3-report.pdf).' },
       journals: { '2026-09-02.md': 'start' },
@@ -353,12 +353,13 @@ describe('navigation over the real index', () => {
     await openFixture(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Report' }))
 
-    const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
-    // The file sits beside the page's references, named for the file, and is
-    // not dimmed: an asset row exists only for a file the vault holds.
-    const row = await within(meta()).findByRole('button', { name: 'q3-report.pdf' })
+    // The file is listed in its own section, named for the file, and is not
+    // dimmed: an asset row exists only for a file the vault holds.
+    const row = await section('References').findByRole('button', { name: 'q3-report.pdf' })
     expect(row.className).not.toContain('dimmed')
     expect(row.getAttribute('aria-current')).toBeNull()
+    // Forwardlinks holds page rows only, so the same page's file is not there.
+    expect(section('Forwardlinks').queryByRole('button')).toBeNull()
 
     fireEvent.click(row)
     await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
