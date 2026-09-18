@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   findReferenceRanges,
+  linkDestinationTrigger,
   parseAssetPaths,
   parseLinks,
   referenceToken,
@@ -181,6 +182,66 @@ describe('referenceTrigger', () => {
 
   it('does not fire when a closing bracket follows the caret', () => {
     expect(atCaret('#[[read|]]')).toBeNull()
+  })
+})
+
+describe('linkDestinationTrigger', () => {
+  /** The trigger for `before` with the caret at its end. */
+  const atCaret = (before: string, after = '') => linkDestinationTrigger(before, after)
+
+  it('reads the typed destination and the label beside it', () => {
+    expect(atCaret('[Q3 report](q3')).toMatchObject({
+      kind: 'destination',
+      text: 'q3',
+      label: 'Q3 report',
+      image: false,
+    })
+  })
+
+  it('reads an empty label, so the picker can name the file itself', () => {
+    expect(atCaret('[](sh')).toMatchObject({ text: 'sh', label: '', image: false })
+  })
+
+  it('reports an image destination as an image', () => {
+    expect(atCaret('![icon](sh')).toMatchObject({ label: 'icon', image: true })
+  })
+
+  it('takes the last of several destinations on the line', () => {
+    expect(atCaret('[a](assets/a.pdf) [b](q3')).toMatchObject({ text: 'q3', label: 'b' })
+  })
+
+  it('does not fire on an empty destination', () => {
+    expect(atCaret('[Q3 report](')).toBeNull()
+  })
+
+  it('does not fire once the destination is closed', () => {
+    expect(atCaret('[Q3](q3', ')')).toBeNull()
+    expect(atCaret('[Q3](q3)')).toBeNull()
+  })
+
+  it('does not fire on a host, a scheme, an absolute path, or a fragment', () => {
+    expect(atCaret('[x](http')).toMatchObject({ text: 'http' })
+    // The scheme is what disqualifies it, not the typed prefix: the host is
+    // only reachable as a vault path until the ':' arrives.
+    expect(atCaret('[x](http:')).toBeNull()
+    expect(atCaret('[x](https://ex')).toBeNull()
+    expect(atCaret('[x](//example.com')).toBeNull()
+    expect(atCaret('[x](/absolute')).toBeNull()
+    expect(atCaret('[x](#section')).toBeNull()
+  })
+
+  it('does not fire without an opener, or over a nested label', () => {
+    expect(atCaret('q3](')).toBeNull()
+    expect(atCaret('a [b] (q3')).toBeNull()
+    expect(atCaret('[a [b]](q3')).toBeNull()
+  })
+
+  it('does not fire across a hard break', () => {
+    expect(atCaret('[x](assets/a\nq3')).toBeNull()
+  })
+
+  it('does not fire for a plain word in prose', () => {
+    expect(atCaret('see the assets')).toBeNull()
   })
 })
 

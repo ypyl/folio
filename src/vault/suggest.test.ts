@@ -5,8 +5,11 @@ import { buildIndex, type Graph } from './index'
 import {
   SUGGESTION_LIMIT,
   candidateNames,
+  fileCandidates,
+  suggestFiles,
   suggestPages,
   wordStarts,
+  type FileCandidate,
   type PageCandidate,
 } from './suggest'
 
@@ -21,6 +24,20 @@ const pool = (...names: string[]): PageCandidate[] =>
   names.map((name) => {
     const lower = name.toLowerCase()
     return { name, path: `pages/${name}.md`, lower, starts: wordStarts(lower) }
+  })
+
+/** A file pool the way `fileCandidates` builds it, for the ranker's own tests. */
+const filePool = (...paths: string[]): FileCandidate[] =>
+  paths.map((path) => {
+    const name = path.slice(path.indexOf('/') + 1)
+    const lower = name.toLowerCase()
+    return {
+      name,
+      path,
+      lower,
+      starts: wordStarts(lower),
+      image: /\.(png|jpe?g)$/.test(name),
+    }
   })
 
 describe('candidateNames', () => {
@@ -123,5 +140,73 @@ describe('suggestPages', () => {
     // A tier-1 match never displaces a tier-0 one, even past the limit.
     const mixed = suggestPages('page', [...many, ...pool('my page')])
     expect(mixed.every((row) => row.match[0] === 0)).toBe(true)
+  })
+})
+
+describe('fileCandidates', () => {
+  it('offers every vault file that is not a page, ordered by path', async () => {
+    const graph = await graphOf({
+      assets: { 'q3-report.pdf': 'x', '2026': { 'shot.png': 'y' } },
+      pages: { 'reading.md': 'x' },
+      journals: { '2026-09-10.md': 'x' },
+      notes: { 'draft.docx': 'x' },
+    })
+    expect(fileCandidates(graph).map((row) => row.name)).toEqual([
+      '2026/shot.png',
+      'q3-report.pdf',
+      // A file outside `assets/` has no path inside it to be labelled by, so it
+      // keeps its own path.
+      'notes/draft.docx',
+    ])
+  })
+
+  it('keeps pages, journals, and hidden files out of the pool', async () => {
+    const graph = await graphOf({
+      assets: { 'shot.png': 'x', '.hidden.png': 'y' },
+      pages: { 'reading.md': 'x' },
+      journals: { '2026-09-10.md': 'x' },
+    })
+    expect(fileCandidates(graph).map((row) => row.path)).toEqual(['assets/shot.png'])
+  })
+
+  it('marks the files an image destination may take', async () => {
+    const graph = await graphOf({
+      assets: { 'shot.png': 'x', 'q3-report.pdf': 'y', 'notes.txt': 'z' },
+    })
+    const byImage = Object.fromEntries(fileCandidates(graph).map((row) => [row.name, row.image]))
+    expect(byImage).toEqual({ 'shot.png': true, 'q3-report.pdf': false, 'notes.txt': false })
+  })
+
+  it('carries the matcher columns, so a query costs no per-candidate work', async () => {
+    const graph = await graphOf({ assets: { 'q3-report.pdf': 'x' } })
+    const [row] = fileCandidates(graph)
+    expect(row.lower).toBe('q3-report.pdf')
+    expect(row.starts).toEqual([3])
+  })
+})
+
+describe('suggestFiles', () => {
+  it('ranks by prefix and word start, like the page picker', () => {
+    const rows = suggestFiles('q3', filePool('assets/q3-report.pdf', 'assets/shot.png'), false)
+    expect(rows.map((row) => row.name)).toEqual(['q3-report.pdf'])
+    expect(rows[0].path).toBe('assets/q3-report.pdf')
+    const word = suggestFiles('report', filePool('assets/q3-report.pdf'), false)
+    expect(word[0].match).toEqual([3, 9])
+  })
+
+  it('matches case-insensitively and offers nothing for an empty query', () => {
+    expect(suggestFiles('SHOT', filePool('assets/shot.png'), false)).toHaveLength(1)
+    expect(suggestFiles('', filePool('assets/shot.png'), false)).toEqual([])
+  })
+
+  it('offers no file that cannot be an image when an image is being written', () => {
+    const pool = filePool('assets/q3-report.pdf', 'assets/shot.png')
+    expect(suggestFiles('q3', pool, true)).toEqual([])
+    expect(suggestFiles('sh', pool, true).map((row) => row.name)).toEqual(['shot.png'])
+  })
+
+  it('caps the rows at the limit', () => {
+    const many = filePool(...Array.from({ length: 12 }, (_, i) => `assets/scan-${i}.png`))
+    expect(suggestFiles('scan', many, true)).toHaveLength(SUGGESTION_LIMIT)
   })
 })

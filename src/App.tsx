@@ -27,7 +27,13 @@ import {
   stem,
   type IndexPage,
 } from './vault/index'
-import { candidateNames, suggestPages, type Suggestion } from './vault/suggest'
+import {
+  candidateNames,
+  fileCandidates,
+  suggestFiles,
+  suggestPages,
+  type Suggestion,
+} from './vault/suggest'
 import type { SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
@@ -457,6 +463,18 @@ function App() {
     [suggestPool],
   )
 
+  // Destination-completion pool (add-asset-references, design D4): every vault
+  // path that is not a page, labelled as the sidebar labels it and carrying the
+  // image flag an image's destination narrows by. Built once per graph, never
+  // per keystroke, exactly like the page pool above.
+  const filePool = useMemo(() => (graph ? fileCandidates(graph) : []), [graph])
+  const suggestFileRows = useMemo(
+    () =>
+      (query: string, onlyImages: boolean): Suggestion[] =>
+        suggestFiles(query, filePool, onlyImages),
+    [filePool],
+  )
+
   return (
     <div className="app-shell">
       <Header
@@ -532,6 +550,7 @@ function App() {
             onChange={handleEdit}
             onOpenReference={handleOpenReference}
             suggest={suggest}
+            suggestFiles={suggestFileRows}
             onAttachFiles={
               activeFolder?.storage
                 ? (files) => copyDroppedFiles(activeFolder.storage!, files)

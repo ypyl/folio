@@ -29,8 +29,7 @@ import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { blockStartLines } from '../lineAnchors'
-import type { Suggestion } from '../vault/suggest'
-import type { EditorAdapter } from './editor'
+import type { EditorAdapter, SuggestionSources } from './editor'
 
 /** Private clipboard flavor carrying the selection's canonical Markdown
  *  (copy-as-markdown), so the app's own paste restores structure without the
@@ -50,7 +49,7 @@ export class MilkdownAdapter implements EditorAdapter {
   private assetReader: AssetReader = noVaultReader
   /** Completion candidates, read through a getter at query time: the app
    *  replaces its pool on every save, and the adapter mounts once. */
-  private suggestSource: ((query: string) => Suggestion[]) | null = null
+  private suggestSources: SuggestionSources | null = null
   private destroyed = false
   // Programmatic-seed bookkeeping (design C2 round-trip normalization): after
   // setContent the listener emits one markdownUpdated for the doc we just
@@ -207,9 +206,15 @@ export class MilkdownAdapter implements EditorAdapter {
       // (make-table-entry-usable, design D1/D2): the component claims the press,
       // so the selection it dispatches is converted here.
       .use(tableCellCaret)
-      // Reference completion (add-reference-autocomplete): the popup and its
-      // keys, fed by the app's candidate source through the getter above.
-      .use(referenceSuggest((query) => this.suggestSource?.(query) ?? []))
+      // Reference and vault-file completion (add-reference-autocomplete,
+      // add-asset-references): the popup and its keys, fed by the app's
+      // candidate sources through the getters above.
+      .use(
+        referenceSuggest({
+          pages: (query) => this.suggestSources?.pages(query) ?? [],
+          files: (query, onlyImages) => this.suggestSources?.files(query, onlyImages) ?? [],
+        }),
+      )
       // Document tail (edit-after-trailing-code-block): a code block that ends
       // the page keeps an empty paragraph after it, so the block is always
       // followed by somewhere to continue.
@@ -278,7 +283,7 @@ export class MilkdownAdapter implements EditorAdapter {
     this.changeListener = null
     this.referenceClickListener = null
     this.assetReader = noVaultReader
-    this.suggestSource = null
+    this.suggestSources = null
     if (this.copyRoot && this.copySnapshot && this.copyWrite) {
       this.copyRoot.removeEventListener('copy', this.copySnapshot, true)
       this.copyRoot.removeEventListener('cut', this.copySnapshot, true)
@@ -446,8 +451,8 @@ export class MilkdownAdapter implements EditorAdapter {
     this.assetReader = reader
   }
 
-  setSuggestionSource(source: (query: string) => Suggestion[]): void {
-    this.suggestSource = source
+  setSuggestionSource(sources: SuggestionSources): void {
+    this.suggestSources = sources
   }
 
   /**

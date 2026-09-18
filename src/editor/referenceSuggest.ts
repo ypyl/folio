@@ -1,8 +1,16 @@
-// Reference completion (add-reference-autocomplete, design D1/D4/D5/D6/D7): a
-// ProseMirror plugin that offers existing pages while a reference is being
-// typed, and writes the canonical token when one is accepted. The document
-// keeps literal `#word` / `#[[Page]]` text (ADR-0001), so nothing here
-// serializes or parses Markdown: completion is a text insertion like typing.
+// Reference and vault-file completion (add-reference-autocomplete, design
+// D1/D4/D5/D6/D7; add-asset-references, design D3): one ProseMirror plugin that
+// offers existing pages while a reference is being typed, and the vault's files
+// while a link destination is being typed, and writes the canonical text when a
+// row is accepted. The document keeps literal `#word` / `#[[Page]]` text and
+// consumes the Markdown link it is given (ADR-0001), so nothing here serializes
+// or parses Markdown: completion is an edit like typing.
+//
+// One plugin and one popup for both kinds, because the two triggers are
+// lexically exclusive — a destination is not a reference token, and a `#`
+// destination falls through to the reference trigger — so a second plugin would
+// duplicate the whole view hook, key handler, and dismissal rules to gain
+// nothing but the possibility of two popups at once.
 //
 // The plugin is deliberately separate from `inlineDecorations`. Badges must not
 // depend on the caret, so their `apply` ignores selection-only transactions;
@@ -13,7 +21,14 @@ import type { Node as ProseNode } from '@milkdown/prose/model'
 import type { PluginView, Selection } from '@milkdown/prose/state'
 import { Plugin, PluginKey } from '@milkdown/prose/state'
 import type { EditorView } from '@milkdown/prose/view'
-import { referenceToken, referenceTrigger, type ReferenceTrigger } from '../vault/parse'
+import { linkLabel, markdownDestination } from '../vault/link'
+import {
+  linkDestinationTrigger,
+  referenceToken,
+  referenceTrigger,
+  type DestinationTrigger,
+  type ReferenceTrigger,
+} from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
 import { popupPlacement } from './popupPlacement'
 import styles from './referenceSuggest.module.css'
@@ -29,20 +44,28 @@ const LEAF_TEXT = '\n'
 type Meta = { suppress?: string; move?: 1 | -1 }
 
 export type SuggestionState = {
-  /** The reference token being typed at the caret, if any. */
-  trigger: ReferenceTrigger | null
+  /** Which picker is open: page references, or a link destination's files. */
+  kind: 'page' | 'file' | null
+  /** The reference token or link destination being typed at the caret. */
+  trigger: ReferenceTrigger | DestinationTrigger | null
   suggestions: Suggestion[]
   /** Row `Enter` or `Tab` would accept. */
   active: number
   /** Token text the user accepted or dismissed. The popup stays closed for that
    *  exact text until it changes, which is also what closes it after a pick
-   *  (the completed token is itself a trigger). */
+   *  (the completed text is itself a trigger). */
   suppressed: string | null
 }
 
 export const suggestionKey = new PluginKey<SuggestionState>('folioReferenceSuggest')
 
-const EMPTY: SuggestionState = { trigger: null, suggestions: [], active: 0, suppressed: null }
+const EMPTY: SuggestionState = {
+  kind: null,
+  trigger: null,
+  suggestions: [],
+  active: 0,
+  suppressed: null,
+}
 
 /** Whether the popup should be on screen, derived so the key handler and the
  *  view hook cannot disagree. */
@@ -55,15 +78,17 @@ export function popupVisible(state: SuggestionState): boolean {
 }
 
 /**
- * The reference token ending at the caret, or null. Fenced code and inline code
- * never complete, matching the badges (page-editing: code is never badged), and
- * a non-collapsed selection has no caret to anchor to. Takes anything carrying a
- * document and a selection, so it works on a state or a transaction.
+ * The reference token or link destination ending at the caret, or null. Fenced
+ * code and inline code never complete, matching the badges (page-editing: code
+ * is never badged), and a non-collapsed selection has no caret to anchor to.
+ * Takes anything carrying a document and a selection, so it works on a state or
+ * a transaction. The destination is asked first: it is the narrower position,
+ * and a `#` after `](` is the reference trigger's business, never a file's.
  */
 export function triggerAt(source: {
   doc: ProseNode
   selection: Selection
-}): ReferenceTrigger | null {
+}): ReferenceTrigger | DestinationTrigger | null {
   const { selection } = source
   if (!selection.empty) return null
   const $from = selection.$from
@@ -73,16 +98,19 @@ export function triggerAt(source: {
   // the marks of the wrong node at a text boundary.
   const typed = $from.nodeBefore
   if (typed && typed.marks.some((mark) => mark.type.name === 'inlineCode')) return null
-  return referenceTrigger(
-    parent.textBetween(0, $from.parentOffset, undefined, LEAF_TEXT),
-    parent.textBetween($from.parentOffset, parent.content.size, undefined, LEAF_TEXT),
-  )
+  const before = parent.textBetween(0, $from.parentOffset, undefined, LEAF_TEXT)
+  const after = parent.textBetween($from.parentOffset, parent.content.size, undefined, LEAF_TEXT)
+  return linkDestinationTrigger(before, after) ?? referenceTrigger(before, after)
 }
 
 type ReferenceSuggestOptions = {
-  /** Candidates for the typed text. Read at query time, so a source bound to
-   *  the live vault index stays current without re-registering. */
-  suggest: (query: string) => Suggestion[]
+  /** Page-name candidates for the reference being typed. Read at query time, so
+   *  a source bound to the live vault index stays current without
+   *  re-registering. */
+  pages: (query: string) => Suggestion[]
+  /** Vault-file candidates for a link destination. `onlyImages` is the
+   *  narrowing the typed syntax asks for (add-asset-references, design D4). */
+  files: (query: string, onlyImages: boolean) => Suggestion[]
 }
 
 /**
@@ -114,9 +142,9 @@ export function createReferenceSuggestPlugin(
   })
 }
 
-/** Milkdown wrapper, so the adapter can register the plugin with its source. */
-export function referenceSuggest(suggest: (query: string) => Suggestion[]) {
-  return $prose(() => createReferenceSuggestPlugin({ suggest }))
+/** Milkdown wrapper, so the adapter can register the plugin with its sources. */
+export function referenceSuggest(sources: ReferenceSuggestOptions) {
+  return $prose(() => createReferenceSuggestPlugin(sources))
 }
 
 function derive(
@@ -127,9 +155,13 @@ function derive(
 ): SuggestionState {
   const suppressed = meta?.suppress ?? prev.suppressed
   const trigger = triggerAt(source)
-  if (!trigger) return { trigger: null, suggestions: [], active: 0, suppressed }
-  const suggestions = options.suggest(trigger.query)
-  // The active row survives while the same token is being edited, resets when
+  if (!trigger) return { ...EMPTY, suppressed }
+  const kind = trigger.kind === 'destination' ? 'file' : 'page'
+  const suggestions =
+    trigger.kind === 'destination'
+      ? options.files(trigger.text, trigger.image)
+      : options.pages(trigger.query)
+  // The active row survives while the same text is being edited, resets when
   // the typed text changes, and clamps if the list shrank under it.
   const sameToken = prev.trigger?.text === trigger.text
   const last = Math.max(0, suggestions.length - 1)
@@ -139,7 +171,7 @@ function derive(
       : sameToken
         ? Math.min(prev.active, last)
         : 0
-  return { trigger, suggestions, active, suppressed }
+  return { kind, trigger, suggestions, active, suppressed }
 }
 
 function wrap(index: number, length: number): number {
@@ -185,14 +217,17 @@ export function suggestionKeyDown(view: EditorView, event: KeyboardEvent): boole
 }
 
 /**
- * Accepting is one transaction (design D4): replace the in-progress token with
- * the canonical one and suppress the popup for that exact text in the same step.
- * ProseMirror maps the selection, so the caret lands after the token; the edit
- * then reaches the draft and the debounced save like any other keystroke.
+ * Accepting is one transaction (design D4): for a reference, replace the
+ * in-progress token with the canonical one; for a link destination, replace the
+ * whole construct with the link or image it was naming. Either way the popup is
+ * suppressed for the exact text written, in the same step. ProseMirror maps the
+ * selection, so the caret lands after what was inserted; the edit then reaches
+ * the draft and the debounced save like any other keystroke.
  */
 function accept(view: EditorView, row: Suggestion): void {
   const trigger = suggestionKey.getState(view.state)?.trigger
   if (!trigger) return
+  if (trigger.kind === 'destination') return acceptDestination(view, row, trigger)
   const to = view.state.selection.from
   // Every character before the caret is one position, so the token's start is
   // exactly its length back.
@@ -201,6 +236,41 @@ function accept(view: EditorView, row: Suggestion): void {
   const token = referenceToken(row.name, trigger.kind)
   view.dispatch(
     view.state.tr.insertText(token, from, to).setMeta(suggestionKey, { suppress: token }),
+  )
+}
+
+/**
+ * Write the picked file as the reference the user was already writing (design
+ * D5): replace `[label](typed` — brackets, destination and, for an image, the
+ * `!` — with the label as a text node carrying the link mark, or with an image
+ * node. The brackets have to go: the document holds a link as marked text, and
+ * the serializer adds the syntax back, which is why an insertion of plain text
+ * would not be a link (the preset has no link input rule).
+ */
+function acceptDestination(view: EditorView, row: Suggestion, trigger: DestinationTrigger): void {
+  const { schema } = view.state
+  const to = view.state.selection.from
+  // `](` sits immediately before the typed destination, and the label before it.
+  const destinationFrom = to - trigger.text.length
+  const labelFrom = destinationFrom - 2 - trigger.label.length
+  const from = trigger.image ? labelFrom - 2 : labelFrom - 1
+  if (from < 0) return
+  // The typed label is the user's own text; an empty one takes the file's name,
+  // the same label a drop or a paste writes.
+  const label = trigger.label === '' ? linkLabel(row.path) : trigger.label
+  if (label === '') return
+  const destination = markdownDestination(row.path)
+  const linkType = schema.marks.link
+  const imageType = schema.nodes.image
+  const insert =
+    trigger.image && imageType
+      ? imageType.create({ src: destination, alt: label })
+      : !trigger.image && linkType
+        ? schema.text(label, [linkType.create({ href: destination })])
+        : null
+  if (!insert) return
+  view.dispatch(
+    view.state.tr.replaceWith(from, to, insert).setMeta(suggestionKey, { suppress: trigger.text }),
   )
 }
 
@@ -247,6 +317,7 @@ function popupView(view: EditorView): PluginView {
 
   const render = (state: SuggestionState) => {
     el.replaceChildren()
+    el.setAttribute('aria-label', state.kind === 'file' ? 'Files' : 'Pages')
     state.suggestions.forEach((row, index) => {
       const item = document.createElement('div')
       item.className = index === state.active ? `${styles.row} ${styles.active}` : styles.row

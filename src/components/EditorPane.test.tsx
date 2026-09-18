@@ -5,7 +5,8 @@ import type { EditorAdapter } from '../editor/editor'
 import type { Suggestion } from '../vault/suggest'
 import { EditorPane, type EditorPaneHandle } from './EditorPane'
 import styles from './EditorPane.module.css'
-import { collectFiles, linkForAsset, withPastedName } from './dropAssets'
+import { collectFiles, withPastedName } from './dropAssets'
+import { linkForAsset } from '../vault/link'
 
 // Replace the real ProseMirror transport with FakeEditor for component tests
 // (design D1): the pane is tested against the seam contract. Instances are
@@ -40,6 +41,7 @@ type FakeEditorView = EditorAdapter & {
   destructed: boolean
   mounted: boolean
   suggest: (query: string) => Suggestion[]
+  suggestFiles: (query: string, onlyImages: boolean) => Suggestion[]
 }
 
 afterEach(() => {
@@ -119,6 +121,29 @@ describe('EditorPane', () => {
     render(<EditorPane page={page} initialContent="" onChange={() => {}} />)
     await act(async () => {})
     expect(fake().suggest('read')).toEqual([])
+    expect(fake().suggestFiles('read', false)).toEqual([])
+  })
+
+  // The destination picker's pool reaches the editor through the same seam
+  // (add-asset-references, design D3/D4), and the narrowing travels with the
+  // query rather than being baked into the source.
+  it('gives the editor the file source, narrowed by what is being written', async () => {
+    const rows: Suggestion[] = [
+      { name: 'q3-report.pdf', path: 'assets/q3-report.pdf', match: [0, 2] },
+      { name: 'q3.png', path: 'assets/q3.png', match: [0, 2] },
+    ]
+    const suggestFiles = (_query: string, onlyImages: boolean): Suggestion[] =>
+      rows.filter((row) => !onlyImages || row.path.endsWith('.png'))
+    render(
+      <EditorPane page={page} initialContent="" onChange={() => {}} suggestFiles={suggestFiles} />,
+    )
+    await act(async () => {})
+    expect(fake().suggestFiles('q3', false)).toHaveLength(2)
+    expect(
+      fake()
+        .suggestFiles('q3', true)
+        .map((row) => row.name),
+    ).toEqual(['q3.png'])
   })
 
   it('destroys the editor on unmount', async () => {
@@ -425,6 +450,12 @@ describe('EditorPane', () => {
       ['assets/notes.pdf', '[notes](assets/notes.pdf)'],
       ['assets/IMG.JPG', '![IMG](assets/IMG.JPG)'],
       ['assets/noext', '[noext](assets/noext)'],
+      // A name a Markdown destination cannot hold raw is escaped, so the text
+      // written is a link (add-asset-references, design D6).
+      ['assets/Q3 report.pdf', '[Q3 report](assets/Q3%20report.pdf)'],
+      ['assets/a (draft).pdf', '[a (draft)](assets/a%20%28draft%29.pdf)'],
+      ['assets/100% done.pdf', '[100% done](assets/100%25%20done.pdf)'],
+      ['assets/café.pdf', '[café](assets/café.pdf)'],
     ])('linkForAsset(%s) -> %s', (path, expected) => {
       expect(linkForAsset(path)).toBe(expected)
     })
@@ -513,7 +544,7 @@ describe('EditorPane', () => {
         fireEvent.paste(screen.getByRole('main'), { clipboardData: clipboard([pdf]) })
       })
       expect(onAttachFiles.mock.calls[0][0][0].name).toBe('Q3 report.pdf')
-      expect(fake().insertions).toEqual(['[Q3 report](assets/Q3 report.pdf)'])
+      expect(fake().insertions).toEqual(['[Q3 report](assets/Q3%20report.pdf)'])
     })
 
     it('leaves a clipboard with text to the editor, files and all', async () => {

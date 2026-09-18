@@ -99,6 +99,62 @@ export function referenceTrigger(before: string, after: string): ReferenceTrigge
 }
 
 /**
+ * The link destination being typed at the caret (add-asset-references, design
+ * D1/D5): the vault-file completion's trigger. `text` is the typed destination,
+ * `label` the text already written between '[' and ']' (empty when none), and
+ * `image` whether the construct is an image's. All three are needed by the
+ * accept step, which replaces the whole construct.
+ */
+export type DestinationTrigger = {
+  kind: 'destination'
+  /** The typed destination after `](`: `q3`, `assets/q3`. Never empty. */
+  text: string
+  /** The typed label between '[' and ']'. May be empty. */
+  label: string
+  /** Whether the character before '[' is '!', so an image is being written. */
+  image: boolean
+}
+
+/**
+ * Detect an in-progress link destination ending at the caret. Returns null when
+ * there is none, so an ordinary Markdown link behaves exactly as it did before
+ * (design D2): a bare `](`, a destination the caret is not at the end of, a
+ * fragment, a scheme, an absolute path, or a `](` with no `[` to open a label.
+ */
+export function linkDestinationTrigger(before: string, after: string): DestinationTrigger | null {
+  // Backwards to the last `](`, not forwards from the first: with two links on
+  // one line the one being typed is the last one.
+  const open = before.lastIndexOf('](')
+  if (open === -1) return null
+  const text = before.slice(open + 2)
+  // Nothing typed yet is the moment before a destination exists. Offering the
+  // whole vault there would flash a popup on every link, so the empty
+  // destination is not a trigger (design D2).
+  if (text === '') return null
+  // A ')' in the typed text is the destination closing, and one right after
+  // the caret is the same thing read from the other side: completing either
+  // would leave the rest of a closed destination behind.
+  if (text.includes(')') || after.startsWith(')')) return null
+  // A newline is a hard break: a destination is one line.
+  if (text.includes('\n')) return null
+  // The label must be opened and closed around the `](`: a stray `](` with no
+  // `[` before it, or a nested label (`[a [b]](q`), has no construct to
+  // replace, so neither is a trigger.
+  const label = before.lastIndexOf('[', open)
+  if (label === -1 || before.slice(label + 1, open).includes(']')) return null
+  // A fragment names a place in this document, and a scheme or a leading '/'
+  // is not a vault path — the reference picker and the open gesture apply the
+  // same two rules.
+  if (text.startsWith('#') || !isVaultRelative(text)) return null
+  return {
+    kind: 'destination',
+    text,
+    label: before.slice(label + 1, open),
+    image: before[label - 1] === '!',
+  }
+}
+
+/**
  * The reference token to write for `name` (add-reference-autocomplete, design
  * D3): the trigger's form decides, so a `#[[` trigger never loses its brackets,
  * and a `#` trigger falls back to brackets when the name is not a single word.

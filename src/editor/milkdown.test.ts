@@ -8,6 +8,7 @@ import type { Node as ProseNode, Schema as ProseSchema } from '@milkdown/prose/m
 import { footnoteDefinitionSchema, strikethroughAttr, tableSchema } from '@milkdown/preset-gfm'
 import { FOLIO_CLIPBOARD_FLAVOR, MilkdownAdapter } from './milkdown'
 import { trimTrailingBlankLines } from './documentTail'
+import type { Suggestion } from '../vault/suggest'
 
 // jsdom has no IntersectionObserver; the code-block component's node view
 // creates one on mount and initializes CodeMirror when the observed element
@@ -860,13 +861,17 @@ describe('MilkdownAdapter (smoke)', () => {
         return access.get(editorViewCtx)
       }) as RealView
 
-    const mountWithSuggestions = async () => {
+    const mountWithSuggestions = async (
+      files: (query: string, onlyImages: boolean) => Suggestion[] = () => [],
+    ) => {
       const el = document.createElement('div')
       document.body.appendChild(el)
       const adapter = new MilkdownAdapter()
-      adapter.setSuggestionSource((query) =>
-        query === 're' ? [{ name: 'reading', path: 'Reading.md', match: [0, 2] }] : [],
-      )
+      adapter.setSuggestionSource({
+        pages: (query) =>
+          query === 're' ? [{ name: 'reading', path: 'Reading.md', match: [0, 2] }] : [],
+        files,
+      })
       await adapter.mount(el)
       const view = viewOf(adapter)
       // jsdom has no layout, so the caret measurement the popup positions
@@ -954,6 +959,62 @@ describe('MilkdownAdapter (smoke)', () => {
       view.dom.dispatchEvent(enter)
       expect(view.state.doc.childCount).toBe(blocksBefore + 1)
       expect(serialize(adapter)).not.toContain('#reading')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    /** Press Enter at the caret and report whether the picker claimed it. */
+    const pressEnter = (view: RealView): boolean => {
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      view.dom.dispatchEvent(enter)
+      return enter.defaultPrevented
+    }
+
+    // The whole point of the destination picker (add-asset-references): what it
+    // writes has to be the Markdown link the serializer emits, with the typed
+    // brackets consumed into the mark rather than left in the document.
+    it('completes a link destination into a link the serializer writes back', async () => {
+      const { adapter, el, view } = await mountWithSuggestions((query) =>
+        query === 'q3'
+          ? [{ name: 'q3-report.pdf', path: 'assets/q3-report.pdf', match: [0, 2] }]
+          : [],
+      )
+      await adapter.setContent('See [Q3](q3\n')
+      caretToEnd(view)
+      const popup = el.querySelector('[role="listbox"]') as HTMLElement
+      expect(popup.hidden).toBe(false)
+      expect(popup.getAttribute('aria-label')).toBe('Files')
+      expect([...popup.querySelectorAll('[role="option"]')].map((n) => n.textContent)).toEqual([
+        'q3-report.pdf',
+      ])
+
+      expect(pressEnter(view)).toBe(true)
+      expect(serialize(adapter)).toContain('[Q3](assets/q3-report.pdf)')
+      // A real link in the document, not literal text: the editor renders an
+      // anchor, and the destination below is what Ctrl+Click opens.
+      const anchor = view.dom.querySelector('a')
+      expect(anchor?.getAttribute('href')).toBe('assets/q3-report.pdf')
+      expect(anchor?.textContent).toBe('Q3')
+
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('completes an image destination into an image reference', async () => {
+      const { adapter, el, view } = await mountWithSuggestions((query) =>
+        query === 'q3'
+          ? [{ name: 'Q3 report.png', path: 'assets/Q3 report.png', match: [0, 2] }]
+          : [],
+      )
+      // A name Markdown cannot hold raw in a destination: what the app writes
+      // has to be readable back, by the index and by every other reader.
+      await adapter.setContent('See ![icon](q3\n')
+      caretToEnd(view)
+
+      expect(pressEnter(view)).toBe(true)
+      expect(serialize(adapter)).toContain('![icon](assets/Q3%20report.png)')
+      expect(view.dom.querySelector('img')?.getAttribute('alt')).toBe('icon')
+
       await adapter.destroy()
       el.remove()
     })

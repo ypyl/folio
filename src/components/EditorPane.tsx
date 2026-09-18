@@ -5,7 +5,8 @@ import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
 import type { Suggestion } from '../vault/suggest'
-import { collectFiles, linkForAsset, withPastedName } from './dropAssets'
+import { collectFiles, withPastedName } from './dropAssets'
+import { linkForAsset } from '../vault/link'
 import { updateGutterDom } from '../editor/gutter'
 import {
   createAssetImages,
@@ -65,6 +66,7 @@ export function EditorPane({
   onOpenReference,
   readAsset,
   suggest,
+  suggestFiles,
   ref,
 }: {
   page: Page | null
@@ -89,6 +91,10 @@ export function EditorPane({
   /** Completion candidates for the reference being typed
    *  (add-reference-autocomplete); the app answers by page name. */
   suggest?: (query: string) => Suggestion[]
+  /** Completion candidates for a link destination being typed
+   *  (add-asset-references); the app answers with the vault's files, narrowed
+   *  to images when an image's destination is being written. */
+  suggestFiles?: (query: string, onlyImages: boolean) => Suggestion[]
   /** The app's handle on the editor (apply-shortcuts-on-click). */
   ref?: Ref<EditorPaneHandle>
 }) {
@@ -169,11 +175,15 @@ export function EditorPane({
     openReferenceRef.current = onOpenReference
   })
 
-  // Same reason for the completion source: the app's pool is replaced on every
-  // save, and the editor mounts once per page.
+  // Same reason for the completion sources: the app's pools are replaced on
+  // every save, and the editor mounts once per page.
   const suggestRef = useRef(suggest)
   useEffect(() => {
     suggestRef.current = suggest
+  })
+  const suggestFilesRef = useRef(suggestFiles)
+  useEffect(() => {
+    suggestFilesRef.current = suggestFiles
   })
 
   // Mount the editor once per page instance (App keys by page path, so the
@@ -206,7 +216,10 @@ export function EditorPane({
     // image pass reads it. A pane with no reader leaves the adapter's own
     // reader in place, which answers nothing.
     adapter.setAssetReader((path) => readAssetRef.current?.(path) ?? noVaultReader(path))
-    adapter.setSuggestionSource((query) => suggestRef.current?.(query) ?? [])
+    adapter.setSuggestionSource({
+      pages: (query) => suggestRef.current?.(query) ?? [],
+      files: (query, onlyImages) => suggestFilesRef.current?.(query, onlyImages) ?? [],
+    })
     void adapter
       .mount(el)
       .then(() => {

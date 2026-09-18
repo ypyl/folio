@@ -3,7 +3,7 @@
 // with a test hook to simulate user edits. Tests inject it by mocking the
 // MilkdownAdapter module.
 
-import type { EditorAdapter } from './editor'
+import type { EditorAdapter, SuggestionSources } from './editor'
 import { blockStartLines } from '../lineAnchors'
 import type { Suggestion } from '../vault/suggest'
 
@@ -23,7 +23,7 @@ export class FakeEditor implements EditorAdapter {
   /** Every attached vault reader, in order (open-vault-assets) — lets pane
    *  tests assert the pane wired one, and read a vault file as it would. */
   readonly assetReaders: ((path: string) => Promise<Blob>)[] = []
-  private suggestionSources: ((query: string) => Suggestion[])[] = []
+  private suggestionSources: SuggestionSources | null = null
   private host: HTMLElement | null = null
 
   /** Mirror the editor's top-level block DOM so pane tests can measure the
@@ -61,7 +61,7 @@ export class FakeEditor implements EditorAdapter {
     this.destructed = true
     this.listeners = []
     this.referenceListeners = []
-    this.suggestionSources = []
+    this.suggestionSources = null
   }
 
   async setContent(markdown: string): Promise<void> {
@@ -101,13 +101,18 @@ export class FakeEditor implements EditorAdapter {
     this.assetReaders.push(reader)
   }
 
-  setSuggestionSource(source: (query: string) => Suggestion[]): void {
-    this.suggestionSources.push(source)
+  setSuggestionSource(sources: SuggestionSources): void {
+    this.suggestionSources = sources
   }
 
   /** Test hook: what the adapter would offer for `query` right now. */
   suggest(query: string): Suggestion[] {
-    return this.suggestionSources.at(-1)?.(query) ?? []
+    return this.suggestionSources?.pages(query) ?? []
+  }
+
+  /** Test hook: what the destination picker would offer for `query` right now. */
+  suggestFiles(query: string, onlyImages: boolean): Suggestion[] {
+    return this.suggestionSources?.files(query, onlyImages) ?? []
   }
 
   /** Test hook: simulate activating a reference badge. */

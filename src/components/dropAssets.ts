@@ -1,25 +1,10 @@
 // File intake helpers for the editor pane (asset-drag-drop, attach-pasted-files).
 // Kept out of EditorPane.tsx so the component file fast-refreshes cleanly
 // (react(only-export-components)). Both gestures — drop and paste — collect
-// their files here and link them the same way.
+// their files here and link them via `vault/link`'s `linkForAsset`, which is the
+// one rule for the text a vault file is written as (add-asset-references).
 
-/** Image extensions get an `![..]` link; everything else a plain `[..]` link. */
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'])
-
-/** A filename split at its extension: `stem` without the dot, `ext` with it
- *  (empty when there is none). A leading-dot name has no extension. */
-function splitExtension(name: string): { stem: string; ext: string } {
-  const dot = name.lastIndexOf('.')
-  return dot > 0 ? { stem: name.slice(0, dot), ext: name.slice(dot) } : { stem: name, ext: '' }
-}
-
-/** Markdown link for a copied asset path; link text is the basename's stem. */
-export function linkForAsset(path: string): string {
-  const base = path.slice(path.lastIndexOf('/') + 1)
-  const { stem, ext } = splitExtension(base)
-  const type = ext.slice(1).toLowerCase()
-  return type && IMAGE_EXTENSIONS.has(type) ? `![${stem}](${path})` : `[${stem}](${path})`
-}
+import { splitExtension } from '../vault/link'
 
 /** Plain File entries from a drop or a paste; directories are ignored (D3). */
 export function collectFiles(dt: DataTransfer): File[] {
@@ -44,8 +29,8 @@ function pad(n: number): string {
 
 /** Extension for a pasted file: its own, or one derived from the MIME subtype
  *  when the clipboard name has none (attach-pasted-files D3). The extension
- *  matters: `linkForAsset` picks the image link from the path, so a bitmap
- *  without one would attach as a plain link and never render. */
+ *  matters: the link's form is picked from the path, so a bitmap without one
+ *  would attach as a plain link and never render. */
 function pastedExtension(name: string, type: string): string {
   const { ext } = splitExtension(name)
   if (ext) return ext

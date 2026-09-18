@@ -4,7 +4,7 @@
 // the DOM tests mount a real ProseMirror view, because that is what creates the
 // popup element.
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Node as ProseNode } from '@milkdown/prose/model'
 import { Schema } from '@milkdown/prose/model'
 import type { EditorState } from '@milkdown/prose/state'
@@ -32,10 +32,22 @@ const schema = new Schema({
       code: true,
       toDOM: () => ['pre', ['code', 0]],
     },
+    // The link mark and the image node a destination accept writes
+    // (add-asset-references): the real schema's link and image, minimally.
+    image: {
+      inline: true,
+      group: 'inline',
+      attrs: { src: { default: '' }, alt: { default: '' } },
+      toDOM: () => ['img'],
+    },
     text: { group: 'inline' },
   },
   marks: {
     inlineCode: { toDOM: () => ['code', 0] },
+    link: {
+      attrs: { href: { default: '' } },
+      toDOM: () => ['a', 0],
+    },
   },
 })
 
@@ -70,19 +82,32 @@ const recorder = (rows: Suggestion[]) => {
   }
 }
 
-const stateOf = (d: ProseNode, pos: number, suggest: (q: string) => Suggestion[]) =>
+/** The file source a destination test supplies; the reference tests pass none. */
+type Files = (query: string, onlyImages: boolean) => Suggestion[]
+
+const stateOf = (
+  d: ProseNode,
+  pos: number,
+  suggest: (q: string) => Suggestion[],
+  files: Files = () => [],
+) =>
   EditorStateClass.create({
     schema,
     doc: d,
     selection: TextSelection.create(d, pos),
-    plugins: [createReferenceSuggestPlugin({ suggest })],
+    plugins: [createReferenceSuggestPlugin({ pages: suggest, files })],
   })
 
 const statePart = (state: EditorState): SuggestionState => suggestionKey.getState(state)!
 
 /** The plugin with a fake view: enough surface for the key handler to dispatch. */
-const keyHarness = (d: ProseNode, pos: number, suggest: (q: string) => Suggestion[]) => {
-  let state = stateOf(d, pos, suggest)
+const keyHarness = (
+  d: ProseNode,
+  pos: number,
+  suggest: (q: string) => Suggestion[],
+  files: Files = () => [],
+) => {
+  let state = stateOf(d, pos, suggest, files)
   const view = {
     get state() {
       return state
@@ -149,7 +174,7 @@ describe('reference completion state', () => {
       schema,
       doc: d,
       selection: TextSelection.create(d, 1, 7),
-      plugins: [createReferenceSuggestPlugin({ suggest: () => [] })],
+      plugins: [createReferenceSuggestPlugin({ pages: () => [], files: () => [] })],
     })
     expect(statePart(range).trigger).toBeNull()
   })
@@ -303,6 +328,7 @@ describe('completion popup element', () => {
     pos: number,
     suggest: (q: string) => Suggestion[],
     measure = true,
+    files: Files = () => [],
   ) => {
     const place = document.createElement('div')
     document.body.appendChild(place)
@@ -311,7 +337,7 @@ describe('completion popup element', () => {
         schema,
         doc: d,
         selection: TextSelection.create(d, pos),
-        plugins: [createReferenceSuggestPlugin({ suggest })],
+        plugins: [createReferenceSuggestPlugin({ pages: suggest, files })],
       }),
     })
     // No layout in jsdom, so the caret measurement is stubbed. The unstubbed
@@ -396,5 +422,136 @@ describe('completion popup element', () => {
     const { view, place } = mount(d, pos, recorder([row('reading')]).suggest, false)
     expect(() => view.dispatch(view.state.tr.setMeta(suggestionKey, { move: 1 }))).not.toThrow()
     expect(popupOf(place).hidden).toBe(true)
+  })
+})
+
+describe('vault-file completion at a link destination (add-asset-references)', () => {
+  const fileRow = (name: string, path: string): Suggestion => ({
+    name,
+    path,
+    match: [0, name.length],
+  })
+
+  let queries: string[] = []
+  const files =
+    (rows: Suggestion[]) =>
+    (query: string, onlyImages: boolean): Suggestion[] => {
+      queries.push(query)
+      const q = query.toLowerCase()
+      return rows.filter(
+        (row) =>
+          row.name.toLowerCase().startsWith(q) && (!onlyImages || /\.(png|jpe?g)$/.test(row.path)),
+      )
+    }
+  beforeEach(() => {
+    queries = []
+  })
+
+  const pdfRow = fileRow('q3-report.pdf', 'assets/q3-report.pdf')
+
+  /** The caret at the end of `content`, and the position that names. */
+  const atEnd = (content: string) => paraAt(content, content.length)
+
+  it('derives a file trigger and asks the file source', () => {
+    const { doc: d, pos } = atEnd('See [Q3](q3')
+    const part = statePart(stateOf(d, pos, () => [], files([pdfRow])))
+    expect(part.kind).toBe('file')
+    expect(part.trigger).toMatchObject({ kind: 'destination', text: 'q3', label: 'Q3' })
+    expect(part.suggestions).toEqual([pdfRow])
+    expect(queries).toEqual(['q3'])
+    expect(popupVisible(part)).toBe(true)
+  })
+
+  it('asks only for images when an image is being written', () => {
+    const { doc: d, pos } = atEnd('See ![Q3](q3')
+    const pdf = fileRow('q3-report.pdf', 'assets/q3-report.pdf')
+    const png = fileRow('q3.png', 'assets/q3.png')
+    const part = statePart(stateOf(d, pos, () => [], files([pdf, png])))
+    expect(part.suggestions).toEqual([png])
+  })
+
+  it('shows nothing rather than an empty popup', () => {
+    const { doc: d, pos } = atEnd('See [x](zzz')
+    const part = statePart(stateOf(d, pos, () => [], files([pdfRow])))
+    expect(part.kind).toBe('file')
+    expect(popupVisible(part)).toBe(false)
+  })
+
+  it('leaves a bare destination and a closed one alone', () => {
+    const bare = atEnd('See [Q3](')
+    expect(statePart(stateOf(bare.doc, bare.pos, () => [], files([pdfRow]))).trigger).toBeNull()
+    const closed = paraAt('See [Q3](q3)', 'See [Q3](q3'.length)
+    expect(statePart(stateOf(closed.doc, closed.pos, () => [], files([pdfRow]))).trigger).toBeNull()
+  })
+
+  it('hands a fragment destination to the reference picker', () => {
+    const { doc: d, pos } = atEnd('See [x](#rea')
+    const part = statePart(stateOf(d, pos, recorder([row('reading')]).suggest))
+    expect(part.kind).toBe('page')
+    expect(part.trigger).toMatchObject({ kind: 'word', query: 'rea' })
+  })
+
+  it('accepts into a link whose text is the typed label', () => {
+    const { doc: d, pos } = atEnd('See [Q3](q3')
+    const h = keyHarness(d, pos, () => [], files([pdfRow]))
+    const event = keyEvent('Enter')
+    expect(suggestionKeyDown(h.view, event)).toBe(true)
+    expect(event.defaultPrevented).toBe(true)
+    // The syntax is consumed: the document holds the marked label, and the
+    // serializer writes the brackets back.
+    expect(h.view.state.doc.textContent).toBe('See Q3')
+    const link = h.view.state.doc.firstChild?.lastChild
+    expect(link?.text).toBe('Q3')
+    expect(link?.marks[0].attrs.href).toBe('assets/q3-report.pdf')
+    expect(h.view.state.selection.from).toBe(7)
+  })
+
+  it('fills an empty label from the file name', () => {
+    const { doc: d, pos } = atEnd('See [](q3')
+    const h = keyHarness(d, pos, () => [], files([pdfRow]))
+    expect(suggestionKeyDown(h.view, keyEvent('Enter'))).toBe(true)
+    expect(h.view.state.doc.textContent).toBe('See q3-report')
+  })
+
+  it('accepts an image destination into an image node', () => {
+    const png = fileRow('shot.png', 'assets/shot.png')
+    const { doc: d, pos } = atEnd('See ![icon](sh')
+    const h = keyHarness(d, pos, () => [], files([png]))
+    expect(suggestionKeyDown(h.view, keyEvent('Enter'))).toBe(true)
+    const image = h.view.state.doc.firstChild?.lastChild
+    expect(image?.type.name).toBe('image')
+    expect(image?.attrs.src).toBe('assets/shot.png')
+    expect(image?.attrs.alt).toBe('icon')
+  })
+
+  it('escapes the destination it writes', () => {
+    const spaced = fileRow('Q3 report.pdf', 'assets/Q3 report.pdf')
+    const { doc: d, pos } = atEnd('See [Q3](q3')
+    const h = keyHarness(d, pos, () => [], files([spaced]))
+    expect(suggestionKeyDown(h.view, keyEvent('Enter'))).toBe(true)
+    expect(h.view.state.doc.firstChild?.lastChild?.marks[0].attrs.href).toBe(
+      'assets/Q3%20report.pdf',
+    )
+  })
+
+  it('dismisses the file picker with Escape, leaving the typed text', () => {
+    const { doc: d, pos } = atEnd('See [Q3](q3')
+    const h = keyHarness(d, pos, () => [], files([pdfRow]))
+    const event = keyEvent('Escape')
+    expect(suggestionKeyDown(h.view, event)).toBe(true)
+    expect(h.view.state.doc.textContent).toBe('See [Q3](q3')
+    expect(popupVisible(h.part())).toBe(false)
+  })
+
+  it('names the popup after the kind it is showing', () => {
+    const { doc: d, pos } = atEnd('See [Q3](q3')
+    const place = document.createElement('div')
+    document.body.appendChild(place)
+    const view = new EditorViewClass(place, {
+      state: stateOf(d, pos, () => [], files([pdfRow])),
+    })
+    view.coordsAtPos = () => ({ left: 10, right: 11, top: 20, bottom: 30 })
+    view.dom.dispatchEvent(new FocusEvent('focus'))
+    expect(place.querySelector('[role="listbox"]')?.getAttribute('aria-label')).toBe('Files')
   })
 })

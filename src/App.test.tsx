@@ -30,6 +30,7 @@ vi.mock('./editor/milkdown', async () => {
 // candidateNames calls is the direct evidence, so the real implementation is
 // wrapped rather than replaced.
 const candidateCalls = vi.hoisted(() => ({ count: 0 }))
+const fileCandidateCalls = vi.hoisted(() => ({ count: 0 }))
 vi.mock('./vault/suggest', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./vault/suggest')>()
   return {
@@ -37,6 +38,12 @@ vi.mock('./vault/suggest', async (importOriginal) => {
     candidateNames: (...args: Parameters<typeof actual.candidateNames>) => {
       candidateCalls.count += 1
       return actual.candidateNames(...args)
+    },
+    // The destination pool carries the same budget (add-asset-references,
+    // design D4): built when the graph changes, never per keystroke.
+    fileCandidates: (...args: Parameters<typeof actual.fileCandidates>) => {
+      fileCandidateCalls.count += 1
+      return actual.fileCandidates(...args)
     },
   }
 })
@@ -82,6 +89,7 @@ type FakeView = EditorAdapter & {
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string) => void
   suggest: (query: string) => import('./vault/suggest').Suggestion[]
+  suggestFiles: (query: string, onlyImages: boolean) => import('./vault/suggest').Suggestion[]
 }
 
 // The most recently mounted editor instance.
@@ -716,6 +724,33 @@ describe('reference completion', () => {
 
     // The debounced save lands, the index is replaced, and the pool is rebuilt.
     await waitFor(() => expect(candidateCalls.count).toBeGreaterThan(afterOpen), {
+      timeout: 3000,
+    })
+    vi.unstubAllGlobals()
+  })
+
+  // The destination picker's pool follows the same budget (add-asset-references,
+  // design D4): the vault's files, handed to the editor through the same seam,
+  // rebuilt when the index changes and never per keystroke or page switch.
+  it('feeds the destination picker from the vault, rebuilding on save only', async () => {
+    render(<App />)
+    await openFixture(buildTree({ ...FIXTURE, assets: { 'Q3 report.pdf': 'x' } }))
+    await waitFor(() =>
+      expect(
+        editor()
+          .suggestFiles('q3', false)
+          .map((row) => row.path),
+      ).toEqual(['assets/Q3 report.pdf']),
+    )
+    // An image's destination takes only images, so the PDF is not offered.
+    expect(editor().suggestFiles('q3', true)).toEqual([])
+
+    const afterOpen = fileCandidateCalls.count
+    editor().emitChange('Edited the today note')
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    expect(fileCandidateCalls.count).toBe(afterOpen)
+
+    await waitFor(() => expect(fileCandidateCalls.count).toBeGreaterThan(afterOpen), {
       timeout: 3000,
     })
     vi.unstubAllGlobals()

@@ -5,6 +5,17 @@
 
 import type { Suggestion } from '../vault/suggest'
 
+/** The app's completion sources (add-reference-autocomplete,
+ *  add-asset-references): page names for a reference being typed, and the
+ *  vault's files for a link destination. Both are read at query time, so a
+ *  source bound to the live vault index stays current without re-registering. */
+export type SuggestionSources = {
+  pages: (query: string) => Suggestion[]
+  /** `onlyImages` is the narrowing an image's destination asks for: a file the
+   *  browser cannot render as an image is never offered for `![](`. */
+  files: (query: string, onlyImages: boolean) => Suggestion[]
+}
+
 export interface EditorAdapter {
   /** Attach the editor to a DOM element. Call once per instance, before use. */
   mount(el: HTMLElement): Promise<void>
@@ -32,9 +43,8 @@ export interface EditorAdapter {
    *  methods this runs the other way: the editor asks, the app answers, and the
    *  editor never calls back out for a suggestion. Read-only and names only
    *  (a name, its path, and the matched span), never a page or a destination.
-   *  Attach at any time; the source is read at query time, so one bound to the
-   *  live vault index stays current. */
-  setSuggestionSource(source: (query: string) => Suggestion[]): void
+   *  Attach at any time; the sources are read at query time. */
+  setSuggestionSource(sources: SuggestionSources): void
   /** Apply a keyboard shortcut to the editor exactly as pressing it would
    *  (apply-shortcuts-on-click, ADR-0016): the chord is replayed at the surface
    *  the caret is in, so the editor's own keymap resolves it and a formatting
