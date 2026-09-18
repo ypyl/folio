@@ -5,7 +5,7 @@
 
 import { assetName, isPagePath, orderPages, type Graph, type IndexPage } from './index'
 import { isImagePath } from './link'
-import { findReferenceRanges, referenceToken } from './parse'
+import { isReferenceable } from './parse'
 
 /** Per-keystroke launcher cap: the popup is a bounded aid, not a page list. */
 export const SUGGESTION_LIMIT = 8
@@ -62,7 +62,7 @@ export function candidateNames(graph: Graph, pins: string[]): PageCandidate[] {
   }
   const rows: PageCandidate[] = []
   for (const page of orderPages(pages, pins)) {
-    if (!insertable(page.title)) continue
+    if (!isReferenceable(page.title)) continue
     const lower = page.title.toLowerCase()
     rows.push({
       name: page.title,
@@ -72,16 +72,6 @@ export function candidateNames(graph: Graph, pins: string[]): PageCandidate[] {
     })
   }
   return rows
-}
-
-/**
- * A name is offerable only when the token we would insert reads back as that
- * exact name. Names containing `]` have no token form at all, and surrounding
- * whitespace is trimmed by reference parsing, so both would resolve to
- * something else. Asking the canonical tokenizer keeps this honest (design D3).
- */
-function insertable(name: string): boolean {
-  return findReferenceRanges(referenceToken(name, 'word'))[0]?.target === name
 }
 
 /**

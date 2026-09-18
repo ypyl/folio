@@ -3,7 +3,7 @@
 // with a test hook to simulate user edits. Tests inject it by mocking the
 // MilkdownAdapter module.
 
-import type { EditorAdapter, SuggestionSources } from './editor'
+import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
 import { blockStartLines } from '../lineAnchors'
 import type { Suggestion } from '../vault/suggest'
 
@@ -15,6 +15,9 @@ export class FakeEditor implements EditorAdapter {
   readonly setContents: string[] = []
   /** Every insertMarkdown call, in order — lets tests assert what was inserted. */
   readonly insertions: string[] = []
+  /** The drop point each insertMarkdown call carried, in the same order;
+   *  `null` for a call that had none (drag-references-into-editor). */
+  readonly insertionPoints: (DropPoint | null)[] = []
   /** Every applyChord call, in order — lets tests assert which key
    *  combination a click sent to the editor (apply-shortcuts-on-click). */
   readonly chords: string[] = []
@@ -77,9 +80,10 @@ export class FakeEditor implements EditorAdapter {
     return blockStartLines(this.content)
   }
 
-  insertMarkdown(markdown: string): void {
+  insertMarkdown(markdown: string, point?: DropPoint): void {
     this.emitChange(this.content + markdown)
     this.insertions.push(markdown)
+    this.insertionPoints.push(point ?? null)
   }
 
   // The real adapter replays the chord through the editor's keymap; the fake

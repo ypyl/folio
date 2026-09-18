@@ -34,6 +34,7 @@ type FakeEditorView = EditorAdapter & {
   content: string
   setContents: string[]
   insertions: string[]
+  insertionPoints: ({ left: number; top: number } | null)[]
   chords: string[]
   assetReaders: ((path: string) => Promise<Blob>)[]
   emitChange: (markdown: string) => void
@@ -411,6 +412,8 @@ describe('EditorPane', () => {
       ({
         files,
         items: files.map((f) => ({ kind: 'file', getAsFile: () => f })),
+        types: [],
+        getData: () => '',
       }) as unknown as DataTransfer
 
     it('collects plain files and ignores directories', () => {
@@ -637,5 +640,123 @@ describe('EditorPane', () => {
       await act(async () => {})
       expect(ref.current?.applyChord('Mod-b')).toBe(false)
     })
+  })
+})
+
+// drag-references-into-editor: a row dragged from the sidebar names something
+// the vault already holds, so the drop copies nothing and writes the reference
+// where it was released (ADR-0023).
+describe('EditorPane reference drop (drag-references-into-editor)', () => {
+  function refTransfer(type: string, value: string): DataTransfer {
+    const store = new Map([[type, value]])
+    return {
+      types: [...store.keys()],
+      getData: (t: string) => store.get(t) ?? '',
+      setData: (t: string, v: string) => void store.set(t, v),
+      files: [],
+      items: [],
+      effectAllowed: 'none',
+      dropEffect: 'none',
+    } as unknown as DataTransfer
+  }
+
+  const asset = (path: string) => refTransfer('application/x-folio-asset', path)
+  const pageRef = (name: string) => refTransfer('application/x-folio-page', name)
+
+  it('inserts a link for a dragged asset at the drop point, copying nothing', async () => {
+    const onAttachFiles = vi.fn()
+    render(
+      <EditorPane
+        page={page}
+        initialContent="x"
+        onChange={() => {}}
+        onAttachFiles={onAttachFiles}
+      />,
+    )
+    await act(async () => {})
+    const e = new Event('drop', { bubbles: true, cancelable: true })
+    Object.assign(e, { dataTransfer: asset('assets/q3-report.pdf'), clientX: 40, clientY: 80 })
+    screen.getByRole('main').dispatchEvent(e)
+    await act(async () => {})
+    expect(fake().insertions).toEqual(['[q3-report](assets/q3-report.pdf)'])
+    expect(fake().insertionPoints).toEqual([{ left: 40, top: 80 }])
+    expect(onAttachFiles).not.toHaveBeenCalled()
+  })
+
+  it('inserts an image for a dragged image asset', async () => {
+    render(<EditorPane page={page} initialContent="x" onChange={() => {}} />)
+    await act(async () => {})
+    fireEvent.drop(screen.getByRole('main'), { dataTransfer: asset('assets/shot.png') })
+    await act(async () => {})
+    expect(fake().insertions).toEqual(['![shot](assets/shot.png)'])
+  })
+
+  it('inserts a reference token for a dragged page', async () => {
+    render(<EditorPane page={page} initialContent="x" onChange={() => {}} />)
+    await act(async () => {})
+    fireEvent.drop(screen.getByRole('main'), { dataTransfer: pageRef('reading list') })
+    await act(async () => {})
+    expect(fake().insertions).toEqual(['#[[reading list]]'])
+  })
+
+  it('writes nothing when no page is open, and still prevents the default', async () => {
+    render(<EditorPane page={null} initialContent="" onChange={() => {}} />)
+    const drop = new Event('drop', { bubbles: true, cancelable: true })
+    Object.assign(drop, { dataTransfer: asset('assets/shot.png') })
+    screen.getByRole('main').dispatchEvent(drop)
+    await act(async () => {})
+    expect(drop.defaultPrevented).toBe(true)
+    expect(screen.queryByRole('main')).toBeTruthy()
+  })
+
+  it('still takes the files path for a transfer that names no reference', async () => {
+    const onAttachFiles = vi.fn(async () => ['assets/x.png'])
+    render(
+      <EditorPane
+        page={page}
+        initialContent="x"
+        onChange={() => {}}
+        onAttachFiles={onAttachFiles}
+      />,
+    )
+    await act(async () => {})
+    const file = new File(['x'], 'x.png', { type: 'image/png' })
+    const dt = {
+      files: [file],
+      items: [{ kind: 'file', getAsFile: () => file }],
+      types: [],
+      getData: () => '',
+    } as unknown as DataTransfer
+    fireEvent.drop(screen.getByRole('main'), { dataTransfer: dt })
+    await act(async () => {})
+    expect(onAttachFiles).toHaveBeenCalled()
+    expect(fake().insertions).toEqual(['![x](assets/x.png)'])
+    // A dropped file carries the drop point too, not the caret (ADR-0023);
+    // jsdom's drag init drops clientX/clientY, so the point is read through a
+    // plain event where the coordinates survive.
+    const e = new Event('drop', { bubbles: true, cancelable: true })
+    Object.assign(e, { dataTransfer: dt, clientX: 12, clientY: 34 })
+    screen.getByRole('main').dispatchEvent(e)
+    await act(async () => {})
+    expect(fake().insertionPoints).toEqual([
+      { left: undefined, top: undefined },
+      { left: 12, top: 34 },
+    ])
+  })
+
+  it('writes nothing for an empty payload', async () => {
+    render(<EditorPane page={page} initialContent="x" onChange={() => {}} />)
+    await act(async () => {})
+    fireEvent.drop(screen.getByRole('main'), { dataTransfer: asset('') })
+    await act(async () => {})
+    expect(fake().insertions).toEqual([])
+  })
+
+  it('marks a dragged row as a copy on dragover', async () => {
+    render(<EditorPane page={page} initialContent="x" onChange={() => {}} />)
+    await act(async () => {})
+    const dt = asset('assets/shot.png')
+    fireEvent.dragOver(screen.getByRole('main'), { dataTransfer: dt })
+    expect(dt.dropEffect).toBe('copy')
   })
 })

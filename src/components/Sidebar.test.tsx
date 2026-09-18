@@ -497,3 +497,82 @@ describe('Sidebar pinned rows (add-pinned-pages)', () => {
 const monthLabel = (date: Date) => monthYearLabel(date.getFullYear(), date.getMonth())
 const shiftMonth = (date: Date, months: number) =>
   new Date(date.getFullYear(), date.getMonth() + months, 1)
+
+// drag-references-into-editor: a sidebar row is a drag source carrying what the
+// row names — a vault path, or a page name — never the Markdown it becomes.
+describe('Sidebar drag sources (drag-references-into-editor)', () => {
+  function dragTransfer(): DataTransfer {
+    const store = new Map<string, string>()
+    return {
+      get types() {
+        return [...store.keys()]
+      },
+      getData: (type: string) => store.get(type) ?? '',
+      setData: (type: string, value: string) => void store.set(type, value),
+      effectAllowed: 'none',
+    } as unknown as DataTransfer
+  }
+
+  const renderMixed = (
+    pages: Page[],
+    assets: string[],
+    onOpenAsset = vi.fn(),
+    onSelect = vi.fn(),
+  ) =>
+    render(
+      <Sidebar
+        pages={pages}
+        journalEntries={[]}
+        assets={assets}
+        onOpenAsset={onOpenAsset}
+        activePath={null}
+        onSelect={onSelect}
+        hasVault
+      />,
+    )
+
+  it('carries the file path an asset row names, not its label', () => {
+    renderMixed([], ['assets/2026/q3-report.pdf'])
+    const dt = dragTransfer()
+    fireEvent.dragStart(section('Assets').getByRole('button', { name: '2026/q3-report.pdf' }), {
+      dataTransfer: dt,
+    })
+    expect(dt.getData('application/x-folio-asset')).toBe('assets/2026/q3-report.pdf')
+    expect(dt.effectAllowed).toBe('copy')
+  })
+
+  it('carries the page name a page row names', () => {
+    renderMixed([{ path: 'reading list.md', title: 'reading list', kind: 'page', content: '' }], [])
+    const dt = dragTransfer()
+    fireEvent.dragStart(section('Pages').getByRole('button', { name: 'reading list' }), {
+      dataTransfer: dt,
+    })
+    expect(dt.getData('application/x-folio-page')).toBe('reading list')
+  })
+
+  // The same predicate that keeps such a name out of the completion pool: a
+  // token would read back as a different page, which is a silent wrong answer.
+  it('is not a drag source when no reference token can express the name', () => {
+    renderMixed([{ path: 'weird]name.md', title: 'weird]name', kind: 'page', content: '' }], [])
+    const row = section('Pages').getByRole('button', { name: 'weird]name' })
+    const dt = dragTransfer()
+    fireEvent.dragStart(row, { dataTransfer: dt })
+    expect(dt.types).toEqual([])
+    expect(row.getAttribute('draggable')).toBe('false')
+  })
+
+  it('leaves the click alone: a row that does not move still opens', () => {
+    const onOpenAsset = vi.fn()
+    const onSelect = vi.fn()
+    renderMixed(
+      [{ path: 'notes.md', title: 'notes', kind: 'page', content: '' }],
+      ['assets/shot.png'],
+      onOpenAsset,
+      onSelect,
+    )
+    fireEvent.click(section('Assets').getByRole('button', { name: 'shot.png' }))
+    fireEvent.click(section('Pages').getByRole('button', { name: 'notes' }))
+    expect(onOpenAsset).toHaveBeenCalledWith('assets/shot.png')
+    expect(onSelect).toHaveBeenCalledWith('notes.md')
+  })
+})

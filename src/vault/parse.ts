@@ -166,6 +166,19 @@ export function referenceToken(name: string, form: 'word' | 'bracketed'): string
 }
 
 /**
+ * Whether `name` can be written as a reference token that reads back as that
+ * exact name (add-reference-autocomplete D3, drag-references-into-editor).
+ * Names containing `]` have no token form at all, and surrounding whitespace is
+ * trimmed by reference parsing, so both would resolve to something else. Asking
+ * the canonical tokenizer keeps this honest. Two consumers: the completion pool
+ * never offers such a name, and a page row with such a name is not a drag
+ * source.
+ */
+export function isReferenceable(name: string): boolean {
+  return findReferenceRanges(referenceToken(name, 'word'))[0]?.target === name
+}
+
+/**
  * Extract every page reference in `content`, in order of appearance.
  * Repeated references to the same page (case-insensitive, per the
  * resolution rules of the vault-index spec) collapse to the first occurrence.

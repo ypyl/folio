@@ -14,7 +14,9 @@ import {
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
-import type { Node as ProseNode, Slice } from '@milkdown/prose/model'
+import type { Node as ProseNode, Fragment, Slice } from '@milkdown/prose/model'
+import { TextSelection } from '@milkdown/prose/state'
+import type { EditorView } from '@milkdown/prose/view'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
 import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
@@ -29,7 +31,7 @@ import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { blockStartLines } from '../lineAnchors'
-import type { EditorAdapter, SuggestionSources } from './editor'
+import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
 
 /** Private clipboard flavor carrying the selection's canonical Markdown
  *  (copy-as-markdown), so the app's own paste restores structure without the
@@ -329,8 +331,24 @@ export class MilkdownAdapter implements EditorAdapter {
     this.seedMarkdown = canonical
   }
 
-  insertMarkdown(markdown: string): void {
-    this.insertParsedMarkdown(markdown)
+  insertMarkdown(markdown: string, point?: DropPoint): void {
+    this.insertParsedMarkdown(markdown, point)
+  }
+
+  /** Move the selection to a drop point, when the document can hold `content`
+   *  there (ADR-0023). The point is resolved, never trusted: a point outside
+   *  the document, a position whose parent refuses the payload, and a position
+   *  inside a literal-text block (a code block, where a reference would stop
+   *  being a reference) all leave the selection alone, so the drop falls back
+   *  to the caret. The move is a selection-only transaction, so the document
+   *  still changes once and a drop stays one undo step. */
+  private moveSelectionToPoint(view: EditorView, point: DropPoint, content: Fragment): void {
+    const at = view.posAtCoords(point)
+    if (at === null) return
+    const $at = view.state.doc.resolve(at.pos)
+    if ($at.parent.type.spec.code) return
+    if (!$at.parent.canReplace($at.index(), $at.index(), content)) return
+    view.dispatch(view.state.tr.setSelection(TextSelection.near($at)))
   }
 
   /** Apply `chord` exactly as pressing it would (ADR-0016): focus the surface
@@ -364,7 +382,7 @@ export class MilkdownAdapter implements EditorAdapter {
    *  builds real nodes, whereas tr.insertText would insert escaped literal
    *  text that serializes back with `\[`/`\(` escapes and degrades to
    *  plain text on the next reload (ADR-0008 round-trip). */
-  private insertParsedMarkdown(markdown: string): void {
+  private insertParsedMarkdown(markdown: string, point?: DropPoint): void {
     const editor = this.editor
     if (!editor) return
     editor.action((ctx) => {
@@ -372,6 +390,11 @@ export class MilkdownAdapter implements EditorAdapter {
       const parsed = ctx.get(parserCtx)(markdown)
       const single = parsed.content.childCount === 1
       const first = parsed.content.firstChild
+      // The payload's own shape decides what a position can hold: a single
+      // paragraph goes in as its inline children, everything else as blocks.
+      const inline =
+        single && first !== null && first.isTextblock && first.type.name === 'paragraph'
+      if (point) this.moveSelectionToPoint(view, point, inline ? first!.content : parsed.content)
       // When the caret sits in an empty top-level paragraph (a fresh page's
       // placeholder line), insert into its place rather than after it, so a
       // pasted document starts at the top of the page instead of below a

@@ -13,6 +13,8 @@ import { JournalCalendar } from './JournalCalendar'
 import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
 import { assetName } from '../vault/index'
+import { isReferenceable } from '../vault/parse'
+import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
 // A 24-viewBox chevron. aria-hidden: the control's accessible name says which
@@ -216,6 +218,12 @@ export const Sidebar = memo(function Sidebar({
   // and no extra control; the toggle lives in the status bar (design D6).
   const renderRow = (page: Page, index: number) => {
     const isPinned = pinnedSet.has(page.path)
+    // A page row is a drag source only when its name can be written as a token
+    // that reads back to it (drag-references-into-editor, design D3) — the same
+    // rule that keeps such a name out of the completion pool. Dragging writes
+    // the reference into the open page; a drag is not an activation, so the
+    // click below is untouched.
+    const draggable = isReferenceable(page.title)
     return (
       // The row sits in a list item so the windowed listing can still report its
       // position and the listing's total size to assistive technology
@@ -232,6 +240,12 @@ export const Sidebar = memo(function Sidebar({
           data-pinned={isPinned || undefined}
           data-active={page.path === activePath || undefined}
           aria-current={page.path === activePath ? 'page' : undefined}
+          draggable={draggable}
+          onDragStart={
+            draggable
+              ? (e) => writeDragRef(e.dataTransfer, { kind: 'page', name: page.title })
+              : undefined
+          }
           onClick={() => onSelect(page.path)}
         >
           <span className={styles.rowText}>{page.title}</span>
@@ -243,12 +257,19 @@ export const Sidebar = memo(function Sidebar({
   // An asset row (vault-assets): labelled by its path inside `assets/`, and a
   // single button that opens the file. It carries no active marking — the open
   // page is a page — and is never dimmed: a row exists only for a file the
-  // vault holds.
+  // vault holds. It is also a drag source (drag-references-into-editor): the
+  // payload names the file's vault path, which the editor turns into a link.
   const renderAssetRow = (index: number) => {
     const path = assets[index]
     return (
       <li key={path} className={styles.item} aria-setsize={assets.length} aria-posinset={index + 1}>
-        <button type="button" className={styles.row} onClick={() => onOpenAsset(path)}>
+        <button
+          type="button"
+          className={styles.row}
+          draggable
+          onDragStart={(e) => writeDragRef(e.dataTransfer, { kind: 'asset', path })}
+          onClick={() => onOpenAsset(path)}
+        >
           <span className={styles.rowText}>{assetName(path)}</span>
         </button>
       </li>

@@ -1728,3 +1728,140 @@ describe('MilkdownAdapter (smoke)', () => {
     })
   })
 })
+
+// drag-references-into-editor (ADR-0023): a drop is resolved to a document
+// position before the insertion rules run, and falls back to the caret when the
+// point names nothing the payload can go in. jsdom has no layout, so
+// `posAtCoords` is stubbed to the position under test — the guard and the
+// fallbacks are this change's logic, not ProseMirror's hit test.
+describe('MilkdownAdapter drop points (drag-references-into-editor)', () => {
+  type PointView = {
+    state: { doc: ProseNode; tr: unknown; selection: unknown }
+    dispatch: (tr: unknown) => void
+    posAtCoords:
+      | ((p: { left: number; top: number }) => { pos: number; inside: number } | null)
+      | null
+  }
+  const viewOf = (adapter: MilkdownAdapter): PointView =>
+    (
+      adapter as unknown as { editor: { action: (f: (ctx: unknown) => unknown) => unknown } }
+    ).editor.action((ctx) => {
+      const access = ctx as { get: (k: unknown) => unknown }
+      return access.get(editorViewCtx)
+    }) as PointView
+
+  const serialize = (adapter: MilkdownAdapter): string =>
+    (
+      adapter as unknown as { editor: { action: (f: (ctx: unknown) => unknown) => unknown } }
+    ).editor.action((ctx) => {
+      const access = ctx as { get: (k: unknown) => unknown }
+      const view = access.get(editorViewCtx) as { state: { doc: unknown } }
+      const serializer = access.get(serializerCtx) as (doc: unknown) => string
+      return trimTrailingBlankLines(serializer(view.state.doc))
+    }) as string
+
+  /** The first position inside the textblock whose text is `text`. */
+  const inside = (adapter: MilkdownAdapter, text: string): number => {
+    const view = viewOf(adapter)
+    let found = -1
+    view.state.doc.descendants((node, pos) => {
+      if (found === -1 && node.isTextblock && node.textContent === text) found = pos + 1
+      return true
+    })
+    if (found === -1) throw new Error(`no block with text ${text}`)
+    return found
+  }
+
+  const caretAt = (adapter: MilkdownAdapter, pos: number): void => {
+    const view = viewOf(adapter)
+    view.dispatch(
+      (view.state.tr as { setSelection: (s: unknown) => unknown }).setSelection(
+        TextSelection.create(view.state.doc, pos) as unknown,
+      ),
+    )
+  }
+
+  const mount = async (seed: string) => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    await adapter.mount(el)
+    await adapter.setContent(seed)
+    return { adapter, el }
+  }
+
+  const point = { left: 10, top: 20 }
+  const at = (pos: number) => () => ({ pos, inside: -1 })
+
+  it('inserts at the drop point, not at the caret', async () => {
+    const { adapter, el } = await mount('first\n\nsecond')
+    caretAt(adapter, inside(adapter, 'first'))
+    viewOf(adapter).posAtCoords = at(inside(adapter, 'second'))
+    adapter.insertMarkdown('[q3](assets/q3.pdf)', point)
+    const [first, second] = serialize(adapter).split('\n\n')
+    expect(first).toBe('first')
+    expect(second).toContain('[q3](assets/q3.pdf)')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('falls back to the caret when the point names no position', async () => {
+    const { adapter, el } = await mount('first\n\nsecond')
+    caretAt(adapter, inside(adapter, 'first'))
+    viewOf(adapter).posAtCoords = () => null
+    adapter.insertMarkdown('[q3](assets/q3.pdf)', point)
+    const [first, second] = serialize(adapter).split('\n\n')
+    expect(first).toContain('[q3](assets/q3.pdf)')
+    expect(second?.trim()).toBe('second')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('falls back to the caret when the point is inside a code block', async () => {
+    const seed = 'alpha\n\n```js\nconst a = 1\n```'
+    const { adapter, el } = await mount(seed)
+    caretAt(adapter, inside(adapter, 'alpha'))
+    viewOf(adapter).posAtCoords = at(inside(adapter, 'const a = 1'))
+    adapter.insertMarkdown('[q3](assets/q3.pdf)', point)
+    const doc = serialize(adapter)
+    // The reference is not a reference inside a fence, so the code block is
+    // refused as a target and its text is untouched.
+    expect(doc).toContain('const a = 1')
+    expect(doc.split('\n\n')[0]).toContain('[q3](assets/q3.pdf)')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  // The point move is a selection-only transaction: the document changes once,
+  // so a drop is one undo step rather than two.
+  // The point move is a selection-only transaction: the document changes once,
+  // so a drop is one undo step rather than two (history ignores a transaction
+  // that does not change the document).
+  it('changes the document once, after moving the selection', async () => {
+    const { adapter, el } = await mount('first\n\nsecond')
+    caretAt(adapter, inside(adapter, 'first'))
+    viewOf(adapter).posAtCoords = at(inside(adapter, 'second'))
+    const view = viewOf(adapter)
+    const changed: boolean[] = []
+    const dispatch = view.dispatch
+    view.dispatch = (tr: unknown) => {
+      changed.push(Boolean((tr as { docChanged?: boolean }).docChanged))
+      dispatch.call(view, tr)
+    }
+    adapter.insertMarkdown('[q3](assets/q3.pdf)', point)
+    expect(changed).toEqual([false, true])
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('inserts at the selection when no point is given', async () => {
+    const { adapter, el } = await mount('first\n\nsecond')
+    caretAt(adapter, inside(adapter, 'second'))
+    adapter.insertMarkdown('[q3](assets/q3.pdf)')
+    const [first, second] = serialize(adapter).split('\n\n')
+    expect(first).toBe('first')
+    expect(second).toContain('[q3](assets/q3.pdf)')
+    await adapter.destroy()
+    el.remove()
+  })
+})

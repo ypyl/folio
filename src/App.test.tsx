@@ -512,6 +512,8 @@ describe('asset drag & drop (page-editing spec)', () => {
           getAsFile: () => new File(['imgbytes'], 'photo.png', { type: 'image/png' }),
         },
       ],
+      types: [],
+      getData: () => '',
     }
     fireEvent.drop(pane(), { dataTransfer })
 

@@ -6,6 +6,7 @@ import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
 import type { Suggestion } from '../vault/suggest'
 import { collectFiles, withPastedName } from './dropAssets'
+import { dragRefText, hasDragRef, readDragRef } from './dragRefs'
 import { linkForAsset } from '../vault/link'
 import { updateGutterDom } from '../editor/gutter'
 import {
@@ -254,19 +255,43 @@ export function EditorPane({
   }, [])
   /* oxlint-enable react/exhaustive-deps */
 
-  // File intake (D5): something is always prevented so the browser never
-  // navigates to a dropped file; the copy happens only with a page open.
+  // File and reference intake (D5): something is always prevented so the
+  // browser never navigates to a dropped file; anything that lands happens only
+  // with a page open.
   const handleDragover = (e: DragEvent<HTMLElement>): void => {
     e.preventDefault()
+    // A row dragged from the sidebar is a copy, not a move: it writes text and
+    // leaves the vault alone, and the cursor should say so
+    // (drag-references-into-editor).
+    if (hasDragRef(e.dataTransfer)) e.dataTransfer.dropEffect = 'copy'
   }
+
+  // Everything a drop inserts lands at the point it was released, not at the
+  // caret (ADR-0023). The point is captured here and resolved by the editor,
+  // which falls back to the caret when the document cannot hold the payload
+  // there — including after an async copy, where the point is resolved when the
+  // link is written (ponytail: a scroll during a second-scale asset copy lands
+  // the link where the pointer is then; anchor mapping if that ever bites).
+  const dropPoint = (e: DragEvent<HTMLElement>) => ({ left: e.clientX, top: e.clientY })
+
   const handleDrop = (e: DragEvent<HTMLElement>): void => {
     e.preventDefault()
-    if (page === null || !onAttachFiles) return
+    if (page === null) return
+    // A row dragged from the sidebar names something the vault already holds,
+    // so there is nothing to copy: it is written straight into the page
+    // (drag-references-into-editor, design D5).
+    const ref = readDragRef(e.dataTransfer)
+    if (ref) {
+      adapterRef.current?.insertMarkdown(dragRefText(ref), dropPoint(e))
+      return
+    }
+    if (!onAttachFiles) return
     const files = collectFiles(e.dataTransfer)
     if (files.length === 0) return
+    const point = dropPoint(e)
     void onAttachFiles(files).then((paths) => {
       for (const path of paths) {
-        adapterRef.current?.insertMarkdown(linkForAsset(path))
+        adapterRef.current?.insertMarkdown(linkForAsset(path), point)
       }
     })
   }

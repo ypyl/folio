@@ -16,6 +16,10 @@ export type SuggestionSources = {
   files: (query: string, onlyImages: boolean) => Suggestion[]
 }
 
+/** A point in the viewport — the coordinates a drop was released at
+ *  (drag-references-into-editor, ADR-0023). */
+export type DropPoint = { left: number; top: number }
+
 export interface EditorAdapter {
   /** Attach the editor to a DOM element. Call once per instance, before use. */
   mount(el: HTMLElement): Promise<void>
@@ -23,8 +27,11 @@ export interface EditorAdapter {
   destroy(): Promise<void>
   /** Replace the document with the given Markdown (resets to that text). */
   setContent(markdown: string): Promise<void>
-  /** Insert Markdown at the editor's current selection (cursor). */
-  insertMarkdown(markdown: string): void
+  /** Insert Markdown at the editor's current selection (cursor). `point`, when
+   *  given, is where the pointer released what is being inserted: the editor
+   *  inserts there instead, and falls back to the selection when the point
+   *  names no position the document can hold it at (ADR-0023). */
+  insertMarkdown(markdown: string, point?: DropPoint): void
   /** The canonical start line of each top-level block, in doc order. */
   getBlockLines(): number[]
   /** Subscribe to document changes; the callback receives serialized Markdown. */

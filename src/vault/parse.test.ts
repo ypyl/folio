@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   findReferenceRanges,
+  isReferenceable,
   linkDestinationTrigger,
   parseAssetPaths,
   parseLinks,
@@ -280,6 +281,25 @@ describe('referenceToken', () => {
 
   it('cannot express a name whose whitespace reference parsing trims', () => {
     expect(findReferenceRanges(referenceToken(' spaced ', 'bracketed'))[0]?.target).toBe('spaced')
+  })
+})
+
+// drag-references-into-editor: the one predicate two consumers share — the
+// completion pool never offers such a name, and a Pages row with such a name is
+// not a drag source.
+describe('isReferenceable', () => {
+  it('accepts every name a token can express', () => {
+    for (const name of ['reading', 'reading list', 'read-2', '2.0', 'café', '2026-09-10']) {
+      expect(isReferenceable(name)).toBe(true)
+    }
+  })
+
+  it('refuses a name containing a closing bracket', () => {
+    expect(isReferenceable('weird]name')).toBe(false)
+  })
+
+  it('refuses a name whose surrounding whitespace the parser trims', () => {
+    expect(isReferenceable(' spaced ')).toBe(false)
   })
 })
 
