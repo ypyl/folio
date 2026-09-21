@@ -21,6 +21,7 @@ import { useIndex } from './vault/useIndex'
 import { canOpenFolders } from './vault/fs'
 import {
   assetName,
+  boardName,
   boardReferrers,
   kindOf,
   localDayString,
@@ -29,6 +30,7 @@ import {
   resolveBoardPath,
   resolveReferencePath,
   stem,
+  type Graph,
   type IndexPage,
 } from './vault/index'
 import {
@@ -51,6 +53,25 @@ const EMPTY_ASSETS: string[] = []
 
 /** One shared empty boards list, for the same reason as `EMPTY_ASSETS`. */
 const EMPTY_BOARDS: string[] = []
+
+/** The rows the meta panel's References section shows for an open page
+ *  (vault-assets, board-references-in-panel): one per file the page points at,
+ *  plus one per board it references with a `#!` token, deduped by path — a board
+ *  row winning, so a token and a path link to one board are one row, and the
+ *  board's own view is what activating it opens. A board the vault does not
+ *  hold yet is unmaterialized, so its row dims. Pure and vault-shaped, so the
+ *  memo above it can stay a one-liner. */
+function pageReferenceRows(page: IndexPage, graph: Graph): LinkRow[] {
+  const rows = new Map<string, LinkRow>()
+  for (const path of pageAssets(page, graph)) {
+    rows.set(path, { title: assetName(path), path, materialized: true })
+  }
+  for (const ref of page.boards) {
+    const path = resolveBoardPath(ref.target, graph.boardsByName)
+    rows.set(path, { title: boardName(path), path, materialized: graph.files.has(path) })
+  }
+  return [...rows.values()]
+}
 
 function App() {
   const { status, folders, activeId, addFolder, activate, closeFolder, goHome } = useVault()
@@ -248,11 +269,18 @@ function App() {
   // re-rendering while typing.
   const handleOpenAsset = useCallback(
     (path: string) => {
+      // The extension decides the view (add-whiteboards): a `.excalidraw` file
+      // opens in the board editor wherever the row came from — a board row, a
+      // path link in References, the Assets band, or a search result.
+      if (isBoardTarget(path)) {
+        handleOpenBoard(path)
+        return
+      }
       const store = activeFolder?.storage
       if (!store) return
       void openVaultPath(path, (assetPath) => store.readBinary(assetPath))
     },
-    [activeFolder],
+    [activeFolder, handleOpenBoard],
   )
 
   // Every landed run updates the pane's source; a run with no matches leaves
@@ -521,14 +549,7 @@ function App() {
   // is carried over untouched. Same [graph, page] deps as the rows above: a
   // keystroke re-renders but re-derives neither.
   const referenceRows = useMemo<LinkRow[]>(
-    () =>
-      graph && page
-        ? pageAssets(page, graph).map((path) => ({
-            title: assetName(path),
-            path,
-            materialized: true,
-          }))
-        : [],
+    () => (graph && page ? pageReferenceRows(page, graph) : []),
     [graph, page],
   )
 

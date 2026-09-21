@@ -1466,3 +1466,54 @@ describe('whiteboards (add-whiteboards)', () => {
     await waitFor(() => expect(panel.getByRole('button', { name: 'Ideas' })).toBeTruthy())
   })
 })
+
+describe('board references in the meta panel (board-references-in-panel)', () => {
+  it("lists a page's board reference in References and opens the board", async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'A sketch: #!Migration' },
+      boards: { 'Migration.excalidraw': '{}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+
+    const row = await section('References').findByRole('button', {
+      name: 'Migration.excalidraw',
+    })
+    expect(row.className).not.toContain('dimmed')
+    expect(
+      section('Forwardlinks').queryByRole('button', { name: 'Migration.excalidraw' }),
+    ).toBeNull()
+
+    fireEvent.click(row)
+    expect(await screen.findByTestId('board-view')).toBeTruthy()
+  })
+
+  it('lists one row when a token and a path link name one board', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': '#!Migration and [x](boards/Migration.excalidraw)' },
+      boards: { 'Migration.excalidraw': '{}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+    const rows = await section('References').findAllByRole('button', {
+      name: 'Migration.excalidraw',
+    })
+    expect(rows).toHaveLength(1)
+  })
+
+  it('dims a board reference the vault does not hold', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({ pages: { 'Ideas.md': 'A sketch: #!Architecture' } })
+    await openFixture(tree)
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+    const row = await section('References').findByRole('button', {
+      name: 'Architecture.excalidraw',
+    })
+    expect(row.className).toContain('dimmed')
+  })
+})

@@ -184,11 +184,13 @@ export function MetaPanel({
               </p>
             )}
           </Accordion>
-          {/* References (vault-assets): the open page's files, collapsed by default
-          like the sidebar's Assets section, so the panel looks as it did before
-          this section existed until the reader asks for it. It is the only
-          section holding asset rows, and its rows never dim and never carry the
-          open page's marking — activating one opens the file (ADR-0021). */}
+          {/* References (vault-assets, board-references-in-panel): the open
+          page's files — its assets and the boards it references — collapsed by
+          default like the sidebar's Assets section, so the panel looks as it did
+          before this section existed until the reader asks for it. Asset rows
+          never dim (a row exists only for a file the vault holds); a board row
+          for a board with no file yet dims but stays activatable. No row carries
+          the open page's marking — activating one opens the file or the board. */}
           <Accordion title="References" className={styles.section} bodyClassName={styles.fillBody}>
             {loading ? (
               skeletonLine
@@ -197,7 +199,7 @@ export function MetaPanel({
                 rows={references}
                 activePath={null}
                 onActivate={onOpenAsset}
-                dim={false}
+                dim
                 emptyCopy="No files on this page."
               />
             ) : (

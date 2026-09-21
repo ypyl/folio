@@ -222,23 +222,35 @@ describe('MetaPanel', () => {
     expect(sections.map((s) => s.open)).toEqual([true, true, false, false])
   })
 
-  it('never dims an asset row, whatever the row says about the disk', () => {
-    // An asset row is built from the vault's own listing, so it is materialized
-    // by construction; the section does not consult the flag.
+  it('dims an unmaterialized board row in References, and leaves a file row undimmed', () => {
+    // References holds asset rows (always materialized, because they come from
+    // the vault's own listing) and board rows, which may name a board the vault
+    // does not hold yet; only the latter dims (board-references-in-panel).
     render(
       <MetaPanel
         pageOpen
         backlinks={[]}
         forwardlinks={[]}
-        references={[{ title: 'orphan.pdf', path: 'assets/orphan.pdf', materialized: false }]}
+        references={[
+          { title: 'q3-report.pdf', path: 'assets/q3-report.pdf', materialized: true },
+          {
+            title: 'Architecture.excalidraw',
+            path: 'boards/Architecture.excalidraw',
+            materialized: false,
+          },
+        ]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    const btn = within(meta()).getByRole('button', { name: 'orphan.pdf' })
-    expect(btn.className).not.toContain(styles.dimmed)
+    expect(within(meta()).getByRole('button', { name: 'q3-report.pdf' }).className).not.toContain(
+      styles.dimmed,
+    )
+    expect(
+      within(meta()).getByRole('button', { name: 'Architecture.excalidraw' }).className,
+    ).toContain(styles.dimmed)
   })
 
   it('shows References its own empty copy, and copies only its own section', () => {
