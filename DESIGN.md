@@ -158,6 +158,11 @@ interface font, so a board does not read as a foreign app pasted into the pane.
 The scope is the palette. The editor's layout, tool icons, canvas rendering, and
 hand-drawn drawing fonts are its own and are left alone.
 
+The canvas's crosshair cursor is the app's too: for the drawing tools it is an
+ink-blue cross with a light halo, not the platform's crosshair, whose colour the
+app cannot set. The editor's own cursors — the hand's grab, the eraser's circle,
+the laser's — stay as they are.
+
 ### Side panes are columns of bands
 
 Both side panes — the left sidebar and the right meta panel — are columns of

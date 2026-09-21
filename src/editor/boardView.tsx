@@ -40,6 +40,17 @@ function loadExcalidraw(): Promise<ExcalidrawModule> {
   return modulePromise
 }
 
+/** The tools that show a crosshair over the canvas (board-drawing-cursor):
+ *  every tool except the ones the editor gives a cursor of its own. Mirrors the
+ *  library's own rule — selection clears the cursor, hand grabs, eraser draws
+ *  its circle, laser its custom SVG, image and custom tools sit at `auto` — so
+ *  the app's crosshair appears for exactly the tools a stock crosshair would. */
+const CURSORED_TOOLS = new Set(['selection', 'hand', 'eraser', 'laser', 'image', 'custom'])
+
+function usesCrosshair(type: string | undefined): boolean {
+  return type !== undefined && !CURSORED_TOOLS.has(type)
+}
+
 export function BoardView({
   initialScene,
   onChange,
@@ -51,6 +62,13 @@ export function BoardView({
 }) {
   const [mod, setMod] = useState<ExcalidrawModule | null>(null)
   const [failed, setFailed] = useState(false)
+  // Tool-aware cursor (board-drawing-cursor): the library sets the stock
+  // crosshair keyword on the canvas inline, so the stylesheet swaps in the
+  // app's cursor only while the active tool is one that shows a crosshair. The
+  // host carries the flag; the refs keep the write to when the tool's class
+  // actually changes, never per pointer move.
+  const hostRef = useRef<HTMLDivElement>(null)
+  const crosshair = useRef<boolean | null>(null)
   // Frozen on mount: Excalidraw reads initialData once, and App keys this
   // component by board path, so a board switch remounts rather than mutating.
   const [initialData] = useState(() => parseScene(initialScene))
@@ -76,6 +94,11 @@ export function BoardView({
 
   const handleChange = useCallback<ChangeHandler>(
     (elements, appState, files) => {
+      const wantsCrosshair = usesCrosshair(appState.activeTool?.type)
+      if (wantsCrosshair !== crosshair.current) {
+        crosshair.current = wantsCrosshair
+        hostRef.current?.toggleAttribute('data-crosshair', wantsCrosshair)
+      }
       const signature = sceneSignature(elements)
       // The first emit is the mount's own load, not an edit; and an unchanged
       // signature is a camera-only change, which never saves (design D7).
@@ -100,7 +123,7 @@ export function BoardView({
   }
   const { Excalidraw } = mod
   return (
-    <div className={styles.board} data-board-host="true">
+    <div className={styles.board} data-board-host="true" ref={hostRef}>
       <Excalidraw
         initialData={initialData as ExcalidrawProps['initialData']}
         onChange={handleChange}
