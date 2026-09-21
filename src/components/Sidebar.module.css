@@ -230,6 +230,10 @@
 }
 
 .rowText {
+  /* A block box is what makes the ellipsis apply: `overflow`/`text-overflow`
+     have no effect on a non-replaced inline, so a long name used to run past
+     the row (and its hover fill) instead of truncating. */
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
