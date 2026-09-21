@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { version } from '../../package.json'
 import type { DraftStatus } from '../editor/drafts'
 import { stem } from '../vault/index'
 import { StarIcon } from './StarIcon'
@@ -129,6 +130,11 @@ export function StatusBar({
           </span>
         ) : null}
       </div>
+      {/* The running version (version-in-status-bar): build identity at the
+          bar's trailing edge, beside the vault's file count. A sibling of the
+          vault group rather than a child, so the group stays empty when no
+          folder is active. */}
+      <span className={styles.version}>{`v${version}`}</span>
     </footer>
   )
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MetaPanel, type LinkRow } from './MetaPanel'
-import { version } from '../../package.json'
 import styles from './MetaPanel.module.css'
 
 // The panel receives the keyboard-shortcuts reference as a node
@@ -50,26 +49,6 @@ describe('MetaPanel', () => {
     expect(
       within(meta()).getByText('Files this page points at appear once a page is open.'),
     ).toBeTruthy()
-  })
-
-  it('shows the running version as plain text in the panel', () => {
-    // Build identity (move-version-to-panel): the badge lives in the panel, not
-    // the header, and is the last thing in it — the bottom-right corner.
-    render(
-      <MetaPanel
-        pageOpen={false}
-        backlinks={[]}
-        forwardlinks={[]}
-        references={[]}
-        activePath={null}
-        onSelect={() => {}}
-        onOpenAsset={() => {}}
-        shortcuts={shortcuts}
-      />,
-    )
-    const badge = within(meta()).getByText(`v${version}`)
-    expect(badge.tagName).toBe('SPAN')
-    expect(meta().lastElementChild?.lastElementChild).toBe(badge)
   })
 
   it('shows skeleton rows instead of placeholder copy while the index builds', () => {
@@ -320,9 +299,8 @@ describe('keyboard-shortcuts section', () => {
     const last = sections[3] as HTMLDetailsElement
     expect(last.open).toBe(false)
     expect(last.querySelector('summary')?.textContent).toBe('Keyboard shortcuts')
-    // It is the last section; only the running version follows it
-    // (move-version-to-panel).
-    expect(last.nextElementSibling?.textContent).toBe(`v${version}`)
+    // Nothing follows it.
+    expect(container.querySelectorAll('details')[3].nextElementSibling).toBeNull()
   })
 
   it('shows the reference in every panel state', () => {
@@ -343,15 +321,13 @@ describe('keyboard-shortcuts section', () => {
   })
 
   it('anchors the collapsed row to the panel\u2019s bottom', () => {
-    // jsdom has no layout, so this pins the wiring (the bottom-anchored group
-    // holding the last section, move-version-to-panel) rather than the sticky
-    // behavior — the browser check in the change's final task covers where the
-    // row actually lands.
+    // jsdom has no layout, so this pins the wiring (the placement class on the
+    // last section) rather than the sticky behavior — the browser check in the
+    // change's final task covers where the row actually lands.
     const { container } = render(panel())
     const sections = container.querySelectorAll('details')
-    expect(sections[3].parentElement?.className).toContain(styles.footer)
-    expect(sections[0].parentElement?.className).not.toContain(styles.footer)
-    expect(meta().lastElementChild?.className).toContain(styles.footer)
+    expect(sections[3].className).toContain(styles.footer)
+    expect(sections[0].className).not.toContain(styles.footer)
   })
 
   it('opens independently of the link sections', () => {

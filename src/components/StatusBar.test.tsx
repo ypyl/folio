@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { StatusBar } from './StatusBar'
+import { version } from '../../package.json'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell/page-editing specs): the
@@ -95,6 +96,25 @@ describe('StatusBar', () => {
     it('leaves the vault group empty without a vault', () => {
       const { container } = render(<StatusBar pagePath="a.md" />)
       expect(container.querySelector(`.${styles.vault}`)?.textContent).toBe('')
+    })
+  })
+
+  describe('version badge (version-in-status-bar)', () => {
+    it('shows the running version beside the vault file count', () => {
+      const { container } = render(<StatusBar pagePath="a.md" vaultName="notes" fileCount={12} />)
+      const badge = screen.getByText(`v${version}`)
+      expect(badge.tagName).toBe('SPAN')
+      // Beside the count: the vault group comes first, the badge at the trailing
+      // edge, and the badge is not part of the vault group (which stays empty
+      // without a vault).
+      const vault = container.querySelector(`.${styles.vault}`)
+      expect(vault!.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('renders with no vault open', () => {
+      // Build identity renders in every app state, the empty one included.
+      render(<StatusBar pagePath={null} />)
+      expect(screen.getByText(`v${version}`)).toBeTruthy()
     })
   })
 

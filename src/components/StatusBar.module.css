@@ -155,3 +155,11 @@ leading column's edge (continue-rail-border-in-status-bar). */
   color: var(--stone);
   white-space: nowrap;
 }
+
+/* The running version (version-in-status-bar): build identity at the bar's
+   trailing edge, beside the vault's file count. Stone 12px like the rest of the
+   bar; the bar's own gap spaces it from the vault group. */
+.version {
+  color: var(--stone);
+  white-space: nowrap;
+}
