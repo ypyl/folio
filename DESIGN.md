@@ -151,6 +151,13 @@ warm-parchment app. The value lives in the board's own scene, so a board that
 already names a background — saved earlier, or changed with the editor's own
 picker — keeps it.
 
+The editor's chrome around the canvas is the app's as well: the toolbar,
+islands, menus, dialogs, and inputs take the ink-blue accent, the warm
+ivory/parchment surfaces, warm lines and text, the whisper shadow, and the app's
+interface font, so a board does not read as a foreign app pasted into the pane.
+The scope is the palette. The editor's layout, tool icons, canvas rendering, and
+hand-drawn drawing fonts are its own and are left alone.
+
 ### Side panes are columns of bands
 
 Both side panes — the left sidebar and the right meta panel — are columns of

@@ -6,12 +6,68 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: var(--surface, #f5f4ed);
+  background: var(--parchment);
 }
 
 .notice {
   margin: 0;
   padding: 16px;
   font-size: 13px;
-  color: var(--stone, #6b6a64);
+  color: var(--stone);
+}
+
+/* Kami chrome for the board editor (board-editor-chrome). Excalidraw themes
+   itself entirely through CSS custom properties on `.excalidraw`, so mapping
+   them under this host's scope — two classes, beating the library's one-class
+   base — recolours the toolbar, islands, menus, dialogs, and inputs without
+   touching layout, icons, the canvas, or the hand-drawn drawing fonts. Scope is
+   the palette: colours, surfaces, lines, shadows, and the interface font. The
+   variable names are the library's, not a stable public API; a package upgrade
+   that renames them degrades to the stock theme rather than breaking. */
+.board :global(.excalidraw) {
+  /* Accent: the app's ink-blue, with the darker hover/active shades derived
+     rather than invented — Kami has one chromatic colour. */
+  --color-primary: var(--brand);
+  --color-primary-darker: color-mix(in srgb, var(--brand) 88%, black);
+  --color-primary-darkest: color-mix(in srgb, var(--brand) 76%, black);
+  --color-primary-hover: var(--brand-light);
+  --color-primary-light: var(--brand-tint);
+  --color-primary-light-darker: color-mix(in srgb, var(--brand-tint) 86%, var(--brand));
+  --color-brand-hover: var(--brand-light);
+  --color-brand-active: color-mix(in srgb, var(--brand) 82%, black);
+  --color-selection: var(--brand);
+  --color-surface-primary-container: var(--brand-tint);
+  --color-on-primary-container: var(--brand);
+  --color-logo-text: var(--brand);
+
+  /* Surfaces: warm ivory and parchment, never white, never a cool gray. */
+  --island-bg-color: var(--ivory);
+  --default-bg-color: var(--parchment);
+  --color-surface-lowest: var(--ivory);
+  --color-surface-low: var(--parchment);
+  --color-surface-mid: var(--warm-sand);
+  --color-surface-high: var(--warm-sand);
+  --input-bg-color: var(--ivory);
+  --input-hover-bg-color: var(--warm-sand);
+  --popup-secondary-bg-color: var(--warm-sand);
+
+  /* Text and lines: warm, on-palette. */
+  --color-on-surface: var(--near-black);
+  --input-label-color: var(--olive);
+  --popup-text-color: var(--near-black);
+  --popup-text-inverted-color: var(--ivory);
+  --color-border-outline: var(--stone);
+  --color-border-outline-variant: var(--border);
+  --input-border-color: var(--border);
+  --focus-highlight-color: var(--brand-tint);
+  --select-highlight-color: var(--brand-light);
+  --link-color: var(--brand);
+
+  /* Flat surfaces, whisper shadow (DESIGN.md) — warm, not the library's cool
+     three-layer drop. */
+  --shadow-island: 0 2px 8px rgba(20, 20, 19, 0.08), 0 8px 24px rgba(20, 20, 19, 0.06);
+  --sidebar-shadow: 0 2px 8px rgba(20, 20, 19, 0.08), 0 8px 24px rgba(20, 20, 19, 0.06);
+
+  /* The app's interface font, not the library's bundled Assistant. */
+  --ui-font: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
