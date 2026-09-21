@@ -534,7 +534,7 @@ Every scroll region the app owns SHALL reserve the width its scrollbar occupies 
 
 The regions this applies to SHALL be the editor pane, the sidebar pane and its Pages and Assets bodies, the meta panel and its Backlinks, Forwardlinks, and References bodies, and the search results list.
 
-Every such region's bar SHALL be the app's own thumb, drawn in the lane the region reserves: thin, rounded, inset in the lane, painted in the app's muted ink, invisible while the pointer is outside the region and revealed while the pointer is over it. The thumb SHALL NOT cover any of the region's content, SHALL NOT be revealed by anything other than the region's own hover, SHALL NOT fade or slide in or out, and SHALL NOT change the lane's width.
+Every such region's bar SHALL be the app's own thumb, drawn in the lane the region reserves: thin, rounded, inset in the lane, painted in the app's muted ink, shown for as long as the region can scroll and absent while it cannot. The thumb SHALL NOT cover any of the region's content, SHALL NOT be gated on the pointer or on the region's scrolling, SHALL NOT fade or slide in or out, and SHALL NOT change the lane's width.
 
 On a platform that ignores the app's scrollbar styling and draws its own bar floating over the content, the platform's bar SHALL remain and no lane SHALL be reserved, so the app SHALL NOT introduce a dead strip next to the content on such a platform.
 
@@ -557,10 +557,10 @@ A region whose content is sized to its own fixed extent SHALL NOT reserve a gutt
 
 #### Scenario: The bar is the app's own thumb in the reserved lane
 - **GIVEN** a region that overflows its lane's height
-- **WHEN** the pointer is outside the region
-- **THEN** no bar is visible and the region's content keeps the width it has with the lane reserved
-- **WHEN** the pointer is over the region
+- **WHEN** the region is inspected with the pointer anywhere, over it or away from it
 - **THEN** the app's thumb is shown inside the reserved lane, over none of the region's content, and the content's width is unchanged by its appearance
+- **WHEN** the region has nothing to scroll
+- **THEN** no thumb is shown, and the lane still reserves the width its scrollbar would occupy
 
 #### Scenario: The scrollbar stays the platform's own
 - **GIVEN** a platform that ignores the app's scrollbar styling and draws its own bar
