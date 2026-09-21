@@ -1,5 +1,4 @@
 import { FolioMark } from '../FolioMark'
-import { version } from '../../package.json'
 import type { ReactNode } from 'react'
 import styles from './Header.module.css'
 
@@ -19,10 +18,9 @@ interface HeaderProps {
 export function Header({ search, onHome }: HeaderProps) {
   return (
     <header className={styles.header}>
-      {/* Brand cell: the home button (mark + title) and, beside it, the running
-          version (add-version-badge). The badge is a sibling, never a child of
-          the button, so the home control keeps its own accessible name and the
-          version stays plain, non-interactive text. */}
+      {/* Brand cell: the home button (mark + title). The running version used
+          to sit beside it (add-version-badge); it now reads at the meta
+          panel's bottom-right corner (move-version-to-panel). */}
       <div className={styles.brand}>
         <button
           type="button"
@@ -34,7 +32,6 @@ export function Header({ search, onHome }: HeaderProps) {
           <FolioMark className={styles.mark} />
           <span className={styles.name}>Folio</span>
         </button>
-        <span className={styles.version}>{`v${version}`}</span>
       </div>
       <div className={styles.search}>{search}</div>
     </header>

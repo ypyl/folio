@@ -32,30 +32,6 @@
   color: inherit;
 }
 
-/* The running version (add-version-badge): informational text beside the
-   brand, never a control. Stone recedes behind the title.
-
-   The two share a line, so they share a baseline: centred boxes put a 12px
-   line 1.5px above a 16px one (the smaller font's ascent is proportionally
-   smaller), which reads as the version floating higher than the wordmark.
-   `align-items: baseline` cannot do it here — the wordmark lives inside the
-   home button, whose baseline the browser takes from the mark, not from the
-   text beside it. 0.12em is that metric difference at this size ratio, and it
-   scales with the font rather than pinning pixels. Measured: baselines
-   18.5px and 14px from each box's top, 1.5px apart. */
-.version {
-  font-size: 12px;
-  color: var(--stone);
-  letter-spacing: 0.2px;
-  position: relative;
-  top: 0.12em;
-}
-
-/* The rail's leading 56px column continues up through the header row so
-   search stays aligned with the editor pane (ui-shell: header columns
-   mirror the workspace). Column 1 renders nothing here; the rail itself
-   lives in the workspace below. */
-
 .mark {
   display: block;
   width: 22px;

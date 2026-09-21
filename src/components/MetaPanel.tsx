@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { version } from '../../package.json'
 import { Accordion } from './Accordion'
 import styles from './MetaPanel.module.css'
 
@@ -210,15 +211,15 @@ export function MetaPanel({
           </Accordion>
         </>
       )}
-      {/* Keyboard-shortcuts reference (move-help-to-right-panel): the panel's
-          last section. Its collapsed row is anchored to the panel's bottom
-          edge (the `footer` class) so it stays reachable however long the link
-          sections get. Opened, it expands in place — the reference itself never
-          gets a scroll region or a height cap. It renders in every state, so it
-          needs neither `pageOpen` nor `loading`. */}
-      <Accordion title="Keyboard shortcuts" className={styles.footer}>
-        {shortcuts}
-      </Accordion>
+      {/* The panel's bottom-anchored group (move-version-to-panel): the
+          keyboard-shortcuts reference (move-help-to-right-panel) and, in the
+          corner, the running version (add-version-badge). The group carries the
+          bottom anchoring and the sticky fill, so the badge stays in the
+          corner even when an open reference makes the panel itself scroll. */}
+      <div className={styles.footer}>
+        <Accordion title="Keyboard shortcuts">{shortcuts}</Accordion>
+        <span className={styles.version}>{`v${version}`}</span>
+      </div>
     </aside>
   )
 }
