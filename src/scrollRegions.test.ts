@@ -1,11 +1,15 @@
-// The scroll-region rule from DESIGN.md (steady-scroll-regions): every scroll
-// region the app owns reserves its scrollbar's gutter, so content keeps its
-// width as a region crosses the overflow threshold.
+// The scroll-region rules from DESIGN.md (steady-scroll-regions and
+// hover-reveal-scrollbars): every scroll region the app owns reserves its
+// scrollbar's gutter, and every region that reserves one carries the app's own
+// bar in it — a thin inset pill, invisible at rest and revealed on the region's
+// hover.
 //
-// jsdom has no layout, so the scenario this rule exists for — "the text does not
-// move when the scrollbar appears" — cannot be asserted in a test. The rule
-// itself can: a new `overflow: auto` that forgets its gutter fails here instead
-// of showing up as a reflow in a browser.
+// jsdom has no layout, so the scenarios these rules exist for — "the text does
+// not move when the scrollbar appears" and "the bar is invisible until the
+// pointer is over the region" — cannot be asserted in a test. The rules
+// themselves can: a new `overflow: auto` that forgets its gutter, or a region
+// that keeps the platform bar where every other one reveals the app's thumb,
+// fails here instead of showing up in a browser.
 //
 // The stylesheets are read from disk, which is the only way to see a
 // declaration: vitest replaces a CSS-module import with a proxy of class names.
@@ -20,7 +24,8 @@ import { describe, expect, it } from 'vitest'
 /** Selectors that deliberately reserve nothing, because their content is sized
  *  to their own fixed extent and a lane would shrink it (design D3): the folder
  *  rail's controls are a fixed size in a fixed-width column, and the code
- *  block's language list is an overlay whose width comes from its content. */
+ *  block's language list is an overlay whose width comes from its content. A
+ *  region that opts out of the gutter opts out of the app's thumb too. */
 const OPT_OUTS = ['.rail', '.language-list'] as const
 
 const isOptOut = (selector: string) => OPT_OUTS.some((s) => selector.includes(s))
@@ -36,13 +41,18 @@ function stylesheets(dir: string): Record<string, string> {
   return found
 }
 
-/** Each rule as `[selector, body]`. The stylesheets are flat (no at-rule nests
- *  a rule inside another), so a brace-delimited scan is enough. */
+/** Each rule's selectors as `[selector, body]`, one entry per selector in a
+ *  comma-separated list. Comments are stripped first, then the stylesheets are
+ *  flat (no at-rule nests a rule inside another), so a brace-delimited scan is
+ *  enough. */
 function rules(css: string): [string, string][] {
   const out: [string, string][] = []
-  for (const [, prelude, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const lines = prelude.split('\n').filter((line) => line.trim() !== '')
-    out.push([(lines[lines.length - 1] ?? '').trim(), body])
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  for (const [, prelude, body] of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const selector of prelude.split(',')) {
+      const trimmed = selector.trim()
+      if (trimmed !== '') out.push([trimmed, body])
+    }
   }
   return out
 }
@@ -85,5 +95,48 @@ describe('scroll regions reserve their gutter (steady-scroll-regions)', () => {
     // A gutter here would take the rail's 44px content box to about 29px and
     // clip its 40px avatars, and would move the popup's content-sized edge.
     expect(reserved).toEqual([])
+  })
+})
+
+describe("every gutter region reveals the app's thumb (hover-reveal-scrollbars)", () => {
+  const files = stylesheets('src')
+
+  it('every scroll region the app owns carries the thumb recipe', () => {
+    const wrong: string[] = []
+    for (const [file, css] of Object.entries(files)) {
+      const parsed = rules(css)
+      const bySelector = new Map(parsed.map(([selector, body]) => [selector, strips(body)]))
+      for (const [selector, body] of parsed) {
+        if (!/overflow(-y)?:\s*auto/.test(body)) continue
+        if (isOptOut(selector)) continue
+        const base = bySelector.get(`${selector}::-webkit-scrollbar`)
+        const thumb = bySelector.get(`${selector}::-webkit-scrollbar-thumb`) ?? ''
+        const hover = bySelector.get(`${selector}:hover::-webkit-scrollbar-thumb`) ?? ''
+        // The lane must keep the platform's width (design D4), so an explicit
+        // `width` on the opt-in rule is the one thing the recipe forbids.
+        if (!base) wrong.push(`${file} :: ${selector} does not opt into the app scrollbar`)
+        else if (base.includes('width:')) wrong.push(`${file} :: ${selector} resizes the lane`)
+        if (!thumb.includes('background-color:transparent'))
+          wrong.push(`${file} :: ${selector} has no bar at rest`)
+        if (!thumb.includes('background-clip:content-box'))
+          wrong.push(`${file} :: ${selector} has a bar that is not inset`)
+        if (!hover.includes('background-color:var(--stone)'))
+          wrong.push(`${file} :: ${selector} does not reveal its thumb on hover`)
+      }
+    }
+    expect(wrong).toEqual([])
+  })
+
+  it("the two opt-outs keep the platform's own bar", () => {
+    const styled: string[] = []
+    for (const [file, css] of Object.entries(files)) {
+      for (const [selector] of rules(css)) {
+        if (!isOptOut(selector)) continue
+        if (selector.includes('::-webkit-scrollbar')) styled.push(`${file} :: ${selector}`)
+      }
+    }
+    // Restyling a region that reserves no lane would only shrink or move the
+    // content the opt-out exists to protect.
+    expect(styled).toEqual([])
   })
 })

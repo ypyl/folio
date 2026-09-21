@@ -8,6 +8,30 @@
   min-width: 0;
 }
 
+/* The bar: the app's own thumb in the lane above (DESIGN.md, scroll regions).
+   At rest it is invisible; the pointer over the pane reveals a thin, inset
+   pill in --stone. Deliberately no `width` on ::-webkit-scrollbar, so the lane
+   keeps the platform's own width and the document's width is unchanged. */
+.pane::-webkit-scrollbar {
+  background: transparent;
+}
+
+.pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pane::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px; /* a long document still leaves something to grab */
+}
+
+.pane:hover::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+}
+
 .emptyState {
   height: 100%;
   display: flex;

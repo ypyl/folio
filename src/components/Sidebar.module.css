@@ -18,6 +18,29 @@
   scrollbar-gutter: stable;
 }
 
+/* The bar: the app's own thumb in the lane above (DESIGN.md, scroll regions),
+   invisible until the pointer is over the pane. No `width` on
+   ::-webkit-scrollbar, so the lane keeps the platform's own width. */
+.sidebar::-webkit-scrollbar {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px; /* a long listing still leaves something to grab */
+}
+
+.sidebar:hover::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+}
+
 /* A band that sizes to its content and never scrolls internally: the
    navigation controls and the Journal calendar (its height is bounded by the
    month grid). */
@@ -79,6 +102,28 @@
      listing window are untouched. */
   scrollbar-gutter: stable;
   padding: 2px 4px 14px;
+}
+
+/* The listing's bar, the app's thumb in the lane above (DESIGN.md, scroll
+   regions), invisible until the pointer is over the body. */
+.scrollBody::-webkit-scrollbar {
+  background: transparent;
+}
+
+.scrollBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollBody::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px; /* a long listing still leaves something to grab */
+}
+
+.scrollBody:hover::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
 }
 
 /* Navigation controls (add-history-navigation): the session trail's controls,

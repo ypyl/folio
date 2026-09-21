@@ -58,6 +58,34 @@
   scrollbar-gutter: stable; /* DESIGN.md, scroll regions */
 }
 
+/* The panel's bar and each band body's bar: the app's own thumb in the
+   reserved lane (DESIGN.md, scroll regions), invisible until the pointer is
+   over the region. No `width` on ::-webkit-scrollbar, so the lane keeps the
+   platform's own width. */
+.panel::-webkit-scrollbar,
+.fillBody::-webkit-scrollbar {
+  background: transparent;
+}
+
+.panel::-webkit-scrollbar-track,
+.fillBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel::-webkit-scrollbar-thumb,
+.fillBody::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px; /* a long listing still leaves something to grab */
+}
+
+.panel:hover::-webkit-scrollbar-thumb,
+.fillBody:hover::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+}
+
 /* Bottom-anchored keyboard-shortcuts section: the three bands above it claim
    the leftover height, so this row lands on the panel's bottom edge by layout;
    `position: sticky` keeps it there once an open reference makes the panel

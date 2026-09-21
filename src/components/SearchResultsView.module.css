@@ -12,6 +12,29 @@
   min-width: 0;
 }
 
+/* The bar: the app's own thumb in the lane above (DESIGN.md, scroll regions),
+   invisible until the pointer is over the pane. No `width` on
+   ::-webkit-scrollbar, so the lane keeps the platform's own width. */
+.pane::-webkit-scrollbar {
+  background: transparent;
+}
+
+.pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pane::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px; /* a long match list still leaves something to grab */
+}
+
+.pane:hover::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+}
+
 .summary {
   display: flex;
   align-items: baseline;
