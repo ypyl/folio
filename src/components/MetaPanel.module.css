@@ -59,9 +59,9 @@
 }
 
 /* The panel's bar and each band body's bar: the app's own thumb in the
-   reserved lane (DESIGN.md, scroll regions), invisible until the pointer is
-   over the region. No `width` on ::-webkit-scrollbar, so the lane keeps the
-   platform's own width. */
+   reserved lane (DESIGN.md, scroll regions), shown while the region can
+   scroll. No `width` on ::-webkit-scrollbar, so the lane keeps the platform's
+   own width. */
 .panel::-webkit-scrollbar,
 .fillBody::-webkit-scrollbar {
   background: transparent;
@@ -74,16 +74,11 @@
 
 .panel::-webkit-scrollbar-thumb,
 .fillBody::-webkit-scrollbar-thumb {
-  background-color: transparent;
+  background-color: var(--stone);
   border: 4px solid transparent; /* inset the pill within the lane */
   background-clip: content-box; /* paint only inside the transparent border */
   border-radius: 999px;
   min-height: 32px; /* a long listing still leaves something to grab */
-}
-
-.panel:hover::-webkit-scrollbar-thumb,
-.fillBody:hover::-webkit-scrollbar-thumb {
-  background-color: var(--stone);
 }
 
 /* Bottom-anchored keyboard-shortcuts section: the three bands above it claim

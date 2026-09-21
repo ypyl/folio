@@ -1,15 +1,14 @@
 // The scroll-region rules from DESIGN.md (steady-scroll-regions and
-// hover-reveal-scrollbars): every scroll region the app owns reserves its
+// always-visible-scrollbars): every scroll region the app owns reserves its
 // scrollbar's gutter, and every region that reserves one carries the app's own
-// bar in it — a thin inset pill, invisible at rest and revealed on the region's
-// hover.
+// bar in it — a thin inset pill, shown for as long as the region can scroll.
 //
 // jsdom has no layout, so the scenarios these rules exist for — "the text does
-// not move when the scrollbar appears" and "the bar is invisible until the
-// pointer is over the region" — cannot be asserted in a test. The rules
-// themselves can: a new `overflow: auto` that forgets its gutter, or a region
-// that keeps the platform bar where every other one reveals the app's thumb,
-// fails here instead of showing up in a browser.
+// not move when the scrollbar appears" and "the bar is shown only while there
+// is overflow" — cannot be asserted in a test. The rules themselves can: a new
+// `overflow: auto` that forgets its gutter, or a region that keeps the platform
+// bar where every other one carries the app's thumb, fails here instead of
+// showing up in a browser.
 //
 // The stylesheets are read from disk, which is the only way to see a
 // declaration: vitest replaces a CSS-module import with a proxy of class names.
@@ -98,7 +97,7 @@ describe('scroll regions reserve their gutter (steady-scroll-regions)', () => {
   })
 })
 
-describe("every gutter region reveals the app's thumb (hover-reveal-scrollbars)", () => {
+describe("every gutter region carries the app's thumb (always-visible-scrollbars)", () => {
   const files = stylesheets('src')
 
   it('every scroll region the app owns carries the thumb recipe', () => {
@@ -111,17 +110,17 @@ describe("every gutter region reveals the app's thumb (hover-reveal-scrollbars)"
         if (isOptOut(selector)) continue
         const base = bySelector.get(`${selector}::-webkit-scrollbar`)
         const thumb = bySelector.get(`${selector}::-webkit-scrollbar-thumb`) ?? ''
-        const hover = bySelector.get(`${selector}:hover::-webkit-scrollbar-thumb`) ?? ''
         // The lane must keep the platform's width (design D4), so an explicit
         // `width` on the opt-in rule is the one thing the recipe forbids.
         if (!base) wrong.push(`${file} :: ${selector} does not opt into the app scrollbar`)
         else if (base.includes('width:')) wrong.push(`${file} :: ${selector} resizes the lane`)
-        if (!thumb.includes('background-color:transparent'))
-          wrong.push(`${file} :: ${selector} has no bar at rest`)
+        if (!thumb.includes('background-color:var(--stone)'))
+          wrong.push(`${file} :: ${selector} has no bar while it can scroll`)
         if (!thumb.includes('background-clip:content-box'))
           wrong.push(`${file} :: ${selector} has a bar that is not inset`)
-        if (!hover.includes('background-color:var(--stone)'))
-          wrong.push(`${file} :: ${selector} does not reveal its thumb on hover`)
+        // The thumb's visibility is the region's overflow, never the pointer.
+        if (bySelector.has(`${selector}:hover::-webkit-scrollbar-thumb`))
+          wrong.push(`${file} :: ${selector} gates its thumb on hover`)
       }
     }
     expect(wrong).toEqual([])

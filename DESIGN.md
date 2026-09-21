@@ -167,30 +167,31 @@ Assets bodies, the meta panel and its Backlinks, Forwardlinks, and References
 bodies, the search results list, and the search dropdown.
 
 A region that reserves the lane carries the app's own bar in it: a thin,
-rounded, inset pill in `--stone`, invisible at rest and revealed while the
-pointer is over the region. Every such region repeats the recipe beside its
+rounded, inset pill in `--stone`, shown for as long as the region can scroll
+and absent while it cannot. Every such region repeats the recipe beside its
 gutter declaration:
 
 ```css
 .region::-webkit-scrollbar { background: transparent; }
 .region::-webkit-scrollbar-track { background: transparent; }
 .region::-webkit-scrollbar-thumb {
-  background-color: transparent;
+  background-color: var(--stone);
   border: 4px solid transparent; /* inset the pill within the lane */
   background-clip: content-box; /* paint only inside the transparent border */
   border-radius: 999px;
   min-height: 32px;
 }
-.region:hover::-webkit-scrollbar-thumb { background-color: var(--stone); }
 ```
 
 The recipe sets no `width` on `::-webkit-scrollbar`, so the lane keeps the
 platform's own width and the reservation promises the content width it always
-did. The thumb stays in that lane, so it never covers a character. The reveal
-is the region's own hover and nothing else: it does not fade, and it does not
-appear when the region scrolls without the pointer over it. Do not add a scroll
-listener to fix that; an overlay bar that floats over the content is a
-`ScrollArea` component, a different and larger decision than this rule.
+did. The thumb stays in that lane, so it never covers a character. Its
+visibility is the region's own overflow and nothing else: a region with more
+content than height shows it, a region that fits shows nothing, and neither the
+pointer nor a scroll event decides. Do not gate it on hover or on scrolling,
+and do not add a scroll listener for either; an overlay bar that floats over
+the content is a `ScrollArea` component, a different and larger decision than
+this rule.
 
 Two regions reserve nothing, because their content is sized to their own fixed
 extent and a lane would shrink what it was sized for: the folder rail (a 44px
