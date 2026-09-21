@@ -4,6 +4,7 @@ import {
   FUSE_OPTIONS,
   PER_GROUP,
   assetSearchDoc,
+  boardSearchDoc,
   exactRanges,
   firstMatchLine,
   searchDocs,
@@ -207,5 +208,28 @@ describe('asset search documents', () => {
     // order the groups (Pages, Journal, Assets).
     const visible = topPerGroup(searchDocs(fuse(docs), 'docker'))
     expect(visible.map((r) => r.kind).sort()).toEqual(['asset', 'journal', 'page'])
+  })
+})
+
+describe('boardSearchDoc (add-whiteboards, design D9)', () => {
+  it('labels a board by its path inside boards/ and never reads its scene', () => {
+    const doc = boardSearchDoc('boards/2026/migration.excalidraw')
+    expect(doc.kind).toBe('board')
+    expect(doc.title).toBe('2026/migration.excalidraw')
+    expect(doc.text).toBe('')
+  })
+
+  it('a board is found by name and its scene text is never matched', () => {
+    const fuse = new Fuse(
+      [
+        doc('pages/a.md', 'Alpha', 'queue processing notes'),
+        boardSearchDoc('boards/migration.excalidraw'),
+      ],
+      FUSE_OPTIONS,
+    )
+    expect(searchDocs(fuse, 'migration').map((r) => r.kind)).toEqual(['board'])
+    // `queue` is the word that would appear in the board's scene; the app never
+    // reads it, so no board result is produced.
+    expect(searchDocs(fuse, 'queue').map((r) => r.path)).toEqual(['pages/a.md'])
   })
 })

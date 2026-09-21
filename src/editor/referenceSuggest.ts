@@ -23,9 +23,12 @@ import { Plugin, PluginKey } from '@milkdown/prose/state'
 import type { EditorView } from '@milkdown/prose/view'
 import { linkLabel, markdownDestination } from '../vault/link'
 import {
+  boardReferenceTrigger,
+  boardToken,
   linkDestinationTrigger,
   referenceToken,
   referenceTrigger,
+  type BoardTrigger,
   type DestinationTrigger,
   type ReferenceTrigger,
 } from '../vault/parse'
@@ -44,10 +47,11 @@ const LEAF_TEXT = '\n'
 type Meta = { suppress?: string; move?: 1 | -1 }
 
 export type SuggestionState = {
-  /** Which picker is open: page references, or a link destination's files. */
-  kind: 'page' | 'file' | null
+  /** Which picker is open: page references, board references, or a link
+   *  destination's files. */
+  kind: 'page' | 'board' | 'file' | null
   /** The reference token or link destination being typed at the caret. */
-  trigger: ReferenceTrigger | DestinationTrigger | null
+  trigger: ReferenceTrigger | BoardTrigger | DestinationTrigger | null
   suggestions: Suggestion[]
   /** Row `Enter` or `Tab` would accept. */
   active: number
@@ -88,7 +92,7 @@ export function popupVisible(state: SuggestionState): boolean {
 export function triggerAt(source: {
   doc: ProseNode
   selection: Selection
-}): ReferenceTrigger | DestinationTrigger | null {
+}): ReferenceTrigger | BoardTrigger | DestinationTrigger | null {
   const { selection } = source
   if (!selection.empty) return null
   const $from = selection.$from
@@ -100,7 +104,14 @@ export function triggerAt(source: {
   if (typed && typed.marks.some((mark) => mark.type.name === 'inlineCode')) return null
   const before = parent.textBetween(0, $from.parentOffset, undefined, LEAF_TEXT)
   const after = parent.textBetween($from.parentOffset, parent.content.size, undefined, LEAF_TEXT)
-  return linkDestinationTrigger(before, after) ?? referenceTrigger(before, after)
+  // The destination is asked first: it is the narrower position, and a `#`
+  // after `](` is the reference trigger's business, never a file's. The board
+  // trigger is tried before the page trigger because `#!` is its own sigil.
+  return (
+    linkDestinationTrigger(before, after) ??
+    boardReferenceTrigger(before, after) ??
+    referenceTrigger(before, after)
+  )
 }
 
 type ReferenceSuggestOptions = {
@@ -108,6 +119,9 @@ type ReferenceSuggestOptions = {
    *  a source bound to the live vault index stays current without
    *  re-registering. */
   pages: (query: string) => Suggestion[]
+  /** Board-name candidates for a `#!` reference being typed (add-whiteboards).
+   *  Absent means no board suggestions. */
+  boards?: (query: string) => Suggestion[]
   /** Vault-file candidates for a link destination. `onlyImages` is the
    *  narrowing the typed syntax asks for (add-asset-references, design D4). */
   files: (query: string, onlyImages: boolean) => Suggestion[]
@@ -156,11 +170,13 @@ function derive(
   const suppressed = meta?.suppress ?? prev.suppressed
   const trigger = triggerAt(source)
   if (!trigger) return { ...EMPTY, suppressed }
-  const kind = trigger.kind === 'destination' ? 'file' : 'page'
+  const kind = trigger.kind === 'destination' ? 'file' : 'board' in trigger ? 'board' : 'page'
   const suggestions =
     trigger.kind === 'destination'
       ? options.files(trigger.text, trigger.image)
-      : options.pages(trigger.query)
+      : 'board' in trigger
+        ? (options.boards?.(trigger.query) ?? [])
+        : options.pages(trigger.query)
   // The active row survives while the same text is being edited, resets when
   // the typed text changes, and clamps if the list shrank under it.
   const sameToken = prev.trigger?.text === trigger.text
@@ -233,7 +249,8 @@ function accept(view: EditorView, row: Suggestion): void {
   // exactly its length back.
   const from = to - trigger.text.length
   if (from < 0) return
-  const token = referenceToken(row.name, trigger.kind)
+  const token =
+    'board' in trigger ? boardToken(row.name, trigger.kind) : referenceToken(row.name, trigger.kind)
   view.dispatch(
     view.state.tr.insertText(token, from, to).setMeta(suggestionKey, { suppress: token }),
   )

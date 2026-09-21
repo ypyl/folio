@@ -4,7 +4,7 @@
 // case-insensitively through a name map (ADR-0012).
 
 import type { Page } from '../page'
-import { parseAssetPaths, parseLinks, type Link } from './parse'
+import { parseAssetPaths, parseBoardRefs, parseLinks, type BoardRef, type Link } from './parse'
 import type { VaultStorage } from './storage'
 
 export type IndexPage = Page & {
@@ -14,6 +14,9 @@ export type IndexPage = Page & {
    *  file exists is the folder's answer, checked against `Graph.files` where
    *  the rows are built. */
   assets: string[]
+  /** Board references this page's Markdown writes, in order and deduped
+   *  (add-whiteboards, design D9). */
+  boards: BoardRef[]
   lastModified: number
 }
 
@@ -31,6 +34,15 @@ export type Graph = {
   files: Set<string>
   /** The vault's `assets/` files, path-ordered: the sidebar's Assets listing. */
   assets: string[]
+  /** The vault's `boards/` files, path-ordered: the sidebar's Boards listing
+   *  (add-whiteboards, design D1/D9). */
+  boards: string[]
+  /** Lowercased board name -> path; first-by-path wins case collisions, like
+   *  `byName` for pages. */
+  boardsByName: Map<string, string>
+  /** Lowercased board path -> referring page paths, in scan order. A board is
+   *  referenced only by its `#!` token (add-whiteboards, design D9). */
+  boardReferrers: Map<string, string[]>
 }
 
 /** The vault's hidden pin meta file (design D1): an ordered list of page
@@ -76,6 +88,7 @@ export async function buildIndex(
       content,
       links: parseLinks(content),
       assets: parseAssetPaths(content),
+      boards: parseBoardRefs(content),
       lastModified,
     })
   }
@@ -127,6 +140,7 @@ export async function upsertPage(
     content,
     links: parseLinks(content),
     assets: parseAssetPaths(content),
+    boards: parseBoardRefs(content),
     lastModified,
   })
   const snapshot = new Map(current.snapshot)
@@ -189,6 +203,41 @@ export function isPagePath(path: string): boolean {
   return true
 }
 
+/** Board scan scope (add-whiteboards, design D1): a `.excalidraw` file under
+ *  `boards/`, no hidden path segment. A `.excalidraw` elsewhere is an ordinary
+ *  vault file: it opens (the extension decides the view), but it is not listed
+ *  as a board. */
+export function isBoardPath(path: string): boolean {
+  const lower = path.toLowerCase()
+  if (!lower.startsWith(BOARDS_DIR)) return false
+  if (!lower.endsWith('.excalidraw')) return false
+  return !hasHiddenSegment(path)
+}
+
+/** The vault's boards, path-ordered: `Graph.boards`, and the Boards listing
+ *  (add-whiteboards, design D1/D9) — a filter over the files the scan already
+ *  fetched, exactly like `listAssets`. */
+export function listBoards(files: Iterable<string>): string[] {
+  return [...files].filter(isBoardPath).sort()
+}
+
+/** A listed board's row label: its path inside `boards/`, so two boards with
+ *  the same name in different folders read differently. */
+export function boardName(path: string): string {
+  return path.startsWith(BOARDS_DIR) ? path.slice(BOARDS_DIR.length) : path
+}
+
+/** A board's name — the token text, its filename without `.excalidraw`. */
+export function boardStem(path: string): string {
+  const name = path.slice(path.lastIndexOf('/') + 1)
+  return name.slice(0, -BOARD_EXT.length)
+}
+
+/** Where a board named `name` lives (add-whiteboards, design D2/D3). */
+export function boardPathForName(name: string): string {
+  return `${BOARDS_DIR}${name}${BOARD_EXT}`
+}
+
 /** Whether any path segment begins with `.`: the one rule that keeps hidden
  *  files — and `.folio/`, the app's own meta directory — out of both the page
  *  set and the asset listing (design D2). */
@@ -209,6 +258,12 @@ export function listAssets(files: Iterable<string>): string[] {
 /** Where the app writes dropped and pasted files (asset-drag-drop). */
 const ASSETS_DIR = 'assets/'
 
+/** Where boards live (add-whiteboards); the board token's name resolves here. */
+export const BOARDS_DIR = 'boards/'
+
+/** The extension that makes a file under `boards/` a board. */
+export const BOARD_EXT = '.excalidraw'
+
 /** A listed asset's row label: its path inside `assets/`, so two files with the
  *  same name in different folders read differently (vault-assets spec). A file
  *  referenced from outside `assets/` has no such form and keeps its path. */
@@ -223,6 +278,36 @@ export function assetName(path: string): string {
  *  drops out on the next scan even though the page itself is carried over. */
 export function pageAssets(page: IndexPage, graph: Graph): string[] {
   return page.assets.filter((path) => graph.files.has(path) && !isPagePath(path))
+}
+
+/** Resolve a board token's name to the board it names (add-whiteboards, design
+ *  D2/D3): the existing board, else the path a board of that name would take,
+ *  so a reference to a board that does not exist can still open and create it. */
+export function resolveBoardPath(name: string, boardsByName: Map<string, string>): string {
+  return boardsByName.get(name.toLowerCase()) ?? boardPathForName(name)
+}
+
+/** The pages whose Markdown writes a board reference to `path`
+ *  (add-whiteboards: Referenced by), in scan order. */
+export function boardReferrers(graph: Graph, path: string): string[] {
+  return graph.boardReferrers.get(path) ?? []
+}
+
+/** Write-through for a board save (add-whiteboards, design D7/D9), mirroring
+ *  `upsertPage`: persist the scene, make the file part of the listing the
+ *  Boards section and the referrer map read, and leave the page scan untouched.
+ *  Non-optimistic: the graph changes only after the write resolves, so a
+ *  failed save leaves the index consistent with disk. */
+export async function upsertBoard(
+  storage: VaultStorage,
+  current: VaultIndex,
+  path: string,
+  scene: string,
+): Promise<VaultIndex> {
+  await storage.write(path, scene)
+  const files = new Set(current.graph.files)
+  files.add(path)
+  return { graph: fold(current.graph.pages, files), snapshot: current.snapshot, pins: current.pins }
 }
 
 /** Parse the pins meta file: an ordered list of page paths (design D1).
@@ -348,5 +433,33 @@ function fold(pages: Map<string, IndexPage>, files: Set<string>): Graph {
       else backlinks.set(target, [path])
     }
   }
-  return { pages, byName, backlinks, files, assets: listAssets(files) }
+  // Boards resolve in their own namespace (add-whiteboards, design D1/D9): a
+  // board name never collides with a page name, and only a `#!` token feeds
+  // the reverse set.
+  const boards = listBoards(files)
+  const boardsByName = new Map<string, string>()
+  for (const path of boards) {
+    const name = boardStem(path).toLowerCase()
+    if (!boardsByName.has(name)) boardsByName.set(name, path)
+  }
+  const boardReferrers = new Map<string, string[]>()
+  for (const [path, page] of pages) {
+    for (const ref of page.boards) {
+      const boardPath = boardsByName.get(ref.target.toLowerCase())
+      if (boardPath === undefined) continue
+      const list = boardReferrers.get(boardPath)
+      if (list) list.push(path)
+      else boardReferrers.set(boardPath, [path])
+    }
+  }
+  return {
+    pages,
+    byName,
+    backlinks,
+    files,
+    assets: listAssets(files),
+    boards,
+    boardsByName,
+    boardReferrers,
+  }
 }

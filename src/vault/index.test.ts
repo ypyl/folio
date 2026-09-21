@@ -3,19 +3,27 @@ import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './fakeHandl
 import { FileSystemVaultStorage } from './fs'
 import {
   assetName,
+  boardName,
+  boardPathForName,
+  boardReferrers,
+  boardStem,
   buildIndex,
   hasHiddenSegment,
+  isBoardPath,
   isPagePath,
   journalDate,
   journalDayName,
   journalDayPath,
   kindOf,
   listAssets,
+  listBoards,
   orderPages,
   pageAssets,
   parsePins,
+  resolveBoardPath,
   resolveReferencePath,
   stem,
+  upsertBoard,
   upsertPage,
   upsertPins,
   type IndexPage,
@@ -356,6 +364,7 @@ describe('orderPages (sidebar list order, design D5)', () => {
     content: '',
     links: [],
     assets: [],
+    boards: [],
     lastModified,
   })
 
@@ -692,5 +701,77 @@ describe('journalDayName and resolveReferencePath (date-references-resolve-to-jo
     expect(resolveReferencePath('2026-9-6', new Map())).toBe('pages/2026-9-6.md')
     expect(resolveReferencePath('2026-13-45', new Map())).toBe('pages/2026-13-45.md')
     expect(resolveReferencePath('Missing', new Map())).toBe('pages/Missing.md')
+  })
+})
+
+describe('boards (add-whiteboards, design D1/D2/D9)', () => {
+  it('accepts .excalidraw files under boards/ only', () => {
+    expect(isBoardPath('boards/migration.excalidraw')).toBe(true)
+    expect(isBoardPath('boards/2026/q3.excalidraw')).toBe(true)
+    expect(isBoardPath('boards/MIGRATION.EXCALIDRAW')).toBe(true)
+    expect(isBoardPath('notes/migration.excalidraw')).toBe(false)
+    expect(isBoardPath('boards/notes.md')).toBe(false)
+    expect(isBoardPath('boards/.draft.excalidraw')).toBe(false)
+  })
+
+  it('lists boards path-ordered and ignores files outside boards/', () => {
+    expect(
+      listBoards(['boards/b.excalidraw', 'assets/a.excalidraw', 'boards/a.excalidraw']),
+    ).toEqual(['boards/a.excalidraw', 'boards/b.excalidraw'])
+  })
+
+  it('labels a board by its path inside boards/ and names it by its stem', () => {
+    expect(boardName('boards/2026/q3.excalidraw')).toBe('2026/q3.excalidraw')
+    expect(boardStem('boards/2026/q3.excalidraw')).toBe('q3')
+    expect(boardPathForName('Migration topology')).toBe('boards/Migration topology.excalidraw')
+  })
+
+  it('indexes boards, board references, and referrers', async () => {
+    const tree = buildTree({
+      pages: {
+        'Ideas.md': 'see #!Migration and #![[Migration topology]]',
+        'Log.md': '#!migration',
+        'Other.md': '#Migration and #[[Migration topology]]',
+      },
+      boards: { 'Migration.excalidraw': '{}', 'Migration topology.excalidraw': '{}' },
+    })
+    const index = await buildIndex(vault(tree))
+    const graph = index.graph
+
+    expect(graph.boards).toEqual([
+      'boards/Migration topology.excalidraw',
+      'boards/Migration.excalidraw',
+    ])
+    expect(graph.pages.get('pages/Ideas.md')!.boards).toEqual([
+      { target: 'Migration', via: 'word' },
+      { target: 'Migration topology', via: 'bracketed' },
+    ])
+    expect(graph.boardsByName.get('migration')).toBe('boards/Migration.excalidraw')
+    expect(boardReferrers(graph, 'boards/Migration.excalidraw')).toEqual([
+      'pages/Ideas.md',
+      'pages/Log.md',
+    ])
+    expect(boardReferrers(graph, 'boards/Migration topology.excalidraw')).toEqual([
+      'pages/Ideas.md',
+    ])
+    // A page reference never counts as a board reference.
+    expect(boardReferrers(graph, 'boards/Migration.excalidraw')).not.toContain('pages/Other.md')
+  })
+
+  it('resolves a token name to its board, or the path a new board would take', () => {
+    const byName = new Map([['migration', 'boards/Migration.excalidraw']])
+    expect(resolveBoardPath('migration', byName)).toBe('boards/Migration.excalidraw')
+    expect(resolveBoardPath('Architecture', byName)).toBe('boards/Architecture.excalidraw')
+  })
+
+  it('adds a saved board to the listing without a rescan', async () => {
+    const tree = buildTree({ pages: { 'Ideas.md': '#!Migration' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    expect(first.graph.boards).toEqual([])
+
+    const second = await upsertBoard(storage, first, 'boards/Migration.excalidraw', '{}')
+    expect(second.graph.boards).toEqual(['boards/Migration.excalidraw'])
+    expect(boardReferrers(second.graph, 'boards/Migration.excalidraw')).toEqual(['pages/Ideas.md'])
   })
 })

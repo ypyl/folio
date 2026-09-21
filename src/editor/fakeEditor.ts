@@ -5,6 +5,7 @@
 
 import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
 import { blockStartLines } from '../lineAnchors'
+import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
 
 export class FakeEditor implements EditorAdapter {
@@ -22,7 +23,8 @@ export class FakeEditor implements EditorAdapter {
    *  combination a click sent to the editor (apply-shortcuts-on-click). */
   readonly chords: string[] = []
   private listeners: ((markdown: string) => void)[] = []
-  private referenceListeners: ((target: string) => void)[] = []
+  private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
+  private boardLinkListeners: ((path: string) => void)[] = []
   /** Every attached vault reader, in order (open-vault-assets) — lets pane
    *  tests assert the pane wired one, and read a vault file as it would. */
   readonly assetReaders: ((path: string) => Promise<Blob>)[] = []
@@ -64,6 +66,7 @@ export class FakeEditor implements EditorAdapter {
     this.destructed = true
     this.listeners = []
     this.referenceListeners = []
+    this.boardLinkListeners = []
     this.suggestionSources = null
   }
 
@@ -97,8 +100,12 @@ export class FakeEditor implements EditorAdapter {
     this.listeners.push(listener)
   }
 
-  onReferenceClick(listener: (target: string) => void): void {
+  onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {
     this.referenceListeners.push(listener)
+  }
+
+  onBoardLink(listener: (path: string) => void): void {
+    this.boardLinkListeners.push(listener)
   }
 
   setAssetReader(reader: (path: string) => Promise<Blob>): void {
@@ -120,8 +127,13 @@ export class FakeEditor implements EditorAdapter {
   }
 
   /** Test hook: simulate activating a reference badge. */
-  emitReferenceClick(target: string): void {
-    for (const listener of this.referenceListeners) listener(target)
+  emitReferenceClick(target: string, kind: ReferenceKind = 'page'): void {
+    for (const listener of this.referenceListeners) listener(target, kind)
+  }
+
+  /** Test hook: simulate activating a link whose destination is a board file. */
+  emitBoardLink(path: string): void {
+    for (const listener of this.boardLinkListeners) listener(path)
   }
 
   /** Test hook: simulate a user edit producing `markdown`. */

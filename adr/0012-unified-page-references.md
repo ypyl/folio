@@ -22,3 +22,5 @@ There is **one namespace: pages**. Every reference targets a page regardless of 
 - Backlinks collect every reference form: a page's backlinks include all notes containing the page name, however written.
 - The index simplifies (ADR-0004): one `links` list, with the lexical form retained only for display.
 - Existing vaults using other conventions (including plain `[[Page]]` wikilinks) are read as Markdown text, but their conventions are not features.
+
+**Extended by ADR-0024** (2026-09-21): the namespace is no longer pages alone. A board reference is a second kind of reference, written in the same two lexical forms marked with a `!` (`#!word`, `#![[Board name]]`), and it resolves in the board namespace rather than the page one. The page rule above is unchanged; ADR-0024 records the second kind and why the `!` marker carries it.

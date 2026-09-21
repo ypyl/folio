@@ -36,7 +36,7 @@ function journalLabel(path: string): string {
  *  which is the page's title for a note and the path inside `assets/` for a file
  *  (search-assets-by-name, design D2), so an asset needs no label rule here. */
 export function rowLabel(result: {
-  kind: 'page' | 'journal' | 'asset'
+  kind: 'page' | 'journal' | 'board' | 'asset'
   title: string
   path: string
 }): string {

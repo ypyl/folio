@@ -71,9 +71,9 @@ The Folio brand (the mark and title in the header's top-left) SHALL act as a hom
 
 ### Requirement: Sidebar is an accordion of Journal, Pages, and Assets sections with a navigation control row
 
-The sidebar SHALL contain a navigation control row followed by exactly three collapsible sections — Journal, then Pages, then Assets — with no other sections, controls, or buttons between them. The control row SHALL hold the Back and Forward controls specified by page-history and a Today control, SHALL precede all three sections, and SHALL be a fixed band at the sidebar's top, so those controls remain in reach however long any listing grows. Every section's summary row SHALL be rendered in every app state — open or collapsed, and with or without a vault — and SHALL be all a collapsed section occupies. The Journal section SHALL size to its content and SHALL NOT scroll internally; the Pages and Assets sections SHALL share the sidebar's remaining height, each body scrolling within itself, and the Pages body SHALL keep a minimum height so a short window cannot collapse it to nothing. The Assets section's listing and behavior are specified by the vault-assets capability.
+The sidebar SHALL contain a navigation control row followed by exactly four collapsible sections — Journal, then Pages, then Boards, then Assets — with no other sections, controls, or buttons between them. The control row SHALL hold the Back and Forward controls specified by page-history and a Today control, SHALL precede all four sections, and SHALL be a fixed band at the sidebar's top, so those controls remain in reach however long any listing grows. Every section's summary row SHALL be rendered in every app state — open or collapsed, and with or without a vault — and SHALL be all a collapsed section occupies. The Journal section SHALL size to its content and SHALL NOT scroll internally; the Pages, Boards, and Assets sections SHALL share the sidebar's remaining height, each body scrolling within itself, and the Pages body SHALL keep a minimum height so a short window cannot collapse it to nothing. The Boards section's listing and behavior are specified by the whiteboards capability, and the Assets section's by the vault-assets capability.
 
-Activating Today SHALL open the current day's journal — `journals/YYYY-MM-DD.md` for the current local date — exactly as selecting a calendar day does: the file's content when it exists, otherwise a blank in-memory page that materializes on first save and creates nothing on open. Today SHALL be rendered in every app state, and SHALL be disabled while no vault is usable (no folder open, or the active folder's index still building), matching Back and Forward's treatment when they have nowhere to step. Today SHALL NOT be tied to the Journal section's open/closed state: collapsing Journal SHALL leave the control in the row. All three sections SHALL support independent open/close (one section's state does not affect the others) and expand/collapse without page reloads or JavaScript manipulation of document state. Journal and Pages SHALL be open by default; Assets SHALL be collapsed by default. There SHALL be no Tags section, no New Page button, and no History section.
+Activating Today SHALL open the current day's journal — `journals/YYYY-MM-DD.md` for the current local date — exactly as selecting a calendar day does: the file's content when it exists, otherwise a blank in-memory page that materializes on first save and creates nothing on open. Today SHALL be rendered in every app state, and SHALL be disabled while no vault is usable (no folder open, or the active folder's index still building), matching Back and Forward's treatment when they have nowhere to step. Today SHALL NOT be tied to the Journal section's open/closed state: collapsing Journal SHALL leave the control in the row. All four sections SHALL support independent open/close (one section's state does not affect the others) and expand/collapse without page reloads or JavaScript manipulation of document state. Journal and Pages SHALL be open by default; Boards and Assets SHALL be collapsed by default. There SHALL be no Tags section, no New Page button, and no History section.
 
 #### Scenario: Sections open and close independently
 
@@ -83,23 +83,23 @@ Activating Today SHALL open the current day's journal — `journals/YYYY-MM-DD.m
 #### Scenario: The Journal section leads the sections
 
 - **WHEN** the shell renders
-- **THEN** the sidebar's sections are Journal, then Pages, then Assets, with no section or control between them, and the navigation control row is the only element above Journal
+- **THEN** the sidebar's sections are Journal, then Pages, then Boards, then Assets, with no section or control between them, and the navigation control row is the only element above Journal
 
 #### Scenario: Every section summary is always rendered
 
-- **WHEN** the user collapses Pages and Assets
+- **WHEN** the user collapses Boards and Assets
 - **THEN** both summaries remain in the document in order, each occupying one row, with Journal above them
 
 #### Scenario: The controls stay in reach while the sidebar scrolls
 
 - **GIVEN** a vault whose page list is longer than the sidebar can show
 - **WHEN** the user scrolls the Pages listing to its end
-- **THEN** the Back, Forward, and Today controls remain visible at the sidebar's top, and the Pages and Assets summaries stay in place
+- **THEN** the Back, Forward, and Today controls remain visible at the sidebar's top, and the Pages, Boards, and Assets summaries stay in place
 
 #### Scenario: A collapsed section leaves the others their height
 
 - **WHEN** the user collapses the Assets section
-- **THEN** the Pages body expands to use the space the Assets body gave up
+- **THEN** the sections above it expand to use the space the Assets body gave up
 
 #### Scenario: Today is unavailable without a usable vault
 
@@ -117,7 +117,8 @@ Activating Today SHALL open the current day's journal — `journals/YYYY-MM-DD.m
 - **THEN** the sidebar holds no History section, and Back and Forward are the only presentation of the session trail
 
 ### Requirement: Meta panel is an accordion of page metadata
-The right meta panel SHALL contain the collapsible page-metadata sections Backlinks, Forwardlinks, and References, followed by the keyboard-shortcuts reference (the last-section requirement). Each section SHALL show placeholder copy while no page is open, and all three SHALL open and close independently. The three link sections SHALL share the panel's remaining height, each body scrolling within itself when its rows do not fit, and each SHALL keep a minimum height so a short window cannot collapse it to nothing; the panel itself SHALL scroll only as a fallback, when even those floors do not fit. Every section summary SHALL be rendered in every app state, and a collapsed section SHALL occupy exactly its summary row.
+
+The right meta panel SHALL contain the collapsible page-metadata sections Backlinks, Forwardlinks, and References, followed by the keyboard-shortcuts reference (the last-section requirement). Each section SHALL show placeholder copy while no page is open and no board is open; while a board is open it SHALL show the board's Referenced by section instead of the page-metadata sections (whiteboards capability). All three page section SHALL open and close independently. The three link sections SHALL share the panel's remaining height, each body scrolling within itself when its rows do not fit, and each SHALL keep a minimum height so a short window cannot collapse it to nothing; the panel itself SHALL scroll only as a fallback, when even those floors do not fit. Every section summary SHALL be rendered in every app state, and a collapsed section SHALL occupy exactly its summary row.
 
 When a page is open, each section SHALL list its rows instead of placeholder copy: Backlinks lists every page that references the open page, Forwardlinks lists every page the open page references, and References lists every asset the open page references (vault-assets capability), each alphabetically by row label. A section with no matching rows SHALL show empty-state copy. Backlinks and Forwardlinks SHALL be open by default; References SHALL be collapsed by default. Rows SHALL use the sidebar's row styling and `aria-current` marking for the open page; page rows that target a page with no file on disk SHALL be visually dimmed to signal the page is not yet created, and remain clickable. Asset rows SHALL NOT be dimmed, because a row exists only for a file the vault holds. Clicking a page row navigates and clicking an asset row opens the file (static-navigation and vault-assets requirements).
 
@@ -170,8 +171,13 @@ When a page is open, each section SHALL list its rows instead of placeholder cop
 - **THEN** it renders undimmed and opens the file when activated
 
 #### Scenario: Placeholders persist only before a page opens
-- **WHEN** no page is open
+- **WHEN** no page is open and no board is open
 - **THEN** all three sections show their placeholder copy
+
+#### Scenario: A board replaces the page sections with Referenced by
+- **GIVEN** a board is open
+- **WHEN** the user looks at the meta panel
+- **THEN** the panel shows the board's Referenced by section rather than the Backlinks, Forwardlinks, and References rows
 
 #### Scenario: A long section scrolls inside itself
 - **GIVEN** an open page with more backlinks than the panel can show
@@ -453,7 +459,8 @@ When a vault folder is open, the Journal section body SHALL render a month calen
 - **THEN** the Journal section shows no calendar grid
 
 ### Requirement: The shell shows an app-level status bar
-The shell SHALL render a thin status bar as a full-width row below the workspace, present in every app state — with a vault open, while the index builds, on search-results surfaces, and on the brand empty state. The bar SHALL hold the pin control in its leading column and three groups: the open page's file path as a breadcrumb (left, immediately after the leading column), a status group holding the save-state text and the indexing label (immediately after the breadcrumb), and the active vault's name and file count (right side). A group SHALL be empty when its content has no source: no page open leaves the path group empty; a page with nothing to report leaves the status group empty; no active folder leaves the vault group empty. The bar SHALL sit outside all pane scroll regions — its content never scrolls, and the panes scroll independently beneath it — and SHALL use Kami tokens (stone 12px text, hairline top border, flat surfaces). The bar SHALL hold no action other than the pin control: it opens no picker, switches no folder, re-grants no permission, and navigates nowhere.
+
+The shell SHALL render a thin status bar as a full-width row below the workspace, present in every app state — with a vault open, while the index builds, on search-results surfaces, on an open board, and on the brand empty state. The bar SHALL hold the pin control in its leading column and three groups: the open document's file path as a breadcrumb (left, immediately after the leading column) — a page's, a journal day's, or a board's — a status group holding the save-state text and the indexing label (immediately after the breadcrumb), and the active vault's name and file count (right side). A group SHALL be empty when its content has no source: no page and no board open leaves the path group empty; a page or board with nothing to report leaves the status group empty; no active folder leaves the vault group empty. The bar SHALL sit outside all pane scroll regions — its content never scrolls, and the panes scroll independently beneath it — and SHALL use Kami tokens (stone 12px text, hairline top border, flat surfaces). The bar SHALL hold no action other than the pin control: it opens no picker, switches no folder, re-grants no permission, and navigates nowhere.
 
 #### Scenario: The bar frames every app state
 - **GIVEN** the app on the brand empty state with no vault open
@@ -463,6 +470,10 @@ The shell SHALL render a thin status bar as a full-width row below the workspace
 #### Scenario: An open page fills the path group
 - **WHEN** the user opens a page
 - **THEN** the status bar's path group shows the page's file-path breadcrumb
+
+#### Scenario: An open board fills the path group
+- **WHEN** the user opens a board
+- **THEN** the status bar's path group shows the board's file-path breadcrumb and the status group reflects the board's save state
 
 #### Scenario: The indexing label shows in the bar
 - **WHEN** the active folder's index is building

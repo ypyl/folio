@@ -27,14 +27,15 @@ import {
 import type { Step } from '@milkdown/prose/transform'
 import type { EditorView } from '@milkdown/prose/view'
 import { Decoration, DecorationSet } from '@milkdown/prose/view'
-import { findReferenceRanges } from '../vault/parse'
-import { openVaultTarget, vaultTarget, type AssetReader } from '../vault/assetOpen'
+import { findReferenceRanges, type ReferenceKind } from '../vault/parse'
+import { isBoardTarget, openVaultTarget, vaultTarget, type AssetReader } from '../vault/assetOpen'
 
-/** One reference token's document positions and its page-name target. */
+/** One reference token's document positions, its target, and its namespace. */
 export type ReferenceRef = {
   from: number
   to: number
   target: string
+  kind: ReferenceKind
 }
 
 /** A range of whole top-level blocks (design D1). */
@@ -139,8 +140,12 @@ export function scanInline(doc: ProseNode, range?: BlockRange): ScanResult {
     for (const found of findReferenceRanges(node.text)) {
       const from = pos + found.from
       const to = pos + found.to
-      refs.push({ from, to, target: found.target })
-      marks.push(Decoration.inline(from, to, { class: 'ref' }))
+      refs.push({ from, to, target: found.target, kind: found.kind })
+      marks.push(
+        Decoration.inline(from, to, {
+          class: found.kind === 'board' ? 'ref ref-board' : 'ref',
+        }),
+      )
     }
     for (const found of node.text.matchAll(STRUCK_RUN)) {
       const from = pos + found.index
@@ -267,6 +272,7 @@ function rescan(
       from: tr.mapping.map(ref.from, -1),
       to: tr.mapping.map(ref.to, 1),
       target: ref.target,
+      kind: ref.kind,
     }))
     .filter((ref) => !ranges.some((range) => overlapping(ref, range)))
   for (const range of ranges) {
@@ -291,8 +297,12 @@ function isOpenChord(event: KeyboardEvent): boolean {
 }
 
 type ReferencePluginOptions = {
-  /** Called with the target when a badge is clicked or Mod+Enter is pressed. */
-  onActivate?: (target: string) => void
+  /** Called with the target name and its namespace when a badge is clicked or
+   *  Mod+Enter is pressed. */
+  onActivate?: (target: string, kind: ReferenceKind) => void
+  /** Called with a vault path when a link to a board file is activated; the
+   *  extension decides the view (add-whiteboards). */
+  onOpenBoard?: (path: string) => void
   /** Reads a vault file's bytes for a vault-relative link; absent when there is
    *  no vault behind the page, in which case the gesture opens nothing
    *  (open-vault-assets). Read at activation time, never on the keystroke path. */
@@ -334,7 +344,7 @@ export function createInlineDecorationPlugin(
         if (!onBadge) return false
         const ref = referenceAt(referenceKey.getState(view.state)?.refs ?? [], pos)
         if (!ref) return false
-        options.onActivate?.(ref.target)
+        options.onActivate?.(ref.target, ref.kind)
         return true
       },
       handleDOMEvents: {
@@ -361,6 +371,11 @@ export function createInlineDecorationPlugin(
           // browser shows and as a download for the rest (open-vault-assets).
           // Neither touches the document or the file on disk.
           event.preventDefault()
+          const boardPath = vaultTarget(href)
+          if (boardPath !== null && isBoardTarget(boardPath) && options.onOpenBoard) {
+            options.onOpenBoard(boardPath)
+            return true
+          }
           if (vaultTarget(href) !== null) {
             const read = options.readAsset
             // No vault behind the page: nothing to open. The default is stopped
@@ -379,7 +394,7 @@ export function createInlineDecorationPlugin(
           view.state.selection.from,
         )
         if (!ref) return false
-        options.onActivate?.(ref.target)
+        options.onActivate?.(ref.target, ref.kind)
         return true
       },
     },
@@ -388,6 +403,10 @@ export function createInlineDecorationPlugin(
 
 /** Milkdown wrapper for the adapter (design D7): both callbacks read through
  *  getters so they can be attached after mount. */
-export function inlineDecorations(onActivate: (target: string) => void, readAsset?: AssetReader) {
-  return $prose(() => createInlineDecorationPlugin({ onActivate, readAsset }))
+export function inlineDecorations(
+  onActivate: (target: string, kind: ReferenceKind) => void,
+  readAsset?: AssetReader,
+  onOpenBoard?: (path: string) => void,
+) {
+  return $prose(() => createInlineDecorationPlugin({ onActivate, readAsset, onOpenBoard }))
 }

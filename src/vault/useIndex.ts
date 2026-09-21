@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import { buildIndex, upsertPage, upsertPins, type Graph, type VaultIndex } from './index'
+import {
+  buildIndex,
+  upsertBoard,
+  upsertPage,
+  upsertPins,
+  type Graph,
+  type VaultIndex,
+} from './index'
 import type { VaultStorage } from './storage'
 
 // Binds the active folder's storage to its in-memory graph (design D6).
@@ -20,6 +27,7 @@ export function useIndex(storage: VaultStorage | undefined): {
   graph: Graph | null
   pins: string[]
   savePage: (path: string, content: string) => Promise<boolean>
+  saveBoard: (path: string, scene: string) => Promise<boolean>
   togglePin: (path: string) => Promise<boolean>
 } {
   // The build result is tagged with the storage it came from and only shown
@@ -96,9 +104,10 @@ export function useIndex(storage: VaultStorage | undefined): {
   // only after the write resolves, a failure reports false so the caller keeps
   // the page dirty and shows it.
   const savePage = useWriteThrough(upsertPage, storage, latest, generation, setBuilt)
+  const saveBoard = useWriteThrough(upsertBoard, storage, latest, generation, setBuilt)
   const togglePin = useWriteThrough(togglePins, storage, latest, generation, setBuilt)
 
-  return { graph, pins, savePage, togglePin }
+  return { graph, pins, savePage, saveBoard, togglePin }
 }
 
 /**

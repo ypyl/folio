@@ -10,6 +10,16 @@ export type Link = {
   via: 'word' | 'bracketed' // lexical form, display only (ADR-0012)
 }
 
+/** A board reference in page content (add-whiteboards, ADR-0012 amendment):
+ *  the same two lexical forms as a page reference, marked with `!`. */
+export type BoardRef = {
+  target: string // board name, exactly as referenced (trimmed)
+  via: 'word' | 'bracketed'
+}
+
+/** Which namespace a reference token names (add-whiteboards, design D2). */
+export type ReferenceKind = 'page' | 'board'
+
 /** A reference token's source range in a string, plus its target (badge
  *  rendering). `from`/`to` are string offsets: the editor shifts them by the
  *  text node's document position. */
@@ -17,15 +27,20 @@ type ReferenceRange = {
   from: number
   to: number
   target: string
+  kind: ReferenceKind
 }
 
-// One reference token covers both forms. The lookbehind keeps '#tag' inside
-// 'word#tag' (URL fragments etc.) from being read as a reference; the
-// lookahead keeps other tools' '#tag/word' conventions out (ADR-0012). The
-// `\\?` tolerates the commonmark escape the editor's serializer applies to
-// `[[` on save (`#\[[Page]]`), so an editor-authored reference tokenizes
-// exactly as it lies on disk (design D6).
-const REF = /(?<![\w])#\\?\[\\?\[([^\]]+)\]\]|(?<![\w])#([\w-]+)(?![\w/-])/g
+// One reference token covers all four forms: the page forms (`#word`,
+// `#[[Page]]`) and the board forms (`#!word`, `#![[Board name]]`). The
+// lookbehind keeps '#tag' inside 'word#tag' (URL fragments etc.) from being
+// read as a reference; the lookahead keeps other tools' '#tag/word'
+// conventions out (ADR-0012). The `\\?` tolerates the commonmark escape the
+// editor's serializer applies to `[[` on save (`#\[[Page]]`), so an
+// editor-authored reference tokenizes exactly as it lies on disk (design D6).
+// The board alternatives sit first; `!` is not a page-name character, so the
+// page forms can never claim them.
+const REF =
+  /(?<![\w])#!\\?\[\\?\[([^\]]+)\]\]|(?<![\w])#!([\w-]+)(?![\w/-])|(?<![\w])#\\?\[\\?\[([^\]]+)\]\]|(?<![\w])#([\w-]+)(?![\w/-])/g
 
 /**
  * Every reference token in `content` with its source range, in order of
@@ -35,14 +50,49 @@ const REF = /(?<![\w])#\\?\[\\?\[([^\]]+)\]\]|(?<![\w])#([\w-]+)(?![\w/-])/g
  */
 export function findReferenceRanges(content: string): ReferenceRange[] {
   const ranges: ReferenceRange[] = []
-  for (const match of content.matchAll(REF)) {
-    const from = match.index ?? 0
-    const bracketed = match[1]
-    const target = (bracketed ?? match[2]).trim()
-    if (target === '') continue
-    ranges.push({ from, to: from + match[0].length, target })
+  for (const ref of matchRefs(content)) {
+    ranges.push({ from: ref.from, to: ref.to, target: ref.target, kind: ref.kind })
   }
   return ranges
+}
+
+/** One reference token, its source range, its kind, and its lexical form: the
+ *  shared read of `REF`, so the badge pass and the two index extractors cannot
+ *  disagree about what is a token. */
+type RefMatch = ReferenceRange & { via: 'word' | 'bracketed' }
+
+function* matchRefs(content: string): Generator<RefMatch> {
+  for (const match of content.matchAll(REF)) {
+    const from = match.index ?? 0
+    const board = match[1] !== undefined || match[2] !== undefined
+    const bracketed = match[1] ?? match[3]
+    const target = (bracketed ?? match[2] ?? match[4]).trim()
+    if (target === '') continue
+    yield {
+      from,
+      to: from + match[0].length,
+      target,
+      kind: board ? 'board' : 'page',
+      via: bracketed !== undefined ? 'bracketed' : 'word',
+    }
+  }
+}
+
+/** Extract every board reference in `content`, in order of appearance.
+ *  Repeated references to the same board collapse to the first occurrence, the
+ *  same rule `parseLinks` applies to pages. `#!migration` and `#![[Migration]]`
+ *  are the same board, unlike the page forms' two spellings of one name. */
+export function parseBoardRefs(content: string): BoardRef[] {
+  const refs: BoardRef[] = []
+  const seen = new Set<string>()
+  for (const ref of matchRefs(content)) {
+    if (ref.kind !== 'board') continue
+    const key = ref.target.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    refs.push({ target: ref.target, via: ref.via })
+  }
+  return refs
 }
 
 // Word form: what `REF` accepts between '#' and the caret. A name is only
@@ -96,6 +146,39 @@ export function referenceTrigger(before: string, after: string): ReferenceTrigge
   if (rest === '' || !WORD_FORM.test(rest)) return null
   if (WORD_TAIL.test(after[0] ?? '')) return null
   return { kind: 'word', text, query: rest }
+}
+
+/** The board-reference token being typed at the caret (`#!` / `#![[`): the
+ *  page trigger with the board sigil (add-whiteboards, design D2). */
+export type BoardTrigger = {
+  board: true
+  kind: 'word' | 'bracketed'
+  /** Raw token text from `#!` through the caret: `#!Mig`, `#![[Mig`. */
+  text: string
+  /** The typed name fragment: `Mig`. Never empty. */
+  query: string
+}
+
+/**
+ * Detect an in-progress board-reference token ending at the caret. The same
+ * guards as `referenceTrigger`: no empty query, no interior `]`, no closing
+ * bracket after the caret, and no word character extending the token. Tried
+ * before the page trigger, since `#!` is not a page form at all.
+ */
+export function boardReferenceTrigger(before: string, after: string): BoardTrigger | null {
+  const bang = before.lastIndexOf('#!')
+  if (bang === -1) return null
+  if (bang > 0 && /\w/.test(before[bang - 1])) return null
+  const text = before.slice(bang)
+  const rest = before.slice(bang + 2)
+  if (rest.startsWith('[[')) {
+    const query = rest.slice(2)
+    if (query === '' || query.includes(']') || CLOSING_BRACKET.test(after)) return null
+    return { board: true, kind: 'bracketed', text, query }
+  }
+  if (rest === '' || !WORD_FORM.test(rest)) return null
+  if (WORD_TAIL.test(after[0] ?? '')) return null
+  return { board: true, kind: 'word', text, query: rest }
 }
 
 /**
@@ -165,6 +248,24 @@ export function referenceToken(name: string, form: 'word' | 'bracketed'): string
   return form === 'word' && WORD_NAME.test(name) ? `#${name}` : `#[[${name}]]`
 }
 
+/** The board-reference token for `name` (add-whiteboards, design D2): the page
+ *  token with a `!`, so `#!word` / `#![[Many Words]]`. */
+export function boardToken(name: string, form: 'word' | 'bracketed'): string {
+  return form === 'word' && WORD_NAME.test(name) ? `#!${name}` : `#![[${name}]]`
+}
+
+/**
+ * Whether `name` can be written as a board token that reads back as that exact
+ * name. The board rule is the page rule (`isReferenceable`): a name containing
+ * `]` has no token form, and surrounding whitespace is trimmed by parsing, so
+ * both would resolve to something else.
+ */
+export function isBoardReferenceable(name: string): boolean {
+  return findReferenceRanges(boardToken(name, 'word')).some(
+    (range) => range.kind === 'board' && range.target === name,
+  )
+}
+
 /**
  * Whether `name` can be written as a reference token that reads back as that
  * exact name (add-reference-autocomplete D3, drag-references-into-editor).
@@ -186,14 +287,12 @@ export function isReferenceable(name: string): boolean {
 export function parseLinks(content: string): Link[] {
   const links: Link[] = []
   const seen = new Set<string>()
-  for (const match of content.matchAll(REF)) {
-    const bracketed = match[1]
-    const target = (bracketed ?? match[2]).trim()
-    if (target === '') continue
-    const key = target.toLowerCase()
+  for (const ref of matchRefs(content)) {
+    if (ref.kind !== 'page') continue
+    const key = ref.target.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    links.push({ target, via: bracketed !== undefined ? 'bracketed' : 'word' })
+    links.push({ target: ref.target, via: ref.via })
   }
   return links
 }

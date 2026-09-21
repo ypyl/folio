@@ -5,13 +5,14 @@
 
 import type Fuse from 'fuse.js'
 import { type IFuseOptions } from 'fuse.js'
-import { assetName } from '../vault/index'
+import { assetName, boardName } from '../vault/index'
 import { blockStartLines } from '../lineAnchors'
 
-/** What a result can name (search-assets-by-name): a page, a journal day, or a
- *  file under `assets/`. The surfaces group by this, so a new kind earns its
- *  own header and its own per-group cap without either surface knowing about it. */
-export type SearchKind = 'page' | 'journal' | 'asset'
+/** What a result can name (search-assets-by-name, add-whiteboards): a page, a
+ *  journal day, a board under `boards/`, or a file under `assets/`. The
+ *  surfaces group by this, so a new kind earns its own header and its own
+ *  per-group cap without either surface knowing about it. */
+export type SearchKind = 'page' | 'journal' | 'board' | 'asset'
 
 export type SearchDoc = {
   path: string
@@ -27,6 +28,14 @@ export type SearchDoc = {
  *  needs no branch of its own. */
 export function assetSearchDoc(path: string): SearchDoc {
   return { path, title: assetName(path), kind: 'asset', text: '' }
+}
+
+/** One search document for a board (add-whiteboards, design D9): the label is
+ *  the path inside `boards/`, the rule the sidebar uses, and `text` is empty
+ *  because the app never reads a board's scene for search. Title-only, exactly
+ *  like an asset. */
+export function boardSearchDoc(path: string): SearchDoc {
+  return { path, title: boardName(path), kind: 'board', text: '' }
 }
 
 /** Per-group launcher cap (search-results-view): the dropdown stays a bounded

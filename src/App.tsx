@@ -9,32 +9,38 @@ import { SearchBox } from './components/SearchBox'
 import { SearchResultsView } from './components/SearchResultsView'
 import { StatusBar } from './components/StatusBar'
 import { DraftStore } from './editor/drafts'
+import { BoardView } from './editor/boardView'
 import { chordToKeyEventInit } from './editor/chord'
 import { createDebouncedSaver } from './editor/saver'
 import { copyDroppedFiles } from './vault/assets'
-import { openVaultPath } from './vault/assetOpen'
+import { isBoardTarget, openVaultPath } from './vault/assetOpen'
+import type { ReferenceKind } from './vault/parse'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import { canOpenFolders } from './vault/fs'
 import {
   assetName,
+  boardReferrers,
   kindOf,
   localDayString,
   orderPages,
   pageAssets,
+  resolveBoardPath,
   resolveReferencePath,
   stem,
   type IndexPage,
 } from './vault/index'
 import {
+  boardCandidates,
   candidateNames,
   fileCandidates,
+  suggestBoards,
   suggestFiles,
   suggestPages,
   type Suggestion,
 } from './vault/suggest'
-import { assetSearchDoc, type SearchResult } from './search/core'
+import { assetSearchDoc, boardSearchDoc, type SearchResult } from './search/core'
 
 const SAVE_DELAY_MS = 1000
 
@@ -43,6 +49,9 @@ const SAVE_DELAY_MS = 1000
  *  while the index builds. */
 const EMPTY_ASSETS: string[] = []
 
+/** One shared empty boards list, for the same reason as `EMPTY_ASSETS`. */
+const EMPTY_BOARDS: string[] = []
+
 function App() {
   const { status, folders, activeId, addFolder, activate, closeFolder, goHome } = useVault()
   // Browser capability (warn-unsupported-browser): probed once per render and
@@ -50,7 +59,7 @@ function App() {
   // and the brand screen states the requirement where it does not.
   const canOpen = canOpenFolders()
   const activeFolder = folders.find((f) => f.id === activeId)
-  const { graph, savePage, pins, togglePin } = useIndex(activeFolder?.storage)
+  const { graph, savePage, saveBoard, pins, togglePin } = useIndex(activeFolder?.storage)
   const [activePath, setActivePath] = useState<string | null>(null)
   // Session trail of the pages opened so far, plus the cursor marking the open
   // one (add-history-navigation). In memory only, and cleared when the active
@@ -61,7 +70,7 @@ function App() {
   // Pane mode (search-results-view): the main slot hosts either a page (the
   // editor) or the transient full-results view. ActivePath is untouched in
   // results mode, so closing it returns to the previously open page.
-  const [mode, setMode] = useState<'page' | 'results'>('page')
+  const [mode, setMode] = useState<'page' | 'results' | 'board'>('page')
   // Mirror of the latest landed search run (search-results-view): SearchBox
   // owns the Fuse and the debounce, and reports the uncapped result set up;
   // this feeds the results pane and stays current for the see-all handoff.
@@ -92,6 +101,13 @@ function App() {
   const [drafts] = useState(() => new DraftStore())
   const [, setDraftVersion] = useState(0)
   const saverRef = useRef<ReturnType<typeof createDebouncedSaver> | null>(null)
+  // Board saves (add-whiteboards, design D7): a second debounced writer for the
+  // open board's scene. The board's text is read on open into `boardScene`, and
+  // the save state feeds the status bar. Kept apart from the page drafts, which
+  // are text and carry a compare-skip the scene does not need.
+  const boardSaverRef = useRef<ReturnType<typeof createDebouncedSaver> | null>(null)
+  const [boardScene, setBoardScene] = useState<string | null>(null)
+  const [boardSaveState, setBoardSaveState] = useState<'clean' | 'saving' | 'failed'>('clean')
   // The editor, reached through its one-method handle so the reference's rows
   // can apply a key combination (apply-shortcuts-on-click, design D8).
   const editorRef = useRef<EditorPaneHandle | null>(null)
@@ -128,25 +144,76 @@ function App() {
     [graph, drafts],
   )
 
-  // Back and Forward move the cursor and open the page it then marks; they
+  // Opening a board (add-whiteboards, design D5): the main pane switches to the
+  // board editor and the board's text is read once into `boardScene`. The path
+  // is the open thing's identity, exactly as a page path is, so the trail
+  // records it and Back/Forward reopen it (page-history). A board with no file
+  // yet opens blank; its file is written by the first save (design D3).
+  const handleOpenBoard = useCallback(
+    (path: string) => {
+      setMode('board')
+      lastKnown.current = null
+      setActivePath(path)
+      setBoardSaveState('clean')
+      setBoardScene(null)
+      const store = activeFolder?.storage
+      if (!store) {
+        setBoardScene('')
+        return
+      }
+      void store
+        .read(path)
+        .then((text) => setBoardScene(text))
+        .catch(() => setBoardScene(''))
+    },
+    [activeFolder],
+  )
+
+  // A board reference badge names a board; resolve the name in the board
+  // namespace (never the page one) to the path it names, or the path it would
+  // create (add-whiteboards, design D2/D3).
+  const handleOpenBoardName = useCallback(
+    (name: string) => {
+      if (!graph) return
+      handleOpenBoard(resolveBoardPath(name, graph.boardsByName))
+    },
+    [graph, handleOpenBoard],
+  )
+
+  // A trail entry is a page path or a board path; the extension decides which
+  // (add-whiteboards: the extension decides the view).
+  const handleOpenPath = useCallback(
+    (path: string) => {
+      if (isBoardTarget(path)) handleOpenBoard(path)
+      else handleSelect(path)
+    },
+    [handleSelect, handleOpenBoard],
+  )
+
+  // Back and Forward move the cursor and open the page or board it then marks;
+  // they
   // never add an entry (add-history-navigation, D2). Both are stable across
   // keystrokes - they depend on the trail and the select handler, and neither
   // changes while typing - which keeps the memoized Sidebar memoized.
   const handleBack = useCallback(() => {
     const next = stepTrail(trail, -1)
     if (next === trail) return
+    const path = trailPath(next)
+    if (path === null) return
     stepped.current = true
     setTrail(next)
-    handleSelect(trailPath(next) as string)
-  }, [trail, handleSelect])
+    handleOpenPath(path)
+  }, [trail, handleOpenPath])
 
   const handleForward = useCallback(() => {
     const next = stepTrail(trail, 1)
     if (next === trail) return
+    const path = trailPath(next)
+    if (path === null) return
     stepped.current = true
     setTrail(next)
-    handleSelect(trailPath(next) as string)
-  }, [trail, handleSelect])
+    handleOpenPath(path)
+  }, [trail, handleOpenPath])
 
   // Today (move-today-into-nav-controls): the current day's journal is just
   // another page to open, so it goes through handleSelect and inherits the
@@ -164,7 +231,11 @@ function App() {
   // under `pages/` that materializes on first save — skip a link back to the
   // open page, and route through handleSelect. Resolution stays here, never in
   // the editor (ADR-0010).
-  const handleOpenReference = (target: string) => {
+  const handleOpenReference = (target: string, kind: ReferenceKind) => {
+    if (kind === 'board') {
+      handleOpenBoardName(target)
+      return
+    }
     if (!graph) return
     const path = resolveReferencePath(target, graph.byName)
     if (path === activePath) return
@@ -290,6 +361,7 @@ function App() {
   // to the real page above. No separate pending-set bookkeeping to leak.
   const pendingBlank: IndexPage | null =
     activePath !== null &&
+    !isBoardTarget(activePath) &&
     graph !== null &&
     !graph.pages.has(activePath) &&
     openDraft !== undefined &&
@@ -301,6 +373,7 @@ function App() {
           content: '',
           links: [],
           assets: [],
+          boards: [],
           lastModified: 0,
         }
       : null
@@ -325,6 +398,15 @@ function App() {
       saverRef.current?.schedule(activePath, markdown)
     }
     setDraftVersion((v) => v + 1)
+  }
+
+  // A board's element change (add-whiteboards, design D7): schedule the scene
+  // for the debounced board writer. Panning never reaches here (the board view
+  // filters camera-only changes), so this runs once per real edit.
+  const handleBoardEdit = (scene: string) => {
+    if (activePath === null) return
+    setBoardSaveState('saving')
+    boardSaverRef.current?.schedule(activePath, scene)
   }
 
   // Clear drafts and rebuild the saver whenever the active storage changes
@@ -353,6 +435,23 @@ function App() {
     }
   }, [activeFolder?.storage, drafts, savePage])
 
+  // Board writer (add-whiteboards, design D7): the same debounced-saver shape
+  // as the page writer, over the active folder's storage. Rebuilt per folder,
+  // disposed on unmount.
+  useEffect(() => {
+    boardSaverRef.current?.dispose()
+    const saver = createDebouncedSaver(async (path, scene) => {
+      const ok = await saveBoard(path, scene)
+      setBoardSaveState(ok ? 'clean' : 'failed')
+      return ok
+    }, SAVE_DELAY_MS)
+    boardSaverRef.current = saver
+    return () => {
+      saver.dispose()
+      boardSaverRef.current = null
+    }
+  }, [activeFolder?.storage, saveBoard])
+
   // The open page's draft feeds the editor's initial content (existing draft
   // wins) and the indicator (dirty/saving/failed, else clean). `page` is
   // `displayed ?? pendingBlank` (set above): a real graph page, a vanished
@@ -379,6 +478,20 @@ function App() {
         : [],
     [graph, page],
   )
+  // The pages that reference the open board (add-whiteboards: Referenced by),
+  // built from the index's reverse map. Same row shape as the page rows above,
+  // and recomputed only when the graph or the open board changes.
+  const boardReferrerRows = useMemo<LinkRow[]>(
+    () =>
+      graph && activePath !== null && mode === 'board'
+        ? boardReferrers(graph, activePath).map((path) => {
+            const p = graph.pages.get(path)
+            return { title: p ? p.title : path, path, materialized: p !== undefined }
+          })
+        : [],
+    [graph, activePath, mode],
+  )
+
   const forwardlinkRows = useMemo<LinkRow[]>(
     () =>
       graph && page
@@ -423,6 +536,10 @@ function App() {
   // array through, so the memoized sidebar sees a new one only on a scan.
   const assets = graph ? graph.assets : EMPTY_ASSETS
 
+  // The vault's boards, path-ordered (add-whiteboards): the index's own array,
+  // so the memoized sidebar sees a new one only on a scan.
+  const boards = graph ? graph.boards : EMPTY_BOARDS
+
   // Ordered pages for the sidebar (add-pinned-pages, design D5): pinned
   // first in pin order, then the rest by last-modified descending — the
   // pages array was previously order-unspecified (alphabetical by accident).
@@ -463,6 +580,7 @@ function App() {
               text: page.content,
             })),
             ...graph.assets.map(assetSearchDoc),
+            ...graph.boards.map(boardSearchDoc),
           ]
         : [],
     [graph],
@@ -491,6 +609,16 @@ function App() {
     [filePool],
   )
 
+  // Board-completion pool (add-whiteboards, design D2): one row per resolvable
+  // board name, built once per graph, exactly like the page and file pools.
+  const boardPool = useMemo(() => (graph ? boardCandidates(graph) : []), [graph])
+  const suggestBoardRows = useMemo(
+    () =>
+      (query: string): Suggestion[] =>
+        suggestBoards(query, boardPool),
+    [boardPool],
+  )
+
   return (
     <div className="app-shell">
       <Header
@@ -507,6 +635,7 @@ function App() {
             disabled={graph === null}
             onSelect={handleSelect}
             onOpenAsset={handleOpenAsset}
+            onOpenBoard={handleOpenBoard}
             onQueryResult={handleQueryResult}
             onSeeAll={handleOpenResults}
           />
@@ -534,9 +663,11 @@ function App() {
           pages={pages}
           journalEntries={journalEntries}
           assets={assets}
+          boards={boards}
           activePath={activePath}
           onSelect={handleSelect}
           onOpenAsset={handleOpenAsset}
+          onOpenBoard={handleOpenBoard}
           pinnedPaths={pins}
           hasVault={graph !== null}
           loading={indexing}
@@ -555,8 +686,23 @@ function App() {
             results={searchResults}
             onOpen={handleSelect}
             onOpenAsset={handleOpenAsset}
+            onOpenBoard={handleOpenBoard}
             onClose={() => setMode('page')}
           />
+        ) : mode === 'board' ? (
+          // A board opens in the main pane (add-whiteboards, design D5). The
+          // scene is read on open; until it lands, the pane shows an empty
+          // board-shaped placeholder rather than the editor's notes hint.
+          boardScene === null ? (
+            <div className="board-placeholder" aria-busy="true" />
+          ) : (
+            <BoardView
+              // Keyed by path: switching boards remounts rather than mutating.
+              key={activePath ?? 'board'}
+              initialScene={boardScene}
+              onChange={handleBoardEdit}
+            />
+          )
         ) : (
           <EditorPane
             // Keyed by path: each page gets a fresh editor seeded with its
@@ -567,7 +713,9 @@ function App() {
             initialContent={initialContent}
             onChange={handleEdit}
             onOpenReference={handleOpenReference}
+            onBoardLink={handleOpenBoard}
             suggest={suggest}
+            suggestBoards={suggestBoardRows}
             suggestFiles={suggestFileRows}
             onAttachFiles={
               activeFolder?.storage
@@ -595,16 +743,18 @@ function App() {
           />
         )}
         <MetaPanel
-          // The meta panel is page metadata: empty while the results view
-          // is open (search-results-view design D7). Both `page` reads below
-          // derive from the last-known ref (the same quirk the StatusBar props
-          // suppress).
+          // The meta panel is page metadata in page mode; in board mode it
+          // shows the board's referrers instead (add-whiteboards). Both `page`
+          // reads below derive from the last-known ref (the same quirk the
+          // StatusBar props suppress).
           /* oxlint-disable react/refs */
           pageOpen={mode === 'page' && page !== null}
           backlinks={mode === 'page' ? backlinkRows : []}
           forwardlinks={mode === 'page' ? forwardlinkRows : []}
           references={mode === 'page' ? referenceRows : []}
           activePath={mode === 'page' ? activePath : null}
+          boardOpen={mode === 'board'}
+          boardReferrers={boardReferrerRows}
           onSelect={handleSelect}
           onOpenAsset={handleOpenAsset}
           loading={indexing}
@@ -613,8 +763,8 @@ function App() {
         />
       </div>
       <StatusBar
-        pagePath={page?.path ?? null}
-        saveState={saveState}
+        pagePath={activePath}
+        saveState={mode === 'board' ? boardSaveState : saveState}
         newPage={newPage}
         indexing={indexing}
         // The active vault's name and live index-based file count; falls

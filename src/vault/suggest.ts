@@ -3,7 +3,7 @@
 // pool is the index's own resolution map, so the picker cannot offer a name the
 // app would resolve differently, and it is rebuilt only when the graph changes.
 
-import { assetName, isPagePath, orderPages, type Graph, type IndexPage } from './index'
+import { assetName, boardStem, isPagePath, orderPages, type Graph, type IndexPage } from './index'
 import { isImagePath } from './link'
 import { isReferenceable } from './parse'
 
@@ -123,6 +123,30 @@ export function suggestFiles(
   limit = SUGGESTION_LIMIT,
 ): Suggestion[] {
   return rank(query, pool, limit, onlyImages)
+}
+
+/**
+ * The board picker's candidate pool (add-whiteboards, design D2): one row per
+ * resolvable board name, labelled — and inserted — by its filename stem, the
+ * text a `#!` token carries. Built once per graph, never per keystroke.
+ */
+export function boardCandidates(graph: Graph): PageCandidate[] {
+  const rows: PageCandidate[] = []
+  for (const path of graph.boardsByName.values()) {
+    const name = boardStem(path)
+    const lower = name.toLowerCase()
+    rows.push({ name, path, lower, starts: wordStarts(lower) })
+  }
+  return rows
+}
+
+/** Rank the vault's boards for a `#!` reference being typed. */
+export function suggestBoards(
+  query: string,
+  pool: PageCandidate[],
+  limit = SUGGESTION_LIMIT,
+): Suggestion[] {
+  return rank(query, pool, limit, false)
 }
 
 function rank(

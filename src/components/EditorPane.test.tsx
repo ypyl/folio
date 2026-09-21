@@ -91,7 +91,7 @@ describe('EditorPane', () => {
     await act(async () => {
       fake().emitReferenceClick('Inbox')
     })
-    expect(onOpenReference).toHaveBeenCalledWith('Inbox')
+    expect(onOpenReference).toHaveBeenCalledWith('Inbox', 'page')
   })
 
   // The adapter mounts once, so the pane hands the source over through a ref and

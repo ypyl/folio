@@ -3,6 +3,7 @@
 // the VaultStorage/fakeHandle asymmetry: logic is tested against a fake, the
 // real transport gets a thin smoke test.
 
+import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
 
 /** The app's completion sources (add-reference-autocomplete,
@@ -11,6 +12,9 @@ import type { Suggestion } from '../vault/suggest'
  *  source bound to the live vault index stays current without re-registering. */
 export type SuggestionSources = {
   pages: (query: string) => Suggestion[]
+  /** Board-name candidates for a `#!` reference being typed (add-whiteboards).
+   *  Absent means no board suggestions. */
+  boards?: (query: string) => Suggestion[]
   /** `onlyImages` is the narrowing an image's destination asks for: a file the
    *  browser cannot render as an image is never offered for `![](`. */
   files: (query: string, onlyImages: boolean) => Suggestion[]
@@ -37,8 +41,13 @@ export interface EditorAdapter {
   /** Subscribe to document changes; the callback receives serialized Markdown. */
   onChange(listener: (markdown: string) => void): void
   /** Subscribe to reference activation (badge click or Mod+Enter); the callback
-   *  receives the target page name, never a resolved path (ADR-0010). */
-  onReferenceClick(listener: (target: string) => void): void
+   *  receives the target name and which namespace it names — a page or a board —
+   *  never a resolved path (ADR-0010). */
+  onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void
+  /** Subscribe to activation of a link whose destination is a board file
+   *  (add-whiteboards: the extension decides the view). The callback receives
+   *  the vault path; the app opens the board editor for it. */
+  onBoardLink(listener: (path: string) => void): void
   /** The app supplies the vault's file bytes through this, for a link that
    *  points at a vault path (open-vault-assets). Runs the other way, like the
    *  suggestion source: the editor asks when a link is activated, the app

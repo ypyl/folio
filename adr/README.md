@@ -40,6 +40,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0021](0021-vault-files-open-as-derived-copies.md) | A vault file opens as a derived copy, never in place | Accepted |
 | [0022](0022-assets-are-vault-files-not-pages.md) | Assets are vault files, not pages | Accepted |
 | [0023](0023-drops-land-at-the-drop-point.md) | A drop lands at the drop point, and a drag carries a fact | Accepted |
+| [0024](0024-a-whiteboard-is-a-board-file.md) | A whiteboard is a board file the app edits | Accepted |
 
 ## Adding a new ADR
 

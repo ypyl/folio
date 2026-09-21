@@ -96,6 +96,13 @@ export function mimeFor(path: string): string {
   return Object.hasOwn(DISPLAYABLE, ext) ? DISPLAYABLE[ext] : UNKNOWN_TYPE
 }
 
+/** Whether a vault path names a board file (add-whiteboards: the extension
+ *  decides the view). Any `.excalidraw` file opens in the board editor, whether
+ *  or not it sits under `boards/`. */
+export function isBoardTarget(path: string): boolean {
+  return path.toLowerCase().endsWith('.excalidraw')
+}
+
 /** Whether the browser shows these bytes in a window rather than downloading
  *  them: the branch the open gesture takes (spec: what opens follows the type). */
 export function isDisplayable(path: string): boolean {

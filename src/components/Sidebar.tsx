@@ -12,7 +12,7 @@ import { Accordion } from './Accordion'
 import { JournalCalendar } from './JournalCalendar'
 import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
-import { assetName } from '../vault/index'
+import { assetName, boardName } from '../vault/index'
 import { isReferenceable } from '../vault/parse'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
@@ -99,9 +99,11 @@ export const Sidebar = memo(function Sidebar({
   pages,
   journalEntries,
   assets,
+  boards = [],
   activePath,
   onSelect,
   onOpenAsset,
+  onOpenBoard,
   pinnedPaths = [],
   hasVault,
   loading = false,
@@ -116,11 +118,17 @@ export const Sidebar = memo(function Sidebar({
   /** The vault's assets, path-ordered (vault-assets). App passes the index's
    *  own array, so a scan is the only thing that changes it. */
   assets: string[]
+  /** The vault's boards, path-ordered (add-whiteboards). App passes the
+   *  index's own array, so a scan is the only thing that changes it. */
+  boards?: string[]
   activePath: string | null
   onSelect: (path: string) => void
   /** Activate an asset row: open the file (ADR-0021). An asset row never
    *  navigates, so this is the whole of what a click does. */
   onOpenAsset: (path: string) => void
+  /** Activate a board row: open the board editor in the main pane
+   *  (add-whiteboards). */
+  onOpenBoard?: (path: string) => void
   /** Pinned page paths, in pin order (most recently pinned first); pinned
    *  rows render a non-interactive star marker (add-pinned-pages). */
   pinnedPaths?: string[]
@@ -152,20 +160,28 @@ export const Sidebar = memo(function Sidebar({
   const asideRef = useRef<HTMLElement | null>(null)
   const pagesBodyRef = useRef<HTMLDivElement | null>(null)
   const pagesListRef = useRef<HTMLUListElement | null>(null)
+  const boardsBodyRef = useRef<HTMLDivElement | null>(null)
+  const boardsListRef = useRef<HTMLUListElement | null>(null)
   const assetsBodyRef = useRef<HTMLDivElement | null>(null)
   const assetsListRef = useRef<HTMLUListElement | null>(null)
-  const [views, setViews] = useState<{ pages: ListView; assets: ListView }>({
+  const [views, setViews] = useState<{ pages: ListView; boards: ListView; assets: ListView }>({
     pages: UNMEASURED,
+    boards: UNMEASURED,
     assets: UNMEASURED,
   })
 
   const measure = useCallback(() => {
     const next = {
       pages: measureList(pagesBodyRef.current, pagesListRef.current),
+      boards: measureList(boardsBodyRef.current, boardsListRef.current),
       assets: measureList(assetsBodyRef.current, assetsListRef.current),
     }
     setViews((prev) =>
-      sameView(prev.pages, next.pages) && sameView(prev.assets, next.assets) ? prev : next,
+      sameView(prev.pages, next.pages) &&
+      sameView(prev.boards, next.boards) &&
+      sameView(prev.assets, next.assets)
+        ? prev
+        : next,
     )
   }, [])
 
@@ -212,6 +228,11 @@ export const Sidebar = memo(function Sidebar({
   const assetPieces = useMemo(
     () => windowPieces({ total: assets.length, ...views.assets }),
     [assets.length, views.assets],
+  )
+
+  const boardPieces = useMemo(
+    () => windowPieces({ total: boards.length, ...views.boards }),
+    [boards.length, views.boards],
   )
 
   // Pinned rows are marked by the row's own style (bolder title) — no icon
@@ -271,6 +292,26 @@ export const Sidebar = memo(function Sidebar({
           onClick={() => onOpenAsset(path)}
         >
           <span className={styles.rowText}>{assetName(path)}</span>
+        </button>
+      </li>
+    )
+  }
+
+  // A board row (add-whiteboards): labelled by its path inside `boards/`, and a
+  // single button that opens the board editor. The row for the open board
+  // carries the active marking, the way a page row does.
+  const renderBoardRow = (index: number) => {
+    const path = boards[index]
+    return (
+      <li key={path} className={styles.item} aria-setsize={boards.length} aria-posinset={index + 1}>
+        <button
+          type="button"
+          className={styles.row}
+          data-active={path === activePath || undefined}
+          aria-current={path === activePath ? 'page' : undefined}
+          onClick={() => onOpenBoard?.(path)}
+        >
+          <span className={styles.rowText}>{boardName(path)}</span>
         </button>
       </li>
     )
@@ -390,6 +431,26 @@ export const Sidebar = memo(function Sidebar({
           ) : (
             <ul className={styles.list} ref={pagesListRef}>
               {renderListing(pagesPieces, (index) => renderRow(pages[index], index))}
+            </ul>
+          )}
+        </div>
+      </Accordion>
+      {/* Boards (add-whiteboards) sits between Pages and Assets, collapsed:
+          most vaults hold none, so it does not take height from the pages
+          until the user opens it. */}
+      <Accordion title="Boards" className={styles.section} bodyClassName={styles.fillBody}>
+        <div className={styles.scrollBody} ref={boardsBodyRef} onScroll={onScroll}>
+          {loading ? (
+            <div className={styles.list} aria-hidden="true">
+              {skeletonRows}
+            </div>
+          ) : boards.length === 0 ? (
+            hasVault ? (
+              <p className="section-placeholder">No boards yet.</p>
+            ) : null
+          ) : (
+            <ul className={styles.list} ref={boardsListRef}>
+              {renderListing(boardPieces, renderBoardRow)}
             </ul>
           )}
         </div>

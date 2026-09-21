@@ -338,3 +338,69 @@ describe('keyboard-shortcuts section', () => {
     ])
   })
 })
+
+describe('MetaPanel board mode (add-whiteboards)', () => {
+  it('shows Referenced by instead of the page-metadata sections', () => {
+    render(
+      <MetaPanel
+        pageOpen={false}
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[]}
+        activePath={null}
+        boardOpen
+        boardReferrers={[
+          { title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
+          { title: 'Log', path: 'pages/Log.md', materialized: true },
+        ]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const panel = within(meta())
+    expect(panel.getByText('Referenced by')).toBeTruthy()
+    expect(panel.getByRole('button', { name: 'Ideas' })).toBeTruthy()
+    expect(panel.getByRole('button', { name: 'Log' })).toBeTruthy()
+    expect(panel.queryByText('Backlinks')).toBeNull()
+    expect(panel.queryByText('Forwardlinks')).toBeNull()
+  })
+
+  it('navigates when a referrer row is activated', () => {
+    const onSelect = vi.fn()
+    render(
+      <MetaPanel
+        pageOpen={false}
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[]}
+        activePath={null}
+        boardOpen
+        boardReferrers={[{ title: 'Ideas', path: 'pages/Ideas.md', materialized: true }]}
+        onSelect={onSelect}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    fireEvent.click(within(meta()).getByRole('button', { name: 'Ideas' }))
+    expect(onSelect).toHaveBeenCalledWith('pages/Ideas.md')
+  })
+
+  it('shows empty-state copy when no page references the board', () => {
+    render(
+      <MetaPanel
+        pageOpen={false}
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[]}
+        activePath={null}
+        boardOpen
+        boardReferrers={[]}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    expect(within(meta()).getByText('No pages reference this board.')).toBeTruthy()
+  })
+})

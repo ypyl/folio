@@ -27,6 +27,7 @@ import { chordToKeyEventInit } from './chord'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
 import { noVaultReader, type AssetReader } from '../vault/assetOpen'
+import type { ReferenceKind } from '../vault/parse'
 import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
@@ -42,7 +43,11 @@ export class MilkdownAdapter implements EditorAdapter {
   private editor: Editor | null = null
   private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
-  private referenceClickListener: ((target: string) => void) | null = null
+  private referenceClickListener: ((target: string, kind: ReferenceKind) => void) | null = null
+  /** Called with a vault path when a link to a board file is activated
+   *  (add-whiteboards): the app opens the board editor for it. Attached after
+   *  mount, like the reference listener. */
+  private boardLinkListener: ((path: string) => void) | null = null
   /** Vault bytes for a link a page points into the vault, read through this at
    *  activation time for the same reason the reference listener is consulted
    *  then: the reader is attached after mount, and a folder switch replaces the
@@ -194,8 +199,9 @@ export class MilkdownAdapter implements EditorAdapter {
       // with no vault open there is none, and the gesture opens nothing.
       .use(
         inlineDecorations(
-          (target) => this.referenceClickListener?.(target),
+          (target, kind) => this.referenceClickListener?.(target, kind),
           (path) => this.assetReader(path),
+          (path) => this.boardLinkListener?.(path),
         ),
       )
       // Tables (add-table-editing, design D1): GFM's table slice and the
@@ -214,6 +220,7 @@ export class MilkdownAdapter implements EditorAdapter {
       .use(
         referenceSuggest({
           pages: (query) => this.suggestSources?.pages(query) ?? [],
+          boards: (query) => this.suggestSources?.boards?.(query) ?? [],
           files: (query, onlyImages) => this.suggestSources?.files(query, onlyImages) ?? [],
         }),
       )
@@ -284,6 +291,7 @@ export class MilkdownAdapter implements EditorAdapter {
     this.destroyed = true
     this.changeListener = null
     this.referenceClickListener = null
+    this.boardLinkListener = null
     this.assetReader = noVaultReader
     this.suggestSources = null
     if (this.copyRoot && this.copySnapshot && this.copyWrite) {
@@ -466,8 +474,12 @@ export class MilkdownAdapter implements EditorAdapter {
     this.changeListener = listener
   }
 
-  onReferenceClick(listener: (target: string) => void): void {
+  onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {
     this.referenceClickListener = listener
+  }
+
+  onBoardLink(listener: (path: string) => void): void {
+    this.boardLinkListener = listener
   }
 
   setAssetReader(reader: AssetReader): void {

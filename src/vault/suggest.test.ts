@@ -4,8 +4,10 @@ import { FileSystemVaultStorage } from './fs'
 import { buildIndex, type Graph } from './index'
 import {
   SUGGESTION_LIMIT,
+  boardCandidates,
   candidateNames,
   fileCandidates,
+  suggestBoards,
   suggestFiles,
   suggestPages,
   wordStarts,
@@ -208,5 +210,34 @@ describe('suggestFiles', () => {
   it('caps the rows at the limit', () => {
     const many = filePool(...Array.from({ length: 12 }, (_, i) => `assets/scan-${i}.png`))
     expect(suggestFiles('scan', many, true)).toHaveLength(SUGGESTION_LIMIT)
+  })
+})
+
+describe('board completion pool (add-whiteboards)', () => {
+  it('offers one row per resolvable board name, built from the index', async () => {
+    const graph = await graphOf({
+      boards: { 'Migration.excalidraw': '{}', 'Migration topology.excalidraw': '{}' },
+    })
+    const rows = boardCandidates(graph)
+    expect(rows.map((r) => r.name)).toEqual(['Migration topology', 'Migration'])
+    expect(rows.map((r) => r.path)).toEqual([
+      'boards/Migration topology.excalidraw',
+      'boards/Migration.excalidraw',
+    ])
+  })
+
+  it('ranks a board prefix above a word start', async () => {
+    const graph = await graphOf({
+      boards: { 'Migration.excalidraw': '{}', 'data migration.excalidraw': '{}' },
+    })
+    const pool = boardCandidates(graph)
+    expect(suggestBoards('mig', pool).map((s) => s.name)).toEqual(['Migration', 'data migration'])
+  })
+
+  it('offers nothing for an empty query or no board', async () => {
+    const graph = await graphOf({ boards: { 'Migration.excalidraw': '{}' } })
+    const pool = boardCandidates(graph)
+    expect(suggestBoards('', pool)).toEqual([])
+    expect(suggestBoards('zzz', pool)).toEqual([])
   })
 })

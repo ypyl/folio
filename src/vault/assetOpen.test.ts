@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { isDisplayable, mimeFor, openVaultPath, openVaultTarget, vaultTarget } from './assetOpen'
+import {
+  isBoardTarget,
+  isDisplayable,
+  mimeFor,
+  openVaultPath,
+  openVaultTarget,
+  vaultTarget,
+} from './assetOpen'
 
 // open-vault-assets: which targets in a page open a vault file, what type they
 // are served as, and which of the two branches (a window, or a download) they
@@ -193,5 +200,18 @@ describe('openVaultPath', () => {
     expect(o.openTab).toHaveBeenCalledTimes(1)
     expect(o.close).toHaveBeenCalledTimes(1)
     expect(o.setUrl).not.toHaveBeenCalled()
+  })
+})
+
+describe('isBoardTarget (add-whiteboards: the extension decides the view)', () => {
+  it('is true for any .excalidraw file, wherever it lives', () => {
+    expect(isBoardTarget('boards/migration.excalidraw')).toBe(true)
+    expect(isBoardTarget('notes/sketch.EXCALIDRAW')).toBe(true)
+  })
+
+  it('is false for every other vault file', () => {
+    expect(isBoardTarget('assets/shot.png')).toBe(false)
+    expect(isBoardTarget('pages/notes.md')).toBe(false)
+    expect(isBoardTarget('boards/readme.txt')).toBe(false)
   })
 })

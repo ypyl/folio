@@ -21,6 +21,7 @@ export function SearchBox({
   docs,
   onSelect,
   onOpenAsset,
+  onOpenBoard,
   disabled,
   onQueryResult,
   onSeeAll,
@@ -31,6 +32,9 @@ export function SearchBox({
   onSelect: (path: string) => void
   /** Activating an asset result: open the file, do not navigate (ADR-0021). */
   onOpenAsset: (path: string) => void
+  /** Activating a board result: open the board in the main pane
+   *  (add-whiteboards). */
+  onOpenBoard?: (path: string) => void
   /** No vault open: the input is disabled (no-inert-UI rule). */
   disabled: boolean
   /** Every landed search run, uncapped (search-results-view): App mirrors
@@ -80,6 +84,7 @@ export function SearchBox({
   // dropdown closes for either, keeping the query.
   const activate = (result: SearchResult) => {
     if (result.kind === 'asset') onOpenAsset(result.path)
+    else if (result.kind === 'board') onOpenBoard?.(result.path)
     else onSelect(result.path)
     setOpen(false) // keep the query; refocus or typing restores the dropdown
   }
@@ -136,6 +141,7 @@ export function SearchBox({
     [
       ['Pages', 'page'],
       ['Journal', 'journal'],
+      ['Boards', 'board'],
       ['Assets', 'asset'],
     ] as const
   )

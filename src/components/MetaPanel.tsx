@@ -81,6 +81,8 @@ export function MetaPanel({
   forwardlinks,
   references,
   activePath,
+  boardOpen = false,
+  boardReferrers = [],
   onSelect,
   onOpenAsset,
   loading = false,
@@ -93,6 +95,11 @@ export function MetaPanel({
    *  default, so no page row and asset row share a list. */
   references: LinkRow[]
   activePath: string | null
+  /** A board is open (add-whiteboards): the panel shows the pages that
+   *  reference it instead of the page-metadata sections. */
+  boardOpen?: boolean
+  /** The pages that reference the open board (add-whiteboards). */
+  boardReferrers?: LinkRow[]
   onSelect: (path: string) => void
   /** Open an asset row's file (vault-assets). Read by References only, which
    *  is the one list that carries asset rows. */
@@ -109,70 +116,98 @@ export function MetaPanel({
 
   return (
     <aside className={styles.panel} aria-label="Page sidebar">
-      <Accordion
-        title="Backlinks"
-        defaultOpen
-        className={styles.section}
-        bodyClassName={styles.fillBody}
-      >
-        {loading ? (
-          skeletonLine
-        ) : pageOpen ? (
-          <LinkList
-            rows={backlinks}
-            activePath={activePath}
-            onActivate={onSelect}
-            dim
-            emptyCopy="Nothing links here yet."
-          />
-        ) : (
-          <p className="section-placeholder">
-            Pages linking to this one appear once a page is open.
-          </p>
-        )}
-      </Accordion>
-      <Accordion
-        title="Forwardlinks"
-        defaultOpen
-        className={styles.section}
-        bodyClassName={styles.fillBody}
-      >
-        {loading ? (
-          skeletonLine
-        ) : pageOpen ? (
-          <LinkList
-            rows={forwardlinks}
-            activePath={activePath}
-            onActivate={onSelect}
-            dim
-            emptyCopy="This page links to nothing."
-          />
-        ) : (
-          <p className="section-placeholder">Links from this page appear once a page is open.</p>
-        )}
-      </Accordion>
-      {/* References (vault-assets): the open page's files, collapsed by default
+      {boardOpen ? (
+        // Board mode (add-whiteboards): the page-metadata sections have no
+        // subject, so the panel shows the board's referrers instead — the
+        // payoff of giving a board a reference token.
+        <Accordion
+          title="Referenced by"
+          defaultOpen
+          className={styles.section}
+          bodyClassName={styles.fillBody}
+        >
+          {loading ? (
+            skeletonLine
+          ) : (
+            <LinkList
+              rows={boardReferrers}
+              activePath={null}
+              onActivate={onSelect}
+              dim
+              emptyCopy="No pages reference this board."
+            />
+          )}
+        </Accordion>
+      ) : (
+        <>
+          <Accordion
+            title="Backlinks"
+            defaultOpen
+            className={styles.section}
+            bodyClassName={styles.fillBody}
+          >
+            {loading ? (
+              skeletonLine
+            ) : pageOpen ? (
+              <LinkList
+                rows={backlinks}
+                activePath={activePath}
+                onActivate={onSelect}
+                dim
+                emptyCopy="Nothing links here yet."
+              />
+            ) : (
+              <p className="section-placeholder">
+                Pages linking to this one appear once a page is open.
+              </p>
+            )}
+          </Accordion>
+          <Accordion
+            title="Forwardlinks"
+            defaultOpen
+            className={styles.section}
+            bodyClassName={styles.fillBody}
+          >
+            {loading ? (
+              skeletonLine
+            ) : pageOpen ? (
+              <LinkList
+                rows={forwardlinks}
+                activePath={activePath}
+                onActivate={onSelect}
+                dim
+                emptyCopy="This page links to nothing."
+              />
+            ) : (
+              <p className="section-placeholder">
+                Links from this page appear once a page is open.
+              </p>
+            )}
+          </Accordion>
+          {/* References (vault-assets): the open page's files, collapsed by default
           like the sidebar's Assets section, so the panel looks as it did before
           this section existed until the reader asks for it. It is the only
           section holding asset rows, and its rows never dim and never carry the
           open page's marking — activating one opens the file (ADR-0021). */}
-      <Accordion title="References" className={styles.section} bodyClassName={styles.fillBody}>
-        {loading ? (
-          skeletonLine
-        ) : pageOpen ? (
-          <LinkList
-            rows={references}
-            activePath={null}
-            onActivate={onOpenAsset}
-            dim={false}
-            emptyCopy="No files on this page."
-          />
-        ) : (
-          <p className="section-placeholder">
-            Files this page points at appear once a page is open.
-          </p>
-        )}
-      </Accordion>
+          <Accordion title="References" className={styles.section} bodyClassName={styles.fillBody}>
+            {loading ? (
+              skeletonLine
+            ) : pageOpen ? (
+              <LinkList
+                rows={references}
+                activePath={null}
+                onActivate={onOpenAsset}
+                dim={false}
+                emptyCopy="No files on this page."
+              />
+            ) : (
+              <p className="section-placeholder">
+                Files this page points at appear once a page is open.
+              </p>
+            )}
+          </Accordion>
+        </>
+      )}
       {/* Keyboard-shortcuts reference (move-help-to-right-panel): the panel's
           last section. Its collapsed row is anchored to the panel's bottom
           edge (the `footer` class) so it stays reachable however long the link

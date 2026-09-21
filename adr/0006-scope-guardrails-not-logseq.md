@@ -22,7 +22,9 @@ Build only what is needed to open, edit, and index a local Markdown folder:
 - Auto-save
 - Basic page navigation
 
-Explicitly **out of scope** (initially): block-level database, complex queries/query language, collaboration, sync, whiteboards, plugin ecosystem, complex graph visualization, backend/database infrastructure.
+Explicitly **out of scope** (initially): block-level database, complex queries/query language, collaboration, sync, plugin ecosystem, complex graph visualization, backend/database infrastructure.
+
+**Amended by ADR-0024** (2026-09-21): whiteboards are no longer out of scope. A whiteboard is a third kind of vault file the app creates, edits, and writes, referenced from a page by a `#!` token; the exclusion above stands for the rest of the list. The reversal is recorded in ADR-0024 rather than by editing this one, so the original guardrail stays legible.
 
 ## Consequences
 

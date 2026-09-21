@@ -17,6 +17,7 @@ export function SearchResultsView({
   results,
   onOpen,
   onOpenAsset,
+  onOpenBoard,
   onClose,
 }: {
   query: string
@@ -26,6 +27,9 @@ export function SearchResultsView({
    *  (search-assets-by-name, design D3) — nothing navigated, so there is no
    *  page to return to and closing would strand the query. */
   onOpenAsset: (path: string) => void
+  /** Activating a board result: open the board in the main pane; it navigates,
+   *  so the view closes like a page result (add-whiteboards). */
+  onOpenBoard?: (path: string) => void
   /** Escape or the Back affordance: return to the previously open page. */
   onClose: () => void
 }) {
@@ -39,8 +43,8 @@ export function SearchResultsView({
     rootRef.current?.focus()
   }, [])
 
-  // Pages, then journal days, then assets, each keeping its relevance order
-  // (spec: same grouping as the dropdown, no cap).
+  // Pages, then journal days, then boards, then assets, each keeping its
+  // relevance order (spec: same grouping as the dropdown, no cap).
   const flat = useMemo(
     () => [
       ...results
@@ -49,6 +53,9 @@ export function SearchResultsView({
       ...results
         .filter((r) => r.kind === 'journal')
         .map((item) => ({ item, group: 'journal' as const })),
+      ...results
+        .filter((r) => r.kind === 'board')
+        .map((item) => ({ item, group: 'boards' as const })),
       ...results
         .filter((r) => r.kind === 'asset')
         .map((item) => ({ item, group: 'assets' as const })),
@@ -71,6 +78,7 @@ export function SearchResultsView({
   // leaves it (App's open handler sets the pane back to the page).
   const activate = (result: SearchResult) => {
     if (result.kind === 'asset') onOpenAsset(result.path)
+    else if (result.kind === 'board') onOpenBoard?.(result.path)
     else onOpen(result.path)
   }
 
@@ -106,7 +114,13 @@ export function SearchResultsView({
         <div key={item.path}>
           {header && (
             <div className={styles.groupHead}>
-              {group === 'pages' ? 'Pages' : group === 'journal' ? 'Journal' : 'Assets'}
+              {group === 'pages'
+                ? 'Pages'
+                : group === 'journal'
+                  ? 'Journal'
+                  : group === 'boards'
+                    ? 'Boards'
+                    : 'Assets'}
             </div>
           )}
           <button

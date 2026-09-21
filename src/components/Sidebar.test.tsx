@@ -69,7 +69,7 @@ describe('Sidebar', () => {
       expect(within(el).queryByRole('button', { name: '2026-09-06' })).toBeNull()
     }
     const sections = screen.getAllByRole('group')
-    expect(sections.length).toBe(3)
+    expect(sections.length).toBe(4)
     // Journal mirrors the calendar geometry (month bar + weekday letters + a
     // 6x7 day grid = 43 placeholders); Pages and Assets each show three
     // text-height rows.
@@ -349,23 +349,25 @@ describe('Sidebar assets (vault-assets)', () => {
     return { onOpenAsset, onSelect }
   }
 
-  it('renders all three summaries, with Assets last and collapsed', () => {
+  it('renders all four summaries, with Boards and Assets last and collapsed', () => {
     renderAssets(['assets/shot.png'])
     const details = [...screen.getByRole('complementary').querySelectorAll('details')]
     expect(details.map((d) => d.querySelector('summary')?.textContent)).toEqual([
       'Journal',
       'Pages',
+      'Boards',
       'Assets',
     ])
     expect(details[0].hasAttribute('open')).toBe(true)
     expect(details[1].hasAttribute('open')).toBe(true)
     expect(details[2].hasAttribute('open')).toBe(false)
+    expect(details[3].hasAttribute('open')).toBe(false)
   })
 
   it('keeps the controls and every summary outside the scrolling bodies', () => {
     renderAssets(['assets/a.png'])
     const aside = screen.getByRole('complementary')
-    for (const title of ['Journal', 'Pages', 'Assets']) {
+    for (const title of ['Journal', 'Pages', 'Boards', 'Assets']) {
       expect((screen.getByText(title) as HTMLElement).closest(`.${styles.scrollBody}`)).toBeNull()
     }
     const controls = aside.firstElementChild as HTMLElement
@@ -574,5 +576,64 @@ describe('Sidebar drag sources (drag-references-into-editor)', () => {
     fireEvent.click(section('Pages').getByRole('button', { name: 'notes' }))
     expect(onOpenAsset).toHaveBeenCalledWith('assets/shot.png')
     expect(onSelect).toHaveBeenCalledWith('notes.md')
+  })
+})
+
+describe('Sidebar boards (add-whiteboards)', () => {
+  it('lists boards under a Boards section and opens one on click', () => {
+    const onOpenBoard = vi.fn()
+    render(
+      <Sidebar
+        pages={[page]}
+        journalEntries={[journal]}
+        assets={[]}
+        boards={['boards/2026/q3.excalidraw', 'boards/Migration.excalidraw']}
+        onOpenAsset={() => {}}
+        onOpenBoard={onOpenBoard}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    const boards = section('Boards')
+    const rows = boards.getAllByRole('button').map((b) => b.textContent)
+    expect(rows).toEqual(['2026/q3.excalidraw', 'Migration.excalidraw'])
+    fireEvent.click(boards.getByRole('button', { name: 'Migration.excalidraw' }))
+    expect(onOpenBoard).toHaveBeenCalledWith('boards/Migration.excalidraw')
+  })
+
+  it('marks the open board as the active row', () => {
+    render(
+      <Sidebar
+        pages={[page]}
+        journalEntries={[journal]}
+        assets={[]}
+        boards={['boards/Migration.excalidraw']}
+        onOpenAsset={() => {}}
+        onOpenBoard={() => {}}
+        activePath="boards/Migration.excalidraw"
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    const row = section('Boards').getByRole('button', { name: 'Migration.excalidraw' })
+    expect(row.getAttribute('aria-current')).toBe('page')
+  })
+
+  it('shows empty-state copy when the vault holds no boards', () => {
+    render(
+      <Sidebar
+        pages={[page]}
+        journalEntries={[journal]}
+        assets={[]}
+        boards={[]}
+        onOpenAsset={() => {}}
+        onOpenBoard={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    expect(section('Boards').getByText('No boards yet.')).toBeTruthy()
   })
 })

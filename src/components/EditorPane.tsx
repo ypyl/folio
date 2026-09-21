@@ -4,6 +4,7 @@ import { FolioMark } from '../FolioMark'
 import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
+import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
 import { collectFiles, withPastedName } from './dropAssets'
 import { dragRefText, hasDragRef, readDragRef } from './dragRefs'
@@ -65,8 +66,10 @@ export function EditorPane({
   loading = false,
   onAttachFiles,
   onOpenReference,
+  onBoardLink,
   readAsset,
   suggest,
+  suggestBoards,
   suggestFiles,
   ref,
 }: {
@@ -87,11 +90,18 @@ export function EditorPane({
    *  (render-vault-images). Absent without a vault: references then render as
    *  they did before, and no read is attempted. */
   readAsset?: (path: string) => Promise<Blob>
-  /** Open the page a reference badge points at (add-reference-badges). */
-  onOpenReference?: (target: string) => void
+  /** Open the page a reference badge points at (add-reference-badges), or the
+   *  board a board badge points at (add-whiteboards). `kind` says which. */
+  onOpenReference?: (target: string, kind: ReferenceKind) => void
+  /** Open the board a link to a `.excalidraw` path points at (add-whiteboards:
+   *  the extension decides the view). */
+  onBoardLink?: (path: string) => void
   /** Completion candidates for the reference being typed
    *  (add-reference-autocomplete); the app answers by page name. */
   suggest?: (query: string) => Suggestion[]
+  /** Completion candidates for a `#!` board reference being typed
+   *  (add-whiteboards); the app answers by board name. */
+  suggestBoards?: (query: string) => Suggestion[]
   /** Completion candidates for a link destination being typed
    *  (add-asset-references); the app answers with the vault's files, narrowed
    *  to images when an image's destination is being written. */
@@ -172,8 +182,11 @@ export function EditorPane({
   // App's handler is recreated as the graph changes (every save), and a badge
   // click must resolve against the live graph, not the mount-time one.
   const openReferenceRef = useRef(onOpenReference)
+  const boardLinkRef = useRef(onBoardLink)
+  const suggestBoardsRef = useRef(suggestBoards)
   useEffect(() => {
     openReferenceRef.current = onOpenReference
+    boardLinkRef.current = onBoardLink
   })
 
   // Same reason for the completion sources: the app's pools are replaced on
@@ -185,6 +198,9 @@ export function EditorPane({
   const suggestFilesRef = useRef(suggestFiles)
   useEffect(() => {
     suggestFilesRef.current = suggestFiles
+  })
+  useEffect(() => {
+    suggestBoardsRef.current = suggestBoards
   })
 
   // Mount the editor once per page instance (App keys by page path, so the
@@ -211,7 +227,8 @@ export function EditorPane({
       updateGutter()
       updateImages()
     })
-    adapter.onReferenceClick((target) => openReferenceRef.current?.(target))
+    adapter.onReferenceClick((target, kind) => openReferenceRef.current?.(target, kind))
+    adapter.onBoardLink((path) => boardLinkRef.current?.(path))
     // Vault links (open-vault-assets): the bytes behind a link that points into
     // the vault, read at activation time through the live prop, exactly as the
     // image pass reads it. A pane with no reader leaves the adapter's own
@@ -219,6 +236,7 @@ export function EditorPane({
     adapter.setAssetReader((path) => readAssetRef.current?.(path) ?? noVaultReader(path))
     adapter.setSuggestionSource({
       pages: (query) => suggestRef.current?.(query) ?? [],
+      boards: (query) => suggestBoardsRef.current?.(query) ?? [],
       files: (query, onlyImages) => suggestFilesRef.current?.(query, onlyImages) ?? [],
     })
     void adapter

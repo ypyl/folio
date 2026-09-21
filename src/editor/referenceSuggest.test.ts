@@ -555,3 +555,56 @@ describe('vault-file completion at a link destination (add-asset-references)', (
     expect(place.querySelector('[role="listbox"]')?.getAttribute('aria-label')).toBe('Files')
   })
 })
+
+// Board completion (add-whiteboards, design D2): the `#!` sigil is its own
+// picker, fed by the board source, and accepting writes a board token.
+describe('board completion', () => {
+  const boardState = (d: ProseNode, pos: number, boards: (q: string) => Suggestion[]) =>
+    EditorStateClass.create({
+      schema,
+      doc: d,
+      selection: TextSelection.create(d, pos),
+      plugins: [createReferenceSuggestPlugin({ pages: () => [], boards, files: () => [] })],
+    })
+
+  const boardHarness = (d: ProseNode, pos: number, boards: (q: string) => Suggestion[]) => {
+    let state = boardState(d, pos, boards)
+    const view = {
+      get state() {
+        return state
+      },
+      composing: false,
+      dispatch: (tr: Parameters<EditorState['apply']>[0]) => {
+        state = state.apply(tr)
+      },
+    } as unknown as EditorView
+    return { view, part: () => statePart(state) }
+  }
+
+  it('opens the board picker for a #! trigger and asks the board source', () => {
+    const { doc: d, pos } = paraAt('See #!Mig', 9)
+    const source = recorder([row('Migration')])
+    const part = statePart(boardState(d, pos, source.suggest))
+    expect(part.kind).toBe('board')
+    expect(part.trigger).toMatchObject({ board: true, kind: 'word', text: '#!Mig', query: 'Mig' })
+    expect(part.suggestions.map((s) => s.name)).toEqual(['Migration'])
+    expect(source.queries).toEqual(['Mig'])
+  })
+
+  it('accepts a board row and writes the canonical board token', () => {
+    const { doc: d, pos } = paraAt('See #!Mig', 9)
+    const source = recorder([row('Migration')])
+    const { view, part } = boardHarness(d, pos, source.suggest)
+    suggestionKeyDown(view, keyEvent('Enter'))
+    expect(popupVisible(part())).toBe(false)
+    expect(part().suppressed).toBe('#!Migration')
+  })
+
+  it('never opens the page picker for a board trigger', () => {
+    const { doc: d, pos } = paraAt('See #!Mig', 9)
+    const pages = recorder([row('Migration')])
+    const part = statePart(stateOf(d, pos, pages.suggest))
+    expect(part.kind).toBe('board')
+    expect(pages.queries).toEqual([])
+  })
+})

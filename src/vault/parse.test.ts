@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  boardReferenceTrigger,
+  boardToken,
   findReferenceRanges,
+  isBoardReferenceable,
   isReferenceable,
   linkDestinationTrigger,
   parseAssetPaths,
+  parseBoardRefs,
   parseLinks,
   referenceToken,
   referenceTrigger,
@@ -101,14 +105,32 @@ describe('findReferenceRanges', () => {
 
   it('reports the source range of each occurrence', () => {
     const text = 'See #Inbox now'
-    expect(findReferenceRanges(text)).toEqual([{ from: 4, to: 10, target: 'Inbox' }])
+    expect(findReferenceRanges(text)).toEqual([{ from: 4, to: 10, target: 'Inbox', kind: 'page' }])
     expect(text.slice(4, 10)).toBe('#Inbox')
   })
 
   it('keeps every occurrence, unlike parseLinks', () => {
     expect(findReferenceRanges('#Folio #folio')).toEqual([
-      { from: 0, to: 6, target: 'Folio' },
-      { from: 7, to: 13, target: 'folio' },
+      { from: 0, to: 6, target: 'Folio', kind: 'page' },
+      { from: 7, to: 13, target: 'folio', kind: 'page' },
+    ])
+  })
+
+  it('reads both board forms as board references', () => {
+    expect(findReferenceRanges('#!Migration #![[Migration topology]]')).toEqual([
+      { from: 0, to: 11, target: 'Migration', kind: 'board' },
+      { from: 12, to: 36, target: 'Migration topology', kind: 'board' },
+    ])
+  })
+
+  it('does not read a board sigil without a name', () => {
+    expect(findReferenceRanges('#! #!/bin/bash #![[ ]]')).toEqual([])
+  })
+
+  it('keeps page and board namespaces apart', () => {
+    expect(findReferenceRanges('#Migration #!Migration')).toEqual([
+      { from: 0, to: 10, target: 'Migration', kind: 'page' },
+      { from: 11, to: 22, target: 'Migration', kind: 'board' },
     ])
   })
 })
@@ -368,5 +390,82 @@ describe('parseAssetPaths', () => {
 
   it('reads nothing from text without links', () => {
     expect(parseAssetPaths('plain words, no links')).toEqual([])
+  })
+})
+
+describe('parseBoardRefs (add-whiteboards, design D2)', () => {
+  it('reads both board forms in order', () => {
+    expect(parseBoardRefs('See #!Migration and #![[Migration topology]]')).toEqual([
+      { target: 'Migration', via: 'word' },
+      { target: 'Migration topology', via: 'bracketed' },
+    ])
+  })
+
+  it('collapses a repeated board name', () => {
+    expect(parseBoardRefs('#!Migration and #!migration')).toEqual([
+      { target: 'Migration', via: 'word' },
+    ])
+  })
+
+  it('never reads a page reference as a board', () => {
+    expect(parseBoardRefs('#Migration and #[[Migration]]')).toEqual([])
+  })
+
+  it('is the complement of parseLinks over the same tokens', () => {
+    const text = '#Page #!Board #[[Spaced page]] #![[Spaced board]]'
+    expect(parseLinks(text).map((link) => link.target)).toEqual(['Page', 'Spaced page'])
+    expect(parseBoardRefs(text).map((ref) => ref.target)).toEqual(['Board', 'Spaced board'])
+  })
+})
+
+describe('boardReferenceTrigger (add-whiteboards, design D2)', () => {
+  const atCaret = (fixture: string) => {
+    const [before, after = ''] = fixture.split('|')
+    return boardReferenceTrigger(before, after)
+  }
+
+  it('reads a word-form board token at the caret', () => {
+    expect(atCaret('#!Mig|')).toEqual({ board: true, kind: 'word', text: '#!Mig', query: 'Mig' })
+  })
+
+  it('reads a bracketed board token, spaces included', () => {
+    expect(atCaret('#![[Migration topo|')).toEqual({
+      board: true,
+      kind: 'bracketed',
+      text: '#![[Migration topo',
+      query: 'Migration topo',
+    })
+  })
+
+  it('offers nothing for a bare sigil or a closed token', () => {
+    expect(atCaret('#!|')).toBeNull()
+    expect(atCaret('#![[|')).toBeNull()
+    expect(atCaret('#![[done]|')).toBeNull()
+  })
+
+  it('leaves an ordinary page trigger alone', () => {
+    expect(atCaret('#Mig|')).toBeNull()
+    expect(atCaret('#[[Mig|')).toBeNull()
+  })
+})
+
+describe('boardToken (add-whiteboards, design D2)', () => {
+  it('writes the word form for a single word and brackets otherwise', () => {
+    expect(boardToken('Migration', 'word')).toBe('#!Migration')
+    expect(boardToken('Migration topology', 'word')).toBe('#![[Migration topology]]')
+    expect(boardToken('Migration', 'bracketed')).toBe('#![[Migration]]')
+  })
+
+  it('round-trips through the parser', () => {
+    expect(parseBoardRefs(boardToken('Migration topology', 'word'))).toEqual([
+      { target: 'Migration topology', via: 'bracketed' },
+    ])
+  })
+
+  it('rejects a name no board token can express', () => {
+    expect(isBoardReferenceable('Migration')).toBe(true)
+    expect(isBoardReferenceable('Migration topology')).toBe(true)
+    expect(isBoardReferenceable('bad]name')).toBe(false)
+    expect(isBoardReferenceable(' padded ')).toBe(false)
   })
 })

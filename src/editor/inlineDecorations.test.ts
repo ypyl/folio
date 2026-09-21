@@ -60,6 +60,18 @@ describe('buildReferenceState', () => {
     expect(decorations.find()).toHaveLength(2)
   })
 
+  it('badges board references with a distinct class and kind', () => {
+    const d = doc(para(text('See #!Migration and #Inbox now')))
+    const { refs, decorations } = buildReferenceState(d)
+    expect(refs.map((ref) => [ref.target, ref.kind])).toEqual([
+      ['Migration', 'board'],
+      ['Inbox', 'page'],
+    ])
+    const classOf = (decoration: Decoration): string =>
+      (decoration as unknown as { type: { attrs: { class?: string } } }).type.attrs.class ?? ''
+    expect(decorations.find().map(classOf)).toEqual(['ref ref-board', 'ref'])
+  })
+
   it('skips references inside inline code and fenced code', () => {
     const d = doc(para(text('real #Inbox here')), para(inlineCode('#code-mark')), fenced('#fenced'))
     const { refs } = buildReferenceState(d)
@@ -498,7 +510,7 @@ describe('createInlineDecorationPlugin', () => {
     }
     // The paragraph text starts at 1, so `#Inbox` spans 5..11.
     expect(plugin.props.handleClick?.call(plugin, view, 7, click(badge()))).toBe(true)
-    expect(onActivate).toHaveBeenCalledWith('Inbox')
+    expect(onActivate).toHaveBeenCalledWith('Inbox', 'page')
     onActivate.mockClear()
     expect(plugin.props.handleClick?.call(plugin, view, 0, click(badge()))).toBe(false)
     expect(onActivate).not.toHaveBeenCalled()
@@ -544,7 +556,7 @@ describe('createInlineDecorationPlugin', () => {
 
     let inside = base.apply(base.tr.setSelection(TextSelection.create(base.doc, 7)))
     expect(plugin.props.handleKeyDown?.call(plugin, viewOf(inside), chord)).toBe(true)
-    expect(onActivate).toHaveBeenCalledWith('Inbox')
+    expect(onActivate).toHaveBeenCalledWith('Inbox', 'page')
 
     onActivate.mockClear()
     inside = base.apply(base.tr.setSelection(TextSelection.create(base.doc, 0)))
@@ -673,7 +685,7 @@ describe('activation after an edit', () => {
       expect(referenceAt(plugin.getState(state)!.refs, at)?.target).toBe('Inbox')
       onActivate.mockClear()
       expect(plugin.props.handleKeyDown?.call(plugin, viewOf(state), chord)).toBe(true)
-      expect(onActivate).toHaveBeenCalledWith('Inbox')
+      expect(onActivate).toHaveBeenCalledWith('Inbox', 'page')
     }
   })
 
@@ -692,7 +704,7 @@ describe('activation after an edit', () => {
     expect(state.doc.textBetween(ref.from, ref.to)).toBe('#xInbox')
     state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, ref.to)))
     expect(plugin.props.handleKeyDown?.call(plugin, viewOf(state), chord)).toBe(true)
-    expect(onActivate).toHaveBeenCalledWith('xInbox')
+    expect(onActivate).toHaveBeenCalledWith('xInbox', 'page')
   })
 })
 

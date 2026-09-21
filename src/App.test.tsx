@@ -25,6 +25,26 @@ vi.mock('./editor/milkdown', async () => {
   }
 })
 
+// The board editor is lazily imported and mounts Excalidraw; App tests stub it
+// (add-whiteboards). The stub records the scene it was handed and exposes a way
+// to emit a change, so the pane switch and the save wiring are observable
+// without the real canvas.
+const boardInstances = vi.hoisted(() => ({
+  list: [] as { scene: string; onChange: (scene: string) => void }[],
+}))
+vi.mock('./editor/boardView', () => ({
+  BoardView: ({
+    initialScene,
+    onChange,
+  }: {
+    initialScene: string
+    onChange: (s: string) => void
+  }) => {
+    boardInstances.list.push({ scene: initialScene, onChange })
+    return <div data-testid="board-view" data-scene={initialScene} />
+  },
+}))
+
 // The completion pool must be rebuilt when the index changes and never per
 // keystroke or page switch (add-reference-autocomplete, design D2/D8). Counting
 // candidateNames calls is the direct evidence, so the real implementation is
@@ -87,7 +107,7 @@ type FakeView = EditorAdapter & {
   insertions: string[]
   chords: string[]
   emitChange: (markdown: string) => void
-  emitReferenceClick: (target: string) => void
+  emitReferenceClick: (target: string, kind?: 'page' | 'board') => void
   suggest: (query: string) => import('./vault/suggest').Suggestion[]
   suggestFiles: (query: string, onlyImages: boolean) => import('./vault/suggest').Suggestion[]
 }
@@ -1393,5 +1413,56 @@ describe('search over the vault assets (search-assets-by-name)', () => {
     // The view is still there: nothing navigated, so there is no page to return to.
     expect(screen.getByRole('main', { name: 'Search results' })).toBeTruthy()
     vi.unstubAllGlobals()
+  })
+})
+
+describe('whiteboards (add-whiteboards)', () => {
+  it('opens a board from a board-reference badge and returns via Back', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'A sketch: #!Migration' },
+      boards: { 'Migration.excalidraw': '{"type":"excalidraw","elements":[]}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+    await waitFor(() => expect(editor().content).toContain('#!Migration'))
+
+    act(() => editor().emitReferenceClick('Migration', 'board'))
+    const board = await screen.findByTestId('board-view')
+    // The board's file text reached the host, and the editor pane is gone.
+    expect(board.getAttribute('data-scene')).toContain('"type":"excalidraw"')
+    expect(screen.queryByRole('main')).toBeNull()
+
+    // Back returns to the page that referenced it (the trail recorded the board).
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    await waitFor(() => expect(screen.getByRole('main')).toBeTruthy())
+  })
+
+  it('lists a board in the sidebar and opens it', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'nothing' },
+      boards: { 'Migration.excalidraw': '{}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(section('Boards').getByRole('button', { name: 'Migration.excalidraw' }))
+    expect(await screen.findByTestId('board-view')).toBeTruthy()
+  })
+
+  it('shows the pages that reference the open board', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'A sketch: #!Migration' },
+      boards: { 'Migration.excalidraw': '{}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(section('Boards').getByRole('button', { name: 'Migration.excalidraw' }))
+    await screen.findByTestId('board-view')
+    const panel = within(screen.getByRole('complementary', { name: 'Page sidebar' }))
+    expect(panel.getByText('Referenced by')).toBeTruthy()
+    await waitFor(() => expect(panel.getByRole('button', { name: 'Ideas' })).toBeTruthy())
   })
 })
