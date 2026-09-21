@@ -16,6 +16,12 @@ export type BoardScene = {
   files: Record<string, unknown>
 }
 
+/** The canvas background a board with none of its own opens on
+ *  (board-default-background): Kami's `--parchment` token from `DESIGN.md`, so
+ *  a new board is not the one pure-white surface in a warm-parchment app.
+ *  Excalidraw's own default is `#ffffff`, which the design language bans. */
+export const DEFAULT_BOARD_BACKGROUND = '#f5f4ed'
+
 /** A cheap content signature: identity plus version per element. Excalidraw
  *  bumps `version` on any real element change (draw, move, resize, delete) and
  *  leaves it alone while the canvas is panned or zoomed, so an unchanged
@@ -33,15 +39,27 @@ export function sceneSignature(elements: readonly SceneElement[]): string {
  *  created from a reference before it holds anything, and a file written by
  *  another tool must never take the app down. */
 export function parseScene(scene: string): BoardScene {
-  if (scene.trim() === '') return { elements: [], appState: {}, files: {} }
+  if (scene.trim() === '') return withDefaultBackground({ elements: [], appState: {}, files: {} })
   try {
     const data = JSON.parse(scene) as Partial<BoardScene>
-    return {
+    return withDefaultBackground({
       elements: Array.isArray(data.elements) ? data.elements : [],
       appState: data.appState ?? {},
       files: data.files ?? {},
-    }
+    })
   } catch {
-    return { elements: [], appState: {}, files: {} }
+    return withDefaultBackground({ elements: [], appState: {}, files: {} })
+  }
+}
+
+/** Give the scene the app's parchment canvas background when it names none
+ *  (board-default-background). A board that already carries a
+ *  `viewBackgroundColor` — saved earlier, or changed with the editor's picker —
+ *  is returned untouched, so the default can never overwrite a user's choice. */
+function withDefaultBackground(scene: BoardScene): BoardScene {
+  if (scene.appState.viewBackgroundColor != null) return scene
+  return {
+    ...scene,
+    appState: { ...scene.appState, viewBackgroundColor: DEFAULT_BOARD_BACKGROUND },
   }
 }

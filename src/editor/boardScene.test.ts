@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseScene, sceneSignature } from './boardScene'
+import { DEFAULT_BOARD_BACKGROUND, parseScene, sceneSignature } from './boardScene'
 
 // The pure half of the board host (add-whiteboards, design D7): what counts as
 // a board change, and how a board file is read into a mountable scene.
@@ -44,24 +44,44 @@ describe('parseScene', () => {
     })
     const parsed = parseScene(scene)
     expect(parsed.elements).toHaveLength(1)
-    expect(parsed.appState).toEqual({ gridSize: 20 })
+    // The board named no background, so the app's parchment is filled in.
+    expect(parsed.appState).toEqual({ gridSize: 20, viewBackgroundColor: DEFAULT_BOARD_BACKGROUND })
     expect(parsed.files).toEqual({ f1: {} })
   })
 
-  it('reads an empty file as a blank board', () => {
-    expect(parseScene('')).toEqual({ elements: [], appState: {}, files: {} })
-    expect(parseScene('   \n')).toEqual({ elements: [], appState: {}, files: {} })
+  it('reads an empty file as a blank board on the parchment default', () => {
+    const blank = {
+      elements: [],
+      appState: { viewBackgroundColor: DEFAULT_BOARD_BACKGROUND },
+      files: {},
+    }
+    expect(parseScene('')).toEqual(blank)
+    expect(parseScene('   \n')).toEqual(blank)
   })
 
   it('reads an unparseable file as a blank board rather than throwing', () => {
-    expect(parseScene('not json at all')).toEqual({ elements: [], appState: {}, files: {} })
+    expect(parseScene('not json at all')).toEqual({
+      elements: [],
+      appState: { viewBackgroundColor: DEFAULT_BOARD_BACKGROUND },
+      files: {},
+    })
   })
 
   it('tolerates a scene with no elements array', () => {
     expect(parseScene('{"type":"excalidraw"}')).toEqual({
       elements: [],
-      appState: {},
+      appState: { viewBackgroundColor: DEFAULT_BOARD_BACKGROUND },
       files: {},
     })
+  })
+
+  it('keeps a background the board already names', () => {
+    const scene = JSON.stringify({ appState: { viewBackgroundColor: '#fffce8' } })
+    expect(parseScene(scene).appState.viewBackgroundColor).toBe('#fffce8')
+  })
+
+  it('uses the app parchment, not the editor white default', () => {
+    expect(DEFAULT_BOARD_BACKGROUND).toBe('#f5f4ed')
+    expect(parseScene('').appState.viewBackgroundColor).toBe('#f5f4ed')
   })
 })

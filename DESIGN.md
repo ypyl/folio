@@ -142,6 +142,15 @@ A lifted surface is carried by the fill, not an outline: `--ivory` against
 `--parchment` is the whole gesture. Do not add a closed hairline border around
 a filled card.
 
+### The board canvas
+
+A whiteboard's canvas is the app's parchment, not the editor's white: a board
+with no background of its own opens on `--parchment` (`#f5f4ed`). Rule 2 holds
+inside the canvas too, so a new board is never the one pure-white surface in a
+warm-parchment app. The value lives in the board's own scene, so a board that
+already names a background — saved earlier, or changed with the editor's own
+picker — keeps it.
+
 ### Side panes are columns of bands
 
 Both side panes — the left sidebar and the right meta panel — are columns of
