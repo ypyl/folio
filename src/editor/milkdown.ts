@@ -80,7 +80,7 @@ export class MilkdownAdapter implements EditorAdapter {
   private focusRoot: HTMLElement | null = null
   private focusHandler: ((event: FocusEvent) => void) | null = null
   private lastFocusedWithin: HTMLElement | null = null
-  // Forward delete in a list item (see deleteDeletesText): the one key this
+  // Forward delete in a list item (see handleForwardDelete): the one key this
   // adapter intercepts before the editor's own keymaps see it.
   private keyRoot: HTMLElement | null = null
   private keyHandler: ((event: KeyboardEvent) => void) | null = null
@@ -270,18 +270,28 @@ export class MilkdownAdapter implements EditorAdapter {
       this.lastFocusedWithin = event.target instanceof HTMLElement ? event.target : null
     }
     el.addEventListener('focusin', this.focusHandler)
-    // Forward delete (deleteDeletesText): the list keymap binds Delete and
+    // Forward delete (handleForwardDelete): the list keymap binds Delete and
     // Backspace to the same "lift the first list item" command, so Delete at an
     // item's start lifted the item instead of deleting the character after the
-    // caret — for a key a user pressed to delete text, the wrong command. The
-    // event is stopped in the capture phase, before ProseMirror's own handler,
-    // which leaves the key unclaimed: exactly how a paragraph behaves, where the
-    // browser deletes the character and ProseMirror reads the change.
+    // caret — for a key a user pressed to delete text, the wrong command. At a
+    // non-empty item's start the event is stopped in the capture phase, before
+    // ProseMirror's own handler, leaving the key unclaimed: exactly how a
+    // paragraph behaves, where the browser deletes the character and ProseMirror
+    // reads the change. At an empty item's start the same wrong command removed
+    // the bullet instead of pulling the next block up, so the handler joins the
+    // following block into the item itself and only then stops the event.
     this.keyRoot = el
     this.keyHandler = (event) => {
       if (event.key !== 'Delete') return
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-      if (this.deleteDeletesText()) event.stopPropagation()
+      const action = this.handleForwardDelete()
+      if (action === 'text') {
+        event.stopPropagation()
+      } else if (action === 'joined') {
+        // The join already ran; stop the list keymap's lift from following it.
+        event.stopPropagation()
+        event.preventDefault()
+      }
     }
     el.addEventListener('keydown', this.keyHandler, true)
     this.handleClamp = keepTableHandlesInThePane(el)
@@ -491,25 +501,50 @@ export class MilkdownAdapter implements EditorAdapter {
   }
 
   /**
-   * Whether a forward delete should delete the character after the caret rather
-   * than run the list keymap's "lift the first list item" command: the caret is
-   * at the very start of a list item's first text block and there is something
-   * after it. The condition mirrors the preset's own guard for that command —
-   * an empty selection at offset 0 inside a list item — plus the check that
-   * there is a character (or node) to delete at all.
+   * Classify a forward delete at the start of a list item's first text block,
+   * and act on the empty case (see the mount-time keydown handler):
+   *
+   * - `'text'`: a character follows the caret, so the event is stopped and the
+   *   browser deletes it, exactly as in a paragraph.
+   * - `'joined'`: the item is empty and the paragraph after its list was moved
+   *   into it, so Delete pulls the next block up instead of lifting the item
+   *   backward; the caller stops the event after this.
+   * - `'default'`: anything else, including an empty item with nothing after it,
+   *   where the preset's own keymap keeps its lift/remove behavior.
    */
-  private deleteDeletesText(): boolean {
+  private handleForwardDelete(): 'text' | 'joined' | 'default' {
     const editor = this.editor
-    if (!editor) return false
+    if (!editor) return 'default'
     return editor.action((ctx) => {
-      const { selection } = ctx.get(editorViewCtx).state
+      const view = ctx.get(editorViewCtx)
+      const { selection } = view.state
       const { $from } = selection
-      return (
-        selection.empty &&
-        $from.parentOffset === 0 &&
-        $from.node(-1)?.type.name === 'list_item' &&
-        $from.nodeAfter !== null
-      )
+      if (
+        !selection.empty ||
+        $from.parentOffset !== 0 ||
+        $from.node(-1)?.type.name !== 'list_item'
+      ) {
+        return 'default'
+      }
+      if ($from.nodeAfter !== null) return 'text'
+      // An empty item with the following block after its list: pull that block
+      // up into the item and drop the original, so Delete replaces the empty
+      // bullet with the block below it. The document's maintained trailing empty
+      // paragraph is skipped by the content check, and joinForward is not used
+      // because it wraps the block into a new list item instead of filling this
+      // one.
+      const item = $from.node(-1)
+      const list = $from.node(-2)
+      if (!item || !list || item.childCount !== 1 || list.lastChild !== item) return 'default'
+      const afterList = $from.after($from.depth - 2)
+      const next = view.state.doc.resolve(afterList).nodeAfter
+      if (!next || next.type.name !== 'paragraph' || next.content.size === 0) return 'default'
+      const size = next.content.size
+      const tr = view.state.tr
+      tr.insert($from.pos, next.content)
+      tr.delete(afterList + size, afterList + size + next.nodeSize)
+      view.dispatch(tr.scrollIntoView())
+      return 'joined'
     })
   }
 

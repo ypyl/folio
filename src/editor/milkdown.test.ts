@@ -273,6 +273,33 @@ describe('MilkdownAdapter (smoke)', () => {
       })
     }
 
+    /** Put the caret at the start of the first empty paragraph in the doc. */
+    const caretInEmptyParagraph = (adapter: MilkdownAdapter): void => {
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          dispatch: (tr: unknown) => void
+        }
+        let pos = -1
+        view.state.doc.descendants((node, p) => {
+          if (pos < 0 && node.type.name === 'paragraph' && node.content.size === 0) pos = p + 1
+        })
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
+      })
+    }
+
+    /** Dispatch a key at the editor root, as a real keypress would. */
+    const pressKey = (adapter: MilkdownAdapter, key: string): void => {
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { dom: HTMLElement }
+        view.dom.dispatchEvent(
+          new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+        )
+      })
+    }
+
     it('does not lift the item out of the list', async () => {
       const { adapter, el } = await mount()
       await adapter.setContent(
@@ -295,6 +322,34 @@ describe('MilkdownAdapter (smoke)', () => {
       )
       pressAtItemStart(adapter, 'Backspace')
       expect(firstBlock(adapter).type.name).toBe('paragraph')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('pulls the following block into an empty item on Delete', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(['- test', '-', '', 'value', ''].join(String.fromCharCode(10)))
+      caretInEmptyParagraph(adapter)
+      pressKey(adapter, 'Delete')
+      // Delete means forward delete: the empty item absorbs the block that
+      // followed the list instead of being lifted out of it.
+      const list = firstBlock(adapter)
+      expect(list.type.name).toBe('bullet_list')
+      expect(list.childCount).toBe(2)
+      expect(list.child(1).textContent).toBe('value')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('still lifts a trailing empty item on Delete', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(['- test', '-', ''].join(String.fromCharCode(10)))
+      caretInEmptyParagraph(adapter)
+      pressKey(adapter, 'Delete')
+      // Nothing follows to join, so the list keymap's lift still removes it.
+      const list = firstBlock(adapter)
+      expect(list.type.name).toBe('bullet_list')
+      expect(list.childCount).toBe(1)
       await adapter.destroy()
       el.remove()
     })
