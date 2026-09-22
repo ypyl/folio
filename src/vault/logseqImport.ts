@@ -1,9 +1,11 @@
 // One-way Logseq import: reads a Logseq graph through the VaultStorage seam,
 // translates its conventions into Folio's Markdown rules, and merges the result
-// into a destination without overwriting (change add-logseq-import). The rules
-// mirror scripts/migrate-logseq.mjs and MIGRATION_LOGSEQ_FOLIO.md; the pure
-// functions here are their browser-side implementation and are unit-tested with
-// strings, exactly like ./parse.
+// into a destination — new files are written, files the destination already
+// holds are appended to, and assets are never overwritten (change
+// add-logseq-import, extended by merge-logseq-imports). The rules mirror
+// scripts/migrate-logseq.mjs and MIGRATION_LOGSEQ_FOLIO.md; the pure functions
+// here are their browser-side implementation and are unit-tested with strings,
+// exactly like ./parse.
 //
 // The importer is input-only: it never teaches the index, editor, or parser to
 // read Logseq conventions at runtime (ADR-0012, ADR-0024).
@@ -262,12 +264,16 @@ export type ImportProgress = {
 }
 
 export type ImportReport = {
-  /** Markdown files written. */
+  /** Markdown files written as new files. */
   written: number
-  /** Planned files skipped because the destination already held them. */
+  /** Markdown files appended into files the destination already held. */
+  merged: number
+  /** Assets skipped because the destination already held them. */
   skipped: number
   /** Assets copied. */
   assetsCopied: number
+  /** Source files skipped because the ledger records them as already imported. */
+  alreadyImported: number
   /** Output paths two source files mapped to (first source wins). */
   collisions: string[]
   stats: ImportStats
@@ -275,27 +281,67 @@ export type ImportReport = {
 
 export type ImportResult = { ok: true; report: ImportReport } | { ok: false; error: string }
 
-type Planned = { path: string; content: string }
+/** The hidden ledger of imported source files (merge-logseq-imports): app-owned
+ *  vault meta beside `.folio/pins.md` (ADR-0015), never a page. One entry per
+ *  imported source file, keyed `<source folder name>\t<source path>`. */
+const LEDGER_PATH = '.folio/imports.md'
+const LEDGER_HEADER = '# Imported Logseq sources - one entry per imported file'
+
+function renderLedger(keys: Iterable<string>): string {
+  const body = [...keys]
+    .sort()
+    .map((key) => `- ${key}`)
+    .join('\n')
+  return body === '' ? `${LEDGER_HEADER}\n` : `${LEDGER_HEADER}\n\n${body}\n`
+}
+
+async function readLedger(dest: VaultStorage): Promise<Set<string>> {
+  try {
+    const text = await dest.read(LEDGER_PATH)
+    const keys = new Set<string>()
+    for (const line of text.split('\n')) {
+      const match = line.match(/^-\s+(.*)$/)
+      if (match) keys.add(match[1].trimEnd())
+    }
+    return keys
+  } catch {
+    return new Set() // no ledger yet: nothing has been imported
+  }
+}
+
+type Planned = { path: string; content: string; sourceKeys: string[] }
 
 /**
- * Run a whole import. Scans the source (reads every page and journal to build
- * the block-reference map), plans the output, then writes only paths the
- * destination does not already hold. Never writes `.folio/`, never overwrites,
- * never deletes. Reports progress as `{ phase, done, total }`.
+ * Run a whole import. Scans the source, plans the output for source files the
+ * ledger has not recorded, then writes: a new Markdown target is created, an
+ * existing one is appended to (blank-line separated), and an existing asset is
+ * skipped. Never deletes and never touches `.folio/` other than the ledger,
+ * which records each source file as its output lands so a re-run appends only
+ * what is new. Reports progress as `{ phase, done, total }`.
  */
 export async function runLogseqImport(
   source: VaultStorage,
   dest: VaultStorage,
-  onProgress?: (progress: ImportProgress) => void,
+  options: { sourceName?: string; onProgress?: (progress: ImportProgress) => void } = {},
 ): Promise<ImportResult> {
+  const { sourceName = '', onProgress } = options
   const stats = emptyImportStats()
   const collisions: string[] = []
+  const keyOf = (path: string): string => `${sourceName}\t${path}`
 
   try {
     const files = await source.list('')
     const pagePaths = files.filter(isPageSource).sort()
     const journalPaths = files.filter(isJournalSource).sort()
     const assetPaths = files.filter(isAssetSource).sort()
+
+    // The ledger decides which source files are new. Already-imported ones are
+    // still read, so a block reference into them still resolves.
+    const ledger = await readLedger(dest)
+    const freshPages = pagePaths.filter((path) => !ledger.has(keyOf(path)))
+    const freshJournals = journalPaths.filter((path) => !ledger.has(keyOf(path)))
+    const alreadyImported =
+      pagePaths.length - freshPages.length + (journalPaths.length - freshJournals.length)
 
     // Scanning: read every page and journal, and index block ids to owners.
     const contents = new Map<string, string>()
@@ -314,10 +360,10 @@ export async function runLogseqImport(
       onProgress?.({ phase: 'scanning', done: scanned, total: scanTotal })
     }
 
-    // Planning: pages, with first-source-wins on a normalized-name collision.
+    // Planning: fresh pages, first-source-wins on a normalized-name collision.
     const planned: Planned[] = []
     const seen = new Set<string>()
-    for (const path of pagePaths) {
+    for (const path of freshPages) {
       const target = pageTarget(path)
       const key = target.toLowerCase()
       if (seen.has(key)) {
@@ -331,44 +377,64 @@ export async function runLogseqImport(
         stemOf(path),
         stats,
       )
-      planned.push({ path: target, content })
+      planned.push({ path: target, content, sourceKeys: [keyOf(path)] })
     }
 
-    // Journals fold: two sources for one day concatenate into one file.
-    const journalGroups = new Map<string, { path: string; parts: string[] }>()
-    for (const path of journalPaths) {
+    // Journals fold: fresh sources for one day concatenate into one file.
+    const journalGroups = new Map<string, { path: string; parts: string[]; sourceKeys: string[] }>()
+    for (const path of freshJournals) {
       const target = journalTarget(path)
       const key = target.toLowerCase()
-      const group = journalGroups.get(key) ?? { path: target, parts: [] }
+      const group = journalGroups.get(key) ?? { path: target, parts: [], sourceKeys: [] }
       group.parts.push(
         rewriteLogseqContent(contents.get(path) ?? '', uuidToOwner, stemOf(path), stats),
       )
+      group.sourceKeys.push(keyOf(path))
       journalGroups.set(key, group)
     }
     for (const group of journalGroups.values()) {
-      planned.push({ path: group.path, content: group.parts.join('\n') })
+      planned.push({
+        path: group.path,
+        content: group.parts.join('\n'),
+        sourceKeys: group.sourceKeys,
+      })
     }
 
-    // Writing: skip every path the destination already holds (case-insensitive,
-    // for Windows), and never write the destination's `.folio/` meta.
+    // Writing: append into existing Markdown, skip existing assets, and record
+    // each source file in the ledger as its output lands.
     const existing = new Set((await dest.list('')).map((path) => path.toLowerCase()))
     let written = 0
+    let merged = 0
     let skipped = 0
     let assetsCopied = 0
     const writeTotal = planned.length + assetPaths.length
     let done = 0
     onProgress?.({ phase: 'writing', done, total: writeTotal })
 
+    const record = async (sourceKeys: string[]): Promise<void> => {
+      for (const key of sourceKeys) ledger.add(key)
+      await dest.write(LEDGER_PATH, renderLedger(ledger))
+    }
+
     for (const item of planned) {
       const key = item.path.toLowerCase()
-      if (key.startsWith('.folio/') || existing.has(key)) {
+      let landed = false
+      if (key.startsWith('.folio/')) {
         skipped++
+      } else if (existing.has(key)) {
+        const prior = (await dest.read(item.path)).replace(/\n+$/, '')
+        const body = item.content.replace(/\n+$/, '')
+        await dest.write(item.path, prior === '' ? `${body}\n` : `${prior}\n\n${body}\n`)
+        merged++
+        landed = true
       } else {
         const content = item.content.endsWith('\n') ? item.content : `${item.content}\n`
         await dest.write(item.path, content)
         existing.add(key)
         written++
+        landed = true
       }
+      if (landed) await record(item.sourceKeys)
       done++
       onProgress?.({ phase: 'writing', done, total: writeTotal })
     }
@@ -388,8 +454,13 @@ export async function runLogseqImport(
       onProgress?.({ phase: 'writing', done, total: writeTotal })
     }
 
-    return { ok: true, report: { written, skipped, assetsCopied, collisions, stats } }
+    return {
+      ok: true,
+      report: { written, merged, skipped, assetsCopied, alreadyImported, collisions, stats },
+    }
   } catch (error) {
+    // The ledger is written as each file lands, so a run that fails part-way
+    // still records what it wrote and a re-run appends only the rest.
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   }
 }

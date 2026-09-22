@@ -159,17 +159,19 @@ for (const p of pages) addOut(p.outRel, p.srcRel);
 for (const j of journals) addOut(`journals/${j.name}.md`, j.srcRel);
 for (const a of assets) addOut(a.outRel, `asset:${a.srcAbs}`);
 
-// Two distinct pages (or assets) normalizing to one name is fatal. Two journal
-// sources mapping to one day is the intended fold (§9), not a collision.
-const sourceCollisions = [...outFiles.values()].filter((e) => e.sources.size > 1 && !e.rel.startsWith('journals/'));
+// Two distinct pages normalizing to one name is reported, and the first source
+// wins. Two journal sources mapping to one day is the intended fold (§9).
+const sourceCollisions = [...outFiles.values()].filter(
+  (e) => e.sources.size > 1 && !e.rel.startsWith('journals/'),
+);
 
-// Collisions with the existing target vault.
-const targetCollisions = [...outFiles.keys()].filter((rel) => fs.existsSync(path.join(TGT, rel)));
-
-const collisions = [
-  ...sourceCollisions.map((e) => ({ rel: e.rel, list: [...e.sources], why: 'two sources map here' })),
-  ...targetCollisions.map((rel) => ({ rel, list: [...outFiles.get(rel).sources], why: 'already exists in target' })),
-];
+// Existing destination paths are no longer blockers: a Markdown target is
+// appended to and an asset is skipped (merge-logseq-imports).
+const collisions = sourceCollisions.map((e) => ({
+  rel: e.rel,
+  list: [...e.sources],
+  why: 'two sources map here (first wins)',
+}));
 
 // Name map for reference resolution and block-ref targets.
 const nameBySource = new Map(); // srcRel -> output page name
@@ -320,22 +322,47 @@ function rewriteContent(text, pageName, sourceLabel, srcStem) {
 
 // --------------------------------------------------------------- render plan
 
-const journalGroups = new Map(); // outRel -> [{srcAbs, srcRel}]
-for (const j of journals) {
+// The hidden ledger of imported source files (merge-logseq-imports): one entry
+// per imported file, keyed `<source folder name>\t<source path>`. It is
+// app-owned vault meta, never a page (ADR-0015).
+const LEDGER_HEADER = '# Imported Logseq sources - one entry per imported file';
+const sourceName = path.basename(SRC);
+const LEDGER = path.join(TGT, '.folio', 'imports.md');
+const ledger = new Set();
+try {
+  for (const line of fs.readFileSync(LEDGER, 'utf8').split('\n')) {
+    const m = line.match(/^-\s+(.*)$/);
+    if (m) ledger.add(m[1].trimEnd());
+  }
+} catch {
+  // no ledger yet
+}
+const keyOf = (srcRel) => `${sourceName}\t${srcRel}`;
+const freshPages = pages.filter((p) => !ledger.has(keyOf(p.srcRel)));
+const freshJournals = journals.filter((j) => !ledger.has(keyOf(j.srcRel)));
+const alreadyImported =
+  pages.length - freshPages.length + (journals.length - freshJournals.length);
+
+const journalGroups = new Map(); // outRel -> { parts, sourceKeys }
+for (const j of freshJournals) {
   const outRel = `journals/${j.name}.md`;
-  const list = journalGroups.get(outRel) ?? [];
-  list.push(j);
-  journalGroups.set(outRel, list);
+  const group = journalGroups.get(outRel) ?? { parts: [], sourceKeys: [] };
+  group.parts.push(rewriteContent(readText(j.srcAbs), j.name, j.srcRel, stemOf(j.srcRel)));
+  group.sourceKeys.push(keyOf(j.srcRel));
+  journalGroups.set(outRel, group);
 }
 
-const writes = []; // { outRel, content }
-for (const p of pages) {
+const writes = []; // { outRel, content, sourceKeys }
+const seenPages = new Set();
+for (const p of freshPages) {
+  const key = p.outRel.toLowerCase();
+  if (seenPages.has(key)) continue; // first source wins on a name collision
+  seenPages.add(key);
   const content = rewriteContent(readText(p.srcAbs), p.name, p.srcRel, stemOf(p.srcRel));
-  writes.push({ outRel: p.outRel, content });
+  writes.push({ outRel: p.outRel, content, sourceKeys: [keyOf(p.srcRel)] });
 }
 for (const [outRel, group] of journalGroups) {
-  const parts = group.map((j) => rewriteContent(readText(j.srcAbs), j.name, j.srcRel, stemOf(j.srcRel)));
-  writes.push({ outRel, content: parts.join('\n') });
+  writes.push({ outRel, content: group.parts.join('\n'), sourceKeys: group.sourceKeys });
 }
 
 // Illegal-name guard: nothing should survive normalization that Windows or
@@ -444,24 +471,52 @@ if (notes.length) {
 
 if (!apply) {
   console.log('Dry run complete. Re-run with --apply to write the vault.');
-  process.exit(collisions.length ? 2 : 0);
-}
-
-if (collisions.length) {
-  console.error('Aborting: collisions must be resolved before applying.');
-  process.exit(2);
+  process.exit(0);
 }
 
 let written = 0;
+let merged = 0;
+let skipped = 0;
+let assetsCopied = 0;
+
+const record = (sourceKeys) => {
+  for (const key of sourceKeys) ledger.add(key);
+  const body = [...ledger]
+    .sort()
+    .map((key) => `- ${key}`)
+    .join('\n');
+  fs.mkdirSync(path.join(TGT, '.folio'), { recursive: true });
+  fs.writeFileSync(
+    LEDGER,
+    body === '' ? `${LEDGER_HEADER}\n` : `${LEDGER_HEADER}\n\n${body}\n`,
+    'utf8',
+  );
+};
+
 for (const w of writes) {
   const abs = path.join(TGT, w.outRel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
-  fs.writeFileSync(abs, w.content.endsWith('\n') ? w.content : `${w.content}\n`, 'utf8');
-  written++;
+  if (fs.existsSync(abs)) {
+    const prior = fs.readFileSync(abs, 'utf8').replace(/\n+$/, '');
+    const body = w.content.replace(/\n+$/, '');
+    fs.writeFileSync(abs, prior === '' ? `${body}\n` : `${prior}\n\n${body}\n`, 'utf8');
+    merged++;
+  } else {
+    fs.writeFileSync(abs, w.content.endsWith('\n') ? w.content : `${w.content}\n`, 'utf8');
+    written++;
+  }
+  record(w.sourceKeys);
 }
 for (const a of assets) {
   const abs = path.join(TGT, a.outRel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
+  if (fs.existsSync(abs)) {
+    skipped++;
+    continue;
+  }
   fs.copyFileSync(a.srcAbs, abs);
+  assetsCopied++;
 }
-console.log(`Applied: ${written} markdown files, ${assets.length} assets. Source untouched.`);
+console.log(
+  `Applied: ${written} written, ${merged} merged, ${assetsCopied} assets copied, ${skipped} assets skipped, ${alreadyImported} source files already imported. Source untouched.`,
+);

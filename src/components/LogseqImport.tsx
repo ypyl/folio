@@ -80,11 +80,18 @@ export function LogseqImportPanel({
             <span className={styles.figure}>{report.written}</span> files written
           </li>
           <li>
-            <span className={styles.figure}>{report.skipped}</span> skipped (already in the
-            destination)
+            <span className={styles.figure}>{report.merged}</span> merged into existing files
           </li>
           <li>
             <span className={styles.figure}>{report.assetsCopied}</span> assets copied
+          </li>
+          <li>
+            <span className={styles.figure}>{report.skipped}</span> assets skipped (already in the
+            destination)
+          </li>
+          <li>
+            <span className={styles.figure}>{report.alreadyImported}</span> source files already
+            imported
           </li>
         </ul>
         {report.collisions.length > 0 && (

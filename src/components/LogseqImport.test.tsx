@@ -35,8 +35,10 @@ describe('LogseqImportPanel', () => {
           kind: 'done',
           report: {
             written: 4,
+            merged: 5,
             skipped: 2,
             assetsCopied: 3,
+            alreadyImported: 6,
             collisions: [],
             stats: emptyImportStats(),
           },
@@ -46,8 +48,10 @@ describe('LogseqImportPanel', () => {
     )
     expect(screen.getByText('Import complete')).toBeTruthy()
     expect(screen.getByText('4')).toBeTruthy()
+    expect(screen.getByText('5')).toBeTruthy()
     expect(screen.getByText('2')).toBeTruthy()
     expect(screen.getByText('3')).toBeTruthy()
+    expect(screen.getByText('6')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(onContinue).toHaveBeenCalledTimes(1)
   })

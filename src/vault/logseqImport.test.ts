@@ -182,6 +182,18 @@ class MemStorage implements VaultStorage {
 }
 
 describe('runLogseqImport', () => {
+  const sourceA = () =>
+    new MemStorage({
+      'pages/Roadmap.md': 'A roadmap\n',
+      'journals/2024_07_02.md': 'A day\n',
+      'assets/shot.png': new Blob(['png']),
+    })
+  const sourceB = () =>
+    new MemStorage({
+      'pages/Roadmap.md': 'B roadmap\n',
+      'journals/2024_07_02.md': 'B day\n',
+      'assets/shot.png': new Blob(['png']),
+    })
   const source = () =>
     new MemStorage({
       'pages/Roadmap.md': 'See [[Ideas]]\n',
@@ -209,7 +221,9 @@ describe('runLogseqImport', () => {
     expect(dest.files.has('assets/diagram.excalidraw')).toBe(true)
     expect(dest.files.has('assets/board.edn')).toBe(true)
     expect(result.report.written).toBe(4)
+    expect(result.report.merged).toBe(0)
     expect(result.report.assetsCopied).toBe(3)
+    expect(dest.files.has('.folio/imports.md')).toBe(true)
   })
 
   it('never imports config, backups, or source meta', async () => {
@@ -217,39 +231,83 @@ describe('runLogseqImport', () => {
     await runLogseqImport(source(), dest)
     for (const path of [...dest.files.keys()]) {
       expect(path.startsWith('logseq/')).toBe(false)
-      expect(path.startsWith('.folio/')).toBe(false)
-      expect(path).not.toBe('pages/.folio/pins.md')
+      expect(path.startsWith('pages/.folio/')).toBe(false)
+      if (path.startsWith('.folio/')) expect(path).toBe('.folio/imports.md')
     }
   })
 
-  it('skips files the destination already holds and preserves its meta', async () => {
-    const dest = new MemStorage({
-      'pages/Roadmap.md': 'mine',
-      '.folio/pins.md': 'pins',
-    })
-    const result = await runLogseqImport(source(), dest)
+  it('appends a second graph into existing pages and journals', async () => {
+    const dest = new MemStorage()
+    await runLogseqImport(sourceA(), dest, { sourceName: 'graph-a' })
+    const result = await runLogseqImport(sourceB(), dest, { sourceName: 'graph-b' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(dest.files.get('pages/Roadmap.md')).toBe('mine')
-    expect(dest.files.get('.folio/pins.md')).toBe('pins')
-    expect(result.report.skipped).toBeGreaterThan(0)
+    expect(result.report.merged).toBe(2)
+    expect(result.report.written).toBe(0)
+    expect(dest.files.get('pages/Roadmap.md')).toBe('A roadmap\n\nB roadmap\n')
+    expect(dest.files.get('journals/2024-07-02.md')).toBe('A day\n\nB day\n')
   })
 
-  it('is idempotent on a second run', async () => {
+  it('leaves an existing asset untouched', async () => {
+    const dest = new MemStorage({ 'assets/shot.png': 'mine' })
+    const result = await runLogseqImport(sourceB(), dest, { sourceName: 'graph-b' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(dest.files.get('assets/shot.png')).toBe('mine')
+    expect(result.report.skipped).toBe(1)
+    expect(result.report.assetsCopied).toBe(0)
+  })
+
+  it('preserves destination meta and records the imported source', async () => {
+    const dest = new MemStorage({ '.folio/pins.md': 'pins' })
+    const result = await runLogseqImport(sourceA(), dest, { sourceName: 'graph-a' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(dest.files.get('.folio/pins.md')).toBe('pins')
+    expect(String(dest.files.get('.folio/imports.md'))).toContain('graph-a\tpages/Roadmap.md')
+  })
+
+  it('is idempotent on a second run through the ledger', async () => {
     const dest = new MemStorage()
-    await runLogseqImport(source(), dest)
+    await runLogseqImport(sourceA(), dest, { sourceName: 'graph-a' })
     const before = [...dest.files.keys()].sort()
-    const second = await runLogseqImport(source(), dest)
+    const second = await runLogseqImport(sourceA(), dest, { sourceName: 'graph-a' })
     expect(second.ok).toBe(true)
     if (!second.ok) return
     expect(second.report.written).toBe(0)
+    expect(second.report.merged).toBe(0)
     expect(second.report.assetsCopied).toBe(0)
+    expect(second.report.alreadyImported).toBeGreaterThan(0)
     expect([...dest.files.keys()].sort()).toEqual(before)
+  })
+
+  it('records what it wrote when a run fails part-way, so a re-run appends only the rest', async () => {
+    const dest = new MemStorage()
+    const write = dest.write.bind(dest)
+    dest.write = async (path, content) => {
+      if (path === 'journals/2024-07-02.md') throw new Error('disk full')
+      await write(path, content)
+    }
+    const failed = await runLogseqImport(sourceA(), dest, { sourceName: 'graph-a' })
+    expect(failed).toEqual({ ok: false, error: 'disk full' })
+    expect(dest.files.has('pages/Roadmap.md')).toBe(true)
+    expect(String(dest.files.get('.folio/imports.md'))).toContain('graph-a\tpages/Roadmap.md')
+
+    dest.write = write
+    const retry = await runLogseqImport(sourceA(), dest, { sourceName: 'graph-a' })
+    expect(retry.ok).toBe(true)
+    if (!retry.ok) return
+    expect(retry.report.alreadyImported).toBe(1)
+    expect(retry.report.written).toBe(1)
+    expect(retry.report.merged).toBe(0)
+    expect(dest.files.get('pages/Roadmap.md')).toBe('A roadmap\n')
   })
 
   it('reports progress through scanning and writing', async () => {
     const seen: ImportProgress[] = []
-    await runLogseqImport(source(), new MemStorage(), (p) => seen.push(p))
+    await runLogseqImport(source(), new MemStorage(), {
+      onProgress: (p) => seen.push(p),
+    })
     expect(seen[0].phase).toBe('scanning')
     expect(seen.some((p) => p.phase === 'writing')).toBe(true)
     const last = seen[seen.length - 1]

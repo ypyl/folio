@@ -191,7 +191,10 @@ function App() {
     const result = await runLogseqImport(
       new FileSystemVaultStorage(sourceHandle),
       new FileSystemVaultStorage(destHandle),
-      (progress) => setImportView({ kind: 'running', progress }),
+      {
+        sourceName: sourceHandle.name,
+        onProgress: (progress) => setImportView({ kind: 'running', progress }),
+      },
     )
     if (!result.ok) {
       setImportView({ kind: 'error', message: result.error })
