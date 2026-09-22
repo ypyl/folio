@@ -50,11 +50,19 @@ See [research/01-project-discussion.md](research/01-project-discussion.md) for t
 
 With no folder open, the brand screen offers **Import from Logseq**. Pick the Logseq
 folder (read-only) and a destination folder, and Folio translates the graph into its own
-Markdown rules, merges it without overwriting anything the destination already holds,
-shows progress, and opens the result. The rule set is documented in
-[MIGRATION_LOGSEQ_FOLIO.md](MIGRATION_LOGSEQ_FOLIO.md), implemented in the app and in
-`scripts/migrate-logseq.mjs`, and recorded as one-way and input-only in
-[ADR-0025](adr/0025-logseq-import-is-one-way-and-input-only.md).
+Markdown rules and merges it in: new files are written, a file the destination already
+holds is appended to, and an existing asset is left alone. Progress is shown as it runs,
+and the result summary reports what was written, merged, and skipped.
+
+Importing several graphs into one vault is the intended use: import each in turn and
+their pages and journals combine. A hidden `.folio/imports.md` ledger records every
+source file already imported, so re-running an import — including resuming after a
+partial failure — appends only what is new and never duplicates. Importing the same
+folder twice is a no-op.
+
+The rule set is documented in [MIGRATION_LOGSEQ_FOLIO.md](MIGRATION_LOGSEQ_FOLIO.md),
+implemented in the app and in `scripts/migrate-logseq.mjs`, and recorded as one-way and
+input-only in [ADR-0025](adr/0025-logseq-import-is-one-way-and-input-only.md).
 
 ## License
 
