@@ -59,6 +59,7 @@ export const SHORTCUT_GROUPS: {
       { label: 'Code block', keys: ['Mod-Alt-c'] },
       { label: 'Exit code block', keys: ['Mod-Enter'] },
       { label: 'Cancel code block', keys: ['Backspace'] },
+      { label: 'Format JSON block', keys: ['Mod-Shift-f'] },
       // Tables (add-table-editing): a table is the other block with a surface of
       // its own — a way in, a way to extend it, a way to move inside it, a way
       // out. Tab, Shift-Tab, and Enter therefore appear twice: what they do

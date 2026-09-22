@@ -1327,6 +1327,72 @@ describe('MilkdownAdapter (smoke)', () => {
         await adapter.destroy()
         el.remove()
       })
+
+      it('reformats a JSON block through the code surface and back to its fence', async () => {
+        const { adapter, el } = await mountPlain()
+        await adapter.setContent('```json' + '\n' + '{"a":1,"b":[2,3]}' + '\n' + '```' + '\n')
+        await settleCodeBlock()
+
+        cmContent(el).focus()
+        const button = focusAway()
+
+        expect(adapter.applyChord('Mod-Shift-f')).toBe(true)
+        const saved = serialize(adapter)
+        // The block is reindented and the fence keeps its language, so the
+        // formatted form is what the file holds (design D4).
+        expect(saved).toContain('{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}')
+        expect(saved).toContain('```json')
+
+        button.remove()
+        await adapter.destroy()
+        el.remove()
+      })
+
+      it('leaves a non-JSON block alone when the format chord is pressed', async () => {
+        const { adapter, el } = await mountPlain()
+        await adapter.setContent('```js' + '\n' + '{"a":1}' + '\n' + '```' + '\n')
+        await settleCodeBlock()
+
+        cmContent(el).focus()
+        const button = focusAway()
+
+        // The code surface claims the chord (so the search binding sharing its
+        // base key cannot open behind it) but changes nothing.
+        expect(adapter.applyChord('Mod-Shift-f')).toBe(true)
+        expect(serialize(adapter)).toContain('{"a":1}')
+
+        button.remove()
+        await adapter.destroy()
+        el.remove()
+      })
+
+      it('leaves invalid JSON alone when the format chord is pressed', async () => {
+        const { adapter, el } = await mountPlain()
+        await adapter.setContent('```json' + '\n' + '{a:1}' + '\n' + '```' + '\n')
+        await settleCodeBlock()
+
+        cmContent(el).focus()
+        const button = focusAway()
+
+        expect(adapter.applyChord('Mod-Shift-f')).toBe(true)
+        expect(serialize(adapter)).toContain('{a:1}')
+
+        button.remove()
+        await adapter.destroy()
+        el.remove()
+      })
+
+      it('does not claim the format chord with the caret in prose', async () => {
+        const { adapter, el } = await mountPlain()
+        await adapter.setContent('an ordinary paragraph' + '\n')
+
+        caretToEnd(adapter)
+        focusProse(el)
+        expect(adapter.applyChord('Mod-Shift-f')).toBe(false)
+
+        await adapter.destroy()
+        el.remove()
+      })
     })
   })
 

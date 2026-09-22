@@ -23,7 +23,8 @@ import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { tableRenderButton, tableSlice } from './tableSetup'
 import { tableCellCaret } from './tableCellCaret'
 import { keepTableHandlesInThePane } from './tableHandleClamp'
-import { chordToKeyEventInit } from './chord'
+import { chordToKeyEventInit, isMac } from './chord'
+import { formatJsonBlock, isInCodeBlock } from './codeFormat'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
 import { noVaultReader, type AssetReader } from '../vault/assetOpen'
@@ -95,8 +96,9 @@ export class MilkdownAdapter implements EditorAdapter {
   private focusRoot: HTMLElement | null = null
   private focusHandler: ((event: FocusEvent) => void) | null = null
   private lastFocusedWithin: HTMLElement | null = null
-  // Forward delete in a list item (see handleForwardDelete): the one key this
-  // adapter intercepts before the editor's own keymaps see it.
+  // Forward delete in a list item (see handleForwardDelete) and the JSON format
+  // chord (see handleFormatJson): the keys this adapter intercepts before the
+  // editor's own keymaps see them.
   private keyRoot: HTMLElement | null = null
   private keyHandler: ((event: KeyboardEvent) => void) | null = null
   // A table's handles inside the pane (keep-table-handles-in-the-pane): the
@@ -297,6 +299,7 @@ export class MilkdownAdapter implements EditorAdapter {
     // following block into the item itself and only then stops the event.
     this.keyRoot = el
     this.keyHandler = (event) => {
+      if (this.handleFormatJson(event)) return
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
       if (event.key === 'Delete') {
         const action = this.handleForwardDelete()
@@ -578,6 +581,35 @@ export class MilkdownAdapter implements EditorAdapter {
       view.dispatch(tr.scrollIntoView())
       return true
     })
+  }
+
+  /** JSON format (format-json-code-block, design D1): the adapter claims
+   *  `Mod-Shift-f` in the capture phase, before the code surface sees it. No
+   *  keymap can own the chord — ProseMirror never receives a key pressed inside
+   *  a code block (the node view stops every event), and CodeMirror's search
+   *  keymap owns `Mod-f`, which is where a character chord resolves first. The
+   *  command itself is ProseMirror's: the code surface syncs the caret into the
+   *  block, so the node's language and text are right there. A press outside a
+   *  code block is left to the surfaces below. */
+  private handleFormatJson(event: KeyboardEvent): boolean {
+    if (event.altKey || !event.shiftKey || event.key.toLowerCase() !== 'f') return false
+    const primary = isMac() ? event.metaKey : event.ctrlKey
+    const secondary = isMac() ? event.ctrlKey : event.metaKey
+    if (!primary || secondary) return false
+    const editor = this.editor
+    if (!editor) return false
+    const claimed = editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      if (!isInCodeBlock(view.state)) return false
+      formatJsonBlock(view.state, (tr) => view.dispatch(tr), view)
+      return true
+    })
+    if (!claimed) return false
+    // Claim the event outright: the code surface's search binding must not open
+    // the find panel behind the attempted reformat.
+    event.preventDefault()
+    event.stopPropagation()
+    return true
   }
 
   private handleForwardDelete(): 'text' | 'joined' | 'default' {

@@ -50,11 +50,13 @@ const sheetItems = SHORTCUT_GROUPS.flatMap((group) => group.items)
 const sheetItem = (label: string) => sheetItems.find((item) => item.label === label)
 
 // Chords the app binds outside ProseMirror's keymaps: the code block's own
-// CodeMirror surface owns Mod-Enter and Backspace, the reference badge plugin
-// owns its own chord, and the app's search listener owns Mod-k. They are listed
-// explicitly rather than omitted, so a chord moved out of a ProseMirror keymap
-// fails the union check below instead of silently drifting.
-const CHORDS_BOUND_ELSEWHERE = new Set<string>(['Mod-Enter', 'Backspace', 'Mod-k'])
+// CodeMirror surface owns Mod-Enter and Backspace, the adapter's capture-phase
+// key handler owns Mod-Shift-f (the JSON format chord, which no keymap can own —
+// see format-json-code-block), the reference badge plugin owns its own chord,
+// and the app's search listener owns Mod-k. They are listed explicitly rather
+// than omitted, so a chord moved out of a ProseMirror keymap fails the union
+// check below instead of silently drifting.
+const CHORDS_BOUND_ELSEWHERE = new Set<string>(['Mod-Enter', 'Backspace', 'Mod-Shift-f', 'Mod-k'])
 
 // Drift guard (keyboard-shortcuts-help design; extended by
 // move-help-to-right-panel and apply-shortcuts-on-click): every row the sheet
@@ -126,6 +128,15 @@ describe('sheet vs editor bindings', () => {
     expect(displayKeys('Mod-Enter')).toMatch(/^(Ctrl|Cmd)\+Enter$/)
     // Mod-Enter is context-dependent: it is listed under each action it serves.
     expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
+  })
+
+  it('the sheet lists the JSON format shortcut', () => {
+    // The adapter's capture-phase key handler owns the chord
+    // (format-json-code-block); it is listed so it stays discoverable and
+    // replayable like the other editor rows.
+    expect(sheetItem('Format JSON block')?.keys).toEqual(['Mod-Shift-f'])
+    expect(displayKeys('Mod-Shift-f')).toMatch(/^(Ctrl|Cmd)\+Shift\+F$/)
+    expect(sheetItem('Format JSON block')?.replayable).not.toBe(false)
   })
 
   it('every heading level row matches the live heading binding', () => {

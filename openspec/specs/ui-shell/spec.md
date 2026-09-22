@@ -305,6 +305,21 @@ The keyboard-shortcuts reference SHALL cover leaving and removing a code block i
 - **WHEN** the reference is open at the panel's default width
 - **THEN** every row shows its label and its key tokens on a single line
 
+### Requirement: The keyboard-shortcuts reference covers formatting a JSON code block
+
+The keyboard-shortcuts reference SHALL list the JSON code block's format action: `Mod-Shift-F` (Cmd/Ctrl+Shift+F) to reindent the JSON code block the caret is in. It SHALL be listed as a readable label plus its key combination rendered as key tokens, matching the existing rows, with the label and its key combination on one line at the panel's default width. The row SHALL be a control that applies its combination, as the reference's other editor rows are. The row SHALL be listed only because the app provides that behavior.
+
+#### Scenario: The reference lists how to format a JSON code block
+
+- **WHEN** the user opens the keyboard-shortcuts section
+- **THEN** it shows a "Format JSON block" row with the `Mod-Shift-F` chord rendered as key tokens, on one line
+
+#### Scenario: Applying the format control reformats the block
+
+- **GIVEN** an open page with a JSON code block holding single-line JSON and the caret inside it
+- **WHEN** the user activates the format row's key control
+- **THEN** the block is reformatted exactly as pressing the combination would reformat it, and the page's saved Markdown holds the indented text
+
 ### Requirement: The keyboard-shortcuts reference covers table editing
 
 The keyboard-shortcuts reference SHALL cover editing a table: `Mod-Alt-t` (Cmd/Ctrl+Alt+T) to insert a table, `Mod-Alt-Enter` (Cmd/Ctrl+Alt+Enter) to add a row below the caret's row, `Mod-Alt-Shift-Enter` (Cmd/Ctrl+Alt+Shift+Enter) to add a column to the right of the caret's column, `Tab` and `Shift-Tab` to move to the next and previous cell, and `Enter` to leave the table. It SHALL also cover the operations that exist on a table's row and column handles: `Mod-Alt-l`, `Mod-Alt-m`, and `Mod-Alt-r` (Cmd/Ctrl+Alt+L, M, R) to align the caret's column to the left, the center, and the right, `Mod-Alt-d` (Cmd/Ctrl+Alt+D) to delete the caret's row, and `Mod-Alt-Shift-d` (Cmd/Ctrl+Alt+Shift+D) to delete the caret's column. Each SHALL be listed as a readable label plus its key combination rendered as key tokens, matching the existing rows, and each label SHALL name the action. Every one of these rows SHALL be a control that applies its combination, as the reference's other editor rows are, and activating it SHALL do to the open page exactly what pressing the combination does, including acting on the caret's row or column. Where a chord means different things in different contexts, the reference SHALL list the chord under each action rather than hiding one, so `Tab`, `Shift-Tab`, and `Enter` appear both for their text behavior and for their behavior inside a table. A row SHALL be listed only because the app provides that behavior.
