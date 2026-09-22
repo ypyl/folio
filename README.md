@@ -14,6 +14,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - Daily journal pages
 - Full-text search
 - Three-pane layout: sidebar, editor, backlinks
+- One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 
 ## Tech Stack
 
@@ -31,6 +32,16 @@ npm run dev
 ```
 
 See [research/01-project-discussion.md](research/01-project-discussion.md) for the full project spec.
+
+## Importing from Logseq
+
+With no folder open, the brand screen offers **Import from Logseq**. Pick the Logseq
+folder (read-only) and a destination folder, and Folio translates the graph into its own
+Markdown rules, merges it without overwriting anything the destination already holds,
+shows progress, and opens the result. The rule set is documented in
+[MIGRATION_LOGSEQ_FOLIO.md](MIGRATION_LOGSEQ_FOLIO.md), implemented in the app and in
+`scripts/migrate-logseq.mjs`, and recorded as one-way and input-only in
+[ADR-0025](adr/0025-logseq-import-is-one-way-and-input-only.md).
 
 ## License
 
