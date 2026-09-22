@@ -8,21 +8,27 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 
 ## Features
 
-- Open a local Markdown folder (vault) directly from the browser
-- View and edit `.md` files with auto-save
-- Page references (`#word`, `#[[Page]]`) and backlinks
-- Daily journal pages
-- Full-text search
-- Three-pane layout: sidebar, editor, backlinks
+- Open one or more local Markdown folders (vaults) directly from the browser; the folder is the database
+- WYSIWYG Markdown editing with auto-save, GFM tables, syntax-highlighted code blocks, and block line numbers
+- Page references (`#word`, `#[[Page]]`) with backlinks and forwardlinks, plus inline completion for references and link destinations
+- Daily journal pages with a calendar
+- Whiteboards: `.excalidraw` boards under `boards/`, referenced with `#!` tokens and edited in the pane
+- Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
+- Full-text search over pages and journals, and by name over assets and boards
+- Pinned pages, back/forward history, and a status bar
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
+- Collapsible side panes; a PWA that installs and works offline
 
 ## Tech Stack
 
-- React + TypeScript (Vite)
+- React 19 + TypeScript, built with Vite 8
 - File System Access API (Chromium-first: Chrome, Edge, Brave)
-- `react-markdown` + `remark-gfm`
-- Fuse.js for search
-- No backend
+- [Milkdown](https://milkdown.dev/) (ProseMirror) for editing, CodeMirror for code blocks
+- [Excalidraw](https://excalidraw.com/) for whiteboards
+- [Fuse.js](https://www.fusejs.io/) for search
+- `vite-plugin-pwa` for offline and install
+- Vitest for tests, oxlint/oxfmt for lint and format
+- No backend and no application database
 
 ## Getting Started
 
@@ -32,6 +38,13 @@ npm run dev
 ```
 
 See [research/01-project-discussion.md](research/01-project-discussion.md) for the full project spec.
+
+## Documentation
+
+- [adr/README.md](adr/README.md) — architecture decision records
+- [openspec/specs/](openspec/specs/) — behavior specifications
+- [DESIGN.md](DESIGN.md) — the design language
+- [AGENTS.md](AGENTS.md) — how the project is built and kept small
 
 ## Importing from Logseq
 
