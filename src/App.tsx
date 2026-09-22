@@ -5,6 +5,7 @@ import { EditorPane, type EditorPaneHandle } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { ShortcutsList } from './components/ShortcutsList'
 import { FolderRail } from './components/FolderRail'
+import { PaneCollapseToggle } from './components/PaneCollapseToggle'
 import { SearchBox } from './components/SearchBox'
 import { SearchResultsView } from './components/SearchResultsView'
 import { StatusBar } from './components/StatusBar'
@@ -97,6 +98,11 @@ function App() {
   // this feeds the results pane and stays current for the see-all handoff.
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  // Pane collapse (add-collapsible-sidebars): session-only, so a reload brings
+  // both panes back. The classes on the shell zero the pane's grid track and
+  // both grids read the same variable, so the header stays aligned.
+  const [leftCollapsed, setLeftCollapsed] = useState(false)
+  const [rightCollapsed, setRightCollapsed] = useState(false)
   // Last content shown for the open path: if the file vanished in a
   // refresh, keep showing it instead of yanking the page (design D6).
   const lastKnown = useRef<IndexPage | null>(null)
@@ -640,8 +646,12 @@ function App() {
     [boardPool],
   )
 
+  const shellClass = `app-shell${leftCollapsed ? ' left-collapsed' : ''}${
+    rightCollapsed ? ' right-collapsed' : ''
+  }`
+
   return (
-    <div className="app-shell">
+    <div className={shellClass}>
       <Header
         // The brand returns home (close-folders): no active folder, folders
         // stay on the rail. The activeFolder?.id effect resets the page.
@@ -680,7 +690,14 @@ function App() {
           }
           onActivate={handleActivate}
         />
+        <PaneCollapseToggle
+          side="left"
+          collapsed={leftCollapsed}
+          controls="sidebar-pane"
+          onToggle={() => setLeftCollapsed((v) => !v)}
+        />
         <Sidebar
+          collapsed={leftCollapsed}
           pages={pages}
           journalEntries={journalEntries}
           assets={assets}
@@ -781,6 +798,13 @@ function App() {
           loading={indexing}
           shortcuts={<ShortcutsList onApply={applyShortcut} canApply={canApply} />}
           /* oxlint-enable react/refs */
+          collapsed={rightCollapsed}
+        />
+        <PaneCollapseToggle
+          side="right"
+          collapsed={rightCollapsed}
+          controls="meta-panel"
+          onToggle={() => setRightCollapsed((v) => !v)}
         />
       </div>
       <StatusBar

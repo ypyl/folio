@@ -112,6 +112,7 @@ export const Sidebar = memo(function Sidebar({
   onBack,
   onForward,
   onToday,
+  collapsed = false,
 }: {
   pages: Page[]
   journalEntries: Page[]
@@ -145,6 +146,10 @@ export const Sidebar = memo(function Sidebar({
   /** Open the current day's journal (move-today-into-nav-controls); the
    *  handler lives in App, so the open is an ordinary navigation. */
   onToday?: () => void
+  /** The sidebar is folded away (add-collapsible-sidebars). The pane stays
+   *  mounted so its accordion state survives, and `display: none` takes its
+   *  box (and its descendants' focusability) out of the layout. */
+  collapsed?: boolean
 }) {
   const pinnedSet = new Set(pinnedPaths)
 
@@ -365,7 +370,12 @@ export const Sidebar = memo(function Sidebar({
   )
 
   return (
-    <aside className={styles.sidebar} aria-label="Notes" ref={asideRef}>
+    <aside
+      id="sidebar-pane"
+      className={collapsed ? `${styles.sidebar} ${styles.collapsed}` : styles.sidebar}
+      aria-label="Notes"
+      ref={asideRef}
+    >
       {/* The session controls (add-history-navigation D4, move-today-into-nav-
           controls): the first band, so Back, Forward, and Today stay in reach
           however long the listings below them get. */}

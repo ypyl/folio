@@ -1,0 +1,31 @@
+/* Collapse strip (add-collapsible-sidebars): a full-height column between two
+   panes. Flat and borderless — the adjacent panes already carry the hairline
+   dividers (DESIGN.md rule 6) — with no fill of its own, so the workspace's
+   parchment shows through. Only the arrow takes ink, and only the arrow
+   changes on hover. */
+.toggle {
+  /* Stretch to the row: the strip spans the workspace's whole height. */
+  align-self: stretch;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--stone);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.toggle:hover {
+  color: var(--dark-warm);
+}
+
+.icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}

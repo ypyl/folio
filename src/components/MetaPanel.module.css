@@ -148,3 +148,16 @@
   height: 20px;
   border-radius: 4px;
 }
+
+/* Folded away (add-collapsible-sidebars): `visibility: hidden` keeps the
+   pane's grid placement — a `display: none` item would be skipped, shifting
+   every later column — while taking its descendants out of the tab order. A
+   zero-width track does the hiding; padding and border go to zero so the
+   border-box panel cannot overflow that track. The component stays mounted, so
+   each section's open/closed state survives the round trip. */
+.collapsed {
+  visibility: hidden;
+  overflow: hidden;
+  padding: 0;
+  border-width: 0;
+}

@@ -290,3 +290,16 @@
   height: 28px; /* a real day cell is min-height 28 with a 1px ring (border-box) */
   border-radius: 6px;
 }
+
+/* Folded away (add-collapsible-sidebars): the pane must keep generating a box,
+   because a `display: none` grid item is skipped by auto-placement and every
+   later item shifts a column. `visibility: hidden` keeps its place (and takes
+   its descendants out of the tab order) while the zero-width track does the
+   hiding; padding and border go to zero so a border-box pane cannot overflow
+   its 0px track, and overflow is clipped in case anything still paints. */
+.collapsed {
+  visibility: hidden;
+  overflow: hidden;
+  padding: 0;
+  border-width: 0;
+}

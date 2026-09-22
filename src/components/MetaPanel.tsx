@@ -87,6 +87,7 @@ export function MetaPanel({
   onOpenAsset,
   loading = false,
   shortcuts,
+  collapsed = false,
 }: {
   pageOpen: boolean
   backlinks: LinkRow[]
@@ -108,6 +109,10 @@ export function MetaPanel({
   loading?: boolean
   /** The keyboard-shortcuts reference body (apply-shortcuts-on-click). */
   shortcuts: ReactNode
+  /** The meta panel is folded away (add-collapsible-sidebars). The pane stays
+   *  mounted so its section state survives, and `display: none` takes its box
+   *  (and its descendants' focusability) out of the layout. */
+  collapsed?: boolean
 }) {
   // One placeholder line per section (indexing-loading-state): replaces the
   // placeholder copy at the same height (13px text, 1.5 line-height) so the
@@ -115,7 +120,11 @@ export function MetaPanel({
   const skeletonLine = <span className={`skeleton ${styles.skeletonLine}`} aria-hidden="true" />
 
   return (
-    <aside className={styles.panel} aria-label="Page sidebar">
+    <aside
+      id="meta-panel"
+      className={collapsed ? `${styles.panel} ${styles.collapsed}` : styles.panel}
+      aria-label="Page sidebar"
+    >
       {boardOpen ? (
         // Board mode (add-whiteboards): the page-metadata sections have no
         // subject, so the panel shows the board's referrers instead — the

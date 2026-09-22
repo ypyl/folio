@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import App from './App'
 import { Accordion } from './components/Accordion'
 import styles from './components/JournalCalendar.module.css'
+import sidebarStyles from './components/Sidebar.module.css'
+import metaStyles from './components/MetaPanel.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
 import { dayLabel } from './components/months'
@@ -1515,5 +1517,58 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
       name: 'Architecture.excalidraw',
     })
     expect(row.className).toContain('dimmed')
+  })
+})
+
+describe('collapsible sidebars (add-collapsible-sidebars spec)', () => {
+  it('renders a full-height strip for each side pane, both expanded', () => {
+    render(<App />)
+    const left = screen.getByRole('button', { name: 'Collapse sidebar' })
+    expect(left.getAttribute('aria-expanded')).toBe('true')
+    expect(left.getAttribute('aria-controls')).toBe('sidebar-pane')
+    const right = screen.getByRole('button', { name: 'Collapse meta panel' })
+    expect(right.getAttribute('aria-expanded')).toBe('true')
+    expect(right.getAttribute('aria-controls')).toBe('meta-panel')
+  })
+
+  it('folds the sidebar away and back without touching the header or editor', () => {
+    render(<App />)
+    const pane = document.getElementById('sidebar-pane') as HTMLElement
+    expect(pane.className).not.toContain(sidebarStyles.collapsed)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    // The pane keeps its node (so its accordion state survives) and takes the
+    // collapsed class; the strip flips its name and state.
+    expect(document.getElementById('sidebar-pane')).toBe(pane)
+    expect(pane.className).toContain(sidebarStyles.collapsed)
+    const expanded = screen.getByRole('button', { name: 'Expand sidebar' })
+    expect(expanded.getAttribute('aria-expanded')).toBe('false')
+    // The header keeps its search; only the pane's column gave way.
+    expect(screen.getByLabelText('Search notes')).toBeTruthy()
+
+    fireEvent.click(expanded)
+    expect(pane.className).not.toContain(sidebarStyles.collapsed)
+    expect(
+      screen.getByRole('button', { name: 'Collapse sidebar' }).getAttribute('aria-expanded'),
+    ).toBe('true')
+  })
+
+  it('keeps a collapsed pane mounted so its sections survive the round trip', () => {
+    render(<App />)
+    const summary = screen.getByText('Keyboard shortcuts')
+    const details = summary.closest('details') as HTMLDetailsElement
+    expect(details.open).toBe(false)
+    fireEvent.click(summary)
+    expect(details.open).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse meta panel' }))
+    expect((document.getElementById('meta-panel') as HTMLElement).className).toContain(
+      metaStyles.collapsed,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Expand meta panel' }))
+
+    const reopened = screen.getByText('Keyboard shortcuts').closest('details') as HTMLDetailsElement
+    expect(reopened).toBe(details)
+    expect(reopened.open).toBe(true)
   })
 })
