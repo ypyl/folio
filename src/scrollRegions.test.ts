@@ -20,12 +20,14 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-/** Selectors that deliberately reserve nothing, because their content is sized
- *  to their own fixed extent and a lane would shrink it (design D3): the folder
- *  rail's controls are a fixed size in a fixed-width column, and the code
- *  block's language list is an overlay whose width comes from its content. A
- *  region that opts out of the gutter opts out of the app's thumb too. */
-const OPT_OUTS = ['.rail', '.language-list'] as const
+/** Selectors that deliberately reserve nothing. The two side panes scroll only
+ *  as a fallback while their accordion bodies own the scrolling, so a lane
+ *  would sit empty on every ordinary window (drop-side-pane-gutters). The
+ *  folder rail's controls are a fixed size in a fixed-width column, and the
+ *  code block's language list is an overlay whose width comes from its content,
+ *  so a lane would shrink what they were sized for (design D3). A region that
+ *  opts out of the gutter opts out of the app's thumb too. */
+const OPT_OUTS = ['.rail', '.language-list', '.sidebar', '.panel'] as const
 
 const isOptOut = (selector: string) => OPT_OUTS.some((s) => selector.includes(s))
 
@@ -82,7 +84,7 @@ describe('scroll regions reserve their gutter (steady-scroll-regions)', () => {
     expect(missing).toEqual([])
   })
 
-  it('the two opt-outs reserve nothing, so their content keeps its size', () => {
+  it('the opt-outs reserve nothing, so their content keeps its size', () => {
     const reserved: string[] = []
     for (const [file, css] of Object.entries(files)) {
       for (const [selector, body] of rules(css)) {
@@ -126,7 +128,7 @@ describe("every gutter region carries the app's thumb (always-visible-scrollbars
     expect(wrong).toEqual([])
   })
 
-  it("the two opt-outs keep the platform's own bar", () => {
+  it("the opt-outs keep the platform's own bar", () => {
     const styled: string[] = []
     for (const [file, css] of Object.entries(files)) {
       for (const [selector] of rules(css)) {

@@ -183,9 +183,9 @@ A scroll region the app owns reserves the lane its scrollbar will occupy, so
 its content keeps the same width whether or not it is overflowing:
 `scrollbar-gutter: stable` beside `overflow-y: auto`. Without it, content
 reflows sideways every time it crosses the pane's or the band's height, in both
-directions. The regions are the editor pane, the sidebar pane and its Pages and
-Assets bodies, the meta panel and its Backlinks, Forwardlinks, and References
-bodies, the search results list, and the search dropdown.
+directions. The regions are the editor pane, the sidebar's Pages, Boards, and
+Assets bodies, the meta panel's Backlinks, Forwardlinks, and References bodies,
+the search results list, and the search dropdown.
 
 A region that reserves the lane carries the app's own bar in it: a thin,
 rounded, inset pill in `--stone`, shown for as long as the region can scroll
@@ -214,11 +214,14 @@ and do not add a scroll listener for either; an overlay bar that floats over
 the content is a `ScrollArea` component, a different and larger decision than
 this rule.
 
-Two regions reserve nothing, because their content is sized to their own fixed
-extent and a lane would shrink what it was sized for: the folder rail (a 44px
-content box holding 40px controls) and an overlay popup such as a code block's
-language list, whose width comes from its content. A region that opts out of
-the lane opts out of the thumb too, and keeps the bar the platform gives it.
+Some regions reserve nothing. The two side panes are one kind: they scroll only
+as a fallback while their accordion bodies own the scrolling, so a reserved lane
+would sit empty on every ordinary window. The others are sized to their own
+fixed extent, where a lane would shrink what they were sized for: the folder
+rail (a 44px content box holding 40px controls) and an overlay popup such as a
+code block's language list, whose width comes from its content. A region that
+opts out of the lane opts out of the thumb too, and keeps the bar the platform
+gives it.
 
 `scrollbar-gutter: stable` reserves nothing where the platform draws its
 scrollbars over the content rather than in a gutter, so this rule needs no

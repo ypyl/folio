@@ -2,13 +2,10 @@
   background: var(--ivory);
   border-left: 1px solid var(--border);
   overflow-y: auto;
-  /* Reserve the scrollbar's lane (DESIGN.md, scroll regions), mirroring the
-     sidebar: neither the fallback pane scroll nor a band's body may change the
-     content's width as it crosses the overflow threshold. */
-  scrollbar-gutter: stable;
-  /* 4px on every side (trim-side-pane-right-padding): the reserved scrollbar
-     lane already separates the content from the right border, so the old 16px
-     right padding only double-inset it. Top aligned with the other columns. */
+  /* No reserved lane (drop-side-pane-gutters): the accordion bodies own the
+     scrolling, so a gutter here would sit empty on every ordinary window. The
+     fallback scroll keeps the platform's own bar. */
+  /* 4px on every side: top aligned with the other workspace columns. */
   padding: 4px;
   min-width: 0;
   /* A column of bands (design D3): the three link sections share the leftover
@@ -61,21 +58,18 @@
   scrollbar-gutter: stable; /* DESIGN.md, scroll regions */
 }
 
-/* The panel's bar and each band body's bar: the app's own thumb in the
-   reserved lane (DESIGN.md, scroll regions), shown while the region can
-   scroll. No `width` on ::-webkit-scrollbar, so the lane keeps the platform's
-   own width. */
-.panel::-webkit-scrollbar,
+/* Each band body's bar: the app's own thumb in the reserved lane (DESIGN.md,
+   scroll regions), shown while the region can scroll. No `width` on
+   ::-webkit-scrollbar, so the lane keeps the platform's own width. The panel
+   itself reserves no lane (drop-side-pane-gutters) and so carries no thumb. */
 .fillBody::-webkit-scrollbar {
   background: transparent;
 }
 
-.panel::-webkit-scrollbar-track,
 .fillBody::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.panel::-webkit-scrollbar-thumb,
 .fillBody::-webkit-scrollbar-thumb {
   background-color: var(--stone);
   border: 4px solid transparent; /* inset the pill within the lane */

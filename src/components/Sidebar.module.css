@@ -1,10 +1,7 @@
 .sidebar {
   background: var(--ivory);
   border-right: 1px solid var(--border);
-  /* Top aligned with the other workspace columns, and 4px on every side
-     (trim-side-pane-right-padding): the pane's own reserved scrollbar lane
-     already holds the content off the right border, so the old 16px right
-     padding only double-inset the rows beside it. */
+  /* Top aligned with the other workspace columns, and 4px on every side. */
   padding: 4px;
   min-width: 0;
   /* A column of bands (add-asset-navigation, D5): controls, Journal, Pages,
@@ -14,29 +11,9 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  /* Reserve the scrollbar's lane (DESIGN.md, scroll regions): the fallback pane
-     scroll must not narrow the bands when it starts, nor widen them when it
-     stops. */
-  scrollbar-gutter: stable;
-}
-
-/* The bar: the app's own thumb in the lane above (DESIGN.md, scroll regions),
-   shown while the pane can scroll. No `width` on ::-webkit-scrollbar, so the
-   lane keeps the platform's own width. */
-.sidebar::-webkit-scrollbar {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  background-color: var(--stone);
-  border: 4px solid transparent; /* inset the pill within the lane */
-  background-clip: content-box; /* paint only inside the transparent border */
-  border-radius: 999px;
-  min-height: 32px; /* a long listing still leaves something to grab */
+  /* No reserved lane (drop-side-pane-gutters): the accordion bodies own the
+     scrolling, so a gutter here would sit empty on every ordinary window. The
+     fallback scroll keeps the platform's own bar rather than the app's thumb. */
 }
 
 /* A band that sizes to its content and never scrolls internally: the
