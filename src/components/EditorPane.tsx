@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
-import type { CSSProperties, ClipboardEvent, DragEvent, Ref } from 'react'
+import type { CSSProperties, ClipboardEvent, DragEvent, ReactNode, Ref } from 'react'
 import { FolioMark } from '../FolioMark'
 import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
@@ -63,6 +63,7 @@ export function EditorPane({
   initialContent,
   onChange,
   emptyHint = 'notes',
+  brandAction,
   loading = false,
   onAttachFiles,
   onOpenReference,
@@ -81,6 +82,10 @@ export function EditorPane({
    *  picker — the browser requirement instead of an instruction that cannot be
    *  followed (warn-unsupported-browser). */
   emptyHint?: 'notes' | 'open-folder' | 'browser-unsupported'
+  /** Optional control rendered under the tagline on the brand screen
+   *  (add-logseq-import): the Import from Logseq action. Presentational only —
+   *  the pane owns no import state. */
+  brandAction?: ReactNode
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
   /** Copy files into the vault and resolve with the landed asset paths; fed by
@@ -359,6 +364,7 @@ export function EditorPane({
             >
               {EMPTY_HINTS[emptyHint]}
             </p>
+            {brandAction}
           </div>
         )}
       </main>

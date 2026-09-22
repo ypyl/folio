@@ -143,7 +143,41 @@ export function useVault() {
     await makeActive(id)
   }
 
-  return { status, folders, activeId, addFolder: openNewFolder, activate, closeFolder, goHome }
+  // Add a folder from a handle already acquired elsewhere (add-logseq-import):
+  // the import flow owns the destination handle, so it must join the rail
+  // without invoking the picker again. Same one-entry-per-folder dedup as
+  // openNewFolder, and the same activation.
+  async function addFolderFromHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+    for (const f of folders) {
+      if (await isSameHandle(f.handle, handle)) {
+        await activate(f.id)
+        return
+      }
+    }
+    const id = crypto.randomUUID()
+    const open = await openVault(handle)
+    await saveVaultHandle({ id, name: handle.name, handle })
+    upsert(setFolders, {
+      id,
+      name: handle.name,
+      handle,
+      permission: 'granted',
+      storage: open.storage,
+      fileCount: open.fileCount,
+    })
+    await makeActive(id)
+  }
+
+  return {
+    status,
+    folders,
+    activeId,
+    addFolder: openNewFolder,
+    addFolderFromHandle,
+    activate,
+    closeFolder,
+    goHome,
+  }
 }
 
 // Boot flow: restore every granted stored folder (storage created lazily —
@@ -180,6 +214,19 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
     active.fileCount = (await active.storage.list('')).length
   }
   return [restored, active?.id ?? null]
+}
+
+/** isSameEntry behind a guard: some handles (and test fakes) do not expose it,
+ *  and a throw must not abort the import's folder registration. */
+async function isSameHandle(
+  a: FileSystemDirectoryHandle,
+  b: FileSystemDirectoryHandle,
+): Promise<boolean> {
+  try {
+    return await a.isSameEntry(b)
+  } catch {
+    return false
+  }
 }
 
 async function openVault(handle: FileSystemDirectoryHandle) {

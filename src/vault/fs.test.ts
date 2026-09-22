@@ -4,6 +4,7 @@ import {
   InvalidVaultPathError,
   canOpenFolders,
   parsePath,
+  pickSourceFolder,
   pickVaultFolder,
 } from './fs'
 import { buildTree, type FakeDirectoryHandle, type FakeTreeNode } from './fakeHandle'
@@ -244,6 +245,21 @@ describe('pickVaultFolder', () => {
     )
     try {
       await expect(pickVaultFolder()).rejects.toMatchObject({ name: 'AbortError' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('pickSourceFolder', () => {
+  it('opens the picker read-only for the Logseq source', async () => {
+    const picked = buildTree(VAULT)
+    const picker = vi.fn(async () => picked as unknown as FileSystemDirectoryHandle)
+    vi.stubGlobal('showDirectoryPicker', picker)
+    try {
+      const root = await pickSourceFolder()
+      expect(root).toBe(picked as unknown as FileSystemDirectoryHandle)
+      expect(picker).toHaveBeenCalledWith({ mode: 'read' })
     } finally {
       vi.unstubAllGlobals()
     }

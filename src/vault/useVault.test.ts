@@ -287,3 +287,28 @@ describe('goHome', () => {
     expect(store.lastActiveId()).toBeNull()
   })
 })
+
+describe('addFolderFromHandle', () => {
+  it('adds a picked destination and makes it active', async () => {
+    store.seed('work', 'granted')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    const dest = fake('dest', 'granted')
+    await act(() =>
+      result.current.addFolderFromHandle(dest as unknown as FileSystemDirectoryHandle),
+    )
+    expect(result.current.folders.map((f) => f.name)).toEqual(['work', 'dest'])
+    expect(result.current.activeId).toBe(result.current.folders.find((f) => f.name === 'dest')!.id)
+  })
+
+  it('does not duplicate a folder already on the rail', async () => {
+    const seeded = store.seed('work', 'granted')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    await act(() =>
+      result.current.addFolderFromHandle(seeded.handle as unknown as FileSystemDirectoryHandle),
+    )
+    expect(result.current.folders.map((f) => f.name)).toEqual(['work'])
+    expect(result.current.activeId).toBe(seeded.id)
+  })
+})

@@ -19,7 +19,14 @@ import type { ReferenceKind } from './vault/parse'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
-import { canOpenFolders } from './vault/fs'
+import {
+  canOpenFolders,
+  FileSystemVaultStorage,
+  pickSourceFolder,
+  pickVaultFolder,
+} from './vault/fs'
+import { runLogseqImport } from './vault/logseqImport'
+import { LogseqImportButton, LogseqImportPanel, type ImportView } from './components/LogseqImport'
 import {
   assetName,
   boardName,
@@ -75,7 +82,16 @@ function pageReferenceRows(page: IndexPage, graph: Graph): LinkRow[] {
 }
 
 function App() {
-  const { status, folders, activeId, addFolder, activate, closeFolder, goHome } = useVault()
+  const {
+    status,
+    folders,
+    activeId,
+    addFolder,
+    addFolderFromHandle,
+    activate,
+    closeFolder,
+    goHome,
+  } = useVault()
   // Browser capability (warn-unsupported-browser): probed once per render and
   // spent twice — the rail's add control exists only where the picker does,
   // and the brand screen states the requirement where it does not.
@@ -93,6 +109,9 @@ function App() {
   // editor) or the transient full-results view. ActivePath is untouched in
   // results mode, so closing it returns to the previously open page.
   const [mode, setMode] = useState<'page' | 'results' | 'board'>('page')
+  // The no-folder Logseq import (add-logseq-import): the whole flow's view state.
+  // Non-null means the center pane hosts the import instead of the editor.
+  const [importView, setImportView] = useState<ImportView | null>(null)
   // Mirror of the latest landed search run (search-results-view): SearchBox
   // owns the Fuse and the debounce, and reports the uncapped result set up;
   // this feeds the results pane and stays current for the see-all handoff.
@@ -149,6 +168,37 @@ function App() {
     // active folder is not a switch, so it keeps the page.
     if (id !== activeId) resetOpenPage()
     void activate(id)
+  }
+
+  // The Logseq import (add-logseq-import): pick a read-only source, a read-write
+  // destination, run the transform, then open the destination. Both picker
+  // cancellations end the flow silently; the panel hosts progress and result.
+  const handleImport = async () => {
+    if (!canOpen) return
+    let sourceHandle: FileSystemDirectoryHandle
+    let destHandle: FileSystemDirectoryHandle
+    try {
+      sourceHandle = await pickSourceFolder()
+    } catch {
+      return
+    }
+    try {
+      destHandle = await pickVaultFolder()
+    } catch {
+      return
+    }
+    setImportView({ kind: 'running', progress: { phase: 'scanning', done: 0, total: 0 } })
+    const result = await runLogseqImport(
+      new FileSystemVaultStorage(sourceHandle),
+      new FileSystemVaultStorage(destHandle),
+      (progress) => setImportView({ kind: 'running', progress }),
+    )
+    if (!result.ok) {
+      setImportView({ kind: 'error', message: result.error })
+      return
+    }
+    setImportView({ kind: 'done', report: result.report })
+    await addFolderFromHandle(destHandle)
   }
 
   // Stable identity so the memoized Sidebar can skip re-rendering on every
@@ -715,7 +765,9 @@ function App() {
           onForward={handleForward}
           onToday={handleToday}
         />
-        {mode === 'results' ? (
+        {importView !== null ? (
+          <LogseqImportPanel view={importView} onContinue={() => setImportView(null)} />
+        ) : mode === 'results' ? (
           <SearchResultsView
             // Keyed on the query: editing the query while the view is open
             // remounts it, resetting page and active row to the new set.
@@ -776,6 +828,11 @@ function App() {
                 : canOpen
                   ? 'open-folder'
                   : 'browser-unsupported'
+            }
+            brandAction={
+              canOpen && status === 'ready' && activeFolder?.storage === undefined ? (
+                <LogseqImportButton onClick={() => void handleImport()} />
+              ) : undefined
             }
             loading={indexing}
           />

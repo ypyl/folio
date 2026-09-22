@@ -329,6 +329,25 @@ describe('EditorPane', () => {
     expect(instances.list).toHaveLength(0)
   })
 
+  it('renders the optional brand action under the tagline (add-logseq-import)', async () => {
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    try {
+      render(
+        <EditorPane
+          page={null}
+          emptyHint="open-folder"
+          initialContent=""
+          onChange={() => {}}
+          brandAction={<button type="button">Import from Logseq</button>}
+        />,
+      )
+      expect(screen.getByText('Open a folder to begin.')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Import from Logseq' })).toBeTruthy()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('shows the loading state instead of the empty hint while the index builds', async () => {
     render(
       <EditorPane page={null} loading emptyHint="notes" initialContent="" onChange={() => {}} />,

@@ -147,3 +147,9 @@ function lastSegment(segments: string[]): string {
 export async function pickVaultFolder(): Promise<FileSystemDirectoryHandle> {
   return showDirectoryPicker({ mode: 'readwrite' })
 }
+
+/** Open the OS directory picker read-only (add-logseq-import): the Logseq
+ *  source is only ever read, so it is opened without write access. */
+export async function pickSourceFolder(): Promise<FileSystemDirectoryHandle> {
+  return showDirectoryPicker({ mode: 'read' })
+}
