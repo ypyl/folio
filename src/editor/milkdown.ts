@@ -31,6 +31,7 @@ import type { ReferenceKind } from '../vault/parse'
 import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
+import { separateEmptyListLines } from './emptyLines'
 import { blockStartLines } from '../lineAnchors'
 import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
 
@@ -38,6 +39,20 @@ import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
  *  (copy-as-markdown), so the app's own paste restores structure without the
  *  markdown-likeness gate. External targets never see it. */
 export const FOLIO_CLIPBOARD_FLAVOR = 'application/x-folio-markdown'
+
+/** Whether an inline block reads as an empty list-item line: no content, or only
+ *  a hard break / an inline `<br>`. Milkdown serializes an empty list item as
+ *  `<br />`, which parses back as an html node rather than an empty paragraph. */
+function isBlankListItemBlock(node: ProseNode): boolean {
+  if (node.content.size === 0) return true
+  let blank = true
+  node.forEach((child) => {
+    if (child.type.name === 'hardbreak') return
+    if (child.type.name === 'html' && /^<br\s*\/?>$/i.test(child.textContent)) return
+    blank = false
+  })
+  return blank
+}
 
 export class MilkdownAdapter implements EditorAdapter {
   private editor: Editor | null = null
@@ -152,7 +167,7 @@ export class MilkdownAdapter implements EditorAdapter {
           // The tail is normalized on the way out (edit-after-trailing-code-block):
           // the paragraph the document keeps after a trailing code block must not
           // reach the file, and neither must a stray blank line at the end.
-          const canonical = trimTrailingBlankLines(markdown)
+          const canonical = trimTrailingBlankLines(separateEmptyListLines(markdown))
           this.latest = canonical
           // The first event after a setContent echoes the seeded doc. If it
           // matches what we dispatched, it is not an edit — drop it. Any other
@@ -282,13 +297,19 @@ export class MilkdownAdapter implements EditorAdapter {
     // following block into the item itself and only then stops the event.
     this.keyRoot = el
     this.keyHandler = (event) => {
-      if (event.key !== 'Delete') return
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-      const action = this.handleForwardDelete()
-      if (action === 'text') {
-        event.stopPropagation()
-      } else if (action === 'joined') {
-        // The join already ran; stop the list keymap's lift from following it.
+      if (event.key === 'Delete') {
+        const action = this.handleForwardDelete()
+        if (action === 'text') {
+          event.stopPropagation()
+        } else if (action === 'joined') {
+          // The join already ran; stop the list keymap's lift from following it.
+          event.stopPropagation()
+          event.preventDefault()
+        }
+      } else if (event.key === 'Backspace' && this.handleEmptyItemBackspace()) {
+        // The item was removed and its children promoted; keep the list keymap's
+        // own Backspace from running after it.
         event.stopPropagation()
         event.preventDefault()
       }
@@ -338,12 +359,14 @@ export class MilkdownAdapter implements EditorAdapter {
     let canonical: string | null = null
     this.editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
-      const doc = ctx.get(parserCtx)(markdown)
+      const doc = ctx.get(parserCtx)(separateEmptyListLines(markdown))
       const tr = view.state.tr
       view.dispatch(tr.replaceWith(0, view.state.doc.content.size, doc.content))
       // Capture the canonical serialization of what we just seeded so the
       // echoed markdownUpdated can be recognized and suppressed (no user edit).
-      canonical = trimTrailingBlankLines(ctx.get(serializerCtx)(view.state.doc))
+      canonical = trimTrailingBlankLines(
+        separateEmptyListLines(ctx.get(serializerCtx)(view.state.doc)),
+      )
     })
     this.latest = canonical ?? markdown
     this.seedMarkdown = canonical
@@ -405,7 +428,7 @@ export class MilkdownAdapter implements EditorAdapter {
     if (!editor) return
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
-      const parsed = ctx.get(parserCtx)(markdown)
+      const parsed = ctx.get(parserCtx)(separateEmptyListLines(markdown))
       const single = parsed.content.childCount === 1
       const first = parsed.content.firstChild
       // The payload's own shape decides what a position can hold: a single
@@ -512,6 +535,51 @@ export class MilkdownAdapter implements EditorAdapter {
    * - `'default'`: anything else, including an empty item with nothing after it,
    *   where the preset's own keymap keeps its lift/remove behavior.
    */
+  /**
+   * Remove an empty list item on Backspace, promoting its children rather than
+   * deleting them (see the mount-time keydown handler). Fires only for an empty
+   * selection at the start of a list item's first, empty text block: a genuinely
+   * empty item is deleted, and one that also holds blocks (a code block, a
+   * nested list) keeps them one level up. Returns whether it acted; the caller
+   * stops the event when it did.
+   */
+  private handleEmptyItemBackspace(): boolean {
+    const editor = this.editor
+    if (!editor) return false
+    return editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const { selection } = view.state
+      const { $from } = selection
+      if (
+        !selection.empty ||
+        $from.parentOffset !== 0 ||
+        $from.node(-1)?.type.name !== 'list_item' ||
+        !isBlankListItemBlock($from.parent)
+      ) {
+        return false
+      }
+      const item = $from.node(-1)
+      const list = $from.node(-2)
+      if (!item || !list || item.firstChild !== $from.parent) return false
+
+      const tr = view.state.tr
+      const itemStart = $from.before(-1)
+      const listStart = $from.before(-2)
+      const listEnd = $from.after(-2)
+      // Children after the empty line survive one level up, inserted after the
+      // item's list (in the parent list item, or the document for a top-level
+      // list). The insert is after every deleted range, so positions hold.
+      if (item.childCount > 1) {
+        tr.insert(listEnd, item.content.cut($from.parent.nodeSize))
+      }
+      if (list.childCount === 1) tr.delete(listStart, listEnd)
+      else tr.delete(itemStart, $from.after(-1))
+      tr.setSelection(TextSelection.near(tr.doc.resolve(tr.mapping.map(itemStart)), -1))
+      view.dispatch(tr.scrollIntoView())
+      return true
+    })
+  }
+
   private handleForwardDelete(): 'text' | 'joined' | 'default' {
     const editor = this.editor
     if (!editor) return 'default'
@@ -555,7 +623,7 @@ export class MilkdownAdapter implements EditorAdapter {
     return editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
       const serializer = ctx.get(serializerCtx)
-      return trimTrailingBlankLines(serializer(view.state.doc))
+      return trimTrailingBlankLines(separateEmptyListLines(serializer(view.state.doc)))
     })
   }
 
@@ -570,7 +638,9 @@ export class MilkdownAdapter implements EditorAdapter {
       const view = ctx.get(editorViewCtx)
       const serializer = ctx.get(serializerCtx)
       return trimTrailingBlankLines(
-        serializer(view.state.schema.topNodeType.create(null, slice.content)),
+        separateEmptyListLines(
+          serializer(view.state.schema.topNodeType.create(null, slice.content)),
+        ),
       )
     })
   }

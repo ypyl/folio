@@ -273,19 +273,41 @@ describe('MilkdownAdapter (smoke)', () => {
       })
     }
 
-    /** Put the caret at the start of the first empty paragraph in the doc. */
+    /** Put the caret at the start of the first blank list-item line in the doc. */
     const caretInEmptyParagraph = (adapter: MilkdownAdapter): void => {
+      const blank = (n: ProseNode): boolean => {
+        if (n.content.size === 0) return true
+        let empty = true
+        n.forEach((child) => {
+          if (child.type.name === 'hardbreak') return
+          if (child.type.name === 'html' && /^<br\s*\/?>$/i.test(child.textContent)) return
+          empty = false
+        })
+        return empty
+      }
       editorOf(adapter).action((ctx) => {
         const access = ctx as { get: (k: unknown) => unknown }
         const view = access.get(editorViewCtx) as {
-          state: { doc: ProseNode; tr: { setSelection: (s: unknown) => unknown } }
+          state: {
+            doc: {
+              descendants: (
+                f: (n: ProseNode, pos: number, parent: ProseNode | null) => void,
+              ) => void
+            }
+            tr: { setSelection: (s: unknown) => unknown }
+          }
           dispatch: (tr: unknown) => void
         }
         let pos = -1
-        view.state.doc.descendants((node, p) => {
-          if (pos < 0 && node.type.name === 'paragraph' && node.content.size === 0) pos = p + 1
+        view.state.doc.descendants((node, p, parent) => {
+          if (pos >= 0) return
+          if (node.type.name === 'paragraph' && parent?.type.name === 'list_item' && blank(node)) {
+            pos = p + 1
+          }
         })
-        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
+        view.dispatch(
+          view.state.tr.setSelection(TextSelection.create(view.state.doc as never, pos)),
+        )
       })
     }
 
@@ -350,6 +372,79 @@ describe('MilkdownAdapter (smoke)', () => {
       const list = firstBlock(adapter)
       expect(list.type.name).toBe('bullet_list')
       expect(list.childCount).toBe(1)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    /** The caret's parent text block, for asserting where the caret landed. */
+    const caretParent = (adapter: MilkdownAdapter): { text: string; offset: number } =>
+      editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as {
+          state: { selection: { $from: { parent: { textContent: string }; parentOffset: number } } }
+        }
+        return {
+          text: view.state.selection.$from.parent.textContent,
+          offset: view.state.selection.$from.parentOffset,
+        }
+      }) as { text: string; offset: number }
+
+    it('deletes a genuinely empty item on Backspace', async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(['- test', '-', ''].join(String.fromCharCode(10)))
+      caretInEmptyParagraph(adapter)
+      pressKey(adapter, 'Backspace')
+      const list = firstBlock(adapter)
+      expect(list.type.name).toBe('bullet_list')
+      expect(list.childCount).toBe(1)
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it("promotes an empty item's code block on Backspace instead of deleting it", async () => {
+      const { adapter, el } = await mount()
+      await adapter.setContent(
+        [
+          '- parent',
+          '  - x',
+          '  - <br />',
+          '    ```',
+          '    SELECT *',
+          '    ```',
+          '- other',
+          '',
+        ].join(String.fromCharCode(10)),
+      )
+      caretInEmptyParagraph(adapter)
+      pressKey(adapter, 'Backspace')
+      const out = serialize(adapter)
+      // The empty line is gone, the code block survives, and the caret sits at
+      // the end of the previous sibling item's text.
+      expect(out).not.toContain('<br />')
+      expect(out).toContain('SELECT *')
+      expect(caretParent(adapter)).toEqual({ text: 'x', offset: 1 })
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('reads a broken empty-item + code block back as a code block', async () => {
+      const { adapter, el } = await mount()
+      // The shape Folio used to write: no blank line between the empty item and
+      // its code block. On open it must come back as a code_block, not one html
+      // atom, and it must serialize with the separating blank line.
+      await adapter.setContent(
+        ['* parent', '  * <br />', '    ```', '    SELECT *', '    ```', ''].join(
+          String.fromCharCode(10),
+        ),
+      )
+      const doc = editorOf(adapter).action((ctx) => {
+        const access = ctx as { get: (k: unknown) => unknown }
+        const view = access.get(editorViewCtx) as { state: { doc: { toJSON: () => unknown } } }
+        return JSON.stringify(view.state.doc.toJSON())
+      }) as string
+      expect(doc).toContain('"code_block"')
+      expect(doc).not.toContain('"html"')
+      expect(serialize(adapter)).toBe('* parent\n  * <br />\n\n    ```\n    SELECT *\n    ```\n')
       await adapter.destroy()
       el.remove()
     })
