@@ -1,9 +1,11 @@
 .sidebar {
   background: var(--ivory);
   border-right: 1px solid var(--border);
-  /* Top aligned with the other workspace columns; a small left padding so
-     rows sit just off the sidebar's edge without reserving a star slot. */
-  padding: 4px 16px 4px 4px;
+  /* Top aligned with the other workspace columns, and 4px on every side
+     (trim-side-pane-right-padding): the pane's own reserved scrollbar lane
+     already holds the content off the right border, so the old 16px right
+     padding only double-inset the rows beside it. */
+  padding: 4px;
   min-width: 0;
   /* A column of bands (add-asset-navigation, D5): controls, Journal, Pages,
      Assets. The pane scrolls only as a fallback — when even the sections'

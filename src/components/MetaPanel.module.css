@@ -6,7 +6,10 @@
      sidebar: neither the fallback pane scroll nor a band's body may change the
      content's width as it crosses the overflow threshold. */
   scrollbar-gutter: stable;
-  padding: 4px 16px 4px 4px; /* top aligned with the other workspace columns */
+  /* 4px on every side (trim-side-pane-right-padding): the reserved scrollbar
+     lane already separates the content from the right border, so the old 16px
+     right padding only double-inset it. Top aligned with the other columns. */
+  padding: 4px;
   min-width: 0;
   /* A column of bands (design D3): the three link sections share the leftover
      height and each scrolls inside its own body, while the keyboard-shortcuts
