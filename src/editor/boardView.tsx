@@ -121,13 +121,32 @@ export function BoardView({
   if (mod === null) {
     return <div className={styles.board} data-board-loading="true" aria-busy="true" />
   }
-  const { Excalidraw } = mod
+  const { Excalidraw, MainMenu } = mod
   return (
     <div className={styles.board} data-board-host="true" ref={hostRef}>
       <Excalidraw
         initialData={initialData as ExcalidrawProps['initialData']}
         onChange={handleChange}
-      />
+      >
+        {/* The editor's default main menu carries its own project's links
+            (GitHub, X, Discord) under an "Excalidraw links" group. Folio is not
+            that project, so the host supplies the library's own MainMenu — the
+            supported customization seam — with the same items and without that
+            group. No UIOptions is passed, so the library's defaults (export and
+            save-as-image on) always apply and those items are unconditional. */}
+        <MainMenu>
+          <MainMenu.DefaultItems.LoadScene />
+          <MainMenu.DefaultItems.SaveToActiveFile />
+          <MainMenu.DefaultItems.Export />
+          <MainMenu.DefaultItems.SaveAsImage />
+          <MainMenu.DefaultItems.SearchMenu />
+          <MainMenu.DefaultItems.Help />
+          <MainMenu.DefaultItems.ClearCanvas />
+          <MainMenu.Separator />
+          <MainMenu.DefaultItems.ToggleTheme />
+          <MainMenu.DefaultItems.ChangeCanvasBackground />
+        </MainMenu>
+      </Excalidraw>
     </div>
   )
 }
