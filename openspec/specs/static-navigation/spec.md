@@ -91,7 +91,7 @@ On load with a vault folder open and its index ready, the app SHALL open that fo
 
 ### Requirement: No-folder state invites opening a folder
 
-When no vault folder is open, the sidebar SHALL render its Journal, Pages, Boards, and Assets sections empty — no calendar marks, no rows — and the editor pane SHALL show an empty state inviting the user to open a folder. The four section summaries SHALL still be rendered, in the order the ui-shell capability specifies.
+When no vault folder is open, the sidebar SHALL render its Journal, Pages, Boards, and Assets sections empty — no calendar marks, no rows — and the editor pane SHALL show an empty state inviting the user to open a folder. Where the browser provides the local-folder picker, that empty state SHALL also offer the one-time Logseq import action described by the logseq-import capability; where it does not, the invitation stands alone. The four section summaries SHALL still be rendered, in the order the ui-shell capability specifies.
 
 #### Scenario: Before any folder is opened
 
@@ -102,6 +102,17 @@ When no vault folder is open, the sidebar SHALL render its Journal, Pages, Board
 
 - **WHEN** the user has stored folders but none is currently active or writable
 - **THEN** the sidebar shows no rows and the editor pane shows the open-a-folder empty state
+
+#### Scenario: The empty state offers the import action
+
+- **WHEN** the app loads with no folder open in a browser that provides the local-folder picker
+- **THEN** the editor pane offers the Import from Logseq action beside the open-a-folder invitation
+
+#### Scenario: The empty state offers no import action without a picker
+
+- **GIVEN** a browser whose runtime provides no local-folder picker
+- **WHEN** the app loads with no folder open
+- **THEN** the editor pane shows the open-a-folder empty state with no Import from Logseq action
 
 ### Requirement: Open page renders title and content
 When a page is open, the editor pane SHALL show the page's content in an editable WYSIWYG Markdown surface: ATX headings, paragraphs, and page references in Folio's two forms — `#word` and `#[[Page]]` — appear as plain editable text, not as chips. The pane SHALL NOT render the page title (its filename stem) as a heading; whatever title-like heading the user sees comes from the file's own content. References SHALL NOT navigate or respond to clicks. Plain `[[Page]]` wikilinks are not a reference form and SHALL render as literal editable text.

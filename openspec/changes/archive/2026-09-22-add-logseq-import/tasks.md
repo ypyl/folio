@@ -32,5 +32,5 @@
 - [x] 6.1 Run `npx oxlint --fix`, `npm run fmt`, and `npx oxlint --deny-warnings --format=agent` with no findings
 - [x] 6.2 Run `npm run build` and `npm test` and confirm both pass
 - [x] 6.3 Browser check with `npm run dev:test` in real Chromium: the brand screen renders the Import action and a cancelled picker returns to the brand screen with zero console errors. The full data path (write, result, activate) is covered by the App integration test over the real `FileSystemVaultStorage`, because the browser's native folder picker cannot be automated. Dev server swept with `npm run kill:dev`
-- [ ] 6.4 Run `npx openspec validate add-logseq-import --strict` and resolve any findings
-- [ ] 6.5 Bump the minor `version` in `package.json` and commit the change
+- [x] 6.4 Run `npx openspec validate add-logseq-import --strict` and resolve any findings
+- [x] 6.5 Bump the minor `version` in `package.json` and commit the change
