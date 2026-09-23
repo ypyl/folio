@@ -56,7 +56,13 @@ const sheetItem = (label: string) => sheetItems.find((item) => item.label === la
 // and the app's search listener owns Mod-k. They are listed explicitly rather
 // than omitted, so a chord moved out of a ProseMirror keymap fails the union
 // check below instead of silently drifting.
-const CHORDS_BOUND_ELSEWHERE = new Set<string>(['Mod-Enter', 'Backspace', 'Mod-Shift-f', 'Mod-k'])
+const CHORDS_BOUND_ELSEWHERE = new Set<string>([
+  'Mod-Enter',
+  'Backspace',
+  'Mod-Shift-f',
+  'Mod-k',
+  'Mod-p',
+])
 
 // Drift guard (keyboard-shortcuts-help design; extended by
 // move-help-to-right-panel and apply-shortcuts-on-click): every row the sheet

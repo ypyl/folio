@@ -1,7 +1,7 @@
 // The keyboard-shortcuts reference data (keyboard-shortcuts-help). The sheet
 // lists only what the app actually binds — the editor shortcuts come from the
 // Milkdown commonmark preset keymaps and plugin-history, and search is the
-// app's own Cmd/Ctrl+K. Links and strikethrough have no keymap and are
+// app's own Cmd/Ctrl+K and Cmd/Ctrl+P. Links and strikethrough have no keymap and are
 // deliberately absent. `Mod` is shown as Ctrl on Windows/Linux and Cmd on
 // macOS. Lives outside the component so ShortcutsList stays pure-component
 // (fast-refresh) and tests can import the data directly.
@@ -95,7 +95,9 @@ export const SHORTCUT_GROUPS: {
   {
     heading: 'App',
     target: 'app',
-    items: [{ label: 'Search notes', keys: ['Mod-k'] }],
+    // replace-header-with-spotlight: the spotlight opens on either chord, so
+    // both are listed and each is its own control.
+    items: [{ label: 'Search notes', keys: ['Mod-k', 'Mod-p'] }],
   },
 ]
 

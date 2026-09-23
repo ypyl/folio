@@ -119,9 +119,8 @@ const editor = () => editorInstances.list[editorInstances.list.length - 1] as Fa
 
 const pane = () => screen.getByRole('main')
 
-// Page rows live in the Pages section, and the header's brand is also a button
-// named 'Folio', so a row query says which section it means. Sections are
-// `details` elements whose summary carries the title.
+// Page rows live in the Pages section, so a row query says which section it
+// means. Sections are `details` elements whose summary carries the title.
 const section = (title: string) =>
   within((screen.getByText(title) as HTMLElement).closest('details') as HTMLElement)
 const pagesSection = () => section('Pages')
@@ -179,6 +178,15 @@ async function openFixture(
   return tree
 }
 
+/** Open the search spotlight with its chord and return its input
+ *  (replace-header-with-spotlight: search is a modal, not a header field).
+ *  While the spotlight is already open the chord is a no-op and the same input
+ *  is returned, so a call site can use it as "get (or open) the search". */
+function searchInput(): HTMLInputElement {
+  fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
+  return screen.getByLabelText('Search notes') as HTMLInputElement
+}
+
 describe('application shell', () => {
   it('renders the shell chrome with the open-a-folder empty state', async () => {
     // The open-folder hint is the supported-browser case: stub the picker the
@@ -186,8 +194,8 @@ describe('application shell', () => {
     vi.stubGlobal('showDirectoryPicker', vi.fn())
     try {
       render(<App />)
-      expect(within(screen.getByRole('banner')).getByText('Folio')).toBeTruthy()
-      expect(screen.getByLabelText('Search notes')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Folio, go home' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
       expect(screen.getByText('Journal')).toBeTruthy()
       expect(screen.getByText('Pages')).toBeTruthy()
       expect(screen.getByText('Backlinks')).toBeTruthy()
@@ -279,7 +287,7 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
-  it('lists the live file count in the header', async () => {
+  it('lists the live file count in the status bar', async () => {
     render(<App />)
     await openFixture()
     expect(await screen.findByTitle('notes (8 files)')).toBeTruthy()
@@ -830,14 +838,19 @@ describe('folder rail flow', () => {
 describe('content search over the real index (search spec)', () => {
   it('is disabled before a vault folder opens', () => {
     render(<App />)
-    expect((screen.getByLabelText('Search notes') as HTMLInputElement).disabled).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Open search' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    // The chord is inert without a vault, so the spotlight never appears.
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('opens a page from a search result', async () => {
     render(<App />)
     await openFixture()
     await screen.findByRole('button', { name: 'Welcome' }) // index built: search is enabled
-    const search = screen.getByLabelText('Search notes') as HTMLInputElement
+    const search = searchInput()
     fireEvent.change(search, { target: { value: 'backlinks' } })
     // 'backlinks' matches Ideas.md (page) and journals/2026-09-03.md (journal).
     await waitFor(() => expect(screen.getAllByRole('option').length).toBe(2))
@@ -852,7 +865,7 @@ describe('content search over the real index (search spec)', () => {
     render(<App />)
     await openFixture()
     await screen.findByRole('button', { name: 'Welcome' }) // index built: search is enabled
-    const search = screen.getByLabelText('Search notes') as HTMLInputElement
+    const search = searchInput()
     fireEvent.change(search, { target: { value: 'fresh vault' } })
     // Only journals/2026-09-02.md holds the phrase; the result is labelled
     // with the pretty date and opens the day through the shared selection path.
@@ -866,7 +879,7 @@ describe('content search over the real index (search spec)', () => {
     render(<App />)
     await openFixture()
     await screen.findByRole('button', { name: 'Welcome' }) // index built: search is enabled
-    const search = screen.getByLabelText('Search notes') as HTMLInputElement
+    const search = searchInput()
     fireEvent.change(search, { target: { value: 'backlinks' } })
     await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0))
 
@@ -878,15 +891,17 @@ describe('content search over the real index (search spec)', () => {
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
-    // The remounted input (folder-keyed) starts with an empty query.
-    expect((screen.getByLabelText('Search notes') as HTMLInputElement).value).toBe('')
+    // The folder switch closes the spotlight; its folder-keyed remount clears
+    // the query (search: scoped to the active vault).
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(searchInput().value).toBe('')
     expect(screen.queryByRole('listbox')).toBeNull()
     vi.unstubAllGlobals()
   })
 })
 
 describe('search results view (search-results-view spec)', () => {
-  const search = () => screen.getByLabelText('Search notes') as HTMLInputElement
+  const search = () => searchInput()
   const seeAll = () => screen.getByRole('button', { name: 'See all 4 results' })
   // The fixture: 'folio' matches Welcome, Inbox, Ideas, Folio (4 pages, no
   // journal day); 'backlinks' matches Ideas + journals/2026-09-03.md.
@@ -942,7 +957,7 @@ describe('search results view (search-results-view spec)', () => {
     fireEvent.click(seeAll())
     fireEvent.click(within(pane()).getByRole('button', { name: /^Folio/ }))
     await waitFor(() => expect(editor().setContents[0]).toContain('Notes on building Folio itself'))
-    // Refocusing the search (query kept) restores the dropdown, and its
+    // Reopening the spotlight (query kept) restores the dropdown, and its
     // see-all row returns to the results view.
     fireEvent.focus(search())
     const row = await screen.findByRole('button', { name: 'See all 4 results' })
@@ -1005,7 +1020,7 @@ describe('search results view (search-results-view spec)', () => {
 
 describe('pinned pages (add-pinned-pages)', () => {
   // The five fixture page rows in the Pages section, in DOM order (scoped to
-  // the sidebar — the header brand is also a button named 'Folio').
+  // the sidebar; the rail's brand is outside this region).
   const pageRowTitles = () =>
     within(screen.getByRole('complementary', { name: 'Notes' }))
       .getAllByRole('button')
@@ -1168,8 +1183,9 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     await openFixture()
     await openReference()
     fireEvent.click(control('Search notes Ctrl+K'))
-    // The chord reaches the app's own document listener, which focuses search.
-    expect(document.activeElement).toBe(screen.getByLabelText('Search notes'))
+    // The chord reaches the app's own document listener, which opens the
+    // spotlight and focuses its input.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Search notes')))
     vi.unstubAllGlobals()
   })
 
@@ -1352,7 +1368,7 @@ describe('history navigation (add-history-navigation spec)', () => {
 // that is already the app's "find the thing" gesture, and selecting it opens the
 // file rather than navigating (ADR-0021).
 describe('search over the vault assets (search-assets-by-name)', () => {
-  const search = () => screen.getByLabelText('Search notes') as HTMLInputElement
+  const search = () => searchInput()
 
   it('finds a file by name and opens it without navigating', async () => {
     const tree = buildTree({
@@ -1531,7 +1547,7 @@ describe('collapsible sidebars (add-collapsible-sidebars spec)', () => {
     expect(right.getAttribute('aria-controls')).toBe('meta-panel')
   })
 
-  it('folds the sidebar away and back without touching the header or editor', () => {
+  it('folds the sidebar away and back without touching the search or editor', () => {
     render(<App />)
     const pane = document.getElementById('sidebar-pane') as HTMLElement
     expect(pane.className).not.toContain(sidebarStyles.collapsed)
@@ -1543,8 +1559,8 @@ describe('collapsible sidebars (add-collapsible-sidebars spec)', () => {
     expect(pane.className).toContain(sidebarStyles.collapsed)
     const expanded = screen.getByRole('button', { name: 'Expand sidebar' })
     expect(expanded.getAttribute('aria-expanded')).toBe('false')
-    // The header keeps its search; only the pane's column gave way.
-    expect(screen.getByLabelText('Search notes')).toBeTruthy()
+    // The rail keeps its search trigger; only the pane's column gave way.
+    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
 
     fireEvent.click(expanded)
     expect(pane.className).not.toContain(sidebarStyles.collapsed)

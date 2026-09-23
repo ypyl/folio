@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { EditorPane, type EditorPaneHandle } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { ShortcutsList } from './components/ShortcutsList'
 import { FolderRail } from './components/FolderRail'
 import { PaneCollapseToggle } from './components/PaneCollapseToggle'
-import { SearchBox } from './components/SearchBox'
+import { SearchSpotlight } from './components/SearchSpotlight'
 import { SearchResultsView } from './components/SearchResultsView'
 import { StatusBar } from './components/StatusBar'
 import { DraftStore } from './editor/drafts'
@@ -117,9 +116,13 @@ function App() {
   // this feeds the results pane and stays current for the see-all handoff.
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  // The search spotlight (replace-header-with-spotlight): a modal overlay App
+  // owns. The chord listener and the rail's search trigger both set it; a
+  // selection, Escape, or a scrim click clears it.
+  const [searchOpen, setSearchOpen] = useState(false)
   // Pane collapse (add-collapsible-sidebars): session-only, so a reload brings
-  // both panes back. The classes on the shell zero the pane's grid track and
-  // both grids read the same variable, so the header stays aligned.
+  // both panes back. The classes on the shell zero the pane's grid track,
+  // which only the workspace grid reads.
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
   // Last content shown for the open path: if the file vanished in a
@@ -129,6 +132,7 @@ function App() {
   const resetSearch = useCallback(() => {
     setSearchQuery('')
     setSearchResults([])
+    setSearchOpen(false)
     setMode('page')
   }, [])
 
@@ -212,7 +216,7 @@ function App() {
   const handleSelect = useCallback(
     (path: string) => {
       // Opening anything leaves the results view (search-results-view); the
-      // query stays in the header so the see-all row returns to it later.
+      // spotlight keeps the query, so its see-all row returns to it later.
       setMode('page')
       lastKnown.current = null
       setActivePath(path)
@@ -647,7 +651,7 @@ function App() {
   // Search corpus: pages with content from the live graph, plus one document
   // per vault asset (search-assets-by-name, design D1) — the same `assets/`
   // inventory the sidebar lists, matched by label and never read. Memoized on
-  // graph identity so the Fuse inside SearchBox rebuilds on save/refresh
+  // graph identity so the Fuse inside SearchSpotlight rebuilds on save/refresh
   // (search-notes, design: Fuse lifecycle).
   const searchCorpus = useMemo(
     () =>
@@ -705,31 +709,18 @@ function App() {
 
   return (
     <div className={shellClass}>
-      <Header
-        // The brand returns home (close-folders): no active folder, folders
-        // stay on the rail. The activeFolder?.id effect resets the page.
-        onHome={() => void goHome()}
-        search={
-          // Keyed on the folder so a folder switch remounts the search and
-          // resets its query (search-notes: folder-switch reset). Disabled
-          // without a vault (no-inert-UI rule).
-          <SearchBox
-            key={activeFolder?.id ?? 'none'}
-            docs={searchCorpus}
-            disabled={graph === null}
-            onSelect={handleSelect}
-            onOpenAsset={handleOpenAsset}
-            onOpenBoard={handleOpenBoard}
-            onQueryResult={handleQueryResult}
-            onSeeAll={handleOpenResults}
-          />
-        }
-      />
       <div className="workspace">
         <FolderRail
           status={status}
           folders={folders}
           activeId={activeId}
+          // The brand returns home (close-folders): no active folder, folders
+          // stay on the rail. The activeFolder?.id effect resets the page.
+          onHome={() => void goHome()}
+          // The rail's search trigger opens the spotlight; it is disabled while
+          // no vault is usable, matching search's scoped rule.
+          onSearch={() => setSearchOpen(true)}
+          searchDisabled={!canSearch}
           // Closing a folder forgets it; closing the active one returns home
           // (close-folders). The activeFolder?.id effect resets the page.
           onClose={(id) => void closeFolder(id)}
@@ -893,6 +884,22 @@ function App() {
         onTogglePin={() => {
           if (page !== null) void togglePin(page.path)
         }}
+      />
+      {/* Search spotlight (replace-header-with-spotlight): a modal overlay in
+          every app state. Keyed on the folder so a switch remounts it and
+          clears the query (search: scoped to the active vault). */}
+      <SearchSpotlight
+        key={activeFolder?.id ?? 'none'}
+        open={searchOpen}
+        docs={searchCorpus}
+        onOpen={() => setSearchOpen(true)}
+        onClose={() => setSearchOpen(false)}
+        disabled={graph === null}
+        onSelect={handleSelect}
+        onOpenAsset={handleOpenAsset}
+        onOpenBoard={handleOpenBoard}
+        onQueryResult={handleQueryResult}
+        onSeeAll={handleOpenResults}
       />
     </div>
   )

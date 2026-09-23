@@ -27,9 +27,9 @@
   --chip-bg: #e4ecf5;
   --brand-tint: #eef2f7;
 
-  /* Workspace columns (ui-shell): shared by the workspace and header grids so
-     the header stays aligned with the panes beneath it. The two `*-cur` values
-     are the live widths the collapse toggles zero (add-collapsible-sidebars). */
+  /* Workspace columns (ui-shell): the rail, strip, and pane widths the
+     workspace grid reads. The two `*-cur` values are the live widths the
+     collapse toggles zero (add-collapsible-sidebars). */
   --rail-w: 56px;
   --strip-w: 16px;
   --sidebar-w: 264px;
@@ -71,10 +71,10 @@ body {
 .app-shell {
   height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr auto; /* header, workspace, status bar (add-status-bar) */
-  /* Live pane widths (add-collapsible-sidebars): one source of truth for both
-     grids, so the header can never drift from the workspace. A collapsed pane
-     zeroes its track; the strip beside it stays and the editor grows. */
+  grid-template-rows: 1fr auto; /* workspace, status bar (add-status-bar, replace-header-with-spotlight) */
+  /* Live pane widths (add-collapsible-sidebars): one source of truth for the
+     workspace grid. A collapsed pane zeroes its track; the strip beside it
+     stays and the editor grows. */
   --sidebar-cur: var(--sidebar-w);
   --panel-cur: var(--panel-w);
 }

@@ -2,77 +2,9 @@
 
 ## Purpose
 
-The application shell: the Kami-styled header and three-pane layout that hosts all Folio features — sidebar accordion, editor area, and meta panel — plus the transient empty state shown before a vault is opened.
+The application shell: the Kami-styled three-pane workspace that hosts all Folio features — the folder rail, sidebar accordion, editor area, and meta panel — plus the app-level status bar and the transient empty state shown before a vault is opened.
 
 ## Requirements
-
-### Requirement: Application renders the shell layout
-Folio SHALL render a full-height shell: a header row above a workspace of four panes plus two full-height collapse strips. The workspace SHALL consist of a fixed-width folder rail, a collapse strip, a left sidebar, a flexible center editor pane, a right meta panel, and a collapse strip, in that order from left to right. The folder rail SHALL be fixed-width and SHALL NOT be collapsible. The left sidebar and the right meta panel SHALL each be collapsible (the side-pane collapse requirement); while expanded they SHALL be fixed-width, and while collapsed they SHALL occupy no width, leaving their collapse strip in place. Pane dividers SHALL be hairline borders on flat surfaces, with no shadows or gradients. The shell itself SHALL NOT scroll, and no pane SHALL scroll the page: a pane whose content exceeds its height SHALL scroll within itself, and a pane MAY hold more than one scroll region — the sidebar's Pages and Assets sections and the meta panel's Backlinks, Forwardlinks, and References sections each scroll within their own body (the sidebar and meta-panel requirements). The header SHALL mirror the workspace's columns so its brand, search, and slot stay aligned with the panes beneath them, including while either side pane is collapsed.
-
-#### Scenario: Shell fills the viewport
-- **WHEN** the app loads
-- **THEN** the shell spans the full viewport height, the four panes are visible side by side, and each collapse strip spans the workspace's full height
-
-#### Scenario: Long content scrolls within panes, not the page
-- **WHEN** content in a pane exceeds that pane's height
-- **THEN** it scrolls inside the body of whichever section holds it — in the sidebar or in the meta panel — and the shell layout stays fixed
-
-#### Scenario: Header columns stay aligned to the panes
-- **WHEN** the shell renders at desktop width
-- **THEN** the brand sits over the rail and sidebar columns, the search input over the center pane's column, and the slot over the meta panel's column
-
-#### Scenario: The rail is never collapsed away
-- **WHEN** either side pane is collapsed
-- **THEN** the folder rail keeps its width and its contents stay in place
-
-### Requirement: Side panes collapse to a thin full-height strip
-The left sidebar and the right meta panel SHALL each be collapsible and expandable through a thin, vertical, full-height control strip on that pane's outer edge: the left strip SHALL sit between the folder rail and the left sidebar, and the right strip SHALL sit at the workspace's right edge beside the meta panel. Each strip SHALL be a button spanning the workspace's full height and SHALL show an arrow that points toward the pane's own outer edge while the pane is expanded and toward the editor pane while the pane is collapsed. Both panes SHALL start expanded on every load, and the collapsed/expanded state SHALL be session-only — held in memory, reset by a reload, and never written to the vault or any other storage. Collapsing a pane SHALL remove exactly that pane's width, which the flexible center editor pane SHALL take up, and SHALL leave the other panes, the header, the open page, the search surface, and the editor content unchanged. A collapsed pane's content SHALL not be rendered as visible or focusable. Each strip SHALL carry an accessible name naming the pane it controls and SHALL expose its expanded/collapsed state to assistive technology. Toggling SHALL be possible with a keyboard from the strip button, SHALL cause no navigation, and SHALL NOT require a reload.
-
-#### Scenario: Both panes start expanded
-- **WHEN** the app loads
-- **THEN** the left sidebar and right meta panel are expanded and each strip's arrow points toward its pane's outer edge
-
-#### Scenario: Collapsing the left sidebar gives the width to the editor
-- **GIVEN** the left sidebar is expanded
-- **WHEN** the user activates the left strip
-- **THEN** the sidebar collapses to no width, the editor pane grows by the sidebar's width, and the strip remains in place with its arrow pointing toward the editor
-
-#### Scenario: Collapsing the right meta panel gives the width to the editor
-- **GIVEN** the meta panel is expanded
-- **WHEN** the user activates the right strip
-- **THEN** the meta panel collapses to no width, the editor pane grows by the panel's width, and the strip remains in place with its arrow pointing toward the editor
-
-#### Scenario: The two panes collapse independently
-- **WHEN** the user collapses the left sidebar while the meta panel is expanded
-- **THEN** the sidebar collapses and the meta panel stays expanded
-
-#### Scenario: The strips do not move between states
-- **WHEN** the user collapses and expands either pane
-- **THEN** each strip keeps the same position in the workspace it had before the toggle
-
-#### Scenario: The header mirrors the collapse
-- **GIVEN** the left sidebar is collapsed
-- **WHEN** the shell renders
-- **THEN** the header no longer reserves the sidebar's column and the search input stays centered over the editor pane's current column
-
-#### Scenario: The collapse state resets on reload
-- **GIVEN** the user has collapsed the left sidebar
-- **WHEN** the app is reloaded
-- **THEN** both panes are expanded again and no storage holds the previous state
-
-#### Scenario: Collapsing changes nothing but the layout
-- **GIVEN** a page is open with unsaved edits
-- **WHEN** the user collapses the meta panel
-- **THEN** the open page, the editor's content, and the search query are unchanged
-
-#### Scenario: A collapsed pane leaves the tab order
-- **GIVEN** the meta panel is collapsed
-- **WHEN** the user moves focus with the keyboard
-- **THEN** no control inside the collapsed panel receives focus
-
-#### Scenario: The strip announces what it controls
-- **WHEN** the user focuses a strip
-- **THEN** it reports an accessible name naming its pane and exposes whether that pane is expanded or collapsed
 
 ### Requirement: UI draws exclusively from Kami tokens
 All shell colors, surfaces, borders, and spacing SHALL use the Kami tokens defined in `DESIGN.md` — warm parchment surfaces, ink-blue as the only chromatic accent, warm grays only, 4px spacing base, 8px screen radius. Pure white, cool grays, and any second chromatic color SHALL NOT appear.
@@ -86,7 +18,7 @@ All shell colors, surfaces, borders, and spacing SHALL use the Kami tokens defin
 - **THEN** panes and sections have no drop shadows or gradients; borders are 1px hairline `--border` values
 
 ### Requirement: The brand returns to the empty state
-The Folio brand (the mark and title in the header's top-left) SHALL act as a home control: activating it SHALL make no folder active and show the empty state, leaving every listed folder on the rail. It SHALL work whether or not a folder is currently active, SHALL NOT close or forget any folder, and SHALL be a no-op when the empty state is already showing.
+The Folio brand (the mark and title at the top of the folder rail) SHALL act as a home control: activating it SHALL make no folder active and show the empty state, leaving every listed folder on the rail. It SHALL work whether or not a folder is currently active, SHALL NOT close or forget any folder, and SHALL be a no-op when the empty state is already showing.
 
 #### Scenario: Activating the brand returns home
 - **GIVEN** an active folder with an open page
@@ -232,7 +164,7 @@ When a page is open, each section SHALL list its rows instead of placeholder cop
 - **THEN** each section keeps its minimum height and the panel itself scrolls, rather than a section being clipped to nothing
 
 ### Requirement: The right panel's last section is a keyboard-shortcuts reference
-The right meta panel SHALL hold the keyboard-shortcuts reference as its last collapsible section, after the page-metadata sections. The section SHALL be collapsed by default and its summary SHALL read "Keyboard shortcuts". While collapsed, the section's summary SHALL sit at the panel's bottom edge, below the page-metadata sections, whatever their open/closed state. Opening it SHALL expand the reference in place, growing upward from the panel's bottom edge: the reference SHALL NOT introduce a scrolling area or a height cap of its own, and the panel SHALL gain no scroll region beyond the fallback the meta-panel requirement specifies. Opening it SHALL list the app's keyboard shortcuts: the editor's formatting and editing shortcuts (bold, italic, inline code, undo, redo, heading levels one through six, paragraph, ordered and bullet lists, blockquote, code block, indent and outdent, line break) and the app's search shortcut. The section SHALL list only shortcuts the app actually provides, and SHALL show each as a readable label with its key combination rendered as key tokens; heading levels one through six SHALL each be listed with their own entry showing that level's own key combination rather than a single key-range entry. The section SHALL be present and openable in every app state — with a vault open, while the index builds, on search-results surfaces, and on the brand empty state. The panel SHALL carry an accessible name that describes the whole panel, not only its link sections. Opening or closing the reference SHALL NOT change the open page, the search surface, or the open/closed state of the Backlinks, Forwardlinks, and References sections. Because the reference is a disclosure rather than a modal surface, opening it SHALL NOT move keyboard focus, trap focus, or require a dismissal gesture; its summary SHALL be reachable and toggleable by keyboard like any other disclosure.
+The right meta panel SHALL hold the keyboard-shortcuts reference as its last collapsible section, after the page-metadata sections. The section SHALL be collapsed by default and its summary SHALL read "Keyboard shortcuts". While collapsed, the section's summary SHALL sit at the panel's bottom edge, below the page-metadata sections, whatever their open/closed state. Opening it SHALL expand the reference in place, growing upward from the panel's bottom edge: the reference SHALL NOT introduce a scrolling area or a height cap of its own, and the panel SHALL gain no scroll region beyond the fallback the meta-panel requirement specifies. Opening it SHALL list the app's keyboard shortcuts: the editor's formatting and editing shortcuts (bold, italic, inline code, undo, redo, heading levels one through six, paragraph, ordered and bullet lists, blockquote, code block, indent and outdent, line break) and the app's search shortcuts, one row per bound combination. The section SHALL list only shortcuts the app actually provides, and SHALL show each as a readable label with its key combination rendered as key tokens; heading levels one through six SHALL each be listed with their own entry showing that level's own key combination rather than a single key-range entry. The section SHALL be present and openable in every app state — with a vault open, while the index builds, on search-results surfaces, and on the brand empty state. The panel SHALL carry an accessible name that describes the whole panel, not only its link sections. Opening or closing the reference SHALL NOT change the open page, the search spotlight, or the open/closed state of the Backlinks, Forwardlinks, and References sections. Because the reference is a disclosure rather than a modal surface, opening it SHALL NOT move keyboard focus, trap focus, or require a dismissal gesture; its summary SHALL be reachable and toggleable by keyboard like any other disclosure.
 
 #### Scenario: The panel ends with the reference
 - **WHEN** the shell renders with a vault open
@@ -262,7 +194,7 @@ The right meta panel SHALL hold the keyboard-shortcuts reference as its last col
 
 #### Scenario: The reference lists only real shortcuts
 - **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** it lists the editor's formatting and editing shortcuts and the app's search shortcut, and lists no shortcut for capabilities that provide none (such as links)
+- **THEN** it lists the editor's formatting and editing shortcuts and the app's search shortcuts, and lists no shortcut for capabilities that provide none (such as links)
 
 #### Scenario: Heading levels are covered as a single range
 - **WHEN** the user opens the keyboard-shortcuts section
@@ -276,7 +208,7 @@ The right meta panel SHALL hold the keyboard-shortcuts reference as its last col
 #### Scenario: Opening the reference disturbs nothing
 - **GIVEN** a page is open and the Backlinks and Forwardlinks sections are open
 - **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** the open page is unchanged, the search surface is unchanged, and Backlinks, Forwardlinks, and References keep their open/closed state
+- **THEN** the open page is unchanged, the search spotlight is unchanged, and Backlinks, Forwardlinks, and References keep their open/closed state
 
 #### Scenario: The reference is a disclosure, not a modal surface
 - **WHEN** the user opens the keyboard-shortcuts section
@@ -573,7 +505,7 @@ The status bar SHALL open with a leading column holding the pin control, one fol
 - **THEN** the only vertical line in the bar is the leading column's right edge, the breadcrumb, the status group, and the vault group keep their order and spacing after it, and the pin control keeps its 24px star box, star glyph, accessible name, `aria-pressed` value, and title in its enabled and disabled states
 
 ### Requirement: Activating a shortcut row applies its key combination
-Every entry in the keyboard-shortcuts reference whose key combination the app binds as a keyboard shortcut SHALL be a control that applies that combination to the editor when activated. A row's label SHALL remain text; each key combination SHALL be its own control, so a row listing more than one combination offers one control per combination. Activating a control SHALL produce the same result as pressing that combination in the editor, including its toggling behaviour: applying a formatting combination to text that already carries that formatting SHALL remove it, and applying it again SHALL restore it. An entry whose key combination is not bound as a keyboard shortcut — the paste shortcut's shift modifier, which is read from the paste gesture rather than bound on keydown — SHALL remain a plain, non-interactive row rather than a control. A control SHALL carry an accessible name that states both the action and the key combination. A row SHALL be disabled — visibly dimmed and not activatable — when the surface it acts on is unavailable: rows that act on the editor while no editor is open, and the search row while no vault folder is open. Rows SHALL remain listed in every app state whether or not they are disabled. Activating an editor row SHALL leave keyboard focus in the editor, and activating the search row SHALL leave focus in the search input, so the user can continue typing or searching without a further gesture. A combination the current context does not claim SHALL leave the document unchanged, silently. Activating a row SHALL be distinct from opening the reference: opening and closing the section itself SHALL continue to change nothing.
+Every entry in the keyboard-shortcuts reference whose key combination the app binds as a keyboard shortcut SHALL be a control that applies that combination when activated. A row's label SHALL remain text; each key combination SHALL be its own control, so a row listing more than one combination offers one control per combination. Activating an editor row SHALL produce the same result as pressing that combination in the editor, including its toggling behaviour: applying a formatting combination to text that already carries that formatting SHALL remove it, and applying it again SHALL restore it. Activating a search row SHALL open the search spotlight with its input focused and its text selected. An entry whose key combination is not bound as a keyboard shortcut — the paste shortcut's shift modifier, which is read from the paste gesture rather than bound on keydown — SHALL remain a plain, non-interactive row rather than a control. A control SHALL carry an accessible name that states both the action and the key combination. A row SHALL be disabled — visibly dimmed and not activatable — when the surface it acts on is unavailable: rows that act on the editor while no editor is open, and the search row while no vault folder is open or the active folder's index is still building. Rows SHALL remain listed in every app state whether or not they are disabled. Activating an editor row SHALL leave keyboard focus in the editor, and activating a search row SHALL leave focus in the spotlight's search input, so the user can continue typing or searching without a further gesture. A combination the current context does not claim SHALL leave the document unchanged, silently. Activating a row SHALL be distinct from opening the reference: opening and closing the section itself SHALL continue to change nothing.
 
 #### Scenario: Clicking a formatting key removes the formatting
 - **GIVEN** a run of bold text in the open page, selected
@@ -598,6 +530,11 @@ Every entry in the keyboard-shortcuts reference whose key combination the app bi
 - **WHEN** the user opens the reference
 - **THEN** the rows for the unavailable surface are shown dimmed and do not react to activation, while every row remains listed
 
+#### Scenario: Activating a search row opens the spotlight
+- **GIVEN** a vault folder is open and its index has resolved
+- **WHEN** the user activates the search row's key control
+- **THEN** the search spotlight opens and focus is in its search input
+
 #### Scenario: Focus returns to the editor
 - **GIVEN** a page is open with the caret in it
 - **WHEN** the user activates an editor row's key control
@@ -611,7 +548,7 @@ Every entry in the keyboard-shortcuts reference whose key combination the app bi
 #### Scenario: Activating a row is not opening the reference
 - **GIVEN** a page is open and the reference is closed
 - **WHEN** the user opens the reference
-- **THEN** the open page and the search surface are unchanged, and only activating a control changes anything
+- **THEN** the open page and the search spotlight are unchanged, and only activating a control changes anything
 
 ### Requirement: A scroll region reserves its scrollbar's gutter
 Every scroll region the app owns SHALL reserve the width its scrollbar occupies whether or not the region is currently overflowing, so that a region's content keeps the same width before and after it begins to overflow and does not reflow when a scrollbar appears or disappears. The reserved width SHALL be the width the platform's own scrollbar would occupy, and the reservation SHALL be made for the region's vertical axis only.
@@ -673,26 +610,86 @@ A region that scrolls only as a fallback, while another region holds its content
 - **WHEN** the list is long enough to scroll
 - **THEN** the popup's width is unchanged by the scrolling, because it reserves no gutter and carries no app thumb
 
-### Requirement: Header shows the brand and the search box
+### Requirement: Application renders the workspace shell
+Folio SHALL render a full-height shell: a workspace of four panes plus two full-height collapse strips, with the app-level status bar as a full-width row below the workspace (the status-bar requirement). The workspace SHALL consist of a fixed-width folder rail, a collapse strip, a left sidebar, a flexible center editor pane, a right meta panel, and a collapse strip, in that order from left to right. The folder rail SHALL be fixed-width and SHALL NOT be collapsible. The left sidebar and the right meta panel SHALL each be collapsible (the side-pane collapse requirement); while expanded they SHALL be fixed-width, and while collapsed they SHALL occupy no width, leaving their collapse strip in place. Pane dividers SHALL be hairline borders on flat surfaces, with no shadows or gradients. The shell itself SHALL NOT scroll, and no pane SHALL scroll the page: a pane whose content exceeds its height SHALL scroll within itself, and a pane MAY hold more than one scroll region — the sidebar's Pages and Assets sections and the meta panel's Backlinks, Forwardlinks, and References sections each scroll within their own body (the sidebar and meta-panel requirements). The shell SHALL render no header band above the workspace: the panes start at the shell's top edge, and no standing row of chrome sits above them.
 
-The header SHALL show the Folio brand at the left and a search input centered over and spanning the center pane's column. The header SHALL NOT show the running version: the version moved to the meta panel's bottom-right corner (the requirement below). The header's right slot SHALL be empty: the vault's name and file count live in the status bar. The slot SHALL hold no controls and SHALL NOT open a picker, switch folders, or re-grant permission — adding, switching, or re-granting a folder happens on the folder rail. The search input's width SHALL match the content column it sits over (capped at a readable maximum), not a fixed narrow box, so the box and its dropdown align with the content beneath. Search behavior — the results dropdown, matching, keyboard, and edge states — is specified by the search capability.
+#### Scenario: Shell fills the viewport
+- **WHEN** the app loads
+- **THEN** the shell spans the full viewport height, the four panes start at the shell's top edge with no band above them, and each collapse strip spans the workspace's full height
 
-#### Scenario: Search spans the content column
+#### Scenario: Long content scrolls within panes, not the page
+- **WHEN** content in a pane exceeds that pane's height
+- **THEN** it scrolls inside the body of whichever section holds it — in the sidebar or in the meta panel — and the shell layout stays fixed
 
-- **WHEN** the shell renders at desktop width
-- **THEN** the search input is horizontally aligned with the center pane and spans that column's width, not a fixed-width box
+#### Scenario: The rail is never collapsed away
+- **WHEN** either side pane is collapsed
+- **THEN** the folder rail keeps its width and its contents stay in place
 
-#### Scenario: Search behavior lives with the search capability
+#### Scenario: No header band above the workspace
+- **WHEN** the shell renders in any app state
+- **THEN** the workspace's panes start at the shell's top edge and no element occupies a standing row above them
 
-- **WHEN** the user types into the search input
-- **THEN** the input's behavior is the search capability's: a results dropdown, keyboard shortcuts, and empty states, none of which were present while the input was inert
+### Requirement: The side panes collapse to thin full-height strips
+The left sidebar and the right meta panel SHALL each be collapsible and expandable through a thin, vertical, full-height control strip on that pane's outer edge: the left strip SHALL sit between the folder rail and the left sidebar, and the right strip SHALL sit at the workspace's right edge beside the meta panel. Each strip SHALL be a button spanning the workspace's full height and SHALL show an arrow that points toward the pane's own outer edge while the pane is expanded and toward the editor pane while the pane is collapsed. Both panes SHALL start expanded on every load, and the collapsed/expanded state SHALL be session-only — held in memory, reset by a reload, and never written to the vault or any other storage. Collapsing a pane SHALL remove exactly that pane's width, which the flexible center editor pane SHALL take up, and SHALL leave the other panes, the open page, the search spotlight's open/closed state, and the editor content unchanged. A collapsed pane's content SHALL not be rendered as visible or focusable. Each strip SHALL carry an accessible name naming the pane it controls and SHALL expose its expanded/collapsed state to assistive technology. Toggling SHALL be possible with a keyboard from the strip button, SHALL cause no navigation, and SHALL NOT require a reload.
 
-#### Scenario: The slot shows status and performs no actions
+#### Scenario: Both panes start expanded
+- **WHEN** the app loads
+- **THEN** the left sidebar and right meta panel are expanded and each strip's arrow points toward its pane's outer edge
 
-- **WHEN** a vault is active
-- **THEN** the header slot shows no controls — the vault's name and file count appear in the status bar instead — and the slot performs no other actions: it opens no picker, switches no folder, and re-grants no permission
+#### Scenario: Collapsing the left sidebar gives the width to the editor
+- **GIVEN** the left sidebar is expanded
+- **WHEN** the user activates the left strip
+- **THEN** the sidebar collapses to no width, the editor pane grows by the sidebar's width, and the strip remains in place with its arrow pointing toward the editor
 
-#### Scenario: The header carries no version badge
+#### Scenario: Collapsing the right meta panel gives the width to the editor
+- **GIVEN** the meta panel is expanded
+- **WHEN** the user activates the right strip
+- **THEN** the meta panel collapses to no width, the editor pane grows by the panel's width, and the strip remains in place with its arrow pointing toward the editor
 
-- **WHEN** the header renders, in any app state
-- **THEN** it shows the brand and the search box and no version badge
+#### Scenario: The two panes collapse independently
+- **WHEN** the user collapses the left sidebar while the meta panel is expanded
+- **THEN** the sidebar collapses and the meta panel stays expanded
+
+#### Scenario: The strips do not move between states
+- **WHEN** the user collapses and expands either pane
+- **THEN** each strip keeps the same position in the workspace it had before the toggle
+
+#### Scenario: The collapse state resets on reload
+- **GIVEN** the user has collapsed the left sidebar
+- **WHEN** the app is reloaded
+- **THEN** both panes are expanded again and no storage holds the previous state
+
+#### Scenario: Collapsing changes nothing but the layout
+- **GIVEN** a page is open with unsaved edits and the search spotlight is closed
+- **WHEN** the user collapses the meta panel
+- **THEN** the open page, the editor's content, and the search spotlight's open/closed state are unchanged
+
+#### Scenario: A collapsed pane leaves the tab order
+- **GIVEN** the meta panel is collapsed
+- **WHEN** the user moves focus with the keyboard
+- **THEN** no control inside the collapsed panel receives focus
+
+#### Scenario: The strip announces what it controls
+- **WHEN** the user focuses a strip
+- **THEN** it reports an accessible name naming its pane and exposes whether that pane is expanded or collapsed
+
+### Requirement: The folder rail hosts the brand home control and the search trigger
+The folder rail SHALL lead with the Folio brand as its first control and the search trigger directly below it, above the add control and the folder entries. The brand SHALL keep the home behavior the brand requirement specifies. The search trigger SHALL be a control with an accessible name that opens the search spotlight (the search capability); it SHALL be present in every app state and SHALL be disabled — visibly dimmed and not activatable — while no vault folder is open or the active folder's index is still building, matching the search capability's rule that search does not open without a usable vault. Activating it while usable SHALL open the spotlight with its input focused. Both controls SHALL use Kami tokens and SHALL occupy a fixed size in the rail's fixed-width column, so the rail keeps its vertical-only scrolling rule and gains no horizontal scrollbar.
+
+#### Scenario: The brand leads the rail
+- **WHEN** the shell renders with folders listed
+- **THEN** the Folio brand is the rail's first control, above the search trigger, the add control, and the folder entries
+
+#### Scenario: The search trigger opens the spotlight
+- **GIVEN** a vault folder is open and its index has resolved
+- **WHEN** the user activates the rail's search trigger
+- **THEN** the search spotlight opens with its search input focused
+
+#### Scenario: The search trigger is disabled without a usable vault
+- **WHEN** no folder is open, or the active folder's index is still building
+- **THEN** the rail's search trigger is rendered disabled and activating it does nothing
+
+#### Scenario: The rail keeps its control size and its vertical-only scrolling
+- **GIVEN** more open folders than the rail can show, so that the rail scrolls
+- **WHEN** the brand, the search trigger, and the folder entries lay out
+- **THEN** each control keeps its full size, the rail scrolls vertically only, and no horizontal scrollbar appears

@@ -17,6 +17,8 @@
   box-sizing: border-box;
 }
 
+.brand,
+.search,
 .add,
 .avatar {
   flex-shrink: 0;
@@ -29,6 +31,46 @@
   font: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+/* Brand: the rail's home control, mark only (the 56px column has no room for
+   the wordmark). Flat — no fill, no border; the mark carries the brand. */
+.brand {
+  background: transparent;
+  border: none;
+}
+
+.mark {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+/* Search trigger: a plain ink-blue glyph on a warm surface, matching the rail's
+   other controls. Disabled while no vault is usable (search spec). */
+.search {
+  border: 1px solid var(--border);
+  background: var(--ivory);
+  color: var(--dark-warm);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.search:hover:not(:disabled) {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+.search:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.searchIcon {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 /* Add: dashed outline, quiet — the rail's primary action. */
