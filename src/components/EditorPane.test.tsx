@@ -42,6 +42,7 @@ type FakeEditorView = EditorAdapter & {
   emitReferenceClick: (target: string) => void
   foldTargets: FoldTarget[]
   foldToggles: HTMLElement[]
+  highlights: (number | null)[]
   destructed: boolean
   mounted: boolean
   suggest: (query: string) => Suggestion[]
@@ -158,76 +159,87 @@ describe('EditorPane', () => {
     expect(editor.destructed).toBe(true)
   })
 
-  it('renders a canonical line number per block in the inert gutter', async () => {
-    const seed = '# Title\n\nBody\n\n- a\n- b\n'
-    render(<EditorPane page={page} initialContent={seed} onChange={() => {}} />)
-    await act(async () => {})
-    const editor = fake()
-    // The gutter numbers come from the shared anchor rule, not the DOM
-    // (jsdom rects are all zero; the numbers themselves are the contract).
-    expect(editor.getBlockLines()).toEqual([1, 3, 5])
-    const gutter = document.querySelector(`.${styles.gutter}`)
-    expect(gutter).not.toBeNull()
-    const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
-    expect(nums).toEqual(['1', '3', '5'])
-  })
-
-  it('re-measures the gutter on a layout-only change, as a fold makes', async () => {
-    // A fold changes the rendered height without changing the markdown, so the
-    // gutter is driven by the adapter's layout notification as well as by the
-    // markdown change stream (add-collapsible-list-items).
-    render(<EditorPane page={page} initialContent={'Body'} onChange={() => {}} />)
-    await act(async () => {})
-    const gutter = document.querySelector(`.${styles.gutter}`)
-    const before = gutter?.querySelector('span')
-    expect(before).not.toBeNull()
-    await act(async () => {
-      fake().emitLayoutChange()
-    })
-    expect(gutter?.querySelector('span')).not.toBeNull()
-    expect(gutter?.querySelector('span')).not.toBe(before)
-  })
-
-  it('places a fold control in the rail and toggles through the adapter', async () => {
-    render(<EditorPane page={page} initialContent={'- A\n  - A1\n'} onChange={() => {}} />)
-    await act(async () => {})
-    const editor = fake()
+  const foldItem = (): HTMLElement => {
     const item = document.createElement('li')
     item.className = 'folio-fold-item'
     const head = document.createElement('p')
     head.className = 'folio-fold-head'
     head.textContent = 'A'
     item.appendChild(head)
+    return item
+  }
+
+  it('re-measures the rail on a layout-only change, as a fold makes', async () => {
+    // A fold changes the rendered height without changing the markdown, so the
+    // rail is driven by the adapter's layout notification as well as by the
+    // markdown change stream (add-collapsible-list-items).
+    render(<EditorPane page={page} initialContent={'Body'} onChange={() => {}} />)
+    await act(async () => {})
+    const editor = fake()
+    editor.foldTargets = [{ element: foldItem(), folded: false, depth: 1 }]
+    await act(async () => {
+      editor.emitLayoutChange()
+    })
+    const rail = document.querySelector(`.${styles.rail}`)
+    const before = rail?.querySelector('.folio-fold-arrow')
+    expect(before).not.toBeNull()
+    await act(async () => {
+      editor.emitLayoutChange()
+    })
+    expect(rail?.querySelector('.folio-fold-arrow')).not.toBe(before)
+  })
+
+  it('places a fold control in the rail and toggles through the adapter', async () => {
+    render(<EditorPane page={page} initialContent={'- A\n  - A1\n'} onChange={() => {}} />)
+    await act(async () => {})
+    const editor = fake()
+    const item = foldItem()
     editor.foldTargets = [{ element: item, folded: false, depth: 1 }]
     await act(async () => {
       editor.emitLayoutChange()
     })
-    const gutter = document.querySelector(`.${styles.gutter}`)
-    const arrow = gutter?.querySelector<HTMLElement>('.folio-fold-arrow')
+    const rail = document.querySelector(`.${styles.rail}`)
+    const arrow = rail?.querySelector<HTMLElement>('.folio-fold-arrow')
     expect(arrow).not.toBeNull()
     expect(arrow?.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(arrow!)
     expect(editor.foldToggles).toEqual([item])
   })
 
-  it('re-numbers the gutter when the document changes', async () => {
-    render(<EditorPane page={page} initialContent={'Body'} onChange={() => {}} />)
+  it('locates and marks a search match once the content settles', async () => {
+    render(
+      <EditorPane
+        page={page}
+        initialContent={'Body'}
+        onChange={() => {}}
+        highlight={{ block: 1, nonce: 1 }}
+      />,
+    )
     await act(async () => {})
-    const editor = fake()
-    await act(async () => {
-      editor.emitChange('# New\n\nBody')
-    })
-    const gutter = document.querySelector(`.${styles.gutter}`)
-    const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
-    expect(nums).toEqual(['1', '3'])
+    expect(fake().highlights).toEqual([1])
   })
 
-  it('shows line 1 for the placeholder block of an empty page', async () => {
-    render(<EditorPane page={page} initialContent={''} onChange={() => {}} />)
+  it('re-marks when the highlight changes on a page already open', async () => {
+    const { rerender } = render(
+      <EditorPane
+        page={page}
+        initialContent={'Body'}
+        onChange={() => {}}
+        highlight={{ block: 0, nonce: 1 }}
+      />,
+    )
     await act(async () => {})
-    const gutter = document.querySelector(`.${styles.gutter}`)
-    const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
-    expect(nums).toEqual(['1'])
+    await act(async () => {
+      rerender(
+        <EditorPane
+          page={page}
+          initialContent={'Body'}
+          onChange={() => {}}
+          highlight={{ block: 2, nonce: 2 }}
+        />,
+      )
+    })
+    expect(fake().highlights).toEqual([0, 2])
   })
 
   it('points a vault image reference at the file bytes through the reader', async () => {

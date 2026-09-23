@@ -28,13 +28,19 @@ import { formatJsonBlock, isInCodeBlock } from './codeFormat'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
 import { collapsibleLists, foldTargetsIn, toggleFoldElement } from './foldLists'
+import {
+  blockStart,
+  clearHighlight,
+  HIGHLIGHT_MS,
+  searchHighlight,
+  setHighlight,
+} from './searchHighlight'
 import { noVaultReader, type AssetReader } from '../vault/assetOpen'
 import type { ReferenceKind } from '../vault/parse'
 import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { separateEmptyListLines } from './emptyLines'
-import { blockStartLines } from '../lineAnchors'
 import type { DropPoint, EditorAdapter, FoldTarget, SuggestionSources } from './editor'
 
 /** Private clipboard flavor carrying the selection's canonical Markdown
@@ -58,7 +64,6 @@ function isBlankListItemBlock(node: ProseNode): boolean {
 
 export class MilkdownAdapter implements EditorAdapter {
   private editor: Editor | null = null
-  private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
   /** Pane-side listeners for layout-only changes (list folding): attached after
    *  mount, called when a fold moves the document's blocks. */
@@ -109,6 +114,9 @@ export class MilkdownAdapter implements EditorAdapter {
   // component places them above the row or cell they belong to, which the pane's
   // box can clip when the table sits at its top edge.
   private handleClamp: (() => void) | null = null
+  /** The pending clear of a search-match mark, so a new request or a destroy
+   *  does not leave a stale timer behind. */
+  private highlightTimer: number | null = null
 
   /** Mount the editor into `el`. The element must stay in the document for
    *  the editor's lifetime. If `destroy()` was called while `create()` was
@@ -174,7 +182,6 @@ export class MilkdownAdapter implements EditorAdapter {
           // the paragraph the document keeps after a trailing code block must not
           // reach the file, and neither must a stray blank line at the end.
           const canonical = trimTrailingBlankLines(separateEmptyListLines(markdown))
-          this.latest = canonical
           // The first event after a setContent echoes the seeded doc. If it
           // matches what we dispatched, it is not an edit — drop it. Any other
           // event (a real keystroke, even one folded into the same debounce
@@ -255,13 +262,16 @@ export class MilkdownAdapter implements EditorAdapter {
       // (move-list-folds-to-the-left-rail). View-only: the document is never
       // changed (ADR-0001/0009).
       .use(collapsibleLists())
+      // Search-match marking (mark-search-matches-on-the-page): a located block
+      // is washed for a moment. A decoration only, so the page and file are
+      // untouched (ADR-0001/0009).
+      .use(searchHighlight())
       .create()
     if (this.destroyed) {
       await editor.destroy()
       return
     }
     this.editor = editor
-    this.latest = this.serialize()
     // Copy/cut carries the selection as canonical Markdown under a private
     // flavor (copy-as-markdown). text/plain and text/html are left exactly as
     // ProseMirror sets them; only the extra flavor is added. The snapshot runs
@@ -335,6 +345,10 @@ export class MilkdownAdapter implements EditorAdapter {
     this.destroyed = true
     this.changeListener = null
     this.layoutListeners = []
+    if (this.highlightTimer !== null) {
+      window.clearTimeout(this.highlightTimer)
+      this.highlightTimer = null
+    }
     this.referenceClickListener = null
     this.boardLinkListener = null
     this.assetReader = noVaultReader
@@ -366,10 +380,7 @@ export class MilkdownAdapter implements EditorAdapter {
   }
 
   async setContent(markdown: string): Promise<void> {
-    if (!this.editor) {
-      this.latest = markdown
-      return
-    }
+    if (!this.editor) return
     let canonical: string | null = null
     this.editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
@@ -382,7 +393,6 @@ export class MilkdownAdapter implements EditorAdapter {
         separateEmptyListLines(ctx.get(serializerCtx)(view.state.doc)),
       )
     })
-    this.latest = canonical ?? markdown
     this.seedMarkdown = canonical
   }
 
@@ -499,30 +509,39 @@ export class MilkdownAdapter implements EditorAdapter {
     })
   }
 
-  /** The canonical start line of each top-level block, in doc order
-   *  (line-numbers, design D1/D2). The shared anchor rule runs over the
-   *  canonical text the adapter already produces; the first N anchors map to
-   *  the N blocks the file holds, in order. */
-  getBlockLines(): number[] {
-    const editor = this.editor
-    if (!editor) return []
-    return editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      // An empty document serializes to no text, so the anchor rule yields no
-      // lines — but the doc still holds one (placeholder) block that starts on
-      // line 1. Give that first block its number.
-      const anchors = blockStartLines(this.latest)
-      const lines = anchors.length ? anchors : [1]
-      return lines.slice(0, contentBlockCount(view.state.doc))
-    })
-  }
-
   onChange(listener: (markdown: string) => void): void {
     this.changeListener = listener
   }
 
   onLayoutChange(listener: () => void): void {
     this.layoutListeners.push(listener)
+  }
+
+  highlightBlock(index: number | null): void {
+    const editor = this.editor
+    if (!editor) return
+    if (this.highlightTimer !== null) {
+      window.clearTimeout(this.highlightTimer)
+      this.highlightTimer = null
+    }
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      setHighlight(view, index)
+      if (index === null) return
+      const from = blockStart(view.state.doc, index)
+      if (from === null) return
+      const dom = view.nodeDOM(from)
+      if (dom instanceof HTMLElement && typeof dom.scrollIntoView === 'function') {
+        dom.scrollIntoView({ block: 'center' })
+      }
+    })
+    if (index !== null) {
+      this.highlightTimer = window.setTimeout(() => {
+        this.highlightTimer = null
+        const live = this.editor
+        if (live) live.action((ctx) => clearHighlight(ctx.get(editorViewCtx)))
+      }, HIGHLIGHT_MS)
+    }
   }
 
   getFoldTargets(): FoldTarget[] {
@@ -683,17 +702,6 @@ export class MilkdownAdapter implements EditorAdapter {
     })
   }
 
-  /** Current document serialized to Markdown, read imperatively. */
-  private serialize(): string {
-    const editor = this.editor
-    if (!editor) return ''
-    return editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      const serializer = ctx.get(serializerCtx)
-      return trimTrailingBlankLines(separateEmptyListLines(serializer(view.state.doc)))
-    })
-  }
-
   /** Canonical Markdown for a document slice (copy-as-markdown), produced by
    *  the same serializer that saves pages (ADR-0001). The slice's content is
    *  wrapped in a doc node so a whole-selection slice serializes exactly as it
@@ -711,16 +719,4 @@ export class MilkdownAdapter implements EditorAdapter {
       )
     })
   }
-}
-
-/** The number of top-level blocks the page's Markdown holds: the document's
- *  children less the empty paragraph the editor maintains at the end, which has
- *  no Markdown of its own and so takes no gutter number. That paragraph is only
- *  the last child when the document holds something else — an empty page's
- *  single paragraph IS the placeholder, and line 1 is its number. */
-function contentBlockCount(doc: ProseNode): number {
-  const last = doc.lastChild
-  const trailing =
-    last !== null && last.type.name === 'paragraph' && last.content.size === 0 && doc.childCount > 1
-  return trailing ? doc.childCount - 1 : doc.childCount
 }

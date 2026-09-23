@@ -108,6 +108,7 @@ type FakeView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
   chords: string[]
+  highlights: (number | null)[]
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string, kind?: 'page' | 'board') => void
   suggest: (query: string) => import('./vault/suggest').Suggestion[]
@@ -858,6 +859,21 @@ describe('content search over the real index (search spec)', () => {
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('Half-formed thoughts worth keeping'),
     )
+    vi.unstubAllGlobals()
+  })
+
+  it('locates the matched block when a result opens', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    const search = searchInput()
+    fireEvent.change(search, { target: { value: 'backlinks' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(2))
+    fireEvent.click(screen.getByRole('option', { name: /^Ideas/ }))
+    // The match carries a block; the pane hands it to the editor to locate
+    // (mark-search-matches-on-the-page).
+    await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
+    expect(editor().highlights[editor().highlights.length - 1]).toEqual(expect.any(Number))
     vi.unstubAllGlobals()
   })
 

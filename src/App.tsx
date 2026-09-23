@@ -116,6 +116,13 @@ function App() {
   // this feeds the results pane and stays current for the see-all handoff.
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  // The block a search result asked to locate on the open page
+  // (mark-search-matches-on-the-page), with a nonce so opening the same match
+  // twice re-triggers the mark. Null unless the last navigation came from a
+  // result whose match is in the page's text.
+  const [matchHighlight, setMatchHighlight] = useState<{ block: number; nonce: number } | null>(
+    null,
+  )
   // The search spotlight (replace-header-with-spotlight): a modal overlay App
   // owns. The chord listener and the rail's search trigger both set it; a
   // selection, Escape, or a scrim click clears it.
@@ -214,7 +221,7 @@ function App() {
   // (which changes on save/refresh) and the draft store (session state) - and
   // never on the open page, which it does not read.
   const handleSelect = useCallback(
-    (path: string) => {
+    (path: string, block: number | null = null) => {
       // Opening anything leaves the results view (search-results-view); the
       // spotlight keeps the query, so its see-all row returns to it later.
       setMode('page')
@@ -224,6 +231,11 @@ function App() {
       // existing draft (unsaved edits from earlier in the session) wins.
       drafts.open(path, graph?.pages.get(path)?.content ?? '')
       setDraftVersion((v) => v + 1)
+      // Only a search result names a block to mark; every other navigation
+      // clears the mark (mark-search-matches-on-the-page).
+      setMatchHighlight((prev) =>
+        block === null ? null : { block, nonce: (prev?.nonce ?? 0) + 1 },
+      )
     },
     [graph, drafts],
   )
@@ -796,6 +808,7 @@ function App() {
             page={page}
             initialContent={initialContent}
             onChange={handleEdit}
+            highlight={matchHighlight}
             onOpenReference={handleOpenReference}
             onBoardLink={handleOpenBoard}
             suggest={suggest}

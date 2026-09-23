@@ -97,11 +97,10 @@
 }
 
 .document {
-  /* The left padding is the rail's width (split-the-left-rail-into-columns):
-     the number column and the fold-control column sit in it, the control
-     nearest the prose. */
-  padding: 4px 32px 4px 56px;
-  position: relative; /* anchoring context for the line-number rail */
+  /* The left padding is the rail's width: the fold controls sit in it, just
+     left of the prose. */
+  padding: 4px 32px 4px 28px;
+  position: relative; /* anchoring context for the left rail */
   /* The page owns the space below its content (click-below-to-continue): the
      document box fills the pane so the editable surface can reach the pane's
      bottom edge, which is where a user clicks to continue writing. The growth
@@ -112,56 +111,59 @@
   flex-direction: column;
 }
 
-/* The left rail (line-numbers; move-list-folds-to-the-left-rail;
-   split-the-left-rail-into-columns): two columns in the document's left
-   margin, flush with the prose edge. The number column is on the left, the
-   fold-control column on the right, nearest the prose. The rail itself lets
-   clicks pass through; only the controls opt in. */
-.gutter {
+/* The left rail (move-list-folds-to-the-left-rail; mark-search-matches-on-the-
+   page): the fold controls in the document's left margin, nearest the prose.
+   The rail itself lets clicks pass through; only the controls opt in. */
+.rail {
   position: absolute;
   top: 16px;
   bottom: 4px;
   left: 0;
-  width: 56px;
+  width: 28px;
   pointer-events: none;
 }
 
-/* Left column, right-aligned toward the control column. 12px is the metadata
-   floor (DESIGN.md); line-height 1 keeps the rendered box at the marker height
-   the placement math assumes. */
-.gutterNum {
+/* Fold controls (move-list-folds-to-the-left-rail): a quiet chevron on the
+   item's first line. Only the controls are interactive — the rail lets every
+   other click fall through. */
+.rail :global(.folio-fold-arrow) {
   position: absolute;
-  right: 28px;
-  font-size: 12px;
-  color: var(--stone);
-  line-height: 1;
-}
-
-/* Fold controls in the same rail (move-list-folds-to-the-left-rail): a quiet
-   chevron on the item's first line, its line number stacked just beneath. Only
-   the controls are interactive — the rail lets every other click fall through,
-   and the numbers stay inert. */
-.gutter :global(.folio-fold-arrow) {
-  position: absolute;
-  right: 2px; /* right column, nearest the prose */
+  right: 2px;
   width: 20px;
   height: 14px;
   padding: 0;
   border: 0;
   background: none;
-  color: var(--stone); /* metadata ink, same level as the numbers */
+  color: var(--stone); /* metadata ink */
   cursor: pointer;
   border-radius: 3px;
   pointer-events: auto;
 }
 
-.gutter :global(.folio-fold-arrow svg) {
+.rail :global(.folio-fold-arrow svg) {
   width: 14px;
   height: 14px;
 }
 
-.gutter :global(.folio-fold-arrow:hover) {
+.rail :global(.folio-fold-arrow:hover) {
   color: var(--brand);
+}
+
+/* A located search match (mark-search-matches-on-the-page): a warm wash that
+   fades over the mark's lifetime, so the block is found without moving text.
+   The 2s duration matches HIGHLIGHT_MS in src/editor/searchHighlight.ts. */
+.editor :global(.folio-search-hit) {
+  border-radius: 4px;
+  animation: searchHitFade 2s ease-out forwards;
+}
+
+@keyframes searchHitFade {
+  from {
+    background-color: var(--brand-tint);
+  }
+  to {
+    background-color: transparent;
+  }
 }
 
 /* The Milkdown surface (design D3): thin Kami-token theme over the editor's

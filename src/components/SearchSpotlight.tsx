@@ -40,7 +40,7 @@ export function SearchSpotlight({
   onOpen: () => void
   /** Close the spotlight (scrim click, Escape, or a selection). */
   onClose: () => void
-  onSelect: (path: string) => void
+  onSelect: (path: string, block: number | null) => void
   /** Activating an asset result: open the file, do not navigate (ADR-0021). */
   onOpenAsset: (path: string) => void
   /** Activating a board result: open the board in the main pane. */
@@ -91,7 +91,7 @@ export function SearchSpotlight({
   const activate = (result: SearchResult) => {
     if (result.kind === 'asset') onOpenAsset(result.path)
     else if (result.kind === 'board') onOpenBoard?.(result.path)
-    else onSelect(result.path)
+    else onSelect(result.path, result.block)
     onClose()
   }
 

@@ -6,7 +6,7 @@ import {
   assetSearchDoc,
   boardSearchDoc,
   exactRanges,
-  firstMatchLine,
+  firstMatchBlock,
   searchDocs,
   snippetSegments,
   termsOf,
@@ -134,36 +134,48 @@ describe('snippetSegments', () => {
   })
 })
 
-describe('firstMatchLine', () => {
-  it('reports the block anchor of the first text match', () => {
+describe('firstMatchBlock', () => {
+  it('reports the block holding the first text match', () => {
     const text = '# Title\n\nBody dog here\n\n## More\n'
-    const ranges = exactRanges(text, 'dog') // [14, 17] on line 3
-    expect(firstMatchLine(text, ranges)).toBe(3)
+    const ranges = exactRanges(text, 'dog') // third line, second block
+    expect(firstMatchBlock(text, ranges)).toBe(1)
   })
 
   it('uses the earliest range when matches span blocks', () => {
     const text = '# Title\n\nBody dog\n\n## More dog\n'
     const late: SearchRange = [100, 103]
     const ranges = [...exactRanges(text, 'dog'), late] // unsorted, late entry
-    expect(firstMatchLine(text, ranges)).toBe(3)
+    expect(firstMatchBlock(text, ranges)).toBe(1)
   })
 
   it('returns null for a title-only result (no text ranges)', () => {
-    expect(firstMatchLine('some body text', [])).toBeNull()
+    expect(firstMatchBlock('some body text', [])).toBeNull()
   })
 
-  it('matches the sparse signature: a match in a lower block reports its anchor', () => {
+  it('anchors a match in a list to the list block', () => {
     const text = '# Title\n\nBody\n\n- a\n- b dog\n'
-    // 'dog' is on line 6 (a tight list continuation) and anchors to the
-    // list start at line 5, not to its own line.
+    // 'dog' is in the list, which is the third top-level block.
     const ranges = exactRanges(text, 'dog')
-    expect(firstMatchLine(text, ranges)).toBe(5)
+    expect(firstMatchBlock(text, ranges)).toBe(2)
+  })
+})
+
+describe('searchDocs carries the matched block', () => {
+  it('reports the block holding the match on a page result', () => {
+    const text = '# Title\n\nfirst\n\nsecond dog\n'
+    const [hit] = searchDocs(fuse([doc('a.md', 'A', text)]), 'dog')
+    expect(hit.block).toBe(2)
+  })
+
+  it('reports null for a title-only match', () => {
+    const [hit] = searchDocs(fuse([doc('a.md', 'Docker notes', 'body without the term')]), 'docker')
+    expect(hit.block).toBeNull()
   })
 })
 
 // search-assets-by-name: a vault file joins the corpus by name only. Its bytes
 // are never read (ADR-0022), so `text` is empty and the whole title-only path
-// already applies — no ranges, no snippet, no line.
+// already applies — no ranges, no snippet, no block.
 describe('asset search documents', () => {
   it('labels by the path inside assets/ and carries no text', () => {
     expect(assetSearchDoc('assets/2026/q3-report.pdf')).toEqual({
@@ -186,10 +198,10 @@ describe('asset search documents', () => {
     expect(results).toHaveLength(1)
   })
 
-  it('reports no ranges, so it has no snippet anchor and no line', () => {
+  it('reports no ranges, so it has no snippet anchor and no block', () => {
     const [hit] = searchDocs(fuse([assetSearchDoc('assets/q3-report.pdf')]), 'q3-report')
     expect(hit.ranges).toEqual([])
-    expect(firstMatchLine(hit.text, hit.ranges)).toBeNull()
+    expect(hit.block).toBeNull()
     expect(snippetSegments(hit.text, hit.ranges)).toEqual([{ text: '', hit: false }])
   })
 

@@ -41,15 +41,18 @@ export interface EditorAdapter {
    *  inserts there instead, and falls back to the selection when the point
    *  names no position the document can hold it at (ADR-0023). */
   insertMarkdown(markdown: string, point?: DropPoint): void
-  /** The canonical start line of each top-level block, in doc order. */
-  getBlockLines(): number[]
+  /** Scroll the `index`-th top-level block into view and mark it for a
+   *  moment; null clears the mark (mark-search-matches-on-the-page). A view
+   *  operation: it never changes the document, so it is not an undo step and
+   *  never reaches serialization. An index the document does not hold is
+   *  ignored. */
+  highlightBlock(index: number | null): void
   /** Subscribe to document changes; the callback receives serialized Markdown. */
   onChange(listener: (markdown: string) => void): void
   /** Subscribe to changes that move the document's blocks without changing its
    *  text — today a list item being folded or expanded (add-collapsible-list-
-   *  items). The pane re-measures the line-number rail on this, because the
-   *  rail is otherwise driven by the markdown change stream and a fold
-   *  produces none. */
+   *  items). The pane re-measures the rail on this, because the rail is
+   *  otherwise driven by the markdown change stream and a fold produces none. */
   onLayoutChange(listener: () => void): void
   /** The page's foldable list items, in document order, for the left rail's
    *  controls (move-list-folds-to-the-left-rail). Read at render time; the

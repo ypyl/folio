@@ -16,7 +16,7 @@ import type { Suggestion } from '../vault/suggest'
 import { collectFiles, withPastedName } from './dropAssets'
 import { dragRefText, hasDragRef, readDragRef } from './dragRefs'
 import { linkForAsset } from '../vault/link'
-import { FOLD_ARROW_CLASS, updateGutterDom } from '../editor/gutter'
+import { FOLD_ARROW_CLASS, updateRailDom } from '../editor/rail'
 import {
   createAssetImages,
   releaseAssetImages,
@@ -79,11 +79,15 @@ export function EditorPane({
   suggest,
   suggestBoards,
   suggestFiles,
+  highlight,
   ref,
 }: {
   page: Page | null
   initialContent: string
   onChange: (markdown: string) => void
+  /** A block to locate and mark on open (mark-search-matches-on-the-page),
+   *  with a nonce so the same match can be re-located. Null clears the mark. */
+  highlight?: { block: number; nonce: number } | null
   /** Which copy the brand screen shows when no page is open: the notes hint,
    *  the open-a-folder instruction, or — where the browser has no local-folder
    *  picker — the browser requirement instead of an instruction that cannot be
@@ -123,7 +127,7 @@ export function EditorPane({
 }) {
   const paneRef = useRef<HTMLElement>(null)
   const mountRef = useRef<HTMLDivElement>(null)
-  const gutterRef = useRef<HTMLDivElement>(null)
+  const railRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<EditorAdapter | null>(null)
   // Vault image URLs for this page (render-vault-images): created when this
   // pane's editor mounts, revoked when it is torn down. A ref, because the pass
@@ -159,30 +163,26 @@ export function EditorPane({
     if (paneRef.current) paneRef.current.scrollTop = 0
   }, [page?.path])
 
-  // Gutter (line-numbers, design D3): one dimmed number per top-level block at
-  // its canonical start line (adapter.getBlockLines), centred on the block's
-  // first text line. The placement lives in editor/gutter.ts, which measures
-  // every block before writing any number so an update costs one layout instead
-  // of one per block (bound-editor-per-keystroke-work, design D2).
-  // The rail's fold controls, kept in a ref so the delegated click can map a
-  // control's index back to the item it toggles without re-reading the editor
-  // (move-list-folds-to-the-left-rail).
+  // The left rail (mark-search-matches-on-the-page): the fold controls, placed
+  // by editor/rail.ts, which measures every item before writing any control so
+  // an update costs one layout. Targets are kept in a ref so the delegated click
+  // maps a control's index back to the item without re-reading the editor.
   const foldTargetsRef = useRef<FoldTarget[]>([])
-  const updateGutter = () => {
-    const host = gutterRef.current
-    const el = mountRef.current
+  const updateRail = () => {
+    const host = railRef.current
     const adapter = adapterRef.current
-    if (!host || !el || !adapter) return
+    if (!host || !adapter) return
     const folds = adapter.getFoldTargets()
     foldTargetsRef.current = folds
-    updateGutterDom(
-      host,
-      [...el.querySelectorAll('.ProseMirror > *')],
-      adapter.getBlockLines(),
-      styles.gutterNum,
-      folds,
-    )
+    updateRailDom(host, folds)
   }
+
+  // A search match is marked after the content settles (mark-search-matches-on-
+  // the-page). `ready` gates the same-page effect so a remount does not mark
+  // before the editor holds the page.
+  const highlightRef = useRef(highlight)
+  highlightRef.current = highlight
+  const readyRef = useRef(false)
 
   // A press on a fold control must not move the caret out of the document; the
   // click then toggles the item through the adapter, which re-measures the rail.
@@ -259,13 +259,13 @@ export function EditorPane({
     adapter.onChange((markdown) => {
       setIsEmpty(markdown.trim() === '')
       onChange(markdown)
-      updateGutter()
+      updateRail()
       updateImages()
     })
-    // A fold moves the document's blocks without changing its text, so the
-    // gutter is re-measured on the editor's layout notification
+    // A fold moves the document's blocks without changing its text, so the rail
+    // is re-measured on the editor's layout notification
     // (add-collapsible-list-items), exactly as it is on a markdown change.
-    adapter.onLayoutChange(() => updateGutter())
+    adapter.onLayoutChange(() => updateRail())
     adapter.onReferenceClick((target, kind) => openReferenceRef.current?.(target, kind))
     adapter.onBoardLink((path) => boardLinkRef.current?.(path))
     // Vault links (open-vault-assets): the bytes behind a link that points into
@@ -283,7 +283,9 @@ export function EditorPane({
       .then(() => {
         if (cancelled) return
         return adapter.setContent(initialContent).then(() => {
-          updateGutter()
+          readyRef.current = true
+          adapter.highlightBlock(highlightRef.current?.block ?? null)
+          updateRail()
           updateImages()
         })
       })
@@ -292,12 +294,12 @@ export function EditorPane({
       })
 
     // Reflow: window resizes and font loads change block heights, so the
-    // numbers must re-glue to their blocks. jsdom has no ResizeObserver; the
+    // controls must re-glue to their items. jsdom has no ResizeObserver; the
     // effect guards so tests run without one (the doc-change path above is
     // what tests drive).
     let observer: ResizeObserver | null = null
     if (typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(() => updateGutter())
+      observer = new ResizeObserver(() => updateRail())
       observer.observe(el)
     }
     return () => {
@@ -311,6 +313,13 @@ export function EditorPane({
     }
   }, [])
   /* oxlint-enable react/exhaustive-deps */
+
+  // Locating a block on a page already open: the pane does not remount, so a
+  // new request re-marks here, and a cleared highlight clears the mark.
+  useEffect(() => {
+    if (!readyRef.current) return
+    adapterRef.current?.highlightBlock(highlight?.block ?? null)
+  }, [highlight])
 
   // File and reference intake (D5): something is always prevented so the
   // browser never navigates to a dropped file; anything that lands happens only
@@ -414,13 +423,13 @@ export function EditorPane({
       className={styles.pane}
     >
       <article className={styles.document}>
-        {/* The left rail (line-numbers; move-list-folds-to-the-left-rail):
-            line numbers plus the fold controls. The numbers stay inert and
-            aria-hidden; the controls are the rail's only interactive part, so
-            the rail itself is not hidden from assistive technology. */}
+        {/* The left rail (move-list-folds-to-the-left-rail;
+            mark-search-matches-on-the-page): the fold controls. The rail lets
+            clicks fall through except on a control, so it is not hidden from
+            assistive technology. */}
         <div
-          ref={gutterRef}
-          className={styles.gutter}
+          ref={railRef}
+          className={styles.rail}
           onMouseDown={onRailMouseDown}
           onClick={onRailClick}
         />

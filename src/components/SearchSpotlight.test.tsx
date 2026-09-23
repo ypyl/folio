@@ -47,7 +47,7 @@ async function type(value: string) {
 interface SpotlightProps {
   docs: SearchDoc[]
   disabled?: boolean
-  onSelect?: (path: string) => void
+  onSelect?: (path: string, block: number | null) => void
   onOpenAsset?: (path: string) => void
   onOpenBoard?: (path: string) => void
   onQueryResult?: (query: string, results: SearchResult[]) => void
@@ -304,7 +304,7 @@ describe('SearchSpotlight keyboard (search spec: Cmd/Ctrl+K/P, arrows, enter)', 
     await type('docker')
     fireEvent.keyDown(input(), { key: 'ArrowDown' })
     fireEvent.keyDown(input(), { key: 'Enter' })
-    expect(onSelect).toHaveBeenCalledWith('Alpha.md')
+    expect(onSelect).toHaveBeenCalledWith('Alpha.md', expect.any(Number))
     expect(onClose).toHaveBeenCalled()
     expect(screen.queryByRole('textbox', { name: 'Search notes' })).toBeNull()
   })
@@ -314,7 +314,7 @@ describe('SearchSpotlight keyboard (search spec: Cmd/Ctrl+K/P, arrows, enter)', 
     const { onClose } = renderSpotlight({ docs: [page('Alpha.md', 'docker one')], onSelect })
     await type('docker')
     fireEvent.click(options()[0])
-    expect(onSelect).toHaveBeenCalledWith('Alpha.md')
+    expect(onSelect).toHaveBeenCalledWith('Alpha.md', expect.any(Number))
     expect(onClose).toHaveBeenCalled()
   })
 

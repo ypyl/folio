@@ -68,6 +68,10 @@ export type SearchResult = {
   /** [start, end) offsets into `text` to highlight. */
   ranges: SearchRange[]
   text: string
+  /** The top-level block holding the first text match, as the editor's document
+   *  children are indexed (mark-search-matches-on-the-page); null when the match
+   *  is only in the title or there is no content. */
+  block: number | null
 }
 
 /** Query terms: whitespace-split, terms under 3 characters are noise. */
@@ -103,7 +107,7 @@ export function exactRanges(text: string, term: string): SearchRange[] {
 export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[] {
   const terms = termsOf(query)
   if (!terms.length) return []
-  const acc = new Map<string, SearchResult & { _terms: number }>()
+  const acc = new Map<string, Omit<SearchResult, 'block'> & { _terms: number }>()
   for (const term of terms) {
     const hits = fuse.search(term)
     for (const hit of hits) {
@@ -133,7 +137,10 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
   const results = [...acc.values()]
     .filter((r) => r._terms === terms.length)
     .sort((a, b) => a.score - b.score || a.path.localeCompare(b.path))
-  return results.map(({ _terms: _dropped, ...rest }) => rest)
+  return results.map(({ _terms: _dropped, ...rest }) => ({
+    ...rest,
+    block: firstMatchBlock(rest.text, rest.ranges),
+  }))
 }
 
 /** Per-group slice of a full result set (search-results-view): keeps the
@@ -189,18 +196,20 @@ export function snippetSegments(text: string, ranges: SearchRange[]): Segment[] 
   return segments
 }
 
-/** The canonical block-anchored line of the first text match (line-numbers):
- *  the block-start anchor at or above the first range, or null when there is
- *  no text match (a title-only result). Shares the editor gutter's rule via
- *  blockStartLines, so a result's line exists in the gutter on open. */
-export function firstMatchLine(text: string, ranges: SearchRange[]): number | null {
+/** The index of the top-level block holding the first text match
+ *  (mark-search-matches-on-the-page): the block-start anchor at or above the
+ *  first range, counted in document order, or null when there is no text match
+ *  (a title-only result). The index survives Canonicalization, which can move a
+ *  block's line but not which block it is. */
+export function firstMatchBlock(text: string, ranges: SearchRange[]): number | null {
   if (!ranges.length) return null
   const first = [...ranges].sort((a, b) => a[0] - b[0])[0]
   const matchLine = text.slice(0, first[0]).split('\n').length // 1-based
-  let anchor: number | null = null
-  for (const line of blockStartLines(text)) {
-    if (line > matchLine) break
-    anchor = line
+  const anchors = blockStartLines(text)
+  let block: number | null = null
+  for (let i = 0; i < anchors.length; i++) {
+    if (anchors[i] > matchLine) break
+    block = i
   }
-  return anchor
+  return block
 }

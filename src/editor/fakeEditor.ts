@@ -26,6 +26,8 @@ export class FakeEditor implements EditorAdapter {
    *  them, and every toggleFold call is recorded in `foldToggles`. */
   foldTargets: FoldTarget[] = []
   readonly foldToggles: HTMLElement[] = []
+  /** Every highlightBlock call, in order (mark-search-matches-on-the-page). */
+  readonly highlights: (number | null)[] = []
   private listeners: ((markdown: string) => void)[] = []
   private layoutListeners: (() => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
@@ -47,7 +49,7 @@ export class FakeEditor implements EditorAdapter {
     const pm = document.createElement('div')
     pm.className = 'ProseMirror'
     const lines = this.content.split('\n')
-    for (const line of this.getBlockLines()) {
+    for (const line of this.blockLines()) {
       const block = document.createElement('div')
       const match = /!\[([^\]]*)\]\(([^)\s]+)\)/.exec(lines[line - 1] ?? '')
       if (match) {
@@ -82,11 +84,15 @@ export class FakeEditor implements EditorAdapter {
     this.syncDoc()
   }
 
-  getBlockLines(): number[] {
-    // The real adapter zips anchors to doc blocks and maps an empty doc's
-    // single placeholder block to line 1; mirror that contract here.
+  /** The top-level block start lines, used only to mirror the editor's block
+   *  markup for pane tests; the adapter no longer exposes line numbers. */
+  private blockLines(): number[] {
     if (this.content.trim() === '') return [1]
     return blockStartLines(this.content)
+  }
+
+  highlightBlock(index: number | null): void {
+    this.highlights.push(index)
   }
 
   insertMarkdown(markdown: string, point?: DropPoint): void {

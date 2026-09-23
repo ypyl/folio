@@ -1,4 +1,4 @@
-import { firstMatchLine, snippetSegments, type SearchResult } from '../search/core'
+import { snippetSegments, type SearchResult } from '../search/core'
 import { rowLabel } from './months'
 import styles from './MatchBody.module.css'
 
@@ -15,12 +15,10 @@ export function MatchBody({
   compact?: boolean
 }) {
   const segments = snippetSegments(result.text, result.ranges)
-  const line = firstMatchLine(result.text, result.ranges)
   return (
     <>
       <span className={`${styles.label}${compact ? ` ${styles.labelCompact}` : ''}`}>
         {rowLabel(result)}
-        {line !== null && <span className={styles.line}>{` \u00B7 line ${line}`}</span>}
       </span>
       {/* A snippet needs text to quote: an asset has none, and always carries a
           title. Gating on the text (rather than on whether segments exist) also

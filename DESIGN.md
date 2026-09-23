@@ -261,13 +261,12 @@ Native list markers, brand-colored. Do not fake a bullet with a `::before`
 dash — that reads like AI default output, not editorial typesetting.
 
 A list item that holds nested content carries a disclosure control (ADR-0026).
-It is a real 14px button, but it lives in the **left rail** (see Document line
-numbers), in that rail's right-hand control column nearest the prose, not in
-the item's marker lane: the browser's bullet is never covered (ADR-0020), and
-nested controls share the rail's one control column. The glyph is a
-quiet `--stone` chevron, pointing down when expanded and right when folded,
-brand on hover. A foldable item shows its control at all times — the rail is a
-control column, not a hover affordance — while a leaf item shows none.
+It is a real 14px button, but it lives in the **left rail** (see Left rail),
+nearest the prose, not in the item's marker lane: the browser's bullet is never
+covered (ADR-0020). The glyph is a quiet `--stone` chevron, pointing down when
+expanded and right when folded, brand on hover. A foldable item shows its
+control at all times — the rail is a control column, not a hover affordance —
+while a leaf item shows none.
 
 ### Code
 
@@ -280,22 +279,24 @@ mapping lives in `src/editor/codeBlockSetup.ts` (hex values mirror the tokens
 above, so the two must not drift); blocks without a language stay monochrome
 and show the `Text` label.
 
-### Document line numbers
+### Left rail
 
-Quiet rail along the document's left margin holding two columns: the
-**number column** on the left, one number per top-level block, 12px `--stone`,
-right-aligned toward the control column, and the **fold-control column** on
-the right, nearest the prose (see Lists). Both sit on the block's or item's
-first line; a foldable block shows its number and its control on the same
-line, side by side, neither moving the other. No border or fill. The numbers
-stay purely presentational —
-`pointer-events: none`, hidden from the a11y tree — and the fold controls are
-the rail's only interactive, announced part. Numbers are block-anchored
-canonical lines
-(`src/lineAnchors.ts`): blank separators count but aren't shown, a list gets
-one number, code blocks keep their embedded editor's local numbering plus the
-outer block anchor. Addresses follow Folio's canonical form — a legacy page
-with soft-wrapped paragraphs renumbers on its first save.
+Quiet rail along the document's left margin holding the fold controls for list
+items (see Lists). Each control sits on its item's first line, nearest the
+prose; no border or fill. The rail itself is inert — `pointer-events: none`,
+and it holds nothing but the controls — while the controls are interactive and
+announced. It carries no line numbers: a page opened to a search match is
+located by marking the block on the page (see Search match), not by a number in
+the margin.
+
+### Search match
+
+Opening a search result locates the match: the block is scrolled into view and
+washed with a `--brand-tint` background that fades out over about two seconds
+(`.folio-search-hit`; the duration matches `HIGHLIGHT_MS` in
+`src/editor/searchHighlight.ts`). The wash is presentational — it never enters
+the page or the file — and it is cleared at once by the next keystroke. A
+result whose match is only in the page title opens with no mark.
 
 ### Pin star (row icon + status-bar toggle)
 
