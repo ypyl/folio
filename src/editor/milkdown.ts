@@ -27,6 +27,7 @@ import { chordToKeyEventInit, isMac } from './chord'
 import { formatJsonBlock, isInCodeBlock } from './codeFormat'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
+import { collapsibleLists } from './foldLists'
 import { noVaultReader, type AssetReader } from '../vault/assetOpen'
 import type { ReferenceKind } from '../vault/parse'
 import { vaultImageView } from './vaultImageView'
@@ -59,6 +60,9 @@ export class MilkdownAdapter implements EditorAdapter {
   private editor: Editor | null = null
   private latest = ''
   private changeListener: ((markdown: string) => void) | null = null
+  /** Pane-side listeners for layout-only changes (list folding): attached after
+   *  mount, called when a fold moves the document's blocks. */
+  private layoutListeners: (() => void)[] = []
   private referenceClickListener: ((target: string, kind: ReferenceKind) => void) | null = null
   /** Called with a vault path when a link to a board file is activated
    *  (add-whiteboards): the app opens the board editor for it. Attached after
@@ -245,6 +249,11 @@ export class MilkdownAdapter implements EditorAdapter {
       // the page keeps an empty paragraph after it, so the block is always
       // followed by somewhere to continue.
       .use(documentTail)
+      // List folding (add-collapsible-list-items, ADR-0026): the fold plugin
+      // reads a callback rather than the listener list, so a fold can ask the
+      // pane to re-measure its gutter without either side reaching into the
+      // other. View-only: the document is never changed (ADR-0001/0009).
+      .use(collapsibleLists(() => this.notifyLayoutChange()))
       .create()
     if (this.destroyed) {
       await editor.destroy()
@@ -324,6 +333,7 @@ export class MilkdownAdapter implements EditorAdapter {
   async destroy(): Promise<void> {
     this.destroyed = true
     this.changeListener = null
+    this.layoutListeners = []
     this.referenceClickListener = null
     this.boardLinkListener = null
     this.assetReader = noVaultReader
@@ -508,6 +518,15 @@ export class MilkdownAdapter implements EditorAdapter {
 
   onChange(listener: (markdown: string) => void): void {
     this.changeListener = listener
+  }
+
+  onLayoutChange(listener: () => void): void {
+    this.layoutListeners.push(listener)
+  }
+
+  /** Tell the pane its blocks moved without the text changing. */
+  private notifyLayoutChange(): void {
+    for (const listener of this.layoutListeners) listener()
   }
 
   onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {

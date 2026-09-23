@@ -232,6 +232,10 @@ export function EditorPane({
       updateGutter()
       updateImages()
     })
+    // A fold moves the document's blocks without changing its text, so the
+    // gutter is re-measured on the editor's layout notification
+    // (add-collapsible-list-items), exactly as it is on a markdown change.
+    adapter.onLayoutChange(() => updateGutter())
     adapter.onReferenceClick((target, kind) => openReferenceRef.current?.(target, kind))
     adapter.onBoardLink((path) => boardLinkRef.current?.(path))
     // Vault links (open-vault-assets): the bytes behind a link that points into

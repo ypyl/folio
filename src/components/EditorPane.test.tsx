@@ -38,6 +38,7 @@ type FakeEditorView = EditorAdapter & {
   chords: string[]
   assetReaders: ((path: string) => Promise<Blob>)[]
   emitChange: (markdown: string) => void
+  emitLayoutChange: () => void
   emitReferenceClick: (target: string) => void
   destructed: boolean
   mounted: boolean
@@ -167,6 +168,22 @@ describe('EditorPane', () => {
     expect(gutter).not.toBeNull()
     const nums = [...(gutter?.querySelectorAll('span') ?? [])].map((s) => s.textContent)
     expect(nums).toEqual(['1', '3', '5'])
+  })
+
+  it('re-measures the gutter on a layout-only change, as a fold makes', async () => {
+    // A fold changes the rendered height without changing the markdown, so the
+    // gutter is driven by the adapter's layout notification as well as by the
+    // markdown change stream (add-collapsible-list-items).
+    render(<EditorPane page={page} initialContent={'Body'} onChange={() => {}} />)
+    await act(async () => {})
+    const gutter = document.querySelector(`.${styles.gutter}`)
+    const before = gutter?.querySelector('span')
+    expect(before).not.toBeNull()
+    await act(async () => {
+      fake().emitLayoutChange()
+    })
+    expect(gutter?.querySelector('span')).not.toBeNull()
+    expect(gutter?.querySelector('span')).not.toBe(before)
   })
 
   it('re-numbers the gutter when the document changes', async () => {

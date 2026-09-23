@@ -2081,3 +2081,126 @@ describe('MilkdownAdapter drop points (drag-references-into-editor)', () => {
     el.remove()
   })
 })
+
+// List folding (add-collapsible-list-items, ADR-0026): a fold is a view over
+// the Markdown, so the document the serializer reads keeps every line and the
+// page is never dirtied. These run against the real adapter in jsdom, which has
+// no CSS layout — the assertion is the fold mechanism (the item's folded class
+// and its intact DOM), not a computed `display`.
+describe('MilkdownAdapter list folding (add-collapsible-list-items)', () => {
+  const editorAction = (adapter: MilkdownAdapter, f: (ctx: unknown) => unknown): unknown =>
+    (
+      adapter as unknown as { editor: { action: (fn: (ctx: unknown) => unknown) => unknown } }
+    ).editor.action(f)
+
+  const viewOf = (adapter: MilkdownAdapter) =>
+    editorAction(adapter, (ctx) =>
+      (ctx as { get: (k: unknown) => unknown }).get(editorViewCtx),
+    ) as {
+      state: { doc: ProseNode; tr: { insertText: (t: string, p: number) => unknown } }
+      dispatch: (tr: unknown) => void
+    }
+
+  const serialize = (adapter: MilkdownAdapter): string =>
+    editorAction(adapter, (ctx) => {
+      const access = ctx as { get: (k: unknown) => unknown }
+      const view = access.get(editorViewCtx) as { state: { doc: unknown } }
+      const serializer = access.get(serializerCtx) as (doc: unknown) => string
+      return trimTrailingBlankLines(serializer(view.state.doc))
+    }) as string
+
+  const itemStart = (adapter: MilkdownAdapter, label: string): number => {
+    let found = -1
+    viewOf(adapter).state.doc.descendants((node, pos) => {
+      if (
+        found === -1 &&
+        node.type.name === 'list_item' &&
+        node.firstChild?.textContent === label
+      ) {
+        found = pos
+      }
+    })
+    if (found === -1) throw new Error(`no list item with text ${label}`)
+    return found
+  }
+
+  const mount = async (seed: string) => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    await adapter.mount(el)
+    await adapter.setContent(seed)
+    return { adapter, el }
+  }
+
+  const seed = '- A\n  - A1\n- B\n'
+  const toggles = (el: HTMLElement): HTMLElement[] => [
+    ...el.querySelectorAll<HTMLElement>('.folio-fold-toggle'),
+  ]
+  const click = (el: HTMLElement, index = 0): void => {
+    toggles(el)[index].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  }
+
+  it('gives one control to the foldable item and none to the leaf', async () => {
+    const { adapter, el } = await mount(seed)
+    expect(toggles(el)).toHaveLength(1)
+    expect(toggles(el)[0].getAttribute('aria-expanded')).toBe('true')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('folds the item without removing its content or changing the page', async () => {
+    const { adapter, el } = await mount(seed)
+    const changes: string[] = []
+    adapter.onChange((markdown) => changes.push(markdown))
+    const before = serialize(adapter)
+
+    click(el)
+
+    const folded = el.querySelectorAll('li.folio-folded')
+    expect(folded).toHaveLength(1)
+    // The hidden content is still in the DOM: this is a view, not an edit.
+    expect(folded[0].querySelector('ul')).not.toBeNull()
+    expect(serialize(adapter)).toBe(before)
+    // The debounced change stream must stay silent for a fold.
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(changes).toEqual([])
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('expands a folded item again', async () => {
+    const { adapter, el } = await mount(seed)
+    click(el)
+    expect(el.querySelectorAll('li.folio-folded')).toHaveLength(1)
+    expect(toggles(el)[0].getAttribute('aria-expanded')).toBe('false')
+    click(el)
+    expect(el.querySelectorAll('li.folio-folded')).toHaveLength(0)
+    expect(toggles(el)[0].getAttribute('aria-expanded')).toBe('true')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('announces a layout change so the gutter can re-measure', async () => {
+    const { adapter, el } = await mount(seed)
+    let calls = 0
+    adapter.onLayoutChange(() => {
+      calls += 1
+    })
+    click(el)
+    expect(calls).toBe(1)
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('keeps the control element in place across a text keystroke', async () => {
+    const { adapter, el } = await mount(seed)
+    const before = toggles(el)[0]
+    const view = viewOf(adapter)
+    view.dispatch(view.state.tr.insertText('!', itemStart(adapter, 'A') + 2))
+    const after = toggles(el)[0]
+    expect(after).toBe(before)
+    await adapter.destroy()
+    el.remove()
+  })
+})

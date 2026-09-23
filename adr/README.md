@@ -42,6 +42,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0023](0023-drops-land-at-the-drop-point.md) | A drop lands at the drop point, and a drag carries a fact | Accepted |
 | [0024](0024-a-whiteboard-is-a-board-file.md) | A whiteboard is a board file the app edits | Accepted |
 | [0025](0025-logseq-import-is-one-way-and-input-only.md) | The Logseq import is one-way and input-only | Accepted |
+| [0026](0026-folding-a-list-item-is-view-only.md) | Folding a list item is view-only | Accepted |
 
 ## Adding a new ADR
 

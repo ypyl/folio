@@ -260,6 +260,16 @@ recede `--brand-tint`. Solid hex only, no translucent backgrounds. Start pale;
 Native list markers, brand-colored. Do not fake a bullet with a `::before`
 dash — that reads like AI default output, not editorial typesetting.
 
+A list item that holds nested content carries a disclosure control (ADR-0026).
+It is a real 14px button drawn in the item's own marker lane, to the left of
+the first line, not a `::before` on the marker: a quiet `--stone` chevron,
+counter-clockwise when expanded and clockwise when folded, on the same 12px
+floor as the other metadata. It shows on hover and stays shown while the item
+is folded, and it does not move the item's text — its box is out of flow, so
+nothing reflows when it appears. The browser still draws the native bullet
+(ADR-0020); while the control is shown the marker's paint recedes so the two
+do not read as one glyph.
+
 ### Code
 
 Component-backed blocks: the code-block component (CodeMirror inside the

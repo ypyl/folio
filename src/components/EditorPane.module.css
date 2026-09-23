@@ -226,6 +226,53 @@
   color: var(--brand); /* native markers, brand-colored (DESIGN lists) */
 }
 
+/* List folding (add-collapsible-list-items, ADR-0026, DESIGN Lists). A folded
+   item keeps its first block and its control; every other child — the nested
+   list, a code block, a further paragraph — is hidden. This is a view only:
+   the document keeps every line, so the file does too. */
+.editor :global(li.folio-folded > :not(.folio-fold-head):not(.folio-fold-toggle)) {
+  display: none;
+}
+
+/* The control's box is out of flow in the item's own marker lane, so showing
+   it never reflows the text. Nested items get their own lane with their own
+   indentation, by the li's own box. */
+.editor :global(li.folio-fold-item) {
+  position: relative;
+}
+
+.editor :global(.folio-fold-toggle) {
+  position: absolute;
+  left: -22px;
+  top: 0.05em;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--stone); /* metadata ink, same level as the gutter */
+  cursor: pointer;
+  border-radius: 3px;
+  opacity: 0; /* quiet until the item is hovered or folded */
+  transition: opacity 120ms ease;
+}
+
+.editor :global(li.folio-fold-item:hover > .folio-fold-toggle),
+.editor :global(li.folio-folded > .folio-fold-toggle) {
+  opacity: 1;
+}
+
+.editor :global(.folio-fold-toggle:hover) {
+  color: var(--brand);
+}
+
+/* The marker recedes while the control shares its lane, so the two do not read
+   as one glyph. The browser still draws it (ADR-0020). */
+.editor :global(li.folio-fold-item:hover)::marker,
+.editor :global(li.folio-folded)::marker {
+  color: transparent;
+}
+
 .editor :global(a) {
   color: var(--brand);
   text-decoration: none;

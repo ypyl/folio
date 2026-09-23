@@ -227,8 +227,12 @@ function stepRange(step: Step): { from: number; to: number } | null {
  * it produced. Expanding each step to whole blocks is what makes structural
  * edits safe: a split or a join rewrites the text nodes on both sides of the
  * boundary, and a reference can move between blocks (design D1).
+ *
+ * Shared with the fold plugin (add-collapsible-list-items): both features
+ * invalidate per top-level block, and one rule keeps them from disagreeing
+ * about what an edit touched.
  */
-function affectedRanges(tr: Transaction): BlockRange[] {
+export function affectedTopLevelBlocks(tr: Transaction): BlockRange[] {
   const ranges: BlockRange[] = []
   tr.steps.forEach((step, index) => {
     const touched = stepRange(step)
@@ -265,7 +269,7 @@ function rescan(
   prev: ReferenceState,
   scan: (doc: ProseNode, range?: BlockRange) => ScanResult,
 ): ReferenceState {
-  const ranges = affectedRanges(tr)
+  const ranges = affectedTopLevelBlocks(tr)
   let decorations = prev.decorations.map(tr.mapping, tr.doc)
   const refs = prev.refs
     .map((ref) => ({

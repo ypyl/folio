@@ -40,6 +40,12 @@ export interface EditorAdapter {
   getBlockLines(): number[]
   /** Subscribe to document changes; the callback receives serialized Markdown. */
   onChange(listener: (markdown: string) => void): void
+  /** Subscribe to changes that move the document's blocks without changing its
+   *  text — today a list item being folded or expanded (add-collapsible-list-
+   *  items). The pane re-measures the line-number gutter on this, because the
+   *  gutter is otherwise driven by the markdown change stream and a fold
+   *  produces none. */
+  onLayoutChange(listener: () => void): void
   /** Subscribe to reference activation (badge click or Mod+Enter); the callback
    *  receives the target name and which namespace it names — a page or a board —
    *  never a resolved path (ADR-0010). */

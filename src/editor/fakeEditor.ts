@@ -23,6 +23,7 @@ export class FakeEditor implements EditorAdapter {
    *  combination a click sent to the editor (apply-shortcuts-on-click). */
   readonly chords: string[] = []
   private listeners: ((markdown: string) => void)[] = []
+  private layoutListeners: (() => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
   private boardLinkListeners: ((path: string) => void)[] = []
   /** Every attached vault reader, in order (open-vault-assets) — lets pane
@@ -65,6 +66,7 @@ export class FakeEditor implements EditorAdapter {
   async destroy(): Promise<void> {
     this.destructed = true
     this.listeners = []
+    this.layoutListeners = []
     this.referenceListeners = []
     this.boardLinkListeners = []
     this.suggestionSources = null
@@ -98,6 +100,10 @@ export class FakeEditor implements EditorAdapter {
 
   onChange(listener: (markdown: string) => void): void {
     this.listeners.push(listener)
+  }
+
+  onLayoutChange(listener: () => void): void {
+    this.layoutListeners.push(listener)
   }
 
   onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {
@@ -134,6 +140,11 @@ export class FakeEditor implements EditorAdapter {
   /** Test hook: simulate activating a link whose destination is a board file. */
   emitBoardLink(path: string): void {
     for (const listener of this.boardLinkListeners) listener(path)
+  }
+
+  /** Test hook: simulate a layout-only change, as a fold makes. */
+  emitLayoutChange(): void {
+    for (const listener of this.layoutListeners) listener()
   }
 
   /** Test hook: simulate a user edit producing `markdown`. */
