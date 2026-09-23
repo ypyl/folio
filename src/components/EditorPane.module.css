@@ -97,8 +97,11 @@
 }
 
 .document {
-  padding: 4px 32px 4px;
-  position: relative; /* anchoring context for the line-number gutter */
+  /* The left padding is the rail's width (split-the-left-rail-into-columns):
+     the number column and the fold-control column sit in it, the control
+     nearest the prose. */
+  padding: 4px 32px 4px 56px;
+  position: relative; /* anchoring context for the line-number rail */
   /* The page owns the space below its content (click-below-to-continue): the
      document box fills the pane so the editable surface can reach the pane's
      bottom edge, which is where a user clicks to continue writing. The growth
@@ -109,25 +112,29 @@
   flex-direction: column;
 }
 
-/* Line numbers (line-numbers, DESIGN: metadata level --stone, 12px floor, no
-   decoration). The gutter sits in the document's 48px left margin, flush with
-   the prose edge but inert: pointer-events let every click reach the
-   document, aria-hidden keeps it out of the a11y tree. */
+/* The left rail (line-numbers; move-list-folds-to-the-left-rail;
+   split-the-left-rail-into-columns): two columns in the document's left
+   margin, flush with the prose edge. The number column is on the left, the
+   fold-control column on the right, nearest the prose. The rail itself lets
+   clicks pass through; only the controls opt in. */
 .gutter {
   position: absolute;
   top: 16px;
   bottom: 4px;
   left: 0;
-  width: 32px;
+  width: 56px;
   pointer-events: none;
 }
 
+/* Left column, right-aligned toward the control column. 12px is the metadata
+   floor (DESIGN.md); line-height 1 keeps the rendered box at the marker height
+   the placement math assumes. */
 .gutterNum {
   position: absolute;
-  right: 8px; /* clear air between the number and the prose edge */
-  font-size: 10px;
+  right: 28px;
+  font-size: 12px;
   color: var(--stone);
-  line-height: 0.8;
+  line-height: 1;
 }
 
 /* Fold controls in the same rail (move-list-folds-to-the-left-rail): a quiet
@@ -136,7 +143,7 @@
    and the numbers stay inert. */
 .gutter :global(.folio-fold-arrow) {
   position: absolute;
-  right: 3px;
+  right: 2px; /* right column, nearest the prose */
   width: 20px;
   height: 14px;
   padding: 0;
@@ -146,6 +153,11 @@
   cursor: pointer;
   border-radius: 3px;
   pointer-events: auto;
+}
+
+.gutter :global(.folio-fold-arrow svg) {
+  width: 14px;
+  height: 14px;
 }
 
 .gutter :global(.folio-fold-arrow:hover) {

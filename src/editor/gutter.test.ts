@@ -142,17 +142,17 @@ describe('fold controls on the rail', () => {
     return { element: item, folded, depth }
   }
 
-  it('stacks a first-level block number beneath its control', () => {
+  it('puts a first-level block number and its control on the same line', () => {
     const host = document.createElement('div')
     const list = document.createElement('ul')
     list.getBoundingClientRect = () => ({ top: 200, height: 24 }) as DOMRect
     updateGutterDom(host, [list], [1], 'num', [foldAt(200, 1)])
     const arrow = host.querySelector<HTMLElement>('.folio-fold-arrow')
     const number = host.querySelector<HTMLElement>('span')
-    // Control centred on the line: 200 + (24 - 14) / 2 = 205.
+    // Both centred on the same line: the control box (200 + (24 - 14) / 2) and
+    // the number box (200 + (24 - 12) / 2), neither moving the other.
     expect(arrow?.style.top).toBe('205px')
-    // Number centred on the line is 206, then pushed below the control.
-    expect(number?.style.top).toBe('222px')
+    expect(number?.style.top).toBe('206px')
   })
 
   it('does not stack when the control is on a different line than the number', () => {

@@ -16,10 +16,8 @@ export const GUTTER_MARKER_HEIGHT = 12
  *  clicks. */
 export const FOLD_ARROW_CLASS = 'folio-fold-arrow'
 
-/** The fold control's box height, and the gap between it and the line number
- *  it stacks above. */
+/** The fold control's box height, so its chevron centres on the line. */
 const ARROW_MARKER_HEIGHT = 14
-const ARROW_GAP = 2
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 /** Chevron pointing down when expanded and right when folded, on the 24-unit
@@ -232,8 +230,9 @@ function writeRail(
 
 /**
  * One rail update: measure every block and fold item first, write every number
- * and control after. A fold control whose first-level item shares a block's
- * first line stacks the block's number beneath it.
+ * and control after. The number column and the control column are placed
+ * independently, so a fold control and its block's number share a line without
+ * one moving the other (split-the-left-rail-into-columns).
  */
 export function updateGutterDom(
   host: HTMLElement,
@@ -242,13 +241,5 @@ export function updateGutterDom(
   className: string,
   folds: readonly FoldTarget[] = [],
 ): void {
-  const numbers = measureNumbers(host, blocks, lines)
-  const arrows = measureArrows(host, folds)
-  const stacked = numbers.map((number) => {
-    const underControl = arrows.some(
-      (arrow) => arrow.depth === 1 && Math.abs(arrow.line - number.top) < ARROW_MARKER_HEIGHT,
-    )
-    return underControl ? { ...number, top: number.top + ARROW_MARKER_HEIGHT + ARROW_GAP } : number
-  })
-  writeRail(host, stacked, arrows, className)
+  writeRail(host, measureNumbers(host, blocks, lines), measureArrows(host, folds), className)
 }

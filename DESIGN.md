@@ -262,8 +262,9 @@ dash — that reads like AI default output, not editorial typesetting.
 
 A list item that holds nested content carries a disclosure control (ADR-0026).
 It is a real 14px button, but it lives in the **left rail** (see Document line
-numbers), not in the item's marker lane: the browser's bullet is never covered
-(ADR-0020), and nested controls share the rail's one column. The glyph is a
+numbers), in that rail's right-hand control column nearest the prose, not in
+the item's marker lane: the browser's bullet is never covered (ADR-0020), and
+nested controls share the rail's one control column. The glyph is a
 quiet `--stone` chevron, pointing down when expanded and right when folded,
 brand on hover. A foldable item shows its control at all times — the rail is a
 control column, not a hover affordance — while a leaf item shows none.
@@ -281,12 +282,13 @@ and show the `Text` label.
 
 ### Document line numbers
 
-Quiet rail along the document's left margin, one number per top-level block,
-12px `--stone`, right-aligned toward the prose, no border or fill, centered on
-the block's first line. The rail also holds the **fold controls** for list
-items (see Lists); a top-level block that has one shows its number stacked
-just beneath the control, while a block with no control keeps its number on
-the block's first line. The numbers stay purely presentational —
+Quiet rail along the document's left margin holding two columns: the
+**number column** on the left, one number per top-level block, 12px `--stone`,
+right-aligned toward the control column, and the **fold-control column** on
+the right, nearest the prose (see Lists). Both sit on the block's or item's
+first line; a foldable block shows its number and its control on the same
+line, side by side, neither moving the other. No border or fill. The numbers
+stay purely presentational —
 `pointer-events: none`, hidden from the a11y tree — and the fold controls are
 the rail's only interactive, announced part. Numbers are block-anchored
 canonical lines
