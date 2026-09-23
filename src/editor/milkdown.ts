@@ -27,7 +27,7 @@ import { chordToKeyEventInit, isMac } from './chord'
 import { formatJsonBlock, isInCodeBlock } from './codeFormat'
 import { looksLikeMarkdown } from './markdownLike'
 import { inlineDecorations } from './inlineDecorations'
-import { collapsibleLists } from './foldLists'
+import { collapsibleLists, foldTargetsIn, toggleFoldElement } from './foldLists'
 import { noVaultReader, type AssetReader } from '../vault/assetOpen'
 import type { ReferenceKind } from '../vault/parse'
 import { vaultImageView } from './vaultImageView'
@@ -35,7 +35,7 @@ import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { separateEmptyListLines } from './emptyLines'
 import { blockStartLines } from '../lineAnchors'
-import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
+import type { DropPoint, EditorAdapter, FoldTarget, SuggestionSources } from './editor'
 
 /** Private clipboard flavor carrying the selection's canonical Markdown
  *  (copy-as-markdown), so the app's own paste restores structure without the
@@ -249,11 +249,12 @@ export class MilkdownAdapter implements EditorAdapter {
       // the page keeps an empty paragraph after it, so the block is always
       // followed by somewhere to continue.
       .use(documentTail)
-      // List folding (add-collapsible-list-items, ADR-0026): the fold plugin
-      // reads a callback rather than the listener list, so a fold can ask the
-      // pane to re-measure its gutter without either side reaching into the
-      // other. View-only: the document is never changed (ADR-0001/0009).
-      .use(collapsibleLists(() => this.notifyLayoutChange()))
+      // List folding (add-collapsible-list-items, ADR-0026): the plugin marks
+      // foldable items and carries the folded set; the pane's left rail draws
+      // the controls and toggles through this adapter
+      // (move-list-folds-to-the-left-rail). View-only: the document is never
+      // changed (ADR-0001/0009).
+      .use(collapsibleLists())
       .create()
     if (this.destroyed) {
       await editor.destroy()
@@ -522,6 +523,21 @@ export class MilkdownAdapter implements EditorAdapter {
 
   onLayoutChange(listener: () => void): void {
     this.layoutListeners.push(listener)
+  }
+
+  getFoldTargets(): FoldTarget[] {
+    const editor = this.editor
+    if (!editor) return []
+    return editor.action((ctx) => foldTargetsIn(ctx.get(editorViewCtx).dom))
+  }
+
+  toggleFold(element: HTMLElement): void {
+    const editor = this.editor
+    if (!editor) return
+    const toggled = editor.action((ctx) => toggleFoldElement(ctx.get(editorViewCtx), element))
+    // A fold hides content, so the rail has to re-measure even though the
+    // document did not change.
+    if (toggled) this.notifyLayoutChange()
   }
 
   /** Tell the pane its blocks moved without the text changing. */

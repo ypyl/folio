@@ -5,10 +5,10 @@
 // so a page switch or a reload starts every item expanded and nothing is
 // written to the vault.
 //
-// The fold set is a set of `list_item` start positions, carried forward through
-// each transaction and validated against the document it produced — the same
-// incremental shape as the reference-badge plugin, so a keystroke's folding cost
-// is scoped to the top-level block it edited, not the page.
+// The control itself is not drawn here: move-list-folds-to-the-left-rail puts
+// the arrows in the pane's left rail, beside the line numbers. This plugin
+// marks the items, carries the folded set, and repairs a selection that lands
+// in hidden content; the rail reads the marks and asks the adapter to toggle.
 
 import { $prose } from '@milkdown/utils'
 import type { Node as ProseNode } from '@milkdown/prose/model'
@@ -17,26 +17,14 @@ import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/prose/view'
 import type { EditorView } from '@milkdown/prose/view'
 import { affectedTopLevelBlocks, type BlockRange } from './inlineDecorations'
+import type { FoldTarget } from './editor'
 
-/** The node class on a list item that has a disclosure control and on one that
- *  is folded; the first child block's class; and the control's own class. Global
- *  names, like the badge and image classes the decorations write. */
+/** The node class on a list item that has a fold control and on one that is
+ *  folded, and on its first (visible) block. Global names, like the badge and
+ *  image classes the decorations write, and the handle the rail reads. */
 export const FOLD_ITEM_CLASS = 'folio-fold-item'
 export const FOLDED_CLASS = 'folio-folded'
 export const FOLD_HEAD_CLASS = 'folio-fold-head'
-export const FOLD_TOGGLE_CLASS = 'folio-fold-toggle'
-
-/** The control's accessible name and tooltip, by state: it names the action it
- *  performs, not the state it is in. */
-const COLLAPSE_LABEL = 'Collapse item'
-const EXPAND_LABEL = 'Expand item'
-
-const SVG_NS = 'http://www.w3.org/2000/svg'
-
-/** Chevron pointing down when expanded (content below) and right when folded
- *  (content ahead), on the 24-unit viewBox the app's other controls use. */
-const GLYPH_EXPANDED = 'M6 9l6 6 6-6'
-const GLYPH_FOLDED = 'M9 6l6 6-6 6'
 
 type FoldState = {
   /** Start positions of the folded `list_item` nodes, in this document. */
@@ -79,63 +67,12 @@ export function hiddenBoundary(
   return null
 }
 
-/** The chevron: one SVG whose path is swapped by state. */
-function glyph(folded: boolean): SVGSVGElement {
-  const svg = document.createElementNS(SVG_NS, 'svg')
-  svg.setAttribute('viewBox', '0 0 24 24')
-  svg.setAttribute('aria-hidden', 'true')
-  svg.setAttribute('fill', 'none')
-  svg.setAttribute('stroke', 'currentColor')
-  svg.setAttribute('stroke-width', '2')
-  svg.setAttribute('stroke-linecap', 'round')
-  svg.setAttribute('stroke-linejoin', 'round')
-  const path = document.createElementNS(SVG_NS, 'path')
-  path.setAttribute('d', folded ? GLYPH_FOLDED : GLYPH_EXPANDED)
-  svg.append(path)
-  return svg
-}
-
-/** Whether an event bubbled out of a fold control, so the view ignores it
- *  rather than reading it as a document interaction. */
-function isToggleEvent(event: Event): boolean {
-  return event.target instanceof Element && event.target.closest(`.${FOLD_TOGGLE_CLASS}`) !== null
-}
-
-type Toggle = (view: EditorView, start: number) => void
-
-/** The widget's DOM: a real button, so the control is in the accessibility tree
- *  and keyboard-reachable, built the way the image control is (ADR-0018). The
- *  caret stays in the document because the press is prevented; `getPos` reads
- *  the widget's current position, so a mapped widget toggles its own item. */
-function foldToggle(folded: boolean, toggle: Toggle) {
-  return (view: EditorView, getPos: () => number | undefined): HTMLElement => {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = FOLD_TOGGLE_CLASS
-    button.contentEditable = 'false'
-    const label = folded ? EXPAND_LABEL : COLLAPSE_LABEL
-    button.setAttribute('aria-expanded', String(!folded))
-    button.setAttribute('aria-label', label)
-    button.title = label
-    button.append(glyph(folded))
-    button.addEventListener('mousedown', (event) => event.preventDefault())
-    button.addEventListener('click', (event) => {
-      event.preventDefault()
-      const pos = getPos()
-      if (typeof pos === 'number') toggle(view, pos - 1)
-    })
-    return button
-  }
-}
-
 /** The fold decorations for `doc`, or for one range of whole top-level blocks:
- *  a class on every foldable item, a class on its first block (what stays
- *  visible), a folded class when it is folded, and one control widget at the
- *  item's content start. */
+ *  a class on every foldable item and a class on its first block (what stays
+ *  visible), plus a folded class when the item is folded. */
 function foldDecorations(
   doc: ProseNode,
   folded: ReadonlySet<number>,
-  toggle: Toggle,
   range?: BlockRange,
 ): Decoration[] {
   const decorations: Decoration[] = []
@@ -150,16 +87,6 @@ function foldDecorations(
       }),
     )
     decorations.push(Decoration.node(pos + 1, pos + 1 + first.nodeSize, { class: FOLD_HEAD_CLASS }))
-    decorations.push(
-      Decoration.widget(pos + 1, foldToggle(isFolded, toggle), {
-        side: -1,
-        // Same state, same key: a mapped widget keeps its DOM across a text
-        // keystroke, and only a fold/expand redraws it.
-        key: isFolded ? 'folio-fold-toggle-folded' : 'folio-fold-toggle-expanded',
-        stopEvent: isToggleEvent,
-        ignoreSelection: true,
-      }),
-    )
   }
   if (range) doc.nodesBetween(range.from, range.to, visit)
   else doc.descendants(visit)
@@ -168,37 +95,31 @@ function foldDecorations(
 
 /** Replace this feature's decorations over `range` with ones rebuilt from the
  *  current document, so a structural edit that changed which items are foldable
- *  is reflected and an unchanged block's widgets are reused by key. */
+ *  is reflected. */
 function refreshRange(
   decorations: DecorationSet,
   doc: ProseNode,
   folded: ReadonlySet<number>,
-  toggle: Toggle,
   range: BlockRange,
 ): DecorationSet {
   const found = decorations.find(range.from, range.to)
   if (found.length) decorations = decorations.remove(found)
-  const rebuilt = foldDecorations(doc, folded, toggle, range)
+  const rebuilt = foldDecorations(doc, folded, range)
   if (rebuilt.length) decorations = decorations.add(doc, rebuilt)
   return decorations
 }
 
 /**
- * The folding plugin (add-collapsible-list-items). `onLayout` is called after a
- * toggle, because a fold changes the rendered height without changing the
- * document and the pane's line-number gutter has to re-measure.
+ * The folding plugin (add-collapsible-list-items). View-only: the document is
+ * never changed, and the folded set is carried forward across edits.
  */
-export function createFoldPlugin(onLayout?: () => void): Plugin<FoldState> {
-  const toggle: Toggle = (view, start) => {
-    view.dispatch(view.state.tr.setMeta(foldKey, { toggle: start }))
-    onLayout?.()
-  }
+export function createFoldPlugin(): Plugin<FoldState> {
   return new Plugin<FoldState>({
     key: foldKey,
     state: {
       init: (_config, state) => ({
         folded: NO_FOLDS,
-        decorations: DecorationSet.create(state.doc, foldDecorations(state.doc, NO_FOLDS, toggle)),
+        decorations: DecorationSet.create(state.doc, foldDecorations(state.doc, NO_FOLDS)),
       }),
       apply: (tr, prev, _old, newState) => {
         const meta = tr.getMeta(foldKey) as { toggle?: number } | undefined
@@ -212,7 +133,6 @@ export function createFoldPlugin(onLayout?: () => void): Plugin<FoldState> {
             prev.decorations.map(tr.mapping, tr.doc),
             newState.doc,
             folded,
-            toggle,
             topLevelBlockAt(newState.doc, meta.toggle),
           )
           return { folded, decorations }
@@ -228,7 +148,7 @@ export function createFoldPlugin(onLayout?: () => void): Plugin<FoldState> {
         })
         let decorations = prev.decorations.map(tr.mapping, tr.doc)
         for (const range of affectedTopLevelBlocks(tr)) {
-          decorations = refreshRange(decorations, newState.doc, folded, toggle, range)
+          decorations = refreshRange(decorations, newState.doc, folded, range)
         }
         return { folded, decorations }
       },
@@ -251,7 +171,50 @@ export function createFoldPlugin(onLayout?: () => void): Plugin<FoldState> {
   })
 }
 
+/** How deeply a list item nests: 1 for a first-level item, +1 per ancestor. */
+function listDepth(item: Element): number {
+  let depth = 1
+  let parent = item.parentElement?.closest('li') ?? null
+  while (parent) {
+    depth += 1
+    parent = parent.parentElement?.closest('li') ?? null
+  }
+  return depth
+}
+
+/** The foldable items inside `root`, with their current state and nesting, in
+ *  document order — what the pane's left rail places its controls with. */
+export function foldTargetsIn(root: HTMLElement): FoldTarget[] {
+  return [...root.querySelectorAll<HTMLElement>(`li.${FOLD_ITEM_CLASS}`)].map((element) => ({
+    element,
+    folded: element.classList.contains(FOLDED_CLASS),
+    depth: listDepth(element),
+  }))
+}
+
+/** Fold or expand the list item `element` belongs to, reporting whether the
+ *  element resolved to one. The element is mapped back to its document
+ *  position here, so no position crosses the editor seam. */
+export function toggleFoldElement(view: EditorView, element: HTMLElement): boolean {
+  const item = element.closest(`li.${FOLD_ITEM_CLASS}`)
+  if (!item) return false
+  let inside: number
+  try {
+    inside = view.posAtDOM(item, 0)
+  } catch {
+    return false
+  }
+  const $pos = view.state.doc.resolve(inside)
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type.name === 'list_item') {
+      view.dispatch(view.state.tr.setMeta(foldKey, { toggle: $pos.before(depth) }))
+      return true
+    }
+  }
+  return false
+}
+
 /** Milkdown wrapper for the adapter. */
-export function collapsibleLists(onLayout?: () => void) {
-  return $prose(() => createFoldPlugin(onLayout))
+export function collapsibleLists() {
+  return $prose(() => createFoldPlugin())
 }

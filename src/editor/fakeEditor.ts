@@ -3,7 +3,7 @@
 // with a test hook to simulate user edits. Tests inject it by mocking the
 // MilkdownAdapter module.
 
-import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
+import type { DropPoint, EditorAdapter, FoldTarget, SuggestionSources } from './editor'
 import { blockStartLines } from '../lineAnchors'
 import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
@@ -22,6 +22,10 @@ export class FakeEditor implements EditorAdapter {
   /** Every applyChord call, in order — lets tests assert which key
    *  combination a click sent to the editor (apply-shortcuts-on-click). */
   readonly chords: string[] = []
+  /** Fold targets the rail should place controls for (list folding); tests set
+   *  them, and every toggleFold call is recorded in `foldToggles`. */
+  foldTargets: FoldTarget[] = []
+  readonly foldToggles: HTMLElement[] = []
   private listeners: ((markdown: string) => void)[] = []
   private layoutListeners: (() => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
@@ -104,6 +108,15 @@ export class FakeEditor implements EditorAdapter {
 
   onLayoutChange(listener: () => void): void {
     this.layoutListeners.push(listener)
+  }
+
+  getFoldTargets(): FoldTarget[] {
+    return this.foldTargets
+  }
+
+  toggleFold(element: HTMLElement): void {
+    this.foldToggles.push(element)
+    this.emitLayoutChange()
   }
 
   onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {

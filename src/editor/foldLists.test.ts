@@ -2,7 +2,7 @@
 // incremental invalidation, and the selection guard. These run against a tiny
 // hand-built schema, so they exercise the plugin without Milkdown or a browser.
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { Node as ProseNode } from '@milkdown/prose/model'
 import { Schema } from '@milkdown/prose/model'
 import type { Plugin, PluginKey } from '@milkdown/prose/state'
@@ -13,6 +13,7 @@ import {
   FOLD_HEAD_CLASS,
   FOLD_ITEM_CLASS,
   createFoldPlugin,
+  foldTargetsIn,
   hiddenBoundary,
   isFoldableItem,
 } from './foldLists'
@@ -84,17 +85,21 @@ describe('isFoldableItem', () => {
 })
 
 describe('fold decorations', () => {
-  it('marks a foldable item and its first block, and gives it one control', () => {
+  it('marks the foldable item and its first block, with no in-editor control', () => {
     const plugin = createFoldPlugin()
     const state = stateWith(plugin, nestedDoc())
     const decorations = decorationsOf(plugin, state).find()
-    // Item A: item class, head class, toggle widget. Leaf items contribute none.
-    expect(decorations).toHaveLength(3)
+    // Item A: item class and head class. Leaf items contribute none, and the
+    // control lives in the rail, so nothing here is a widget.
+    expect(decorations).toHaveLength(2)
     expect(decorations.map(classOf)).toContain(FOLD_ITEM_CLASS)
     expect(decorations.map(classOf)).toContain(FOLD_HEAD_CLASS)
+    expect(decorations.some((decoration) => (decoration as { widget?: boolean }).widget)).toBe(
+      false,
+    )
   })
 
-  it('adds the folded class and leaves the head and control in place', () => {
+  it('adds the folded class and leaves the head marker in place', () => {
     const plugin = createFoldPlugin()
     const d = nestedDoc()
     const start = itemStart(d, 'A')
@@ -104,15 +109,24 @@ describe('fold decorations', () => {
     expect(classes).toContain(`${FOLD_ITEM_CLASS} ${FOLDED_CLASS}`)
     expect(classes).toContain(FOLD_HEAD_CLASS)
   })
+})
 
-  it('does not call the layout callback on an ordinary document change', () => {
-    const onLayout = vi.fn()
-    const plugin = createFoldPlugin(onLayout)
-    const d = nestedDoc()
-    const start = itemStart(d, 'A')
-    let state = toggle(plugin, stateWith(plugin, d), start)
-    state = state.applyTransaction(state.tr.insertText('!', itemStart(state.doc, 'A') + 3)).state
-    expect(onLayout).not.toHaveBeenCalled()
+describe('foldTargetsIn', () => {
+  it('lists foldable items with their state and nesting', () => {
+    const outer = document.createElement('li')
+    outer.className = `${FOLD_ITEM_CLASS} ${FOLDED_CLASS}`
+    const inner = document.createElement('li')
+    inner.className = FOLD_ITEM_CLASS
+    const nested = document.createElement('ul')
+    nested.appendChild(inner)
+    outer.appendChild(nested)
+    const root = document.createElement('div')
+    root.appendChild(outer)
+
+    expect(foldTargetsIn(root).map((target) => [target.folded, target.depth])).toEqual([
+      [true, 1],
+      [false, 2],
+    ])
   })
 })
 

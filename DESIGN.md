@@ -261,14 +261,12 @@ Native list markers, brand-colored. Do not fake a bullet with a `::before`
 dash — that reads like AI default output, not editorial typesetting.
 
 A list item that holds nested content carries a disclosure control (ADR-0026).
-It is a real 14px button drawn in the item's own marker lane, to the left of
-the first line, not a `::before` on the marker: a quiet `--stone` chevron,
-counter-clockwise when expanded and clockwise when folded, on the same 12px
-floor as the other metadata. It shows on hover and stays shown while the item
-is folded, and it does not move the item's text — its box is out of flow, so
-nothing reflows when it appears. The browser still draws the native bullet
-(ADR-0020); while the control is shown the marker's paint recedes so the two
-do not read as one glyph.
+It is a real 14px button, but it lives in the **left rail** (see Document line
+numbers), not in the item's marker lane: the browser's bullet is never covered
+(ADR-0020), and nested controls share the rail's one column. The glyph is a
+quiet `--stone` chevron, pointing down when expanded and right when folded,
+brand on hover. A foldable item shows its control at all times — the rail is a
+control column, not a hover affordance — while a leaf item shows none.
 
 ### Code
 
@@ -283,10 +281,15 @@ and show the `Text` label.
 
 ### Document line numbers
 
-Quiet gutter along the document's left margin, one number per top-level
-block, 12px `--stone`, right-aligned toward the prose, no border or fill,
-centered on the block's first line. Purely presentational — `pointer-events:
-none`, hidden from the a11y tree. Numbers are block-anchored canonical lines
+Quiet rail along the document's left margin, one number per top-level block,
+12px `--stone`, right-aligned toward the prose, no border or fill, centered on
+the block's first line. The rail also holds the **fold controls** for list
+items (see Lists); a top-level block that has one shows its number stacked
+just beneath the control, while a block with no control keeps its number on
+the block's first line. The numbers stay purely presentational —
+`pointer-events: none`, hidden from the a11y tree — and the fold controls are
+the rail's only interactive, announced part. Numbers are block-anchored
+canonical lines
 (`src/lineAnchors.ts`): blank separators count but aren't shown, a list gets
 one number, code blocks keep their embedded editor's local numbering plus the
 outer block anchor. Addresses follow Folio's canonical form — a legacy page

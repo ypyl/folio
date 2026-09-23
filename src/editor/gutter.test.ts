@@ -125,3 +125,49 @@ describe('updateGutterDom ordering', () => {
     expect((host.children[0] as HTMLElement).style.top).toBe('306px')
   })
 })
+
+// Fold controls in the rail (move-list-folds-to-the-left-rail): the arrow sits
+// on the item's first line, and a first-level arrow stacks its block's number
+// beneath it.
+describe('fold controls on the rail', () => {
+  const foldAt = (top: number, depth: number, folded = false) => {
+    const item = document.createElement('li')
+    item.className = 'folio-fold-item'
+    const head = document.createElement('p')
+    head.className = 'folio-fold-head'
+    head.textContent = 'A'
+    item.appendChild(head)
+    const box = { top, height: 24 } as DOMRect
+    head.getBoundingClientRect = () => box
+    return { element: item, folded, depth }
+  }
+
+  it('stacks a first-level block number beneath its control', () => {
+    const host = document.createElement('div')
+    const list = document.createElement('ul')
+    list.getBoundingClientRect = () => ({ top: 200, height: 24 }) as DOMRect
+    updateGutterDom(host, [list], [1], 'num', [foldAt(200, 1)])
+    const arrow = host.querySelector<HTMLElement>('.folio-fold-arrow')
+    const number = host.querySelector<HTMLElement>('span')
+    // Control centred on the line: 200 + (24 - 14) / 2 = 205.
+    expect(arrow?.style.top).toBe('205px')
+    // Number centred on the line is 206, then pushed below the control.
+    expect(number?.style.top).toBe('222px')
+  })
+
+  it('does not stack when the control is on a different line than the number', () => {
+    const host = document.createElement('div')
+    const list = document.createElement('ul')
+    list.getBoundingClientRect = () => ({ top: 200, height: 24 }) as DOMRect
+    updateGutterDom(host, [list], [1], 'num', [foldAt(400, 2)])
+    expect(host.querySelector<HTMLElement>('span')?.style.top).toBe('206px')
+  })
+
+  it('labels a folded control with the action it performs', () => {
+    const host = document.createElement('div')
+    updateGutterDom(host, [], [], 'num', [foldAt(100, 1, true)])
+    const arrow = host.querySelector<HTMLElement>('.folio-fold-arrow')
+    expect(arrow?.getAttribute('aria-expanded')).toBe('false')
+    expect(arrow?.getAttribute('aria-label')).toBe('Expand item')
+  })
+})

@@ -2082,11 +2082,11 @@ describe('MilkdownAdapter drop points (drag-references-into-editor)', () => {
   })
 })
 
-// List folding (add-collapsible-list-items, ADR-0026): a fold is a view over
-// the Markdown, so the document the serializer reads keeps every line and the
-// page is never dirtied. These run against the real adapter in jsdom, which has
-// no CSS layout — the assertion is the fold mechanism (the item's folded class
-// and its intact DOM), not a computed `display`.
+// List folding (add-collapsible-list-items, ADR-0026; move-list-folds-to-the-
+// left-rail): a fold is a view over the Markdown, so the document the
+// serializer reads keeps every line and the page is never dirtied. The control
+// is not the editor's — it is the rail's — so these assert the fold state the
+// rail reads and the toggle the rail calls.
 describe('MilkdownAdapter list folding (add-collapsible-list-items)', () => {
   const editorAction = (adapter: MilkdownAdapter, f: (ctx: unknown) => unknown): unknown =>
     (
@@ -2134,34 +2134,34 @@ describe('MilkdownAdapter list folding (add-collapsible-list-items)', () => {
   }
 
   const seed = '- A\n  - A1\n- B\n'
-  const toggles = (el: HTMLElement): HTMLElement[] => [
-    ...el.querySelectorAll<HTMLElement>('.folio-fold-toggle'),
-  ]
-  const click = (el: HTMLElement, index = 0): void => {
-    toggles(el)[index].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-  }
 
-  it('gives one control to the foldable item and none to the leaf', async () => {
+  it('lists only the foldable item, expanded, at depth 1, with no editor control', async () => {
     const { adapter, el } = await mount(seed)
-    expect(toggles(el)).toHaveLength(1)
-    expect(toggles(el)[0].getAttribute('aria-expanded')).toBe('true')
+    const targets = adapter.getFoldTargets()
+    expect(targets).toHaveLength(1)
+    expect(targets[0].folded).toBe(false)
+    expect(targets[0].depth).toBe(1)
+    expect(el.querySelector('.folio-fold-item')).not.toBeNull()
+    // The control lives in the rail, so the editor draws none of its own.
+    expect(el.querySelector('.folio-fold-toggle')).toBeNull()
     await adapter.destroy()
     el.remove()
   })
 
-  it('folds the item without removing its content or changing the page', async () => {
+  it('folds through the adapter without removing content or changing the page', async () => {
     const { adapter, el } = await mount(seed)
     const changes: string[] = []
     adapter.onChange((markdown) => changes.push(markdown))
     const before = serialize(adapter)
 
-    click(el)
+    adapter.toggleFold(adapter.getFoldTargets()[0].element)
 
     const folded = el.querySelectorAll('li.folio-folded')
     expect(folded).toHaveLength(1)
     // The hidden content is still in the DOM: this is a view, not an edit.
     expect(folded[0].querySelector('ul')).not.toBeNull()
     expect(serialize(adapter)).toBe(before)
+    expect(adapter.getFoldTargets()[0].folded).toBe(true)
     // The debounced change stream must stay silent for a fold.
     await new Promise((resolve) => setTimeout(resolve, 400))
     expect(changes).toEqual([])
@@ -2171,35 +2171,37 @@ describe('MilkdownAdapter list folding (add-collapsible-list-items)', () => {
 
   it('expands a folded item again', async () => {
     const { adapter, el } = await mount(seed)
-    click(el)
-    expect(el.querySelectorAll('li.folio-folded')).toHaveLength(1)
-    expect(toggles(el)[0].getAttribute('aria-expanded')).toBe('false')
-    click(el)
+    adapter.toggleFold(adapter.getFoldTargets()[0].element)
+    expect(adapter.getFoldTargets()[0].folded).toBe(true)
+    adapter.toggleFold(adapter.getFoldTargets()[0].element)
+    expect(adapter.getFoldTargets()[0].folded).toBe(false)
     expect(el.querySelectorAll('li.folio-folded')).toHaveLength(0)
-    expect(toggles(el)[0].getAttribute('aria-expanded')).toBe('true')
     await adapter.destroy()
     el.remove()
   })
 
-  it('announces a layout change so the gutter can re-measure', async () => {
+  it('announces a layout change when a fold is toggled through it', async () => {
     const { adapter, el } = await mount(seed)
     let calls = 0
     adapter.onLayoutChange(() => {
       calls += 1
     })
-    click(el)
+    adapter.toggleFold(adapter.getFoldTargets()[0].element)
     expect(calls).toBe(1)
     await adapter.destroy()
     el.remove()
   })
 
-  it('keeps the control element in place across a text keystroke', async () => {
+  it('keeps a fold and its item element through a text keystroke', async () => {
     const { adapter, el } = await mount(seed)
-    const before = toggles(el)[0]
+    adapter.toggleFold(adapter.getFoldTargets()[0].element)
+    const before = adapter.getFoldTargets()[0].element
     const view = viewOf(adapter)
     view.dispatch(view.state.tr.insertText('!', itemStart(adapter, 'A') + 2))
-    const after = toggles(el)[0]
-    expect(after).toBe(before)
+    const after = adapter.getFoldTargets()[0]
+    expect(after.folded).toBe(true)
+    // No fold work recreated the item on the keystroke's path.
+    expect(after.element).toBe(before)
     await adapter.destroy()
     el.remove()
   })

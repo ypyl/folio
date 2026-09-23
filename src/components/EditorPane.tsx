@@ -1,7 +1,14 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
-import type { CSSProperties, ClipboardEvent, DragEvent, ReactNode, Ref } from 'react'
+import type {
+  CSSProperties,
+  ClipboardEvent,
+  DragEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+  Ref,
+} from 'react'
 import { FolioMark } from '../FolioMark'
-import type { EditorAdapter } from '../editor/editor'
+import type { EditorAdapter, FoldTarget } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
 import type { ReferenceKind } from '../vault/parse'
@@ -9,7 +16,7 @@ import type { Suggestion } from '../vault/suggest'
 import { collectFiles, withPastedName } from './dropAssets'
 import { dragRefText, hasDragRef, readDragRef } from './dragRefs'
 import { linkForAsset } from '../vault/link'
-import { updateGutterDom } from '../editor/gutter'
+import { FOLD_ARROW_CLASS, updateGutterDom } from '../editor/gutter'
 import {
   createAssetImages,
   releaseAssetImages,
@@ -157,17 +164,40 @@ export function EditorPane({
   // first text line. The placement lives in editor/gutter.ts, which measures
   // every block before writing any number so an update costs one layout instead
   // of one per block (bound-editor-per-keystroke-work, design D2).
+  // The rail's fold controls, kept in a ref so the delegated click can map a
+  // control's index back to the item it toggles without re-reading the editor
+  // (move-list-folds-to-the-left-rail).
+  const foldTargetsRef = useRef<FoldTarget[]>([])
   const updateGutter = () => {
     const host = gutterRef.current
     const el = mountRef.current
     const adapter = adapterRef.current
     if (!host || !el || !adapter) return
+    const folds = adapter.getFoldTargets()
+    foldTargetsRef.current = folds
     updateGutterDom(
       host,
       [...el.querySelectorAll('.ProseMirror > *')],
       adapter.getBlockLines(),
       styles.gutterNum,
+      folds,
     )
+  }
+
+  // A press on a fold control must not move the caret out of the document; the
+  // click then toggles the item through the adapter, which re-measures the rail.
+  const onRailMouseDown = (event: ReactMouseEvent) => {
+    if (event.target instanceof Element && event.target.closest(`.${FOLD_ARROW_CLASS}`)) {
+      event.preventDefault()
+    }
+  }
+  const onRailClick = (event: ReactMouseEvent) => {
+    if (!(event.target instanceof Element)) return
+    const arrow = event.target.closest(`.${FOLD_ARROW_CLASS}`)
+    if (!(arrow instanceof HTMLElement)) return
+    event.preventDefault()
+    const target = foldTargetsRef.current[Number(arrow.dataset.foldIndex)]
+    if (target) adapterRef.current?.toggleFold(target.element)
   }
 
   // Vault images (render-vault-images): the document's image references point
@@ -384,9 +414,16 @@ export function EditorPane({
       className={styles.pane}
     >
       <article className={styles.document}>
-        {/* Line numbers (line-numbers): presentational only — aria-hidden and
-            pointer-events: none, so the document owns every interaction. */}
-        <div ref={gutterRef} className={styles.gutter} aria-hidden="true" />
+        {/* The left rail (line-numbers; move-list-folds-to-the-left-rail):
+            line numbers plus the fold controls. The numbers stay inert and
+            aria-hidden; the controls are the rail's only interactive part, so
+            the rail itself is not hidden from assistive technology. */}
+        <div
+          ref={gutterRef}
+          className={styles.gutter}
+          onMouseDown={onRailMouseDown}
+          onClick={onRailClick}
+        />
         <div
           ref={mountRef}
           className={styles.editor}

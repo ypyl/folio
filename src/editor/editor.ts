@@ -24,6 +24,11 @@ export type SuggestionSources = {
  *  (drag-references-into-editor, ADR-0023). */
 export type DropPoint = { left: number; top: number }
 
+/** A foldable list item, as the pane's left rail sees it (list folding): the
+ *  item's DOM element to measure and toggle, whether it is folded, and how
+ *  deeply it nests (1 = first level). No editor position crosses this seam. */
+export type FoldTarget = { element: HTMLElement; folded: boolean; depth: number }
+
 export interface EditorAdapter {
   /** Attach the editor to a DOM element. Call once per instance, before use. */
   mount(el: HTMLElement): Promise<void>
@@ -42,10 +47,18 @@ export interface EditorAdapter {
   onChange(listener: (markdown: string) => void): void
   /** Subscribe to changes that move the document's blocks without changing its
    *  text — today a list item being folded or expanded (add-collapsible-list-
-   *  items). The pane re-measures the line-number gutter on this, because the
-   *  gutter is otherwise driven by the markdown change stream and a fold
+   *  items). The pane re-measures the line-number rail on this, because the
+   *  rail is otherwise driven by the markdown change stream and a fold
    *  produces none. */
   onLayoutChange(listener: () => void): void
+  /** The page's foldable list items, in document order, for the left rail's
+   *  controls (move-list-folds-to-the-left-rail). Read at render time; the
+   *  elements are the editor's own DOM. */
+  getFoldTargets(): FoldTarget[]
+  /** Fold or expand the list item `element` belongs to, then announce the
+   *  layout change a fold makes. A no-op when the element is no longer in the
+   *  document. */
+  toggleFold(element: HTMLElement): void
   /** Subscribe to reference activation (badge click or Mod+Enter); the callback
    *  receives the target name and which namespace it names — a page or a board —
    *  never a resolved path (ADR-0010). */

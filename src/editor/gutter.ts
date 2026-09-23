@@ -5,8 +5,27 @@
 // block force a fresh layout of the whole document, which cost 1.5 s on a
 // 1500-block page.
 
+import type { FoldTarget } from './editor'
+import { FOLD_HEAD_CLASS } from './foldLists'
+
 /** Height of a gutter number's line box, matching `.gutterNum`'s font size. */
 export const GUTTER_MARKER_HEIGHT = 12
+
+/** The rail's fold-control class (move-list-folds-to-the-left-rail): a global
+ *  name, because the rail writes the buttons and the pane delegates their
+ *  clicks. */
+export const FOLD_ARROW_CLASS = 'folio-fold-arrow'
+
+/** The fold control's box height, and the gap between it and the line number
+ *  it stacks above. */
+const ARROW_MARKER_HEIGHT = 14
+const ARROW_GAP = 2
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+/** Chevron pointing down when expanded and right when folded, on the 24-unit
+ *  viewBox the app's other controls use. */
+const GLYPH_EXPANDED = 'M6 9l6 6 6-6'
+const GLYPH_FOLDED = 'M9 6l6 6-6 6'
 
 export type Rect = { top: number; height: number }
 
@@ -113,10 +132,81 @@ function measureNumbers(
   return numbers
 }
 
-/** The write phase: build the spans and insert them once. */
-function writeNumbers(
+/** A fold control to render: where it sits, its state, and its nesting. */
+type GutterArrow = {
+  line: number
+  folded: boolean
+  depth: number
+  index: number
+}
+
+/** A fold control on the rail, its box centred on the item's first text line
+ *  (or the head block when it holds no text). Read phase, like the numbers. */
+function measureArrows(host: HTMLElement, folds: readonly FoldTarget[]): GutterArrow[] {
+  // No fold items, no layout read: a page without lists pays nothing extra.
+  if (folds.length === 0) return []
+  const hostTop = host.getBoundingClientRect().top
+  const range = document.createRange()
+  return folds.map((fold, index) => {
+    const head = fold.element.querySelector(`.${FOLD_HEAD_CLASS}`) ?? fold.element
+    const text = firstTextNode(head)
+    let line: Rect | null = null
+    if (text) {
+      range.selectNodeContents(text)
+      const rect =
+        typeof range.getClientRects === 'function' ? range.getClientRects()[0] : undefined
+      if (rect) line = { top: rect.top, height: rect.height }
+    }
+    const block = head.getBoundingClientRect()
+    return {
+      line: numberOffset(
+        { block: { top: block.top, height: block.height }, line, pinToTop: false },
+        hostTop,
+        ARROW_MARKER_HEIGHT,
+      ),
+      folded: fold.folded,
+      depth: fold.depth,
+      index,
+    }
+  })
+}
+
+/** The chevron: one SVG whose path is swapped by state. */
+function arrowGlyph(folded: boolean): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '2')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  const path = document.createElementNS(SVG_NS, 'path')
+  path.setAttribute('d', folded ? GLYPH_FOLDED : GLYPH_EXPANDED)
+  svg.append(path)
+  return svg
+}
+
+/** One fold control: a real button, labelled by the action it performs. */
+function arrowButton(arrow: GutterArrow): HTMLButtonElement {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = FOLD_ARROW_CLASS
+  button.dataset.foldIndex = String(arrow.index)
+  const label = arrow.folded ? 'Expand item' : 'Collapse item'
+  button.setAttribute('aria-expanded', String(!arrow.folded))
+  button.setAttribute('aria-label', label)
+  button.title = label
+  button.style.top = `${arrow.line}px`
+  button.append(arrowGlyph(arrow.folded))
+  return button
+}
+
+/** The write phase: build the numbers and controls and insert them once. */
+function writeRail(
   host: HTMLElement,
   numbers: readonly GutterNumber[],
+  arrows: readonly GutterArrow[],
   className: string,
 ): void {
   const fragment = document.createDocumentFragment()
@@ -125,8 +215,12 @@ function writeNumbers(
     span.textContent = String(number.line)
     span.className = className
     span.style.top = `${number.top}px`
+    // A number is presentational; the rail's fold controls are the only
+    // interactive, announced part of it (move-list-folds-to-the-left-rail).
+    span.setAttribute('aria-hidden', 'true')
     fragment.appendChild(span)
   }
+  for (const arrow of arrows) fragment.appendChild(arrowButton(arrow))
   host.replaceChildren(fragment)
 }
 
@@ -136,12 +230,25 @@ function writeNumbers(
 // measurement with a per-block widget decoration and let the browser position
 // the numbers.
 
-/** One gutter update: measure every block first, write every number after. */
+/**
+ * One rail update: measure every block and fold item first, write every number
+ * and control after. A fold control whose first-level item shares a block's
+ * first line stacks the block's number beneath it.
+ */
 export function updateGutterDom(
   host: HTMLElement,
   blocks: readonly Element[],
   lines: readonly number[],
   className: string,
+  folds: readonly FoldTarget[] = [],
 ): void {
-  writeNumbers(host, measureNumbers(host, blocks, lines), className)
+  const numbers = measureNumbers(host, blocks, lines)
+  const arrows = measureArrows(host, folds)
+  const stacked = numbers.map((number) => {
+    const underControl = arrows.some(
+      (arrow) => arrow.depth === 1 && Math.abs(arrow.line - number.top) < ARROW_MARKER_HEIGHT,
+    )
+    return underControl ? { ...number, top: number.top + ARROW_MARKER_HEIGHT + ARROW_GAP } : number
+  })
+  writeRail(host, stacked, arrows, className)
 }

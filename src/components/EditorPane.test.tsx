@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { EditorAdapter } from '../editor/editor'
+import type { EditorAdapter, FoldTarget } from '../editor/editor'
 import type { Suggestion } from '../vault/suggest'
 import { EditorPane, type EditorPaneHandle } from './EditorPane'
 import styles from './EditorPane.module.css'
@@ -40,6 +40,8 @@ type FakeEditorView = EditorAdapter & {
   emitChange: (markdown: string) => void
   emitLayoutChange: () => void
   emitReferenceClick: (target: string) => void
+  foldTargets: FoldTarget[]
+  foldToggles: HTMLElement[]
   destructed: boolean
   mounted: boolean
   suggest: (query: string) => Suggestion[]
@@ -184,6 +186,28 @@ describe('EditorPane', () => {
     })
     expect(gutter?.querySelector('span')).not.toBeNull()
     expect(gutter?.querySelector('span')).not.toBe(before)
+  })
+
+  it('places a fold control in the rail and toggles through the adapter', async () => {
+    render(<EditorPane page={page} initialContent={'- A\n  - A1\n'} onChange={() => {}} />)
+    await act(async () => {})
+    const editor = fake()
+    const item = document.createElement('li')
+    item.className = 'folio-fold-item'
+    const head = document.createElement('p')
+    head.className = 'folio-fold-head'
+    head.textContent = 'A'
+    item.appendChild(head)
+    editor.foldTargets = [{ element: item, folded: false, depth: 1 }]
+    await act(async () => {
+      editor.emitLayoutChange()
+    })
+    const gutter = document.querySelector(`.${styles.gutter}`)
+    const arrow = gutter?.querySelector<HTMLElement>('.folio-fold-arrow')
+    expect(arrow).not.toBeNull()
+    expect(arrow?.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(arrow!)
+    expect(editor.foldToggles).toEqual([item])
   })
 
   it('re-numbers the gutter when the document changes', async () => {
