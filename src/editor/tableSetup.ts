@@ -135,8 +135,8 @@ export const tableChords = $useKeymap('folioTableChords', {
   AlignLeft: { shortcuts: 'Mod-Alt-l', command: (ctx) => alignColumn(ctx, 'left') },
   AlignCenter: { shortcuts: 'Mod-Alt-m', command: (ctx) => alignColumn(ctx, 'center') },
   AlignRight: { shortcuts: 'Mod-Alt-r', command: (ctx) => alignColumn(ctx, 'right') },
-  DeleteRow: { shortcuts: 'Mod-Alt-d', command: () => inTable(deleteRow) },
-  DeleteColumn: { shortcuts: 'Mod-Alt-Shift-d', command: () => inTable(deleteColumn) },
+  DeleteRow: { shortcuts: 'Mod-Alt-d', command: () => deleteTableRow },
+  DeleteColumn: { shortcuts: 'Mod-Alt-Shift-d', command: () => deleteTableColumn },
 })
 
 /** A table command runs only with the caret in a table: prosemirror-tables'
@@ -145,6 +145,12 @@ export const tableChords = $useKeymap('folioTableChords', {
 function inTable(command: Command): Command {
   return (state, dispatch, view) => isInTable(state) && command(state, dispatch, view)
 }
+
+/** Delete the caret's row, or its column (make-table-delete-controls-visible):
+ *  the same commands the chords use, exported so the caret's table can offer
+ *  them as its own visible controls. */
+export const deleteTableRow: Command = inTable(deleteRow)
+export const deleteTableColumn: Command = inTable(deleteColumn)
 
 /** Align the caret's whole column, not the cell the caret is in. Alignment
  *  lives on cells, so the column is selected first and the attribute set through

@@ -333,6 +333,14 @@ first row, and the pane clips at its top edge, so the table needs that room for
 the handle to be inside the pane and pressable. The room is space, not content:
 nothing about the page's Markdown changes. See `keep-table-handles-reachable`.
 
+While the caret is in a table, the table carries a compact strip at the caret's
+row: two controls, **Delete row** and **Delete column**, drawn as the handle's
+chip (ivory, hairline border, stone ink, brand on hover), one press each. It is
+Folio chrome over the table block, never content, and it is the visible pointer
+path to the deletions the `Mod-Alt-d` and `Mod-Alt-Shift-d` chords also perform.
+A table the caret is not in carries no toolbar: the strip is editing state, like
+the caret itself.
+
 ### Images
 
 A vault image reads at the pane's width: an image wider than the pane scales

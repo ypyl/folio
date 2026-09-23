@@ -7,6 +7,7 @@ import type { Node as ProseNode, Schema as ProseSchema } from '@milkdown/prose/m
 // the test names them to assert they really are absent from the editor.
 import { footnoteDefinitionSchema, strikethroughAttr, tableSchema } from '@milkdown/preset-gfm'
 import { FOLIO_CLIPBOARD_FLAVOR, MilkdownAdapter } from './milkdown'
+import { TABLE_CONTROLS_CLASS } from './tableDeleteControls'
 import { trimTrailingBlankLines } from './documentTail'
 import type { Suggestion } from '../vault/suggest'
 
@@ -1650,6 +1651,71 @@ describe('MilkdownAdapter (smoke)', () => {
       el.remove()
     })
 
+    // make-table-delete-controls-visible: the caret's table carries its own
+    // visible delete controls, so the two deletions no longer depend on finding
+    // a handle's hidden group.
+    it('shows the delete controls while the caret is in a table and hides them outside', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      caretInFirstCell(adapter)
+      expect(strip(el)).toBeTruthy()
+      expect(el.querySelector('[aria-label="Delete row"]')).toBeTruthy()
+      expect(el.querySelector('[aria-label="Delete column"]')).toBeTruthy()
+      setCaret(adapter, (doc) => doc.content.size)
+      expect(strip(el)).toBeNull()
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('deletes the caret row and column from the visible controls', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| one | two |', '| three | four |', ''].join('\n'),
+      )
+      caretInText(adapter, 'one')
+      pressControl(el, 'Delete row')
+      expect(cellTexts(adapter)).toEqual(['alpha', 'beta', 'three', 'four'])
+      // A caret, not a selection: the next keystroke appends.
+      expect(selectionKind(adapter)).toBe('text')
+      caretInText(adapter, 'three')
+      pressControl(el, 'Delete column')
+      expect(cellTexts(adapter)).toEqual(['beta', 'four'])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('leaves the page untouched until a control is used', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      const before = fileText(adapter)
+      caretInFirstCell(adapter)
+      expect(strip(el)).toBeTruthy()
+      expect(fileText(adapter)).toBe(before)
+      expect(docOf(adapter).firstChild?.type.name).toBe('table')
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('keeps the delete chords working with the strip mounted', async () => {
+      const { adapter, el } = await mountTable(
+        ['| alpha | beta |', '| --- | --- |', '| one | two |', '| three | four |', ''].join('\n'),
+      )
+      caretInText(adapter, 'one')
+      expect(strip(el)).toBeTruthy()
+      expect(adapter.applyChord('Mod-Alt-d')).toBe(true)
+      expect(cellTexts(adapter)).toEqual(['alpha', 'beta', 'three', 'four'])
+      await adapter.destroy()
+      el.remove()
+    })
+
+    it('does not rebuild the strip for a keystroke inside the same table', async () => {
+      const { adapter, el } = await mountTable(TABLE)
+      caretInFirstCell(adapter)
+      const first = strip(el)
+      expect(first).toBeTruthy()
+      typeAtCaret(adapter, 'X')
+      expect(strip(el)).toBe(first)
+      await adapter.destroy()
+      el.remove()
+    })
+
     it('does nothing with the caret outside a table', async () => {
       const { adapter, el } = await mountTable('text\n')
       setCaret(adapter, (doc) => doc.content.size)
@@ -1720,6 +1786,19 @@ describe('MilkdownAdapter (smoke)', () => {
         }
       })
       return texts
+    }
+
+    /** The visible delete strip, if the caret's table is showing one. */
+    const strip = (el: HTMLElement): HTMLElement | null =>
+      el.querySelector(`.${TABLE_CONTROLS_CLASS}`)
+
+    /** Press a strip control by its accessible name, as a pointer press does. */
+    const pressControl = (el: HTMLElement, label: string): void => {
+      const button = el.querySelector<HTMLButtonElement>(
+        `.${TABLE_CONTROLS_CLASS} button[aria-label="${label}"]`,
+      )
+      expect(button).toBeTruthy()
+      button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }))
     }
 
     /** What a press on a cell leaves behind: the component claims the press (a

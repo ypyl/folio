@@ -22,6 +22,7 @@ import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block'
 import { codeBlockExtensions, codeBlockLanguages } from './codeBlockSetup'
 import { tableRenderButton, tableSlice } from './tableSetup'
 import { tableCellCaret } from './tableCellCaret'
+import { tableDeleteControls } from './tableDeleteControls'
 import { keepTableHandlesInThePane } from './tableHandleClamp'
 import { chordToKeyEventInit, isMac } from './chord'
 import { formatJsonBlock, isInCodeBlock } from './codeFormat'
@@ -242,6 +243,10 @@ export class MilkdownAdapter implements EditorAdapter {
       // (make-table-entry-usable, design D1/D2): the component claims the press,
       // so the selection it dispatches is converted here.
       .use(tableCellCaret)
+      // The caret's table shows its own delete controls (make-table-delete-
+      // controls-visible): a visible strip with the two deletions the handles'
+      // hidden group and the chords already perform.
+      .use(tableDeleteControls)
       // Reference and vault-file completion (add-reference-autocomplete,
       // add-asset-references): the popup and its keys, fed by the app's
       // candidate sources through the getters above.

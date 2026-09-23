@@ -715,6 +715,43 @@
   color: var(--brand);
 }
 
+/* The caret's table delete controls (make-table-delete-controls-visible): a
+   compact strip at the caret row's right edge, shown only while the caret is in
+   a table. It is Folio chrome over the component's block, not a cell, and not a
+   toolbar on a table at rest: the block is the offset parent and the plugin
+   writes the row's `top`, so the strip follows the row being edited. */
+.editor :global(.milkdown-table-block .folio-table-controls) {
+  position: absolute;
+  right: 4px;
+  z-index: 2; /* under the handles (3), over the cells */
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--ivory);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.editor :global(.milkdown-table-block .folio-table-controls button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.editor :global(.milkdown-table-block .folio-table-controls button:hover) {
+  background: var(--warm-sand);
+  color: var(--brand);
+}
+
 .editor :global(.milkdown-table-block .milkdown-icon) {
   display: inline-flex;
   align-items: center;
