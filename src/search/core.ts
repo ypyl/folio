@@ -74,6 +74,26 @@ export type SearchResult = {
   block: number | null
 }
 
+/** Rank fields tracked while accumulating a result (design D1): whether every
+ *  term matched the title/body literally, and whether any term matched the
+ *  title fuzzily. Stripped before a result leaves `searchDocs`. */
+type AccFlags = {
+  _terms: number
+  _titleExact: boolean
+  _bodyExact: boolean
+  _titleFuzzy: boolean
+}
+
+/** Match tier, best first (design D1): exact title, exact body, fuzzy title,
+ *  fuzzy body. "Exact" means every query term appears literally, so a page
+ *  where all terms are literal outranks one that only matched fuzzily. */
+function matchTier(r: AccFlags): number {
+  if (r._titleExact) return 0
+  if (r._bodyExact) return 1
+  if (r._titleFuzzy) return 2
+  return 3
+}
+
 /** Query terms: whitespace-split, terms under 3 characters are noise. */
 export function termsOf(query: string): string[] {
   return query
@@ -98,16 +118,23 @@ export function exactRanges(text: string, term: string): SearchRange[] {
   return ranges
 }
 
+/** Case-insensitive exact-substring test: the boolean form of `exactRanges`,
+ *  used for ranking without building the range array. */
+function hasExact(text: string, term: string): boolean {
+  return text.toLowerCase().includes(term.toLowerCase())
+}
+
 /** AND-term search over a prepared Fuse: every query term must match; per
  *  term, ranges prefer exact occurrences and fall back to Fuse's fuzzy range
  *  only when a term has no exact match (a typo), dropping fragments under 3
- *  chars. Scores sum across terms; results sort best-first, uncapped — the
- *  launcher dropdown slices per group via topPerGroup, the results view
- *  paginates the full list. */
+ *  chars. Results sort by match tier before score — exact title, exact body,
+ *  fuzzy title, fuzzy body — so literal matches lead their kind group, then by
+ *  summed score, uncapped — the launcher dropdown slices per group via
+ *  topPerGroup, the results view paginates the full list. */
 export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[] {
   const terms = termsOf(query)
   if (!terms.length) return []
-  const acc = new Map<string, Omit<SearchResult, 'block'> & { _terms: number }>()
+  const acc = new Map<string, Omit<SearchResult, 'block'> & AccFlags>()
   for (const term of terms) {
     const hits = fuse.search(term)
     for (const hit of hits) {
@@ -120,27 +147,36 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
         score: 0,
         ranges: [],
         _terms: 0,
+        _titleExact: true,
+        _bodyExact: true,
+        _titleFuzzy: false,
       }
       acc.set(item.path, rec)
       rec._terms += 1
       rec.score += hit.score ?? 1
+      rec._titleExact &&= hasExact(item.title, term)
       const textMatch = hit.matches?.find((m) => m.key === 'text')
       let ranges = exactRanges(item.text, term)
+      rec._bodyExact &&= ranges.length > 0
       if (!ranges.length && textMatch) {
         ranges = textMatch.indices
           .map(([s, e]) => [s, e + 1] as SearchRange)
           .filter(([s, e]) => e - s >= 3)
       }
+      rec._titleFuzzy ||= !!hit.matches?.some((m) => m.key === 'title')
       rec.ranges.push(...ranges)
     }
   }
   const results = [...acc.values()]
     .filter((r) => r._terms === terms.length)
-    .sort((a, b) => a.score - b.score || a.path.localeCompare(b.path))
-  return results.map(({ _terms: _dropped, ...rest }) => ({
-    ...rest,
-    block: firstMatchBlock(rest.text, rest.ranges),
-  }))
+    .map((r) => ({ ...r, _tier: matchTier(r) }))
+    .sort((a, b) => a._tier - b._tier || a.score - b.score || a.path.localeCompare(b.path))
+  return results.map(
+    ({ _terms: _a, _titleExact: _b, _bodyExact: _c, _titleFuzzy: _d, _tier: _e, ...rest }) => ({
+      ...rest,
+      block: firstMatchBlock(rest.text, rest.ranges),
+    }),
+  )
 }
 
 /** Per-group slice of a full result set (search-results-view): keeps the

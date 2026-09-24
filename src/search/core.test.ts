@@ -106,6 +106,63 @@ describe('searchDocs (AND-term model)', () => {
   })
 })
 
+describe('searchDocs (exact-first ranking)', () => {
+  it('leads with title matches that contain the term literally', () => {
+    const docs = [
+      doc('body.md', 'Notes', 'docker in the body'),
+      doc('one.md', 'Docker', 'plain body'),
+      doc('two.md', 'Docker notes', 'docker again'),
+    ]
+    const results = searchDocs(fuse(docs), 'docker')
+    expect(results[results.length - 1].path).toBe('body.md')
+    expect(new Set(results.slice(0, 2).map((r) => r.path))).toEqual(new Set(['one.md', 'two.md']))
+  })
+
+  it('ranks an exact body match above a fuzzy title match', () => {
+    const docs = [
+      doc('fuzzy-title.md', 'Dockr', 'plain body'),
+      doc('exact-body.md', 'Notes', 'docker in the body'),
+    ]
+    const results = searchDocs(fuse(docs), 'docker')
+    expect(results.map((r) => r.path)).toEqual(['exact-body.md', 'fuzzy-title.md'])
+  })
+
+  it('ranks an exact body match above a fuzzy body match', () => {
+    const docs = [
+      doc('typo.md', 'Notes', 'I run cointainers every day'),
+      doc('literal.md', 'Other', 'containers everywhere'),
+    ]
+    const results = searchDocs(fuse(docs), 'containers')
+    expect(results.map((r) => r.path)).toEqual(['literal.md', 'typo.md'])
+  })
+
+  it('ranks a fuzzy title match above a fuzzy body match', () => {
+    const docs = [
+      doc('fuzzy-body.md', 'Notes', 'Dockr in the body'),
+      doc('fuzzy-title.md', 'Dockr', 'plain body'),
+    ]
+    const results = searchDocs(fuse(docs), 'docker')
+    expect(results.map((r) => r.path)).toEqual(['fuzzy-title.md', 'fuzzy-body.md'])
+  })
+
+  it('orders each kind group by tier independently', () => {
+    const docs = [
+      doc('page-fuzzy.md', 'Notes', 'Dockr in the body'),
+      doc('page-exact.md', 'Other', 'docker in the body'),
+      doc('2026-09-02.md', '2026-09-02', 'Dockr too', 'journal'),
+    ]
+    const results = searchDocs(fuse(docs), 'docker')
+    const pages = results.filter((r) => r.kind === 'page').map((r) => r.path)
+    expect(pages).toEqual(['page-exact.md', 'page-fuzzy.md'])
+  })
+
+  it('breaks a tier and score tie by path', () => {
+    const docs = [doc('b.md', 'Notes', 'docker body'), doc('a.md', 'Notes', 'docker body')]
+    const results = searchDocs(fuse(docs), 'docker')
+    expect(results.map((r) => r.path)).toEqual(['a.md', 'b.md'])
+  })
+})
+
 describe('snippetSegments', () => {
   it('windows around the first match line and marks the hit', () => {
     // 'the docker term here' is line 3; 'docker' sits at 22 (0-based).
