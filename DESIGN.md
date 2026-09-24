@@ -72,7 +72,7 @@ the mnemonic is off-palette, not a shade.
 
 | Token | Hex | Use |
 |---|---|---|
-| `--border` | `#e8e6dc` | Primary border — section dividers, table headers, controls |
+| `--border` | `#e8e6dc` | Primary border — section dividers, table grid, controls |
 | `--border-soft` | `#e5e3d8` | Secondary border — row separators, subtle dividers |
 
 ### Chromatic tints (derived from ink-blue over parchment)
@@ -314,18 +314,17 @@ bar's star glyph is `src/components/StarIcon.tsx`.
 
 ### Tables
 
-Editorial: no framed box, no tinted header bar, no vertical rules. Hairline
-row rules (`--border`, 0.25pt/px scale), content-sized columns, muted
-uppercase header labels. Row separation comes from whitespace before line
-weight.
+A table reads as a table: a 1px `--border` grid and frame around every cell, a
+`--warm-sand` fill behind the header row's muted uppercase labels, content-sized
+columns (no `table-layout`), and symmetric cell padding (6px vertical, 10px
+horizontal). The grid is information — it is what makes a table legible as a
+table — so the editorial style it replaces (no frame, no vertical rules, row
+rules only) is dropped. No radius and no second line weight: the body is
+border-only, the header adds a fill.
 
-One exception, and only one: a cell that holds no text may show a hairline on
-its trailing edge (`--border-soft`, 1px). A table the user has just inserted is
-empty in every cell, and with row rules alone there is nothing to tell its
-columns apart or to aim a press at. The hairline leaves with the emptiness it
-marks, so a table whose cells all hold text keeps row rules only. It is a hint
-for an empty cell — the same kind of device as the empty-page placeholder — not
-the table's resting style.
+An empty cell keeps a column floor (`min-width: 5rem`), so a table the user has
+just inserted still has columns wide enough to aim a press at. The grid draws
+every cell's edge, so an empty cell needs no marker of its own.
 
 A table that begins a page keeps a 16px top margin, where every other first
 block has its top margin zeroed. The table's column handle is drawn above its
