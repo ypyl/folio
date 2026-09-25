@@ -12,26 +12,31 @@ function arrowPoints(container: HTMLElement): 'left' | 'right' {
 }
 
 describe('pane collapse toggle', () => {
-  it('names the sidebar and shows it expanded, pointing at its outer edge', () => {
+  it('names the left navigation and shows it expanded, pointing at its outer edge', () => {
     const { container } = render(
       <PaneCollapseToggle
         side="left"
         collapsed={false}
-        controls="sidebar-pane"
+        controls="folder-rail sidebar-pane"
         onToggle={() => {}}
       />,
     )
-    const button = screen.getByRole('button', { name: 'Collapse sidebar' })
+    const button = screen.getByRole('button', { name: 'Collapse left navigation' })
     expect(button.getAttribute('aria-expanded')).toBe('true')
-    expect(button.getAttribute('aria-controls')).toBe('sidebar-pane')
+    expect(button.getAttribute('aria-controls')).toBe('folder-rail sidebar-pane')
     expect(arrowPoints(container)).toBe('left')
   })
 
-  it('points back toward the editor once the sidebar is collapsed', () => {
+  it('points back toward the editor once the left navigation is collapsed', () => {
     const { container } = render(
-      <PaneCollapseToggle side="left" collapsed controls="sidebar-pane" onToggle={() => {}} />,
+      <PaneCollapseToggle
+        side="left"
+        collapsed
+        controls="folder-rail sidebar-pane"
+        onToggle={() => {}}
+      />,
     )
-    const button = screen.getByRole('button', { name: 'Expand sidebar' })
+    const button = screen.getByRole('button', { name: 'Expand left navigation' })
     expect(button.getAttribute('aria-expanded')).toBe('false')
     expect(arrowPoints(container)).toBe('right')
   })
@@ -64,11 +69,11 @@ describe('pane collapse toggle', () => {
       <PaneCollapseToggle
         side="left"
         collapsed={false}
-        controls="sidebar-pane"
+        controls="folder-rail sidebar-pane"
         onToggle={onToggle}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse left navigation' }))
     expect(onToggle).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { FolderRail } from './FolderRail'
+import styles from './FolderRail.module.css'
 import { buildTree } from '../vault/fakeHandle'
 import type { VaultFolder } from '../vault/useVault'
 
@@ -114,6 +115,18 @@ describe('FolderRail', () => {
     render(<FolderRail {...railProps({ folders, onAdd: vi.fn() })} />)
     const work = screen.getByRole('button', { name: 'Open folder Work' })
     expect(work.className).toContain('pending')
+  })
+
+  it('applies the collapsed class while the left navigation is folded', () => {
+    const { container } = render(
+      <FolderRail {...railProps({ folders: [folder('Work', 'granted', 'a')], collapsed: true })} />,
+    )
+    const nav = container.querySelector('nav') as HTMLElement
+    expect(nav.id).toBe('folder-rail')
+    // The collapsed class applies visibility: hidden, which keeps the grid slot
+    // while taking the rail's controls out of the tab order in the browser
+    // (jsdom does not apply CSS-module rules, so only the class is assertable).
+    expect(nav.className).toContain(styles.collapsed)
   })
 
   it('falls back to a question mark for a nameless folder', () => {

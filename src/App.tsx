@@ -722,6 +722,12 @@ function App() {
   return (
     <div className={shellClass}>
       <div className="workspace">
+        <PaneCollapseToggle
+          side="left"
+          collapsed={leftCollapsed}
+          controls="folder-rail sidebar-pane"
+          onToggle={() => setLeftCollapsed((v) => !v)}
+        />
         <FolderRail
           status={status}
           folders={folders}
@@ -745,12 +751,7 @@ function App() {
               : undefined
           }
           onActivate={handleActivate}
-        />
-        <PaneCollapseToggle
-          side="left"
           collapsed={leftCollapsed}
-          controls="sidebar-pane"
-          onToggle={() => setLeftCollapsed((v) => !v)}
         />
         <Sidebar
           collapsed={leftCollapsed}

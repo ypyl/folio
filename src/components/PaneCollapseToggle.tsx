@@ -38,7 +38,7 @@ export function PaneCollapseToggle({
   controls: string
   onToggle: () => void
 }) {
-  const pane = side === 'left' ? 'sidebar' : 'meta panel'
+  const pane = side === 'left' ? 'left navigation' : 'meta panel'
   const label = `${collapsed ? 'Expand' : 'Collapse'} ${pane}`
   // Expanded, the arrow points at the pane's outer edge (left strip → left,
   // right strip → right); collapsed, it points back toward the editor.

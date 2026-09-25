@@ -17,6 +17,17 @@
   box-sizing: border-box;
 }
 
+/* Folded away with the left navigation (collapse-rail-with-sidebar): keeps its
+   grid slot because a `display: none` item is skipped by auto-placement, so
+   `visibility: hidden` hides it and takes its controls out of the tab order
+   while the zero-width track collapses it. Mirrors Sidebar.module.css. */
+.collapsed {
+  visibility: hidden;
+  overflow: hidden;
+  padding: 0;
+  border-width: 0;
+}
+
 .brand,
 .search,
 .add,

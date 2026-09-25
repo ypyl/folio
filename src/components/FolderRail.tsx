@@ -15,6 +15,10 @@ interface FolderRailProps {
   /** Absent where the browser has no local-folder picker
    *  (warn-unsupported-browser): the rail then shows no add control. */
   onAdd?: () => void
+  /** The whole left navigation is folded (collapse-rail-with-sidebar): the rail
+   *  keeps its grid slot via `visibility: hidden` and leaves the tab order, the
+   *  same way the sidebar does. */
+  collapsed?: boolean
   onActivate: (id: string) => void
   onClose: (id: string) => void
 }
@@ -37,11 +41,16 @@ export function FolderRail({
   onSearch,
   searchDisabled = false,
   onAdd,
+  collapsed = false,
   onActivate,
   onClose,
 }: FolderRailProps) {
   return (
-    <nav className={styles.rail} aria-label="Open folders">
+    <nav
+      id="folder-rail"
+      className={collapsed ? `${styles.rail} ${styles.collapsed}` : styles.rail}
+      aria-label="Open folders"
+    >
       <button
         type="button"
         className={styles.brand}

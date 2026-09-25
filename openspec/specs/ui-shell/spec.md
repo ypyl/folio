@@ -344,7 +344,7 @@ Every interactive element in the shell SHALL show a visible focus indicator usin
 - **THEN** each element in focus shows a visible brand-colored focus outline
 
 ### Requirement: A folder rail lists opened folders and switches between them
-The shell SHALL render a narrow folder rail as the leading workspace column. Where the browser provides the platform's local-folder picker, the rail SHALL show an add control; where it does not, the rail SHALL show no add control and the app SHALL NOT invoke the picker, with the brand screen stating the browser requirement instead (see the empty-state requirement). The rail SHALL show one entry per opened folder; the entry for the active folder SHALL be visually distinct. Activating a rail entry SHALL make that folder the active one, and when its stored permission is pending it SHALL request permission for that stored folder instead of opening the picker. Opening the same folder twice through the picker SHALL NOT add a second entry. A folder acquired by the Logseq import flow SHALL be listed with the same one-entry-per-folder rule and SHALL become active when the import finishes. Switching folders SHALL reset the open page to the newly active folder's today journal note — a blank in-memory page when no file exists yet, materializing on first save. The rail SHALL render no folder entries until stored folders have been resolved.
+The shell SHALL render a narrow folder rail as the workspace's leading pane after the collapse strip. Where the browser provides the platform's local-folder picker, the rail SHALL show an add control; where it does not, the rail SHALL show no add control and the app SHALL NOT invoke the picker, with the brand screen stating the browser requirement instead (see the empty-state requirement). The rail SHALL show one entry per opened folder; the entry for the active folder SHALL be visually distinct. Activating a rail entry SHALL make that folder the active one, and when its stored permission is pending it SHALL request permission for that stored folder instead of opening the picker. Opening the same folder twice through the picker SHALL NOT add a second entry. A folder acquired by the Logseq import flow SHALL be listed with the same one-entry-per-folder rule and SHALL become active when the import finishes. Switching folders SHALL reset the open page to the newly active folder's today journal note — a blank in-memory page when no file exists yet, materializing on first save. The rail SHALL render no folder entries until stored folders have been resolved.
 
 #### Scenario: The add control opens the picker and lists the folder
 - **WHEN** the user activates the add control and picks a folder
@@ -610,68 +610,73 @@ A region that scrolls only as a fallback, while another region holds its content
 - **WHEN** the list is long enough to scroll
 - **THEN** the popup's width is unchanged by the scrolling, because it reserves no gutter and carries no app thumb
 
-### Requirement: Application renders the workspace shell
-Folio SHALL render a full-height shell: a workspace of four panes plus two full-height collapse strips, with the app-level status bar as a full-width row below the workspace (the status-bar requirement). The workspace SHALL consist of a fixed-width folder rail, a collapse strip, a left sidebar, a flexible center editor pane, a right meta panel, and a collapse strip, in that order from left to right. The folder rail SHALL be fixed-width and SHALL NOT be collapsible. The left sidebar and the right meta panel SHALL each be collapsible (the side-pane collapse requirement); while expanded they SHALL be fixed-width, and while collapsed they SHALL occupy no width, leaving their collapse strip in place. Pane dividers SHALL be hairline borders on flat surfaces, with no shadows or gradients. The shell itself SHALL NOT scroll, and no pane SHALL scroll the page: a pane whose content exceeds its height SHALL scroll within itself, and a pane MAY hold more than one scroll region — the sidebar's Pages and Assets sections and the meta panel's Backlinks, Forwardlinks, and References sections each scroll within their own body (the sidebar and meta-panel requirements). The shell SHALL render no header band above the workspace: the panes start at the shell's top edge, and no standing row of chrome sits above them.
+### Requirement: Application renders the shell with a foldable left navigation
+Folio SHALL render a full-height shell: a workspace of the left-navigation unit, a flexible center editor pane, and a right meta panel, with two full-height collapse strips and the app-level status bar as a full-width row below the workspace (the status-bar requirement). The workspace SHALL consist of a collapse strip, a fixed-width folder rail, a left sidebar, a flexible center editor pane, a right meta panel, and a collapse strip, in that order from left to right. The folder rail and the left sidebar SHALL fold together as one collapsible left-navigation unit (the side-pane collapse requirement); while expanded each SHALL be fixed-width, and while folded each SHALL occupy no width, leaving their collapse strip in place. The right meta panel SHALL be independently collapsible (the side-pane collapse requirement); while expanded it SHALL be fixed-width, and while collapsed it SHALL occupy no width, leaving its collapse strip in place. Pane dividers SHALL be hairline borders on flat surfaces, with no shadows or gradients. The shell itself SHALL NOT scroll, and no pane SHALL scroll the page: a pane whose content exceeds its height SHALL scroll within itself, and a pane MAY hold more than one scroll region — the sidebar's Pages and Assets sections and the meta panel's Backlinks, Forwardlinks, and References sections each scroll within their own body (the sidebar and meta-panel requirements). The shell SHALL render no header band above the workspace: the panes start at the shell's top edge, and no standing row of chrome sits above them.
 
 #### Scenario: Shell fills the viewport
 - **WHEN** the app loads
-- **THEN** the shell spans the full viewport height, the four panes start at the shell's top edge with no band above them, and each collapse strip spans the workspace's full height
+- **THEN** the shell spans the full viewport height, the panes start at the shell's top edge with no band above them, and each collapse strip spans the workspace's full height
 
 #### Scenario: Long content scrolls within panes, not the page
 - **WHEN** content in a pane exceeds that pane's height
 - **THEN** it scrolls inside the body of whichever section holds it — in the sidebar or in the meta panel — and the shell layout stays fixed
 
-#### Scenario: The rail is never collapsed away
-- **WHEN** either side pane is collapsed
-- **THEN** the folder rail keeps its width and its contents stay in place
+#### Scenario: Folding the left navigation removes the rail and the sidebar
+- **WHEN** the left navigation is folded
+- **THEN** the folder rail and the left sidebar each occupy no width, the editor takes both widths, and the collapse strip remains in place
 
 #### Scenario: No header band above the workspace
 - **WHEN** the shell renders in any app state
 - **THEN** the workspace's panes start at the shell's top edge and no element occupies a standing row above them
 
-### Requirement: The side panes collapse to thin full-height strips
-The left sidebar and the right meta panel SHALL each be collapsible and expandable through a thin, vertical, full-height control strip on that pane's outer edge: the left strip SHALL sit between the folder rail and the left sidebar, and the right strip SHALL sit at the workspace's right edge beside the meta panel. Each strip SHALL be a button spanning the workspace's full height and SHALL show an arrow that points toward the pane's own outer edge while the pane is expanded and toward the editor pane while the pane is collapsed. Both panes SHALL start expanded on every load, and the collapsed/expanded state SHALL be session-only — held in memory, reset by a reload, and never written to the vault or any other storage. Collapsing a pane SHALL remove exactly that pane's width, which the flexible center editor pane SHALL take up, and SHALL leave the other panes, the open page, the search spotlight's open/closed state, and the editor content unchanged. A collapsed pane's content SHALL not be rendered as visible or focusable. Each strip SHALL carry an accessible name naming the pane it controls and SHALL expose its expanded/collapsed state to assistive technology. Toggling SHALL be possible with a keyboard from the strip button, SHALL cause no navigation, and SHALL NOT require a reload.
+### Requirement: The left navigation and the right meta panel fold to thin full-height strips
+The workspace's leading edge SHALL hold a thin, vertical, full-height control strip that folds and unfolds the left-navigation unit — the folder rail together with the left sidebar. The right meta panel SHALL be collapsible and expandable through a matching strip at the workspace's right edge beside the panel. Each strip SHALL be a button spanning the workspace's full height and SHALL show an arrow that points toward the unit's own outer edge while the unit is expanded and toward the editor pane while it is collapsed. The left navigation and the right meta panel SHALL both start expanded on every load, and the collapsed/expanded state SHALL be session-only — held in memory, reset by a reload, and never written to the vault or any other storage. Folding the left navigation SHALL remove exactly the folder rail's width and the left sidebar's width, which the flexible center editor pane SHALL take up; collapsing the right meta panel SHALL remove exactly that panel's width. Neither toggle SHALL change the other side, the open page, the search spotlight's open/closed state, or the editor content. A folded unit's content SHALL not be rendered as visible or focusable. The left strip SHALL carry an accessible name naming the left-navigation unit it folds, and the right strip SHALL name the meta panel; each SHALL expose its expanded/collapsed state to assistive technology. Toggling SHALL be possible with a keyboard from the strip button, SHALL cause no navigation, and SHALL NOT require a reload.
 
-#### Scenario: Both panes start expanded
+#### Scenario: Both sides start expanded
 - **WHEN** the app loads
-- **THEN** the left sidebar and right meta panel are expanded and each strip's arrow points toward its pane's outer edge
+- **THEN** the left navigation and the right meta panel are expanded and each strip's arrow points toward its unit's outer edge
 
-#### Scenario: Collapsing the left sidebar gives the width to the editor
-- **GIVEN** the left sidebar is expanded
+#### Scenario: Folding the left navigation gives the width to the editor
+- **GIVEN** the left navigation is expanded
 - **WHEN** the user activates the left strip
-- **THEN** the sidebar collapses to no width, the editor pane grows by the sidebar's width, and the strip remains in place with its arrow pointing toward the editor
+- **THEN** the folder rail and the left sidebar collapse to no width, the editor pane grows by both widths, and the strip remains in place with its arrow pointing toward the editor
 
 #### Scenario: Collapsing the right meta panel gives the width to the editor
 - **GIVEN** the meta panel is expanded
 - **WHEN** the user activates the right strip
 - **THEN** the meta panel collapses to no width, the editor pane grows by the panel's width, and the strip remains in place with its arrow pointing toward the editor
 
-#### Scenario: The two panes collapse independently
-- **WHEN** the user collapses the left sidebar while the meta panel is expanded
-- **THEN** the sidebar collapses and the meta panel stays expanded
+#### Scenario: The two sides collapse independently
+- **WHEN** the user folds the left navigation while the meta panel is expanded
+- **THEN** the left navigation folds and the meta panel stays expanded
+
+#### Scenario: The rail folds with the sidebar
+- **GIVEN** the left navigation is expanded
+- **WHEN** the user activates the left strip
+- **THEN** the folder rail and the left sidebar are both hidden and neither is focusable, and the editor pane takes the width of both
 
 #### Scenario: The strips do not move between states
-- **WHEN** the user collapses and expands either pane
+- **WHEN** the user folds and unfolds either side
 - **THEN** each strip keeps the same position in the workspace it had before the toggle
 
 #### Scenario: The collapse state resets on reload
-- **GIVEN** the user has collapsed the left sidebar
+- **GIVEN** the user has folded the left navigation
 - **WHEN** the app is reloaded
-- **THEN** both panes are expanded again and no storage holds the previous state
+- **THEN** the left navigation and the meta panel are both expanded again and no storage holds the previous state
 
 #### Scenario: Collapsing changes nothing but the layout
 - **GIVEN** a page is open with unsaved edits and the search spotlight is closed
 - **WHEN** the user collapses the meta panel
 - **THEN** the open page, the editor's content, and the search spotlight's open/closed state are unchanged
 
-#### Scenario: A collapsed pane leaves the tab order
-- **GIVEN** the meta panel is collapsed
+#### Scenario: A collapsed side leaves the tab order
+- **GIVEN** the left navigation is folded
 - **WHEN** the user moves focus with the keyboard
-- **THEN** no control inside the collapsed panel receives focus
+- **THEN** no control inside the folder rail or the left sidebar receives focus
 
 #### Scenario: The strip announces what it controls
 - **WHEN** the user focuses a strip
-- **THEN** it reports an accessible name naming its pane and exposes whether that pane is expanded or collapsed
+- **THEN** it reports an accessible name naming the unit it folds and exposes whether that unit is expanded or folded
 
 ### Requirement: The folder rail hosts the brand home control and the search trigger
 The folder rail SHALL lead with the Folio brand as its first control and the search trigger directly below it, above the add control and the folder entries. The brand SHALL keep the home behavior the brand requirement specifies. The search trigger SHALL be a control with an accessible name that opens the search spotlight (the search capability); it SHALL be present in every app state and SHALL be disabled — visibly dimmed and not activatable — while no vault folder is open or the active folder's index is still building, matching the search capability's rule that search does not open without a usable vault. Activating it while usable SHALL open the spotlight with its input focused. Both controls SHALL use Kami tokens and SHALL occupy a fixed size in the rail's fixed-width column, so the rail keeps its vertical-only scrolling rule and gains no horizontal scrollbar.

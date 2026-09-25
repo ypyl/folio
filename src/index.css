@@ -72,14 +72,17 @@ body {
   height: 100%;
   display: grid;
   grid-template-rows: 1fr auto; /* workspace, status bar (add-status-bar, replace-header-with-spotlight) */
-  /* Live pane widths (add-collapsible-sidebars): one source of truth for the
-     workspace grid. A collapsed pane zeroes its track; the strip beside it
-     stays and the editor grows. */
+  /* Live pane widths (add-collapsible-sidebars, collapse-rail-with-sidebar):
+     one source of truth for the workspace grid. The left strip folds the rail
+     and the sidebar together; the right strip folds the meta panel. A collapsed
+     unit zeroes its track(s); the strip beside it stays and the editor grows. */
+  --rail-cur: var(--rail-w);
   --sidebar-cur: var(--sidebar-w);
   --panel-cur: var(--panel-w);
 }
 
 .app-shell.left-collapsed {
+  --rail-cur: 0px;
   --sidebar-cur: 0px;
 }
 
@@ -89,9 +92,10 @@ body {
 
 .workspace {
   display: grid;
-  /* rail, left strip, sidebar, editor, panel, right strip (add-collapsible-sidebars) */
+  /* left strip, rail, sidebar, editor, panel, right strip
+     (add-collapsible-sidebars, collapse-rail-with-sidebar) */
   grid-template-columns:
-    var(--rail-w) var(--strip-w) var(--sidebar-cur) minmax(0, 1fr) var(--panel-cur)
+    var(--strip-w) var(--rail-cur) var(--sidebar-cur) minmax(0, 1fr) var(--panel-cur)
     var(--strip-w);
   min-height: 0;
 }

@@ -4,6 +4,7 @@ import App from './App'
 import { Accordion } from './components/Accordion'
 import styles from './components/JournalCalendar.module.css'
 import sidebarStyles from './components/Sidebar.module.css'
+import railStyles from './components/FolderRail.module.css'
 import metaStyles from './components/MetaPanel.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
@@ -1553,35 +1554,41 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
 })
 
 describe('collapsible sidebars (add-collapsible-sidebars spec)', () => {
-  it('renders a full-height strip for each side pane, both expanded', () => {
+  it('renders a full-height strip for each side, both expanded', () => {
     render(<App />)
-    const left = screen.getByRole('button', { name: 'Collapse sidebar' })
+    const left = screen.getByRole('button', { name: 'Collapse left navigation' })
     expect(left.getAttribute('aria-expanded')).toBe('true')
-    expect(left.getAttribute('aria-controls')).toBe('sidebar-pane')
+    expect(left.getAttribute('aria-controls')).toBe('folder-rail sidebar-pane')
     const right = screen.getByRole('button', { name: 'Collapse meta panel' })
     expect(right.getAttribute('aria-expanded')).toBe('true')
     expect(right.getAttribute('aria-controls')).toBe('meta-panel')
   })
 
-  it('folds the sidebar away and back without touching the search or editor', () => {
+  it('folds the rail and the sidebar away and back without touching the editor', () => {
     render(<App />)
     const pane = document.getElementById('sidebar-pane') as HTMLElement
+    const rail = document.getElementById('folder-rail') as HTMLElement
     expect(pane.className).not.toContain(sidebarStyles.collapsed)
+    expect(rail.className).not.toContain(railStyles.collapsed)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
-    // The pane keeps its node (so its accordion state survives) and takes the
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse left navigation' }))
+    // Both keep their nodes (so accordion state survives) and take the
     // collapsed class; the strip flips its name and state.
     expect(document.getElementById('sidebar-pane')).toBe(pane)
+    expect(document.getElementById('folder-rail')).toBe(rail)
     expect(pane.className).toContain(sidebarStyles.collapsed)
-    const expanded = screen.getByRole('button', { name: 'Expand sidebar' })
+    expect(rail.className).toContain(railStyles.collapsed)
+    const expanded = screen.getByRole('button', { name: 'Expand left navigation' })
     expect(expanded.getAttribute('aria-expanded')).toBe('false')
-    // The rail keeps its search trigger; only the pane's column gave way.
-    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
 
     fireEvent.click(expanded)
     expect(pane.className).not.toContain(sidebarStyles.collapsed)
+    expect(rail.className).not.toContain(railStyles.collapsed)
+    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
     expect(
-      screen.getByRole('button', { name: 'Collapse sidebar' }).getAttribute('aria-expanded'),
+      screen
+        .getByRole('button', { name: 'Collapse left navigation' })
+        .getAttribute('aria-expanded'),
     ).toBe('true')
   })
 
