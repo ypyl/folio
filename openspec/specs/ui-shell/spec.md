@@ -35,47 +35,34 @@ The Folio brand (the mark and title at the top of the folder rail) SHALL act as 
 - **WHEN** the user activates the brand
 - **THEN** the empty state remains showing and no folder becomes active
 
-### Requirement: Sidebar is an accordion of Journal, Pages, and Assets sections with a navigation control row
+### Requirement: Sidebar is an accordion of Journal, Pages, Boards, and Assets sections
 
-The sidebar SHALL contain a navigation control row followed by exactly four collapsible sections — Journal, then Pages, then Boards, then Assets — with no other sections, controls, or buttons between them. The control row SHALL hold the Back and Forward controls specified by page-history and a Today control, SHALL precede all four sections, and SHALL be a fixed band at the sidebar's top, so those controls remain in reach however long any listing grows. Every section's summary row SHALL be rendered in every app state — open or collapsed, and with or without a vault — and SHALL be all a collapsed section occupies. The Journal section SHALL size to its content and SHALL NOT scroll internally; the Pages, Boards, and Assets sections SHALL share the sidebar's remaining height, each body scrolling within itself, and the Pages body SHALL keep a minimum height so a short window cannot collapse it to nothing. The Boards section's listing and behavior are specified by the whiteboards capability, and the Assets section's by the vault-assets capability.
-
-Activating Today SHALL open the current day's journal — `journals/YYYY-MM-DD.md` for the current local date — exactly as selecting a calendar day does: the file's content when it exists, otherwise a blank in-memory page that materializes on first save and creates nothing on open. Today SHALL be rendered in every app state, and SHALL be disabled while no vault is usable (no folder open, or the active folder's index still building), matching Back and Forward's treatment when they have nowhere to step. Today SHALL NOT be tied to the Journal section's open/closed state: collapsing Journal SHALL leave the control in the row. All four sections SHALL support independent open/close (one section's state does not affect the others) and expand/collapse without page reloads or JavaScript manipulation of document state. Journal and Pages SHALL be open by default; Boards and Assets SHALL be collapsed by default. There SHALL be no Tags section, no New Page button, and no History section.
+The sidebar SHALL contain exactly four collapsible sections — Journal, then Pages, then Boards, then Assets — with no other sections, controls, or buttons between them and no navigation control row above them, so Journal is the sidebar's first band. Every section's summary row SHALL be rendered in every app state — open or collapsed, and with or without a vault — and SHALL be all a collapsed section occupies. The Journal section SHALL size to its content and SHALL NOT scroll internally; the Pages, Boards, and Assets sections SHALL share the sidebar's remaining height, each body scrolling within itself, and the Pages body SHALL keep a minimum height so a short window cannot collapse it to nothing. The Boards section's listing and behavior are specified by the whiteboards capability, and the Assets section's by the vault-assets capability. All four sections SHALL support independent open/close (one section's state does not affect the others) and expand/collapse without page reloads or JavaScript manipulation of document state. Journal and Pages SHALL be open by default; Boards and Assets SHALL be collapsed by default. There SHALL be no Tags section, no New Page button, no History section, and no Back, Forward, or Today control in the sidebar.
 
 #### Scenario: Sections open and close independently
 
 - **WHEN** the user collapses the Pages section while Journal is open
 - **THEN** Pages collapses and Journal remains open
 
-#### Scenario: The Journal section leads the sections
+#### Scenario: Journal leads the sidebar
 
 - **WHEN** the shell renders
-- **THEN** the sidebar's sections are Journal, then Pages, then Boards, then Assets, with no section or control between them, and the navigation control row is the only element above Journal
+- **THEN** the sidebar's first band is the Journal section, followed by Pages, then Boards, then Assets, with no control row and no section between them
 
 #### Scenario: Every section summary is always rendered
 
 - **WHEN** the user collapses Boards and Assets
 - **THEN** both summaries remain in the document in order, each occupying one row, with Journal above them
 
-#### Scenario: The controls stay in reach while the sidebar scrolls
-
-- **GIVEN** a vault whose page list is longer than the sidebar can show
-- **WHEN** the user scrolls the Pages listing to its end
-- **THEN** the Back, Forward, and Today controls remain visible at the sidebar's top, and the Pages, Boards, and Assets summaries stay in place
-
 #### Scenario: A collapsed section leaves the others their height
 
 - **WHEN** the user collapses the Assets section
 - **THEN** the sections above it expand to use the space the Assets body gave up
 
-#### Scenario: Today is unavailable without a usable vault
+#### Scenario: The sidebar holds no navigation controls
 
-- **WHEN** no folder is open, or the active folder's index is still building
-- **THEN** the Today control is rendered but disabled, and activating it does nothing
-
-#### Scenario: Today survives collapsing the Journal section
-
-- **WHEN** the user collapses the Journal section
-- **THEN** the Today control stays in the navigation control row and still opens the current day's journal
+- **WHEN** the shell renders in any app state
+- **THEN** the sidebar contains no Back, Forward, or Today control, and those controls appear only in the status bar
 
 #### Scenario: The sidebar has no History section
 
@@ -416,7 +403,7 @@ Every folder rail entry SHALL carry a close control that removes that entry from
 - **THEN** the app forgets only its reference and every file in the folder remains on disk unchanged
 
 ### Requirement: Journal section shows the journal calendar
-When a vault folder is open, the Journal section body SHALL render a month calendar grid for the vault's journal days. The grid SHALL be Sunday-first with one cell per day, and days that have a journal file in the open vault's index SHALL be marked with a background fill. The first and last weeks' cells that fall outside the displayed month SHALL render dimmed but remain clickable as days. The grid SHALL initially display the month of the currently open day (or the current month when no day is open), SHALL provide previous/next month controls that move the displayed month without opening a day, and opening any day SHALL re-anchor the grid to that day's month. The control opening the current day's journal lives in the sidebar's navigation control row, not in this section; opening the current day re-anchors the grid to that day's month like opening any other day. When no vault folder is open, the Journal section SHALL NOT render the calendar, keeping the section empty.
+When a vault folder is open, the Journal section body SHALL render a month calendar grid for the vault's journal days. The grid SHALL be Sunday-first with one cell per day, and days that have a journal file in the open vault's index SHALL be marked with a background fill. The first and last weeks' cells that fall outside the displayed month SHALL render dimmed but remain clickable as days. The grid SHALL initially display the month of the currently open day (or the current month when no day is open), SHALL provide previous/next month controls that move the displayed month without opening a day, and opening any day SHALL re-anchor the grid to that day's month. The control opening the current day's journal lives in the status bar, not in this section; opening the current day re-anchors the grid to that day's month like opening any other day. When no vault folder is open, the Journal section SHALL NOT render the calendar, keeping the section empty.
 
 #### Scenario: Journal calendar marks days with entries
 - **GIVEN** an open vault whose index contains `journals/2026-09-06.md`
@@ -435,7 +422,7 @@ When a vault folder is open, the Journal section body SHALL render a month calen
 
 #### Scenario: Today opens the current day's journal
 - **GIVEN** another page is open and the calendar displays a month other than the current one
-- **WHEN** the user activates the Today control in the sidebar's navigation control row
+- **WHEN** the user activates the Today control in the status bar
 - **THEN** the editor pane opens the current day's journal, no file is created by the activation itself, and the grid displays the current day's month
 
 #### Scenario: Today re-anchors the grid even when today is already open
@@ -454,13 +441,18 @@ When a vault folder is open, the Journal section body SHALL render a month calen
 
 ### Requirement: The shell shows an app-level status bar
 
-The shell SHALL render a thin status bar as a full-width row below the workspace, present in every app state — with a vault open, while the index builds, on search-results surfaces, on an open board, and on the brand empty state. The bar SHALL hold the pin control in its leading column and three groups: the open document's file path as a breadcrumb (left, immediately after the leading column) — a page's, a journal day's, or a board's — a status group holding the save-state text and the indexing label (immediately after the breadcrumb), and the active vault's name and file count (right side). Beside the vault's file count, at the bar's trailing edge, the bar SHALL show the running application version as `v<version>`, where `<version>` is the `version` field of `package.json`; the version SHALL be non-interactive text, SHALL render in every app state, and SHALL NOT be a control or gate any behavior. A group SHALL be empty when its content has no source: no page and no board open leaves the path group empty; a page or board with nothing to report leaves the status group empty; no active folder leaves the vault group empty. The bar SHALL sit outside all pane scroll regions — its content never scrolls, and the panes scroll independently beneath it — and SHALL use Kami tokens (stone 12px text, hairline top border, flat surfaces). The bar SHALL hold no action other than the pin control: it opens no picker, switches no folder, re-grants no permission, and navigates nowhere.
+The shell SHALL render a thin status bar as a full-width row below the workspace, present in every app state — with a vault open, while the index builds, on search-results surfaces, on an open board, and on the brand empty state. The bar SHALL lead with the Back, Forward, and Today controls in that order at its leading edge, followed by the pin control, then three groups: the open document's file path as a breadcrumb (left, immediately after the pin) — a page's, a journal day's, or a board's — a status group holding the save-state text and the indexing label, and the active vault's name and file count (right side). The Back and Forward controls SHALL be the trail controls specified by page-history, each disabled when there is no entry in its direction. Activating Today SHALL open the current day's journal — `journals/YYYY-MM-DD.md` for the current local date — exactly as selecting a calendar day does: the file's content when it exists, otherwise a blank in-memory page that materializes on first save and creates nothing on open. Today SHALL be rendered in every app state and SHALL be disabled while no vault is usable (no folder open, or the active folder's index still building), matching Back and Forward's treatment when they have nowhere to step; activating a disabled Today SHALL do nothing. Beside the vault's file count, at the bar's trailing edge, the bar SHALL show the running application version as `v<version>`, where `<version>` is the `version` field of `package.json`; the version SHALL be non-interactive text, SHALL render in every app state, and SHALL NOT be a control or gate any behavior. A group SHALL be empty when its content has no source: no page and no board open leaves the path group empty; a page or board with nothing to report leaves the status group empty; no active folder leaves the vault group empty. The bar SHALL sit outside all pane scroll regions — its content never scrolls, and the panes scroll independently beneath it — and SHALL use Kami tokens (stone 12px text, hairline top border, flat surfaces). The bar's display-only content SHALL perform no action: the breadcrumb, the status text, and the vault name open no picker, switch no folder, re-grant no permission, and navigate nowhere. The Back, Forward, and Today controls and the pin control are the bar's only controls.
 
 #### Scenario: The bar frames every app state
 
 - **GIVEN** the app on the brand empty state with no vault open
 - **WHEN** the shell renders
-- **THEN** the status bar is present with the three groups empty and no content beyond the pin control and the running version
+- **THEN** the status bar is present with the three groups empty, the Back, Forward, and Today controls at its leading edge (Back, Forward, and Today disabled), and the pin control beside them
+
+#### Scenario: The bar hosts the navigation controls
+
+- **WHEN** the shell renders in any app state
+- **THEN** Back, Forward, and Today appear at the bar's leading edge in that order, ahead of the pin control and the breadcrumb
 
 #### Scenario: An open page fills the path group
 
@@ -491,18 +483,6 @@ The shell SHALL render a thin status bar as a full-width row below the workspace
 
 - **WHEN** the user scrolls a pane beneath the status bar
 - **THEN** the bar and its content remain fixed at the shell's bottom
-
-### Requirement: The status bar's leading column matches the folder rail
-The status bar SHALL open with a leading column holding the pin control, one folder-rail column wide and starting at the bar's leading edge, so the column is the rail's column continued downward at the same horizontal position. That column's right edge SHALL carry a vertical hairline in the bar's border colour, drawn at the same x as the rail's right border, so the rail's border reads as continuing into the status bar; this hairline SHALL be the bar's only vertical separator, so no second hairline sits between the breadcrumb and the status group. The pin control SHALL keep its existing size, glyph, label, disabled rules, and states, centred in the column. The bar's remaining content SHALL keep its existing order and spacing after the column: the breadcrumb, then the status group, then the vault group.
-
-#### Scenario: The pin's column lines up with the rail
-- **GIVEN** the shell rendered at desktop width
-- **WHEN** the status bar lays out
-- **THEN** the pin's column is one rail column wide and starts at the bar's leading edge, and its right edge carries the hairline at the same x as the rail's right border, so the two read as one vertical line
-
-#### Scenario: The rest of the bar keeps its layout
-- **WHEN** the status bar renders with a page open, with no page open, and while the index builds
-- **THEN** the only vertical line in the bar is the leading column's right edge, the breadcrumb, the status group, and the vault group keep their order and spacing after it, and the pin control keeps its 24px star box, star glyph, accessible name, `aria-pressed` value, and title in its enabled and disabled states
 
 ### Requirement: Activating a shortcut row applies its key combination
 Every entry in the keyboard-shortcuts reference whose key combination the app binds as a keyboard shortcut SHALL be a control that applies that combination when activated. A row's label SHALL remain text; each key combination SHALL be its own control, so a row listing more than one combination offers one control per combination. Activating an editor row SHALL produce the same result as pressing that combination in the editor, including its toggling behaviour: applying a formatting combination to text that already carries that formatting SHALL remove it, and applying it again SHALL restore it. Activating a search row SHALL open the search spotlight with its input focused and its text selected. An entry whose key combination is not bound as a keyboard shortcut — the paste shortcut's shift modifier, which is read from the paste gesture rather than bound on keydown — SHALL remain a plain, non-interactive row rather than a control. A control SHALL carry an accessible name that states both the action and the key combination. A row SHALL be disabled — visibly dimmed and not activatable — when the surface it acts on is unavailable: rows that act on the editor while no editor is open, and the search row while no vault folder is open or the active folder's index is still building. Rows SHALL remain listed in every app state whether or not they are disabled. Activating an editor row SHALL leave keyboard focus in the editor, and activating a search row SHALL leave focus in the spotlight's search input, so the user can continue typing or searching without a further gesture. A combination the current context does not claim SHALL leave the document unchanged, silently. Activating a row SHALL be distinct from opening the reference: opening and closing the section itself SHALL continue to change nothing.

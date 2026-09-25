@@ -1,46 +1,82 @@
 /* App-level status frame (add-status-bar, ui-shell spec): a thin Kami bar
    below the workspace — stone 12px metadata on parchment, hairline top
-   border, flat, no shadow. Flex layout: the leading column holds the pin,
-   the path cluster follows it, then the status cluster; the vault stats pin
-   to the far right via an auto margin on the right side (status-bar layout
-   refinement). No left inset: the leading column is the rail's column and
-   starts at the bar's edge (align-status-bar-pin-column). */
+   border, flat, no shadow. Flex layout: the session navigation leads, then
+   the pin, the path cluster, the status cluster; the vault stats pin to the
+   far right via an auto margin on the right side. The bar leads at its own
+   edge now, so it keeps a small left inset
+   (move-nav-controls-to-status-bar). */
 .bar {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 30px;
-  padding: 4px 16px 4px 0;
+  padding: 4px 16px 4px 8px;
   background: var(--parchment);
   border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--stone);
 }
 
-/* Leading column (align-status-bar-pin-column): the rail's column continued
-into the bar — one rail column wide, starting at the bar's leading edge —
-holding the pin centre. Its right border is the bar's only vertical
-hairline, and it continues the rail's right border downward
-(continue-rail-border-in-status-bar). The line is the box's own border
-rather than a flex item beside it, so the two cannot drift apart: both read
---rail-w and the same border colour. The breadcrumb and the status text have
-no rule between them. */
-.lead {
+/* Session navigation (move-nav-controls-to-status-bar): the bar's leading
+   group, Back then Forward then Today, ahead of the pin. Stone at rest, brand
+   on hover/focus, dimmed when unavailable — the pin's own treatment. */
+.nav {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: var(--rail-w);
-  border-right: 1px solid var(--border);
+  gap: 2px;
   flex-shrink: 0;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--stone);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.control:hover:not(:disabled),
+.control:focus-visible {
+  color: var(--brand);
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -1px;
+}
+
+.control:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.controlIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+/* The labelled Today control: the icon controls' treatment with the label's
+   own width. Declared after .control so it wins on equal specificity. */
+.controlLabel {
+  width: auto;
+  padding: 0 8px;
+  font-size: 12px;
 }
 
 /* Pin toggle (add-pinned-pages): enabled only when a file-backed page is
 open (journal days, unmaterialized pages, and the results view disable it).
 Filled star in ink-blue when the open page is pinned; outline star in stone
-otherwise; disabled is dimmed but still labelled. The control keeps its own
-24px box centred in the leading column, so its focus ring hugs the star and
-the column's edge stays the column's own border
-(continue-rail-border-in-status-bar). */
+otherwise; disabled is dimmed but still labelled. It follows the navigation
+controls now (move-nav-controls-to-status-bar), so it no longer sits in a
+rail-aligned column. */
 .pin {
   display: inline-flex;
   align-items: center;

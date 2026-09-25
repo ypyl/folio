@@ -6,14 +6,34 @@ import { StarIcon } from './StarIcon'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
-// thin bar below the workspace holding every piece of status — the open
-// page's file path (left), save/indexing status (center), and the active
-// vault's name and file count (right). The bar sits outside all pane scroll
-// regions, so its content never scrolls. Groups empty when their content has
-// no source. Its only control is the pin star (add-pinned-pages) in the
-// leading corner; the status groups themselves are display-only. The
+// thin bar below the workspace leading with the session navigation — Back,
+// Forward, and Today (move-nav-controls-to-status-bar) — then the pin, then
+// the open page's file path, the save/indexing status, and the active vault's
+// name and file count (right). The bar sits outside all pane scroll regions,
+// so its content never scrolls. Groups empty when their content has no source.
+// Its controls are the three navigation controls and the pin star
+// (add-pinned-pages); the status groups themselves are display-only. The
 // question-mark help button and its modal lived here until
 // move-help-to-right-panel moved the reference into the right panel.
+
+// A 24-viewBox chevron. aria-hidden: the control's accessible name says which
+// way it goes, so the glyph is decoration (the same rule the pin star follows).
+function ChevronIcon({ direction }: { direction: 'back' | 'forward' }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={styles.controlIcon}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={direction === 'back' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
+    </svg>
+  )
+}
 
 // Save-state copy (moved from the pane's SaveIndicator, page-editing spec):
 // muted text, never a badge.
@@ -39,6 +59,12 @@ export function StatusBar({
   pinned = false,
   canPin = false,
   onTogglePin,
+  canBack = false,
+  canForward = false,
+  onBack,
+  onForward,
+  canToday = false,
+  onToday,
 }: {
   /** The open page's vault-relative path, or null when no page is open. */
   pagePath: string | null
@@ -56,6 +82,17 @@ export function StatusBar({
   canPin?: boolean
   /** Toggles the open page's pin from the bar's leading star. */
   onTogglePin?: () => void
+  /** The trail has an entry before/after the open page; the Back and Forward
+   *  controls lead the bar (move-nav-controls-to-status-bar). */
+  canBack?: boolean
+  canForward?: boolean
+  onBack?: () => void
+  onForward?: () => void
+  /** The current day's journal can be opened (a usable vault). */
+  canToday?: boolean
+  /** Opens the current day's journal; the handler lives in App, so the open is
+   *  an ordinary navigation. */
+  onToday?: () => void
 }) {
   const segments = pagePath?.split('/') ?? []
   const hasDirs = segments.length > 1
@@ -71,26 +108,52 @@ export function StatusBar({
 
   return (
     <footer className={styles.bar}>
-      {/* Leading column (align-status-bar-pin-column): the rail's column
-          continued into the bar, closed by the hairline that continues the
-          rail's right border (continue-rail-border-in-status-bar). The cell
-          is the rail's width whether or not the pin renders, so the bar's
-          geometry never shifts. */}
-      <div className={styles.lead}>
-        {onTogglePin && (
+      {/* Session navigation (move-nav-controls-to-status-bar): the trail's
+          Back and Forward and the Today control lead the bar, ahead of the
+          pin, so the sidebar can lead with its sections. */}
+      {(onBack || onForward || onToday) && (
+        <div className={styles.nav}>
           <button
             type="button"
-            className={`${styles.pin}${pinned ? ` ${styles.pinActive}` : ''}`}
-            onClick={onTogglePin}
-            disabled={!canPin}
-            aria-pressed={pinned}
-            aria-label={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
-            title={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
+            className={styles.control}
+            aria-label="Back"
+            disabled={!canBack}
+            onClick={onBack}
           >
-            <StarIcon filled={pinned} className={styles.pinIcon} />
+            <ChevronIcon direction="back" />
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            className={styles.control}
+            aria-label="Forward"
+            disabled={!canForward}
+            onClick={onForward}
+          >
+            <ChevronIcon direction="forward" />
+          </button>
+          <button
+            type="button"
+            className={`${styles.control} ${styles.controlLabel}`}
+            disabled={!canToday}
+            onClick={onToday}
+          >
+            Today
+          </button>
+        </div>
+      )}
+      {onTogglePin && (
+        <button
+          type="button"
+          className={`${styles.pin}${pinned ? ` ${styles.pinActive}` : ''}`}
+          onClick={onTogglePin}
+          disabled={!canPin}
+          aria-pressed={pinned}
+          aria-label={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
+          title={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
+        >
+          <StarIcon filled={pinned} className={styles.pinIcon} />
+        </button>
+      )}
       <div className={styles.path} title={pagePath ?? undefined}>
         {hasDirs && (
           <>

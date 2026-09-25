@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Lets a user return to recently opened pages: every page the app opens is remembered for the session as a trail in the sidebar, so following a link is no longer a one-way trip.
+Lets a user return to recently opened pages: every page the app opens is remembered for the session as a trail, so following a link is no longer a one-way trip.
 
 ## Requirements
 

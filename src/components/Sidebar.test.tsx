@@ -93,118 +93,44 @@ describe('Sidebar', () => {
   })
 })
 
-describe('Sidebar navigation controls (add-history-navigation)', () => {
-  const renderControls = (
-    canBack: boolean,
-    canForward: boolean,
-    onBack = vi.fn(),
-    onForward = vi.fn(),
-  ) => {
-    render(
-      <Sidebar
-        pages={[page]}
-        journalEntries={[journal]}
-        assets={[]}
-        onOpenAsset={() => {}}
-        activePath={null}
-        onSelect={() => {}}
-        hasVault
-        canBack={canBack}
-        canForward={canForward}
-        onBack={onBack}
-        onForward={onForward}
-      />,
-    )
-    return { onBack, onForward }
-  }
-
-  it('leads the sidebar, above the sections, as one sticky row', () => {
-    renderControls(false, false)
-    const aside = screen.getByRole('complementary')
-    const controls = aside.firstElementChild as HTMLElement
-    expect(controls.className).toContain(styles.controls)
-    // Back and Forward (the trail), then Today (move-today-into-nav-controls),
-    // all in the row's own control treatment.
-    const row = [...controls.querySelectorAll('button')]
-    expect(row).toHaveLength(3)
-    expect(row.map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
-      'Back',
-      'Forward',
-      'Today',
-    ])
-    expect(row[2].className).toContain(styles.control)
-    // The row precedes the sections, and the Journal section still leads them.
-    const next = controls.nextElementSibling as HTMLElement
-    expect(next.tagName).toBe('DETAILS')
-    expect(next.querySelector('summary')?.textContent).toBe('Journal')
-    // The sidebar holds no History section any more.
-    expect(screen.queryByText('History')).toBeNull()
-  })
-
-  it('names each control for assistive technology', () => {
-    renderControls(true, true)
-    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Forward' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Today' })).toBeTruthy()
-  })
-
-  it('disables a control with nowhere to step', () => {
-    renderControls(false, true)
-    expect((screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement).disabled).toBe(
-      false,
-    )
-  })
-
-  it('calls the handler for the direction it represents', () => {
-    const { onBack, onForward } = renderControls(true, true)
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
-    expect(onBack).toHaveBeenCalledTimes(1)
-    expect(onForward).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Forward' }))
-    expect(onForward).toHaveBeenCalledTimes(1)
-  })
-
-  it('renders Today in the row, disabled while no vault is usable', () => {
-    render(
-      <Sidebar
-        pages={[page]}
-        journalEntries={[journal]}
-        assets={[]}
-        onOpenAsset={() => {}}
-        activePath={null}
-        onSelect={() => {}}
-        hasVault={false}
-      />,
-    )
-    expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('Today calls its handler and re-anchors the calendar to the current day', () => {
-    const onToday = vi.fn()
+describe('Sidebar calendar re-anchor (move-nav-controls-to-status-bar)', () => {
+  it('re-anchors the calendar when App bumps the Today tick', () => {
     const today = `journals/${localDayString(new Date())}.md`
-    render(
-      <Sidebar
-        pages={[page]}
-        journalEntries={[journal]}
-        assets={[]}
-        onOpenAsset={() => {}}
-        activePath={today}
-        onSelect={() => {}}
-        hasVault
-        onToday={onToday}
-      />,
-    )
+    const base = {
+      pages: [page],
+      journalEntries: [journal],
+      assets: [],
+      onOpenAsset: () => {},
+      activePath: today,
+      onSelect: () => {},
+      hasVault: true,
+    }
+    const { rerender } = render(<Sidebar {...base} />)
     expect(screen.getByText(monthLabel(new Date()))).toBeTruthy()
     // Browse away: view-only movement, since the open day did not change.
     fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
     expect(screen.getByText(monthLabel(shiftMonth(new Date(), 1)))).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
-    expect(onToday).toHaveBeenCalledTimes(1)
-    // The open day never changed, so only the row's tick can bring the grid
-    // back to the current day's month (move-today-into-nav-controls, D3).
+    // The open day never changed, so only the tick can bring the grid back to
+    // the current day's month (move-nav-controls-to-status-bar).
+    rerender(<Sidebar {...base} todayTick={1} />)
     expect(screen.getByText(monthLabel(new Date()))).toBeTruthy()
+  })
+
+  it('holds no navigation controls in the sidebar', () => {
+    render(
+      <Sidebar
+        pages={[page]}
+        journalEntries={[journal]}
+        assets={[]}
+        onOpenAsset={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Forward' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Today' })).toBeNull()
   })
 })
 
@@ -364,15 +290,17 @@ describe('Sidebar assets (vault-assets)', () => {
     expect(details[3].hasAttribute('open')).toBe(false)
   })
 
-  it('keeps the controls and every summary outside the scrolling bodies', () => {
+  it('keeps every summary outside the scrolling bodies', () => {
     renderAssets(['assets/a.png'])
-    const aside = screen.getByRole('complementary')
     for (const title of ['Journal', 'Pages', 'Boards', 'Assets']) {
       expect((screen.getByText(title) as HTMLElement).closest(`.${styles.scrollBody}`)).toBeNull()
     }
-    const controls = aside.firstElementChild as HTMLElement
-    expect(controls.className).toContain(styles.controls)
-    expect(controls.closest(`.${styles.scrollBody}`)).toBeNull()
+    // The sidebar leads with the Journal section now; there is no control row
+    // above it (move-nav-controls-to-status-bar).
+    const aside = screen.getByRole('complementary')
+    const first = aside.firstElementChild as HTMLElement
+    expect(first.tagName).toBe('DETAILS')
+    expect(first.querySelector('summary')?.textContent).toBe('Journal')
   })
 
   it('gives each listing its own scroll body', () => {

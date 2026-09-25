@@ -17,31 +17,6 @@ import { isReferenceable } from '../vault/parse'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
-// A 24-viewBox chevron. aria-hidden: the control's accessible name says which
-// way it goes, so the glyph is decoration (the same rule the pin star follows).
-function ChevronIcon({
-  direction,
-  className,
-}: {
-  direction: 'back' | 'forward'
-  className?: string
-}) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={direction === 'back' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
-    </svg>
-  )
-}
-
 /** One listing's scroll geometry (add-history-navigation D5): what
  *  `windowPieces` needs, and nothing about which listing it is. Each sidebar
  *  listing measures its own body, so a scroll in one never re-windows the
@@ -107,11 +82,7 @@ export const Sidebar = memo(function Sidebar({
   pinnedPaths = [],
   hasVault,
   loading = false,
-  canBack = false,
-  canForward = false,
-  onBack,
-  onForward,
-  onToday,
+  todayTick = 0,
   collapsed = false,
 }: {
   pages: Page[]
@@ -138,26 +109,16 @@ export const Sidebar = memo(function Sidebar({
   hasVault: boolean
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
-  /** The trail has an entry before/after the open page (add-history-navigation). */
-  canBack?: boolean
-  canForward?: boolean
-  onBack?: () => void
-  onForward?: () => void
-  /** Open the current day's journal (move-today-into-nav-controls); the
-   *  handler lives in App, so the open is an ordinary navigation. */
-  onToday?: () => void
+  /** Bumped by App when Today is activated, so the calendar re-anchors even
+   *  when today is already the open day (move-nav-controls-to-status-bar).
+   *  The control lives in the status bar now; the calendar stays here. */
+  todayTick?: number
   /** The sidebar is folded away (add-collapsible-sidebars). The pane stays
    *  mounted so its accordion state survives, and `display: none` takes its
    *  box (and its descendants' focusability) out of the layout. */
   collapsed?: boolean
 }) {
   const pinnedSet = new Set(pinnedPaths)
-
-  // The calendar anchors to the open day, so it cannot notice a Today that
-  // lands on the day already open. This row owns both the control and the
-  // calendar, so it bumps the tick locally: one number, no prop through App
-  // (move-today-into-nav-controls, design D3).
-  const [todayTick, setTodayTick] = useState(0)
 
   // Two windowed listings, two measured bodies (add-asset-navigation, D5). The
   // aside is watched, not measured: its children are the bands whose height the
@@ -376,43 +337,9 @@ export const Sidebar = memo(function Sidebar({
       aria-label="Notes"
       ref={asideRef}
     >
-      {/* The session controls (add-history-navigation D4, move-today-into-nav-
-          controls): the first band, so Back, Forward, and Today stay in reach
-          however long the listings below them get. */}
-      <div className={styles.controls}>
-        <button
-          type="button"
-          className={styles.control}
-          aria-label="Back"
-          disabled={!canBack}
-          onClick={onBack}
-        >
-          <ChevronIcon direction="back" className={styles.controlIcon} />
-        </button>
-        <button
-          type="button"
-          className={styles.control}
-          aria-label="Forward"
-          disabled={!canForward}
-          onClick={onForward}
-        >
-          <ChevronIcon direction="forward" className={styles.controlIcon} />
-        </button>
-        {/* Today (move-today-into-nav-controls): the current day's journal is
-            navigation, so it rides with Back and Forward instead of living in
-            the calendar, where collapsing Journal took it away. */}
-        <button
-          type="button"
-          className={`${styles.control} ${styles.controlLabel}`}
-          disabled={!hasVault}
-          onClick={() => {
-            setTodayTick((t) => t + 1)
-            onToday?.()
-          }}
-        >
-          Today
-        </button>
-      </div>
+      {/* The session controls moved to the status bar
+          (move-nav-controls-to-status-bar); the sidebar now leads with the
+          Journal section. */}
       <Accordion title="Journal" defaultOpen className={styles.sectionFixed}>
         {/* The journal calendar owns the section (journal-calendar D1); it
             stays hidden until a vault is open (no-inert-grid rule). */}

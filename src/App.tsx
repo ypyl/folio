@@ -132,6 +132,11 @@ function App() {
   // which only the workspace grid reads.
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
+  // The calendar's Today re-anchor tick (move-nav-controls-to-status-bar):
+  // Today now lives in the status bar, but the calendar it re-anchors stays in
+  // the sidebar. App owns the tick and passes it down; it changes only on a
+  // Today activation, so it never touches the keystroke path.
+  const [todayTick, setTodayTick] = useState(0)
   // Last content shown for the open path: if the file vanished in a
   // refresh, keep showing it instead of yanking the page (design D6).
   const lastKnown = useRef<IndexPage | null>(null)
@@ -311,13 +316,14 @@ function App() {
     handleOpenPath(path)
   }, [trail, handleOpenPath])
 
-  // Today (move-today-into-nav-controls): the current day's journal is just
+  // Today (move-nav-controls-to-status-bar): the current day's journal is just
   // another page to open, so it goes through handleSelect and inherits the
   // trail recording, the draft baseline, and the blank-page-on-first-save
   // rule. The day is read at activation, not at mount, so a session left open
-  // across midnight goes to the new day. The grid's re-anchor is the sidebar's
-  // own concern: it owns both the control and the calendar (design D3).
+  // across midnight goes to the new day. The status bar owns the control; the
+  // calendar stays in the sidebar, so App bumps the tick that re-anchors it.
   const handleToday = useCallback(() => {
+    setTodayTick((t) => t + 1)
     handleSelect(`journals/${localDayString(new Date())}.md`)
   }, [handleSelect])
 
@@ -766,11 +772,7 @@ function App() {
           pinnedPaths={pins}
           hasVault={graph !== null}
           loading={indexing}
-          canBack={canBack}
-          canForward={canForward}
-          onBack={handleBack}
-          onForward={handleForward}
-          onToday={handleToday}
+          todayTick={todayTick}
         />
         {importView !== null ? (
           <LogseqImportPanel view={importView} onContinue={() => setImportView(null)} />
@@ -898,6 +900,12 @@ function App() {
         onTogglePin={() => {
           if (page !== null) void togglePin(page.path)
         }}
+        canBack={canBack}
+        canForward={canForward}
+        onBack={handleBack}
+        onForward={handleForward}
+        canToday={graph !== null}
+        onToday={handleToday}
       />
       {/* Search spotlight (replace-header-with-spotlight): a modal overlay in
           every app state. Keyed on the folder so a switch remounts it and

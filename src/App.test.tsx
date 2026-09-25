@@ -232,8 +232,8 @@ describe('application shell', () => {
     expect(screen.queryByRole('button', { name: 'Welcome' })).toBeNull()
     // No vault: no journal calendar (ui-shell journal-calendar requirement).
     expect(screen.queryByRole('button', { name: 'Next month' })).toBeNull()
-    // Today rides in the navigation row in every state, unusable without a
-    // vault (move-today-into-nav-controls).
+    // Today rides in the status bar in every state, unusable without a vault
+    // (move-nav-controls-to-status-bar).
     expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -1226,9 +1226,10 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
 })
 
 describe('history navigation (add-history-navigation spec)', () => {
-  const nav = () => screen.getByRole('complementary', { name: 'Notes' })
-  const back = () => nav().querySelector<HTMLButtonElement>('button[aria-label="Back"]')!
-  const forward = () => nav().querySelector<HTMLButtonElement>('button[aria-label="Forward"]')!
+  // Back and Forward lead the status bar now (move-nav-controls-to-status-bar),
+  // so they are queried globally rather than through the sidebar.
+  const back = () => screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement
+  const forward = () => screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement
   // The page the sidebar marks as open.
   const openRow = () =>
     pagesSection()

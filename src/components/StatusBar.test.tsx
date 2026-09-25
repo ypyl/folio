@@ -6,8 +6,9 @@ import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell/page-editing specs): the
 // crumb and save-state scenarios moved here from the editor pane, plus the
-// indexing label, vault info, and pin toggle. Display-only apart from the pin
-// star — move-help-to-right-panel removed the help button and its modal.
+// indexing label, vault info, the session navigation, and the pin toggle. Its
+// controls are the navigation controls and the pin star
+// (move-nav-controls-to-status-bar); the groups themselves are display-only.
 
 describe('StatusBar', () => {
   describe('path group (file breadcrumb)', () => {
@@ -135,6 +136,80 @@ describe('StatusBar', () => {
       // Breadcrumb segments and the vault text are not interactive. The bar's
       // only control is the pin star, which App opts into (add-pinned-pages).
       expect(container.querySelectorAll('button')).toHaveLength(0)
+    })
+  })
+
+  describe('navigation controls (move-nav-controls-to-status-bar)', () => {
+    const nav = {
+      canBack: true,
+      canForward: true,
+      onBack: vi.fn(),
+      onForward: vi.fn(),
+      canToday: true,
+      onToday: vi.fn(),
+    }
+
+    it('leads the bar with Back, Forward, and Today, in order', () => {
+      const { container } = render(<StatusBar pagePath="a.md" {...nav} onTogglePin={() => {}} />)
+      const group = container.querySelector(`.${styles.nav}`) as HTMLElement
+      const buttons = [...group.querySelectorAll('button')]
+      expect(buttons.map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+        'Back',
+        'Forward',
+        'Today',
+      ])
+      // Nav precedes the pin, which precedes the breadcrumb.
+      const pin = container.querySelector(`.${styles.pin}`) as HTMLElement
+      const path = container.querySelector(`.${styles.path}`) as HTMLElement
+      expect(group.compareDocumentPosition(pin) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(pin.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('disables Back and Forward when the trail has nowhere to step', () => {
+      const { rerender } = render(<StatusBar pagePath="a.md" {...nav} canBack={false} />)
+      expect((screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+      expect((screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      )
+      rerender(<StatusBar pagePath="a.md" {...nav} canForward={false} />)
+      expect((screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+    })
+
+    it('disables Today while no vault is usable', () => {
+      render(<StatusBar pagePath={null} {...nav} canToday={false} />)
+      expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+    })
+
+    it('calls the handler for each control', () => {
+      const onBack = vi.fn()
+      const onForward = vi.fn()
+      const onToday = vi.fn()
+      render(
+        <StatusBar
+          pagePath="a.md"
+          {...nav}
+          onBack={onBack}
+          onForward={onForward}
+          onToday={onToday}
+        />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Forward' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+      expect(onBack).toHaveBeenCalledTimes(1)
+      expect(onForward).toHaveBeenCalledTimes(1)
+      expect(onToday).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders no navigation controls without handlers', () => {
+      const { container } = render(<StatusBar pagePath="a.md" />)
+      expect(container.querySelector(`.${styles.nav}`)).toBeNull()
     })
   })
 
