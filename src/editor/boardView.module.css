@@ -18,13 +18,17 @@
 
 /* Kami chrome for the board editor (board-editor-chrome). Excalidraw themes
    itself entirely through CSS custom properties on `.excalidraw`, so mapping
-   them under this host's scope — two classes, beating the library's one-class
-   base — recolours the toolbar, islands, menus, dialogs, and inputs without
+   them recolours the toolbar, islands, menus, dialogs, and inputs without
    touching layout, icons, the canvas, or the hand-drawn drawing fonts. Scope is
    the palette: colours, surfaces, lines, shadows, and the interface font. The
    variable names are the library's, not a stable public API; a package upgrade
-   that renames them degrades to the stock theme rather than breaking. */
-.board :global(.excalidraw) {
+   that renames them degrades to the stock theme rather than breaking. Dialogs
+   (the Export image dialog among them) render through a portal that appends
+   `.excalidraw.excalidraw-modal-container` to document.body, outside this
+   host's scope, so dialogs would otherwise fall back to the library's purple;
+   the same mapping is applied to that portal root. */
+.board :global(.excalidraw),
+:global(.excalidraw.excalidraw-modal-container) {
   /* Accent: the app's ink-blue, with the darker hover/active shades derived
      rather than invented — Kami has one chromatic colour. */
   --color-primary: var(--brand);
