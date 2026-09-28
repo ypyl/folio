@@ -1,14 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
-import type {
-  CSSProperties,
-  ClipboardEvent,
-  DragEvent,
-  MouseEvent as ReactMouseEvent,
-  ReactNode,
-  Ref,
-} from 'react'
+import type { CSSProperties, ClipboardEvent, DragEvent, ReactNode, Ref } from 'react'
 import { FolioMark } from '../FolioMark'
-import type { EditorAdapter, FoldTarget } from '../editor/editor'
+import type { EditorAdapter } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
 import type { ReferenceKind } from '../vault/parse'
@@ -16,7 +9,6 @@ import type { Suggestion } from '../vault/suggest'
 import { collectFiles, withPastedName } from './dropAssets'
 import { dragRefText, hasDragRef, readDragRef } from './dragRefs'
 import { linkForAsset } from '../vault/link'
-import { FOLD_ARROW_CLASS, updateRailDom } from '../editor/rail'
 import {
   createAssetImages,
   releaseAssetImages,
@@ -127,7 +119,6 @@ export function EditorPane({
 }) {
   const paneRef = useRef<HTMLElement>(null)
   const mountRef = useRef<HTMLDivElement>(null)
-  const railRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<EditorAdapter | null>(null)
   // Vault image URLs for this page (render-vault-images): created when this
   // pane's editor mounts, revoked when it is torn down. A ref, because the pass
@@ -163,42 +154,12 @@ export function EditorPane({
     if (paneRef.current) paneRef.current.scrollTop = 0
   }, [page?.path])
 
-  // The left rail (mark-search-matches-on-the-page): the fold controls, placed
-  // by editor/rail.ts, which measures every item before writing any control so
-  // an update costs one layout. Targets are kept in a ref so the delegated click
-  // maps a control's index back to the item without re-reading the editor.
-  const foldTargetsRef = useRef<FoldTarget[]>([])
-  const updateRail = () => {
-    const host = railRef.current
-    const adapter = adapterRef.current
-    if (!host || !adapter) return
-    const folds = adapter.getFoldTargets()
-    foldTargetsRef.current = folds
-    updateRailDom(host, folds)
-  }
-
   // A search match is marked after the content settles (mark-search-matches-on-
   // the-page). `ready` gates the same-page effect so a remount does not mark
   // before the editor holds the page.
   const highlightRef = useRef(highlight)
   highlightRef.current = highlight
   const readyRef = useRef(false)
-
-  // A press on a fold control must not move the caret out of the document; the
-  // click then toggles the item through the adapter, which re-measures the rail.
-  const onRailMouseDown = (event: ReactMouseEvent) => {
-    if (event.target instanceof Element && event.target.closest(`.${FOLD_ARROW_CLASS}`)) {
-      event.preventDefault()
-    }
-  }
-  const onRailClick = (event: ReactMouseEvent) => {
-    if (!(event.target instanceof Element)) return
-    const arrow = event.target.closest(`.${FOLD_ARROW_CLASS}`)
-    if (!(arrow instanceof HTMLElement)) return
-    event.preventDefault()
-    const target = foldTargetsRef.current[Number(arrow.dataset.foldIndex)]
-    if (target) adapterRef.current?.toggleFold(target.element)
-  }
 
   // Vault images (render-vault-images): the document's image references point
   // at vault paths the browser cannot fetch, so the rendered element is pointed
@@ -259,13 +220,8 @@ export function EditorPane({
     adapter.onChange((markdown) => {
       setIsEmpty(markdown.trim() === '')
       onChange(markdown)
-      updateRail()
       updateImages()
     })
-    // A fold moves the document's blocks without changing its text, so the rail
-    // is re-measured on the editor's layout notification
-    // (add-collapsible-list-items), exactly as it is on a markdown change.
-    adapter.onLayoutChange(() => updateRail())
     adapter.onReferenceClick((target, kind) => openReferenceRef.current?.(target, kind))
     adapter.onBoardLink((path) => boardLinkRef.current?.(path))
     // Vault links (open-vault-assets): the bytes behind a link that points into
@@ -285,7 +241,6 @@ export function EditorPane({
         return adapter.setContent(initialContent).then(() => {
           readyRef.current = true
           adapter.highlightBlock(highlightRef.current?.block ?? null)
-          updateRail()
           updateImages()
         })
       })
@@ -293,18 +248,8 @@ export function EditorPane({
         // Mount failure keeps the pane as-is (empty surface, no error UI).
       })
 
-    // Reflow: window resizes and font loads change block heights, so the
-    // controls must re-glue to their items. jsdom has no ResizeObserver; the
-    // effect guards so tests run without one (the doc-change path above is
-    // what tests drive).
-    let observer: ResizeObserver | null = null
-    if (typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(() => updateRail())
-      observer.observe(el)
-    }
     return () => {
       cancelled = true
-      observer?.disconnect()
       adapterRef.current = null
       // Release this page's image URLs with its editor (design D5).
       assetsRef.current = null
@@ -423,16 +368,6 @@ export function EditorPane({
       className={styles.pane}
     >
       <article className={styles.document}>
-        {/* The left rail (move-list-folds-to-the-left-rail;
-            mark-search-matches-on-the-page): the fold controls. The rail lets
-            clicks fall through except on a control, so it is not hidden from
-            assistive technology. */}
-        <div
-          ref={railRef}
-          className={styles.rail}
-          onMouseDown={onRailMouseDown}
-          onClick={onRailClick}
-        />
         <div
           ref={mountRef}
           className={styles.editor}

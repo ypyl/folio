@@ -260,13 +260,12 @@ recede `--brand-tint`. Solid hex only, no translucent backgrounds. Start pale;
 Native list markers, brand-colored. Do not fake a bullet with a `::before`
 dash — that reads like AI default output, not editorial typesetting.
 
-A list item that holds nested content carries a disclosure control (ADR-0026).
-It is a real 14px button, but it lives in the **left rail** (see Left rail),
-nearest the prose, not in the item's marker lane: the browser's bullet is never
-covered (ADR-0020). The glyph is a quiet `--stone` chevron, pointing down when
-expanded and right when folded, brand on hover. A foldable item shows its
-control at all times — the rail is a control column, not a hover affordance —
-while a leaf item shows none.
+### Editor document
+
+The prose column carries a symmetric reading gutter — 32px on both sides — so
+the document keeps the same margin at either edge. There is deliberately no
+control lane in the left margin: a page's structure is read from its headings,
+not from controls drawn beside nested list items (ADR-0027).
 
 ### Code
 
@@ -278,16 +277,6 @@ string `--olive`, number `--dark-warm`, function/class `--near-black`. The
 mapping lives in `src/editor/codeBlockSetup.ts` (hex values mirror the tokens
 above, so the two must not drift); blocks without a language stay monochrome
 and show the `Text` label.
-
-### Left rail
-
-Quiet rail along the document's left margin holding the fold controls for list
-items (see Lists). Each control sits on its item's first line, nearest the
-prose; no border or fill. The rail itself is inert — `pointer-events: none`,
-and it holds nothing but the controls — while the controls are interactive and
-announced. It carries no line numbers: a page opened to a search match is
-located by marking the block on the page (see Search match), not by a number in
-the margin.
 
 ### Search match
 

@@ -2087,48 +2087,10 @@ describe('MilkdownAdapter drop points (drag-references-into-editor)', () => {
   })
 })
 
-// List folding (add-collapsible-list-items, ADR-0026; move-list-folds-to-the-
-// left-rail): a fold is a view over the Markdown, so the document the
-// serializer reads keeps every line and the page is never dirtied. The control
-// is not the editor's — it is the rail's — so these assert the fold state the
-// rail reads and the toggle the rail calls.
-describe('MilkdownAdapter list folding (add-collapsible-list-items)', () => {
-  const editorAction = (adapter: MilkdownAdapter, f: (ctx: unknown) => unknown): unknown =>
-    (
-      adapter as unknown as { editor: { action: (fn: (ctx: unknown) => unknown) => unknown } }
-    ).editor.action(f)
-
-  const viewOf = (adapter: MilkdownAdapter) =>
-    editorAction(adapter, (ctx) =>
-      (ctx as { get: (k: unknown) => unknown }).get(editorViewCtx),
-    ) as {
-      state: { doc: ProseNode; tr: { insertText: (t: string, p: number) => unknown } }
-      dispatch: (tr: unknown) => void
-    }
-
-  const serialize = (adapter: MilkdownAdapter): string =>
-    editorAction(adapter, (ctx) => {
-      const access = ctx as { get: (k: unknown) => unknown }
-      const view = access.get(editorViewCtx) as { state: { doc: unknown } }
-      const serializer = access.get(serializerCtx) as (doc: unknown) => string
-      return trimTrailingBlankLines(serializer(view.state.doc))
-    }) as string
-
-  const itemStart = (adapter: MilkdownAdapter, label: string): number => {
-    let found = -1
-    viewOf(adapter).state.doc.descendants((node, pos) => {
-      if (
-        found === -1 &&
-        node.type.name === 'list_item' &&
-        node.firstChild?.textContent === label
-      ) {
-        found = pos
-      }
-    })
-    if (found === -1) throw new Error(`no list item with text ${label}`)
-    return found
-  }
-
+// List folding was removed (remove-list-folding): a nested list renders its
+// full content with no fold decoration and no fold control, so nothing is ever
+// hidden and the file keeps every line.
+describe('MilkdownAdapter renders nested lists whole (remove-list-folding)', () => {
   const mount = async (seed: string) => {
     const el = document.createElement('div')
     document.body.appendChild(el)
@@ -2138,75 +2100,16 @@ describe('MilkdownAdapter list folding (add-collapsible-list-items)', () => {
     return { adapter, el }
   }
 
-  const seed = '- A\n  - A1\n- B\n'
-
-  it('lists only the foldable item, expanded, at depth 1, with no editor control', async () => {
-    const { adapter, el } = await mount(seed)
-    const targets = adapter.getFoldTargets()
-    expect(targets).toHaveLength(1)
-    expect(targets[0].folded).toBe(false)
-    expect(targets[0].depth).toBe(1)
-    expect(el.querySelector('.folio-fold-item')).not.toBeNull()
-    // The control lives in the rail, so the editor draws none of its own.
-    expect(el.querySelector('.folio-fold-toggle')).toBeNull()
-    await adapter.destroy()
-    el.remove()
-  })
-
-  it('folds through the adapter without removing content or changing the page', async () => {
-    const { adapter, el } = await mount(seed)
-    const changes: string[] = []
-    adapter.onChange((markdown) => changes.push(markdown))
-    const before = serialize(adapter)
-
-    adapter.toggleFold(adapter.getFoldTargets()[0].element)
-
-    const folded = el.querySelectorAll('li.folio-folded')
-    expect(folded).toHaveLength(1)
-    // The hidden content is still in the DOM: this is a view, not an edit.
-    expect(folded[0].querySelector('ul')).not.toBeNull()
-    expect(serialize(adapter)).toBe(before)
-    expect(adapter.getFoldTargets()[0].folded).toBe(true)
-    // The debounced change stream must stay silent for a fold.
-    await new Promise((resolve) => setTimeout(resolve, 400))
-    expect(changes).toEqual([])
-    await adapter.destroy()
-    el.remove()
-  })
-
-  it('expands a folded item again', async () => {
-    const { adapter, el } = await mount(seed)
-    adapter.toggleFold(adapter.getFoldTargets()[0].element)
-    expect(adapter.getFoldTargets()[0].folded).toBe(true)
-    adapter.toggleFold(adapter.getFoldTargets()[0].element)
-    expect(adapter.getFoldTargets()[0].folded).toBe(false)
-    expect(el.querySelectorAll('li.folio-folded')).toHaveLength(0)
-    await adapter.destroy()
-    el.remove()
-  })
-
-  it('announces a layout change when a fold is toggled through it', async () => {
-    const { adapter, el } = await mount(seed)
-    let calls = 0
-    adapter.onLayoutChange(() => {
-      calls += 1
-    })
-    adapter.toggleFold(adapter.getFoldTargets()[0].element)
-    expect(calls).toBe(1)
-    await adapter.destroy()
-    el.remove()
-  })
-
-  it('keeps a fold and its item element through a text keystroke', async () => {
-    const { adapter, el } = await mount(seed)
-    adapter.toggleFold(adapter.getFoldTargets()[0].element)
-    const before = adapter.getFoldTargets()[0].element
-    const view = viewOf(adapter)
-    view.dispatch(view.state.tr.insertText('!', itemStart(adapter, 'A') + 2))
-    const after = adapter.getFoldTargets()[0]
-    expect(after.folded).toBe(true)
-    // No fold work recreated the item on the keystroke's path.
-    expect(after.element).toBe(before)
+  it('shows a nested list in full with no fold control', async () => {
+    const { adapter, el } = await mount('- A\n  - A1\n- B\n')
+    // Every item renders, including the nested one.
+    const items = [...el.querySelectorAll('li')]
+    expect(items.map((li) => li.firstChild?.textContent)).toEqual(['A', 'A1', 'B'])
+    expect(el.querySelector('li > ul')).not.toBeNull()
+    // No fold decoration and no fold control anywhere in the editor.
+    expect(el.querySelector('.folio-fold-item')).toBeNull()
+    expect(el.querySelector('.folio-folded')).toBeNull()
+    expect(el.querySelector('.folio-fold-arrow')).toBeNull()
     await adapter.destroy()
     el.remove()
   })

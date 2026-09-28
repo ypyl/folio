@@ -1,6 +1,6 @@
 # ADR-0026: Folding a list item is view-only
 
-- Status: Accepted
+- Status: Superseded by [ADR-0027](0027-pages-are-heading-structured-documents.md)
 - Date: 2026-09-23
 
 ## Context

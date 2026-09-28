@@ -3,7 +3,7 @@
 // with a test hook to simulate user edits. Tests inject it by mocking the
 // MilkdownAdapter module.
 
-import type { DropPoint, EditorAdapter, FoldTarget, SuggestionSources } from './editor'
+import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
 import { blockStartLines } from '../lineAnchors'
 import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
@@ -22,14 +22,9 @@ export class FakeEditor implements EditorAdapter {
   /** Every applyChord call, in order — lets tests assert which key
    *  combination a click sent to the editor (apply-shortcuts-on-click). */
   readonly chords: string[] = []
-  /** Fold targets the rail should place controls for (list folding); tests set
-   *  them, and every toggleFold call is recorded in `foldToggles`. */
-  foldTargets: FoldTarget[] = []
-  readonly foldToggles: HTMLElement[] = []
   /** Every highlightBlock call, in order (mark-search-matches-on-the-page). */
   readonly highlights: (number | null)[] = []
   private listeners: ((markdown: string) => void)[] = []
-  private layoutListeners: (() => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
   private boardLinkListeners: ((path: string) => void)[] = []
   /** Every attached vault reader, in order (open-vault-assets) — lets pane
@@ -72,7 +67,6 @@ export class FakeEditor implements EditorAdapter {
   async destroy(): Promise<void> {
     this.destructed = true
     this.listeners = []
-    this.layoutListeners = []
     this.referenceListeners = []
     this.boardLinkListeners = []
     this.suggestionSources = null
@@ -112,19 +106,6 @@ export class FakeEditor implements EditorAdapter {
     this.listeners.push(listener)
   }
 
-  onLayoutChange(listener: () => void): void {
-    this.layoutListeners.push(listener)
-  }
-
-  getFoldTargets(): FoldTarget[] {
-    return this.foldTargets
-  }
-
-  toggleFold(element: HTMLElement): void {
-    this.foldToggles.push(element)
-    this.emitLayoutChange()
-  }
-
   onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {
     this.referenceListeners.push(listener)
   }
@@ -159,11 +140,6 @@ export class FakeEditor implements EditorAdapter {
   /** Test hook: simulate activating a link whose destination is a board file. */
   emitBoardLink(path: string): void {
     for (const listener of this.boardLinkListeners) listener(path)
-  }
-
-  /** Test hook: simulate a layout-only change, as a fold makes. */
-  emitLayoutChange(): void {
-    for (const listener of this.layoutListeners) listener()
   }
 
   /** Test hook: simulate a user edit producing `markdown`. */
