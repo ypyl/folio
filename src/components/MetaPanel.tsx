@@ -207,65 +207,72 @@ export function MetaPanel({
               <p className="section-placeholder">Headings appear once a page is open.</p>
             )}
           </Accordion>
-          <Accordion
-            title="Backlinks"
-            defaultOpen
-            className={styles.section}
-            bodyClassName={styles.fillBody}
-          >
-            {loading ? (
-              skeletonLine
-            ) : pageOpen ? (
-              <LinkList
-                rows={backlinks}
-                activePath={activePath}
-                onActivate={onSelect}
-                dim
-                emptyCopy="Nothing links here yet."
-              />
-            ) : (
-              <p className="section-placeholder">
-                Pages linking to this one appear once a page is open.
-              </p>
-            )}
-          </Accordion>
-          {/* Forwardlinks (add-page-contents): every outgoing reference in one
+          {/* The link sections (bottom-align-collapsed-links): one group that
+              takes the panel's remaining height and bottom-aligns its collapsed
+              rows, so a collapsed Backlinks or Forwardlinks sits directly above
+              the keyboard-shortcuts row rather than under Contents with a gap
+              below it. */}
+          <div className={styles.links}>
+            <Accordion
+              title="Backlinks"
+              defaultOpen
+              className={styles.section}
+              bodyClassName={styles.fillBody}
+            >
+              {loading ? (
+                skeletonLine
+              ) : pageOpen ? (
+                <LinkList
+                  rows={backlinks}
+                  activePath={activePath}
+                  onActivate={onSelect}
+                  dim
+                  emptyCopy="Nothing links here yet."
+                />
+              ) : (
+                <p className="section-placeholder">
+                  Pages linking to this one appear once a page is open.
+                </p>
+              )}
+            </Accordion>
+            {/* Forwardlinks (add-page-contents): every outgoing reference in one
               section, split into the pages it names (navigate) and the files it
               points at — assets and boards (vault-assets, whiteboards) — so the
               two row behaviours stay legible. Collapsed by default, so the
               panel opens on the page's shape and what links here. */}
-          <Accordion
-            title="Forwardlinks"
-            className={styles.section}
-            bodyClassName={styles.fillBody}
-          >
-            {loading ? (
-              skeletonLine
-            ) : pageOpen ? (
-              <div className={styles.groups}>
-                <p className={styles.groupLabel}>Pages</p>
-                <LinkList
-                  rows={forwardlinks}
-                  activePath={activePath}
-                  onActivate={onSelect}
-                  dim
-                  emptyCopy="This page links to nothing."
-                />
-                <p className={styles.groupLabel}>Files</p>
-                <LinkList
-                  rows={references}
-                  activePath={null}
-                  onActivate={onOpenAsset}
-                  dim
-                  emptyCopy="No files on this page."
-                />
-              </div>
-            ) : (
-              <p className="section-placeholder">
-                Links from this page appear once a page is open.
-              </p>
-            )}
-          </Accordion>
+            <Accordion
+              title="Forwardlinks"
+              className={styles.section}
+              bodyClassName={styles.fillBody}
+            >
+              {loading ? (
+                skeletonLine
+              ) : pageOpen ? (
+                <div className={styles.groups}>
+                  <p className={styles.groupLabel}>Pages</p>
+                  <LinkList
+                    rows={forwardlinks}
+                    activePath={activePath}
+                    onActivate={onSelect}
+                    dim
+                    emptyCopy="This page links to nothing."
+                  />
+                  <p className={styles.groupLabel}>Files</p>
+                  <LinkList
+                    rows={references}
+                    activePath={null}
+                    onActivate={onOpenAsset}
+                    dim
+                    emptyCopy="No files on this page."
+                  />
+                </div>
+              ) : (
+                <p className="section-placeholder">
+                  Links from this page appear once a page is open.
+                </p>
+              )}
+            </Accordion>
+          </div>
         </>
       )}
       {/* Keyboard-shortcuts reference (move-help-to-right-panel): the panel's

@@ -338,6 +338,37 @@ describe('MetaPanel', () => {
     expect(screen.queryByText('Contents')).toBeNull()
     expect(screen.getByText('Referenced by')).toBeTruthy()
   })
+
+  it('puts the collapsed link sections in a group directly above the shortcuts row', () => {
+    const { container } = render(
+      <MetaPanel
+        pageOpen
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const panel = container.querySelector('#meta-panel') as HTMLElement
+    const links = panel.querySelector(`.${styles.links}`) as HTMLElement
+    expect(links).toBeTruthy()
+    // The group holds the two link sections, in order…
+    const linkDetails = [...links.querySelectorAll('details')] as HTMLDetailsElement[]
+    expect(linkDetails.map((d) => d.querySelector('summary')?.textContent)).toEqual([
+      'Backlinks',
+      'Forwardlinks',
+    ])
+    // …and sits directly before the keyboard-shortcuts row, so with both link
+    // sections collapsed their rows land at the panel's bottom next to it.
+    linkDetails.forEach((d) => (d.open = false))
+    expect(links.nextElementSibling?.textContent).toContain('Keyboard shortcuts')
+    expect(
+      [...panel.querySelectorAll('details')].map((d) => (d as HTMLDetailsElement).open),
+    ).toEqual([true, false, false, false])
+  })
 })
 
 // Keyboard-shortcuts reference (move-help-to-right-panel): the panel's last

@@ -49,6 +49,19 @@
   flex-direction: column;
 }
 
+/* The link sections as one group (bottom-align-collapsed-links): it takes the
+   panel's remaining height and pushes its collapsed rows to the bottom, so a
+   collapsed Backlinks or Forwardlinks sits directly above the
+   keyboard-shortcuts row instead of leaving a gap below it. An open section
+   still shares the height, because its flex grows inside the group. */
+.links {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
 /* The section's own scroll region: the body scrolls and keeps `Accordion`'s
    padding, so the rows' padding scrolls with them. */
 .fillBody {
