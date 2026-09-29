@@ -1049,7 +1049,7 @@ The gesture SHALL write nothing to the vault: no file is copied, created, rename
 #### Scenario: Dragging an asset row writes a link to that file
 
 - **GIVEN** a vault holding `assets/q3-report.pdf` and an open page, with the caret somewhere in the page
-- **WHEN** the `q3-report.pdf` row is dragged from the sidebar's Assets section and released over a paragraph below the caret
+- **WHEN** the `q3-report.pdf` row is dragged from the Files section's asset rows and released over a paragraph below the caret
 - **THEN** the text `[q3-report](assets/q3-report.pdf)` is inserted at that paragraph, the page's Forwardlinks Files group lists the file after the next save, and the file's bytes and the vault's listing are unchanged
 
 #### Scenario: Dragging an image row writes an image
@@ -1061,7 +1061,7 @@ The gesture SHALL write nothing to the vault: no file is copied, created, rename
 #### Scenario: Dragging a page row writes a reference to that page
 
 - **GIVEN** an open page and a vault holding a page named `reading list`
-- **WHEN** that row is dragged from the sidebar's Pages section into the page
+- **WHEN** that row is dragged from the Files section's page rows into the page
 - **THEN** the text `#[[reading list]]` is inserted at the drop point, and `reading` is written as `#reading`
 
 #### Scenario: A dropped reference is an ordinary edit

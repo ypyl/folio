@@ -13,13 +13,13 @@ A board SHALL be a `.excalidraw` file under the vault's `boards/` directory, at 
 
 - **GIVEN** a vault containing `boards/migration.excalidraw`
 - **WHEN** the vault is indexed
-- **THEN** the file produces no page record, appears in no Pages listing, and is found by no page-content search
+- **THEN** the file produces no page record, appears in no Files listing as a page, and is found by no page-content search
 
 #### Scenario: A board file is not an asset
 
 - **GIVEN** a vault containing `boards/migration.excalidraw`
-- **WHEN** the sidebar's Assets section renders
-- **THEN** the board is not listed among the assets
+- **WHEN** the Files section renders
+- **THEN** the board is not listed among the asset rows
 
 #### Scenario: A board outside boards/ is not listed as a board
 
@@ -125,32 +125,38 @@ While the caret is inside a `#!` or `#![[` board-reference token, the app SHALL 
 - **WHEN** the picker would offer candidates
 - **THEN** it offers nothing and the typed text stays as the user wrote it
 
-### Requirement: The sidebar's Boards section lists the vault's boards and opens them
+### Requirement: The Files listing's board rows list the vault's boards and open them
 
-The sidebar's Boards section SHALL list the vault's board inventory (vault-index), ordered by path and labelled by each board's path inside `boards/`. When the vault holds no boards the section SHALL show empty-state copy, and while the index builds it SHALL show the shell's loading placeholders. Activating a board row SHALL open that board in the main pane, and the row for the open board SHALL carry the active marking. The listing SHALL render only the rows near the visible part of its own scroll region, so the number of rows in the document does not grow with the number of boards.
+The sidebar's Files listing SHALL hold the vault's board rows: the vault's board inventory (vault-index), ordered by path within the board group and labelled by each board's path inside `boards/`, each marked with a `b` badge before its label. Board rows SHALL follow the listing's page rows and precede its asset rows (static-navigation and vault-assets capabilities). When the vault holds no boards the listing SHALL show no board rows. While the index builds it SHALL show the shell's loading placeholders. Activating a board row SHALL open that board in the main pane, and the row for the open board SHALL carry the active marking and SHALL always be rendered while the board is open, even when it sits outside the listing's visible region. The listing SHALL render only the rows near the visible part of its own scroll region, so the number of rows in the document does not grow with the number of boards.
 
 #### Scenario: The section lists boards in path order
 
 - **GIVEN** a vault holding `boards/Migration.excalidraw` and `boards/Archive/old.excalidraw`
-- **WHEN** the Boards section renders
-- **THEN** it lists two rows, ordered by path, labelled `Archive/old.excalidraw` and `Migration.excalidraw`
+- **WHEN** the Files listing renders
+- **THEN** it lists two board rows (each with a `b` badge) after the page rows and before the asset rows, ordered by path, labelled `Archive/old.excalidraw` and `Migration.excalidraw`
 
 #### Scenario: Activating a row opens the board
 
-- **WHEN** the user activates a Boards row
+- **WHEN** the user activates a board row
 - **THEN** the board opens in the main pane, the editor pane's page is replaced, and the row is marked active
+
+#### Scenario: The open board's row is always rendered
+
+- **GIVEN** the open board sits far from the current scroll position in the Files listing
+- **WHEN** the Files section renders
+- **THEN** that board's row is in the document and marked as the active row, exactly as an open page's row is
 
 #### Scenario: A large board inventory renders a bounded number of rows
 
 - **GIVEN** a vault with thousands of boards
-- **WHEN** the Boards section renders
+- **WHEN** the Files section renders
 - **THEN** only a small number of rows near the visible part of its scroll region are in the document, and that number does not grow with the number of boards
 
 #### Scenario: An empty boards folder shows copy
 
 - **GIVEN** an open vault with no boards
-- **WHEN** the Boards section is open
-- **THEN** it shows empty-state copy instead of rows
+- **WHEN** the Files section renders
+- **THEN** it shows no board rows
 
 ### Requirement: Any .excalidraw file opens in the board editor
 
@@ -209,6 +215,7 @@ While a board is open, the meta panel SHALL show a "Referenced by" section listi
 - **GIVEN** a board no page references
 - **WHEN** the board is open
 - **THEN** the Referenced by section shows empty-state copy
+
 ### Requirement: A board with no background of its own opens on the app's parchment
 
 While a board is open, the board editor's canvas background SHALL be the scene's own `viewBackgroundColor` when the board carries one. A board whose scene names no background — a board created from a reference and never saved, or a file that carries no background value — SHALL open with the canvas background set to the app's parchment token (`--parchment`, `#f5f4ed`) rather than the editor's own white default, so a new board is not the one pure-white surface in the app. The default SHALL apply only when the scene names none: a board saved with a background, or one whose background the user changed with the editor's background picker, SHALL reopen with that value unchanged. The background SHALL be part of the board's scene, so it saves and reopens like any other board property, and the app SHALL NOT write a background over one the board already holds.
@@ -276,6 +283,7 @@ While a page is open, the Forwardlinks section's Files group SHALL list one row 
 - **GIVEN** an open page whose content is `#!Migration and [x](boards/Migration.excalidraw)`
 - **WHEN** the user looks at the Forwardlinks Files group
 - **THEN** it lists a single `Migration.excalidraw` row
+
 ### Requirement: The board editor's chrome renders in the app's palette
 
 While a board is open, the board editor's own chrome — its toolbar, islands, menus, dialogs, buttons, inputs, and popups — SHALL render in the app's design language rather than the editor library's stock light theme. The accent (selection, active tools, focus, links) SHALL be the app's ink-blue brand and no second chromatic colour SHALL appear in the chrome; island and panel surfaces SHALL be the app's warm ivory and parchment, never pure white; body and label text SHALL be the app's warm near-black and olive; borders SHALL be the app's warm hairline; floating surfaces SHALL carry the app's whisper shadow; and the interface font SHALL be the app's own, not the editor library's bundled font. The override SHALL be scoped to the board editor so no surface elsewhere in the app changes.
