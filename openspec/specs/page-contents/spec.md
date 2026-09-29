@@ -5,9 +5,10 @@
 The right meta panel's Contents section: the open page's headings, shown as an indented list so a reader can see the page's shape and move to a section, derived from saved content and never written to the vault.
 
 ## Requirements
+
 ### Requirement: The Contents section lists the open page's headings
 
-The right meta panel SHALL contain a Contents section, above the Backlinks section. When a page is open the section SHALL list one row per heading in the page's content, in document order, labelled with the heading's text with inline formatting (emphasis, code, links) reduced to its plain text. Each row SHALL be indented one step further for each heading level below the top level, so the list shows the page's heading hierarchy. Only headings SHALL be listed: a list item, a paragraph, or any other block SHALL never produce a row (ADR-0027). The section SHALL be open by default, and it SHALL size to its content up to a maximum height, scrolling within itself when the list is longer; the panel's link sections SHALL keep sharing the remaining height. Two headings with the same text SHALL be two rows.
+The right meta panel SHALL contain a Contents section, above the Links section. When a page is open the section SHALL list one row per heading in the page's content, in document order, labelled with the heading's text with inline formatting (emphasis, code, links) reduced to its plain text. Each row SHALL be indented one step further for each heading level below the top level, so the list shows the page's heading hierarchy. Only headings SHALL be listed: a list item, a paragraph, or any other block SHALL never produce a row (ADR-0027). The section SHALL be open by default, and it SHALL size to its content up to a maximum height, scrolling within itself when the list is longer; the panel's Links section SHALL keep taking the remaining height. Two headings with the same text SHALL be two rows.
 
 #### Scenario: Headings are listed in document order, indented by level
 
