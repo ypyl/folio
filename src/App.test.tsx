@@ -146,10 +146,10 @@ const section = (title: string, root: HTMLElement = document.body) =>
   within((within(root).getByText(title) as HTMLElement).closest('details') as HTMLElement)
 const filesSection = () => section('Files', document.getElementById('sidebar-pane') as HTMLElement)
 
-/** The Forwardlinks section, opened so its rows are reachable (it is collapsed
- *  by default since add-page-contents). */
-const forwardlinks = () => {
-  const el = (within(document.body).getByText('Forwardlinks') as HTMLElement).closest(
+/** The Links section, opened so its rows are reachable (it is open by
+ *  default; one accordion replaced Backlinks and Forwardlinks). */
+const links = () => {
+  const el = (within(document.body).getByText('Links') as HTMLElement).closest(
     'details',
   ) as HTMLDetailsElement
   el.open = true
@@ -229,7 +229,7 @@ describe('application shell', () => {
       expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
       expect(screen.getByText('Journal')).toBeTruthy()
       expect(screen.getByText('Files')).toBeTruthy()
-      expect(screen.getByText('Backlinks')).toBeTruthy()
+      expect(screen.getByText('Links')).toBeTruthy()
       // Restore resolves async; once no folder is present the hint settles.
       expect(await screen.findByText('Open a folder to begin.')).toBeTruthy()
       expect(screen.getByRole('button', { name: 'Add folder' })).toBeTruthy()
@@ -430,12 +430,12 @@ describe('navigation over the real index', () => {
     await openFixture(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Topic' }))
     await waitFor(() =>
-      expect(section('Backlinks').getByRole('button', { name: 'Recent' })).toBeTruthy(),
+      expect(section('Links').getByRole('button', { name: 'Recent' })).toBeTruthy(),
     )
-    const labels = section('Backlinks')
+    const labels = section('Links')
       .getAllByRole('button')
       .map((b) => b.textContent)
-    expect(labels).toEqual(['Recent', 'Alpha', 'Zeta'])
+    expect(labels).toEqual(['inRecent', 'inAlpha', 'inZeta'])
     vi.unstubAllGlobals()
   })
 
@@ -450,10 +450,13 @@ describe('navigation over the real index', () => {
     render(<App />)
     await openFixture(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Hub' }))
-    const forward = forwardlinks()
+    const forward = links()
     await forward.findByRole('button', { name: 'Zulu' })
-    // Document order, not alphabetical: Zulu is referenced first.
-    expect(forward.getAllByRole('button').map((b) => b.textContent)).toEqual(['Zulu', 'Alpha'])
+    // Document order, not alphabetical: Zulu is referenced first (each `out`).
+    expect(forward.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'outZulu',
+      'outAlpha',
+    ])
     vi.unstubAllGlobals()
   })
 
@@ -467,11 +470,11 @@ describe('navigation over the real index', () => {
     render(<App />)
     await openFixture(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Hub' }))
-    const forward = forwardlinks()
+    const forward = links()
     await forward.findByRole('button', { name: 'q3-report.pdf' })
-    // The Forwardlinks list holds the page's files — assets first, then boards,
-    // both in document order, so a board named before an asset still follows
-    // it — each badged by kind (merge-forwardlinks-groups).
+    // The Links list holds the page's files — assets first, then boards, both
+    // in document order, so a board named before an asset still follows it —
+    // each badged by kind (merge-link-sections).
     expect(forward.getAllByRole('button').map((b) => b.textContent)).toEqual([
       'aq3-report.pdf',
       'bMigration.excalidraw',
@@ -494,14 +497,14 @@ describe('navigation over the real index', () => {
     await openFixture(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Report' }))
 
-    // The file is listed in the one Forwardlinks list, named for the file, and
-    // is not dimmed: an asset row exists only for a file the vault holds.
-    const forward = forwardlinks()
+    // The file is listed in the one Links list, named for the file, and is not
+    // dimmed: an asset row exists only for a file the vault holds.
+    const forward = links()
     const row = await forward.findByRole('button', { name: 'q3-report.pdf' })
     expect(row.className).not.toContain('dimmed')
     expect(row.getAttribute('aria-current')).toBeNull()
     // The file row is in the list, so the list is not empty.
-    expect(forward.queryByText('This page links to nothing.')).toBeNull()
+    expect(forward.queryByText('No links yet.')).toBeNull()
 
     fireEvent.click(row)
     await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
@@ -579,10 +582,7 @@ describe('navigation over the real index', () => {
     // the meta panel falls back to its placeholder copy (indexing-loading-
     // state only swaps in skeleton rows while a folder's index builds).
     fireEvent.click(screen.getByRole('button', { name: 'Folio, go home' }))
-    expect(
-      await screen.findByText('Pages linking to this one appear once a page is open.'),
-    ).toBeTruthy()
-    expect(screen.getByText('Links from this page appear once a page is open.')).toBeTruthy()
+    expect(await screen.findByText('Links appear once a page is open.')).toBeTruthy()
     vi.unstubAllGlobals()
   })
 
@@ -777,7 +777,9 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('Half-formed thoughts worth keeping'),
     )
-    expect(screen.getByRole('button', { name: 'Ideas' }).getAttribute('aria-current')).toBe('page')
+    expect(filesSection().getByRole('button', { name: 'Ideas' }).getAttribute('aria-current')).toBe(
+      'page',
+    )
     vi.unstubAllGlobals()
   })
 
@@ -1089,7 +1091,7 @@ describe('search results view (search-results-view spec)', () => {
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
     // Page metadata is page-scoped: empty placeholders while browsing.
-    expect(screen.getByText('Pages linking to this one appear once a page is open.')).toBeTruthy()
+    expect(screen.getByText('Links appear once a page is open.')).toBeTruthy()
     vi.unstubAllGlobals()
   })
 
@@ -1649,7 +1651,7 @@ describe('whiteboards (add-whiteboards)', () => {
     const labels = section('Referenced by')
       .getAllByRole('button')
       .map((b) => b.textContent)
-    expect(labels).toEqual(['Second', 'First'])
+    expect(labels).toEqual(['inSecond', 'inFirst'])
     vi.unstubAllGlobals()
   })
 })
@@ -1665,7 +1667,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     await openFixture(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
 
-    const row = await forwardlinks().findByRole('button', {
+    const row = await links().findByRole('button', {
       name: 'Migration.excalidraw',
     })
     expect(row.className).not.toContain('dimmed')
@@ -1683,7 +1685,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     })
     await openFixture(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
-    const rows = await forwardlinks().findAllByRole('button', {
+    const rows = await links().findAllByRole('button', {
       name: 'Migration.excalidraw',
     })
     expect(rows).toHaveLength(1)
@@ -1695,7 +1697,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     const tree = buildTree({ pages: { 'Ideas.md': 'A sketch: #!Architecture' } })
     await openFixture(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
-    const row = await forwardlinks().findByRole('button', {
+    const row = await links().findByRole('button', {
       name: 'Architecture.excalidraw',
     })
     expect(row.className).toContain('dimmed')

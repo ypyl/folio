@@ -184,23 +184,26 @@
   white-space: nowrap;
 }
 
-/* Kind badge (merge-forwardlinks-groups): a board's `b`, an asset's `a`,
-   leading the label. A page row carries none, matching the sidebar. Muted chip,
-   so the badge never competes with the title. */
+/* Kind badge (merge-link-sections): the row's direction or file kind — a
+   backlink page `in`, a forwardlink page `out`, an asset `a`, a board `b`. The
+   box grows with the text so `in`/`out` are not clipped. Muted chip, so the
+   badge never competes with the title. */
 .badge {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
+  min-width: 16px;
   height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
   border-radius: 4px;
   background: var(--warm-sand);
   color: var(--stone);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   line-height: 1;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 /* Placeholder line (indexing-loading-state): sized to the placeholder copy

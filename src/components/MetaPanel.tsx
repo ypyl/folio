@@ -4,15 +4,17 @@ import { Accordion } from './Accordion'
 import styles from './MetaPanel.module.css'
 
 // One link row in the meta panel. `path` is the target's vault-relative path;
-// `kind` is what the row points at, which decides both its badge (a board `b`,
-// an asset `a`; a page none) and what activating it does: a page row navigates,
-// a file row opens the file or board it names and leaves the app where it is.
+// `kind` is what the row points at, which decides what activating it does: a
+// page row navigates, a file row opens the file or board it names and leaves the
+// app where it is. `badge` is what the row reads: a backlink page `in`, a
+// forwardlink page `out`, an asset `a`, a board `b` (merge-link-sections).
 // `materialized` is false when the target has no file on disk yet — a page or
 // board row is dimmed but still activatable, opening a blank page or board that
 // materializes on first save (static-navigation spec); an asset row is never
 // dimmed, because it exists only for a file the vault holds.
 export type LinkRow = {
   kind: 'page' | 'board' | 'asset'
+  badge: 'in' | 'out' | 'a' | 'b'
   title: string
   path: string
   materialized: boolean
@@ -57,11 +59,9 @@ function LinkList({
             aria-current={isActive ? 'page' : undefined}
             onClick={() => (row.kind === 'page' ? onSelect(row.path) : onOpenAsset(row.path))}
           >
-            {row.kind !== 'page' && (
-              <span className={styles.badge} aria-hidden="true">
-                {row.kind === 'board' ? 'b' : 'a'}
-              </span>
-            )}
+            <span className={styles.badge} aria-hidden="true">
+              {row.badge}
+            </span>
             <span className={styles.rowText}>{row.title}</span>
           </button>
         )
@@ -101,12 +101,12 @@ function ContentList({
   )
 }
 
-// The right meta panel: Contents, Backlinks, Forwardlinks, and the
-// keyboard-shortcuts reference (add-page-contents). Contents lists the open
-// page's headings (page-contents capability); Forwardlinks holds every outgoing
-// reference in one list — the pages it names, then the files it points at,
-// assets and boards — each row badged by kind (merge-forwardlinks-groups).
-// Backlinks stays its own page-only section.
+// The right meta panel: Contents, Links, and the keyboard-shortcuts reference
+// (add-page-contents, merge-link-sections). Contents lists the open page's
+// headings (page-contents capability); Links holds the open page's links in one
+// list — the pages that reference it, then the pages it references, then its
+// files (assets then boards) — each row badged by direction or kind. While a
+// board is open the panel shows the board's Referenced by rows instead.
 // Placeholder copy while no page is open; real, navigable rows (or empty-state
 // copy) once one is (ui-shell spec); skeleton rows while the active folder's
 // index builds (indexing-loading-state). Components never import the vault —
@@ -117,8 +117,7 @@ function ContentList({
 export function MetaPanel({
   pageOpen,
   contents = [],
-  backlinks,
-  forwardlinks,
+  links,
   activePath,
   boardOpen = false,
   boardReferrers = [],
@@ -132,10 +131,10 @@ export function MetaPanel({
   pageOpen: boolean
   /** The open page's headings, above Backlinks (add-page-contents). */
   contents?: ContentEntry[]
-  backlinks: LinkRow[]
-  /** The open page's outgoing references — its page references, then its files
-   *  (assets and boards) — in one badged list (merge-forwardlinks-groups). */
-  forwardlinks: LinkRow[]
+  /** The open page's links in one list: the pages that reference it (`in`), the
+   *  pages it references (`out`), then its files (assets `a`, boards `b`). App
+   *  orders and memoizes it (merge-link-sections). */
+  links: LinkRow[]
   activePath: string | null
   /** A board is open (add-whiteboards): the panel shows the pages that
    *  reference it instead of the page-metadata sections. */
@@ -209,14 +208,12 @@ export function MetaPanel({
               <p className="section-placeholder">Headings appear once a page is open.</p>
             )}
           </Accordion>
-          {/* The link sections (bottom-align-collapsed-links): one group that
-              takes the panel's remaining height and bottom-aligns its collapsed
-              rows, so a collapsed Backlinks or Forwardlinks sits directly above
-              the keyboard-shortcuts row rather than under Contents with a gap
-              below it. */}
+          {/* The Links section (merge-link-sections): the page's incoming and
+              outgoing links in one list, badged by direction or file kind. Open
+              by default, and it takes the panel's remaining height. */}
           <div className={styles.links}>
             <Accordion
-              title="Backlinks"
+              title="Links"
               defaultOpen
               className={styles.section}
               bodyClassName={styles.fillBody}
@@ -225,42 +222,14 @@ export function MetaPanel({
                 skeletonLine
               ) : pageOpen ? (
                 <LinkList
-                  rows={backlinks}
+                  rows={links}
                   activePath={activePath}
                   onSelect={onSelect}
                   onOpenAsset={onOpenAsset}
-                  emptyCopy="Nothing links here yet."
+                  emptyCopy="No links yet."
                 />
               ) : (
-                <p className="section-placeholder">
-                  Pages linking to this one appear once a page is open.
-                </p>
-              )}
-            </Accordion>
-            {/* Forwardlinks (add-page-contents, merge-forwardlinks-groups):
-              every outgoing reference in one list — the pages it names, then
-              the files it points at (assets, then boards), each row badged by
-              kind. Collapsed by default, so the panel opens on the page's shape
-              and what links here. */}
-            <Accordion
-              title="Forwardlinks"
-              className={styles.section}
-              bodyClassName={styles.fillBody}
-            >
-              {loading ? (
-                skeletonLine
-              ) : pageOpen ? (
-                <LinkList
-                  rows={forwardlinks}
-                  activePath={activePath}
-                  onSelect={onSelect}
-                  onOpenAsset={onOpenAsset}
-                  emptyCopy="This page links to nothing."
-                />
-              ) : (
-                <p className="section-placeholder">
-                  Links from this page appear once a page is open.
-                </p>
+                <p className="section-placeholder">Links appear once a page is open.</p>
               )}
             </Accordion>
           </div>

@@ -64,8 +64,9 @@ const EMPTY_ASSETS: string[] = []
 /** One shared empty boards list, for the same reason as `EMPTY_ASSETS`. */
 const EMPTY_BOARDS: string[] = []
 
-/** The rows the meta panel's References section shows for an open page
- *  (vault-assets, board-references-in-panel): one per file the page points at,
+/** The rows the meta panel's Links list shows for the open page
+ *  (vault-assets, board-references-in-panel, merge-link-sections): one per file
+ *  the page points at,
  *  plus one per board it references with a `#!` token, deduped by path — a board
  *  row winning, so a token and a path link to one board are one row, and the
  *  board's own view is what activating it opens. A board the vault does not
@@ -86,12 +87,13 @@ function orderByLastEdited(graph: Graph, paths: string[]): string[] {
 function pageReferenceRows(page: IndexPage, graph: Graph): LinkRow[] {
   const rows = new Map<string, LinkRow>()
   for (const path of pageAssets(page, graph)) {
-    rows.set(path, { kind: 'asset', title: assetName(path), path, materialized: true })
+    rows.set(path, { kind: 'asset', badge: 'a', title: assetName(path), path, materialized: true })
   }
   for (const ref of page.boards) {
     const path = resolveBoardPath(ref.target, graph.boardsByName)
     rows.set(path, {
       kind: 'board',
+      badge: 'b',
       title: boardName(path),
       path,
       materialized: graph.files.has(path),
@@ -622,7 +624,13 @@ function App() {
         ? orderByLastEdited(graph, graph.backlinks.get(page.title.toLowerCase()) ?? []).map(
             (path) => {
               const p = graph.pages.get(path)
-              return { kind: 'page' as const, title: p ? p.title : path, path, materialized: true }
+              return {
+                kind: 'page' as const,
+                badge: 'in' as const,
+                title: p ? p.title : path,
+                path,
+                materialized: true,
+              }
             },
           )
         : [],
@@ -638,6 +646,7 @@ function App() {
             const p = graph.pages.get(path)
             return {
               kind: 'page' as const,
+              badge: 'in' as const,
               title: p ? p.title : path,
               path,
               materialized: p !== undefined,
@@ -665,6 +674,7 @@ function App() {
                 if (p) {
                   return {
                     kind: 'page' as const,
+                    badge: 'out' as const,
                     title: p.title,
                     path: targetPath,
                     materialized: true,
@@ -676,6 +686,7 @@ function App() {
                 // day, which materializes under `journals/`.
                 return {
                   kind: 'page' as const,
+                  badge: 'out' as const,
                   title: l.target,
                   path: targetPath,
                   materialized: false,
@@ -722,6 +733,14 @@ function App() {
   const journalEntries = useMemo(
     () => (graph ? [...graph.pages.values()].filter((p) => p.kind === 'journal') : []),
     [graph],
+  )
+
+  // The Links list (merge-link-sections): the open page's incoming pages, then
+  // its outgoing pages and files, as one memoized array. The two source arrays
+  // are already memoized, so combining them stays off the keystroke path.
+  const linkRows = useMemo(
+    () => (mode === 'page' ? [...backlinkRows, ...forwardlinkRows] : []),
+    [mode, backlinkRows, forwardlinkRows],
   )
 
   // The sidebar's single listing (merge-sidebar-sections): pages lead (pinned
@@ -940,8 +959,7 @@ function App() {
           /* oxlint-disable react/refs */
           pageOpen={mode === 'page' && page !== null}
           contents={mode === 'page' ? contentsRows : []}
-          backlinks={mode === 'page' ? backlinkRows : []}
-          forwardlinks={mode === 'page' ? forwardlinkRows : []}
+          links={linkRows}
           activePath={mode === 'page' ? activePath : null}
           boardOpen={mode === 'board'}
           boardReferrers={boardReferrerRows}

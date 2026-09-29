@@ -11,8 +11,19 @@ const shortcuts = <p>shortcuts</p>
 // The meta panel is pure presentation (design D6): it renders the rows App
 // hands it and reports navigation through onSelect. No editor/vault deps.
 
+/** A forwardlink page row as App builds it. */
 const row = (path: string, materialized = true): LinkRow => ({
   kind: 'page',
+  badge: 'out',
+  title: path.replace('.md', ''),
+  path,
+  materialized,
+})
+
+/** A backlink page row as App builds it. */
+const backlinkRow = (path: string, materialized = true): LinkRow => ({
+  kind: 'page',
+  badge: 'in',
   title: path.replace('.md', ''),
   path,
   materialized,
@@ -21,6 +32,7 @@ const row = (path: string, materialized = true): LinkRow => ({
 /** An asset row as App builds it (vault-assets): a file the vault holds. */
 const assetRow = (path: string): LinkRow => ({
   kind: 'asset',
+  badge: 'a',
   title: path.slice(path.lastIndexOf('/') + 1),
   path,
   materialized: true,
@@ -29,6 +41,7 @@ const assetRow = (path: string): LinkRow => ({
 /** A board row as App builds it (whiteboards): the vault may not hold one yet. */
 const boardRow = (path: string, materialized = true): LinkRow => ({
   kind: 'board',
+  badge: 'b',
   title: path.slice(path.lastIndexOf('/') + 1),
   path,
   materialized,
@@ -41,20 +54,14 @@ describe('MetaPanel', () => {
     render(
       <MetaPanel
         pageOpen={false}
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    expect(
-      within(meta()).getByText('Pages linking to this one appear once a page is open.'),
-    ).toBeTruthy()
-    expect(
-      within(meta()).getByText('Links from this page appear once a page is open.'),
-    ).toBeTruthy()
+    expect(within(meta()).getByText('Links appear once a page is open.')).toBeTruthy()
     expect(within(meta()).getByText('Headings appear once a page is open.')).toBeTruthy()
   })
 
@@ -62,8 +69,7 @@ describe('MetaPanel', () => {
     render(
       <MetaPanel
         pageOpen={false}
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -72,53 +78,69 @@ describe('MetaPanel', () => {
       />,
     )
     // No placeholder copy, no link rows — only decorative skeleton lines.
-    expect(
-      within(meta()).queryByText('Pages linking to this one appear once a page is open.'),
-    ).toBeNull()
-    expect(
-      within(meta()).queryByText('Links from this page appear once a page is open.'),
-    ).toBeNull()
+    expect(within(meta()).queryByText('Links appear once a page is open.')).toBeNull()
+    expect(within(meta()).queryByText('Headings appear once a page is open.')).toBeNull()
     expect(within(meta()).queryByRole('button')).toBeNull()
     // One placeholder line per section, sized like the copy it replaces.
-    expect(meta().querySelectorAll('.skeleton[aria-hidden="true"]').length).toBe(3)
+    expect(meta().querySelectorAll('.skeleton[aria-hidden="true"]').length).toBe(2)
   })
 
-  it("renders each section's rows in the order it is given", () => {
+  it('renders the Links rows in the order they are given', () => {
     render(
       <MetaPanel
         pageOpen
-        backlinks={[row('Zeta.md'), row('Alpha.md')]}
-        forwardlinks={[row('Beta.md'), row('Gama.md')]}
+        links={[backlinkRow('Zeta.md'), row('Beta.md'), assetRow('assets/shot.png')]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    // The panel never re-sorts (reorder-meta-panel-lists): each list keeps the
-    // order its caller passed, and DOM order follows the accordion
-    // (Backlinks then Forwardlinks).
-    const lists = meta().querySelectorAll(`.${styles.list}`)
-    const first = [...lists[0].querySelectorAll('button')].map((b) => b.textContent)
-    const second = [...lists[1].querySelectorAll('button')].map((b) => b.textContent)
-    expect(first).toEqual(['Zeta', 'Alpha'])
-    expect(second).toEqual(['Beta', 'Gama'])
+    // The panel never re-sorts: the list keeps the order its caller passed.
+    const list = meta().querySelector(`.${styles.list}`) as HTMLElement
+    expect([...list.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      'inZeta',
+      'outBeta',
+      'ashot.png',
+    ])
   })
 
-  it('shows empty-state copy when a section has no rows', () => {
+  it('badges every row by direction or file kind', () => {
     render(
       <MetaPanel
         pageOpen
-        backlinks={[]}
-        forwardlinks={[row('Beta.md')]}
+        links={[
+          backlinkRow('Topic.md'),
+          row('Roadmap.md'),
+          assetRow('assets/shot.png'),
+          boardRow('boards/migration.excalidraw'),
+        ]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    expect(within(meta()).getByText('Nothing links here yet.')).toBeTruthy()
-    expect(within(meta()).queryByText('This page links to nothing.')).toBeNull()
+    const badge = (name: string) =>
+      within(meta()).getByRole('button', { name }).querySelector(`.${styles.badge}`)?.textContent
+    expect(badge('Topic')).toBe('in')
+    expect(badge('Roadmap')).toBe('out')
+    expect(badge('shot.png')).toBe('a')
+    expect(badge('migration.excalidraw')).toBe('b')
+  })
+
+  it('shows empty-state copy when the Links list has no rows', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        links={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    expect(within(meta()).getByText('No links yet.')).toBeTruthy()
   })
 
   it('dims unmaterialized rows but keeps them clickable', () => {
@@ -126,8 +148,7 @@ describe('MetaPanel', () => {
     render(
       <MetaPanel
         pageOpen
-        backlinks={[]}
-        forwardlinks={[row('missing.md', false)]}
+        links={[row('missing.md', false)]}
         activePath={null}
         onSelect={onSelect}
         onOpenAsset={() => {}}
@@ -144,8 +165,7 @@ describe('MetaPanel', () => {
     render(
       <MetaPanel
         pageOpen
-        backlinks={[row('Alpha.md'), row('Beta.md')]}
-        forwardlinks={[]}
+        links={[backlinkRow('Alpha.md'), backlinkRow('Beta.md')]}
         activePath="Beta.md"
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -160,70 +180,13 @@ describe('MetaPanel', () => {
     ).toBeNull()
   })
 
-  it('renders Forwardlinks pages then files in the order it is given', () => {
-    render(
-      <MetaPanel
-        pageOpen
-        backlinks={[]}
-        forwardlinks={[
-          row('Roadmap.md'),
-          assetRow('assets/q3-report.pdf'),
-          assetRow('assets/a.png'),
-        ]}
-        activePath={null}
-        onSelect={() => {}}
-        onOpenAsset={() => {}}
-        shortcuts={shortcuts}
-      />,
-    )
-    const section = screen.getByText('Forwardlinks').closest('details') as HTMLElement
-    const labels = [...section.querySelectorAll('button')].map((b) => b.textContent)
-    // One Forwardlinks list: pages first, then the files (assets) badged by
-    // kind. No group labels remain (merge-forwardlinks-groups).
-    expect(labels).toEqual(['Roadmap', 'aq3-report.pdf', 'aa.png'])
-    expect(within(section).queryByText('Pages')).toBeNull()
-    expect(within(section).queryByText('Files')).toBeNull()
-  })
-
-  it('badges board and asset rows by kind and leaves page rows unbadged', () => {
-    render(
-      <MetaPanel
-        pageOpen
-        backlinks={[]}
-        forwardlinks={[
-          row('Roadmap.md'),
-          boardRow('boards/Migration.excalidraw'),
-          assetRow('assets/shot.png'),
-        ]}
-        activePath={null}
-        onSelect={() => {}}
-        onOpenAsset={() => {}}
-        shortcuts={shortcuts}
-      />,
-    )
-    const forward = screen.getByText('Forwardlinks').closest('details') as HTMLElement
-    expect(
-      within(forward).getByRole('button', { name: 'Roadmap' }).querySelector(`.${styles.badge}`),
-    ).toBeNull()
-    expect(
-      within(forward)
-        .getByRole('button', { name: 'Migration.excalidraw' })
-        .querySelector(`.${styles.badge}`)?.textContent,
-    ).toBe('b')
-    expect(
-      within(forward).getByRole('button', { name: 'shot.png' }).querySelector(`.${styles.badge}`)
-        ?.textContent,
-    ).toBe('a')
-  })
-
   it('opens an asset row instead of navigating, and never dims it', () => {
     const onSelect = vi.fn()
     const onOpenAsset = vi.fn()
     render(
       <MetaPanel
         pageOpen
-        backlinks={[]}
-        forwardlinks={[assetRow('assets/q3-report.pdf')]}
+        links={[assetRow('assets/q3-report.pdf')]}
         activePath={null}
         onSelect={onSelect}
         onOpenAsset={onOpenAsset}
@@ -237,12 +200,11 @@ describe('MetaPanel', () => {
     expect(onSelect).not.toHaveBeenCalled()
   })
 
-  it('opens Contents and Backlinks by default, with Forwardlinks collapsed', () => {
+  it('opens Contents and Links by default, with the keyboard reference collapsed', () => {
     const { container } = render(
       <MetaPanel
         pageOpen
-        backlinks={[]}
-        forwardlinks={[assetRow('assets/shot.png')]}
+        links={[assetRow('assets/shot.png')]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -252,34 +214,19 @@ describe('MetaPanel', () => {
     const sections = [...container.querySelectorAll('details')] as HTMLDetailsElement[]
     expect(sections.map((s) => s.querySelector('summary')?.textContent)).toEqual([
       'Contents',
-      'Backlinks',
-      'Forwardlinks',
+      'Links',
       'Keyboard shortcuts',
     ])
-    expect(sections.map((s) => s.open)).toEqual([true, true, false, false])
+    expect(sections.map((s) => s.open)).toEqual([true, true, false])
   })
 
-  it('dims an unmaterialized board row in References, and leaves a file row undimmed', () => {
-    // References holds asset rows (always materialized, because they come from
-    // the vault's own listing) and board rows, which may name a board the vault
-    // does not hold yet; only the latter dims (board-references-in-panel).
+  it('dims an unmaterialized board row in Links, and leaves a file row undimmed', () => {
     render(
       <MetaPanel
         pageOpen
-        backlinks={[]}
-        forwardlinks={[
-          {
-            kind: 'asset',
-            title: 'q3-report.pdf',
-            path: 'assets/q3-report.pdf',
-            materialized: true,
-          },
-          {
-            kind: 'board',
-            title: 'Architecture.excalidraw',
-            path: 'boards/Architecture.excalidraw',
-            materialized: false,
-          },
+        links={[
+          assetRow('assets/q3-report.pdf'),
+          boardRow('boards/Architecture.excalidraw', false),
         ]}
         activePath={null}
         onSelect={() => {}}
@@ -295,34 +242,18 @@ describe('MetaPanel', () => {
     ).toContain(styles.dimmed)
   })
 
-  it('shows one empty copy only when the whole Forwardlinks list is empty', () => {
-    const { rerender } = render(
+  it('shows no empty copy when the page has links', () => {
+    render(
       <MetaPanel
         pageOpen
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[backlinkRow('Alpha.md')]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    const forward = () => screen.getByText('Forwardlinks').closest('details') as HTMLElement
-    expect(within(forward()).getByText('This page links to nothing.')).toBeTruthy()
-    // A page-only list has rows, so no empty copy (merge-forwardlinks-groups).
-    rerender(
-      <MetaPanel
-        pageOpen
-        backlinks={[]}
-        forwardlinks={[row('Beta.md')]}
-        activePath={null}
-        onSelect={() => {}}
-        onOpenAsset={() => {}}
-        shortcuts={shortcuts}
-      />,
-    )
-    expect(within(forward()).queryByText('This page links to nothing.')).toBeNull()
-    expect(within(forward()).getByRole('button', { name: 'Beta' })).toBeTruthy()
+    expect(within(meta()).queryByText('No links yet.')).toBeNull()
   })
 
   it('lists the page headings in Contents, indented by level, and locates on activation', () => {
@@ -334,8 +265,7 @@ describe('MetaPanel', () => {
           { level: 1, text: 'Alpha', block: 0 },
           { level: 2, text: 'Beta', block: 2 },
         ]}
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         onSelect={() => {}}
         onLocate={onLocate}
@@ -359,8 +289,7 @@ describe('MetaPanel', () => {
       <MetaPanel
         pageOpen
         contents={[]}
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -376,8 +305,7 @@ describe('MetaPanel', () => {
       <MetaPanel
         pageOpen={false}
         boardOpen
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -388,12 +316,11 @@ describe('MetaPanel', () => {
     expect(screen.getByText('Referenced by')).toBeTruthy()
   })
 
-  it('puts the collapsed link sections in a group directly above the shortcuts row', () => {
+  it('puts the collapsed Links section directly above the shortcuts row', () => {
     const { container } = render(
       <MetaPanel
         pageOpen
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -403,19 +330,13 @@ describe('MetaPanel', () => {
     const panel = container.querySelector('#meta-panel') as HTMLElement
     const links = panel.querySelector(`.${styles.links}`) as HTMLElement
     expect(links).toBeTruthy()
-    // The group holds the two link sections, in order…
     const linkDetails = [...links.querySelectorAll('details')] as HTMLDetailsElement[]
-    expect(linkDetails.map((d) => d.querySelector('summary')?.textContent)).toEqual([
-      'Backlinks',
-      'Forwardlinks',
-    ])
-    // …and sits directly before the keyboard-shortcuts row, so with both link
-    // sections collapsed their rows land at the panel's bottom next to it.
+    expect(linkDetails.map((d) => d.querySelector('summary')?.textContent)).toEqual(['Links'])
     linkDetails.forEach((d) => (d.open = false))
     expect(links.nextElementSibling?.textContent).toContain('Keyboard shortcuts')
     expect(
       [...panel.querySelectorAll('details')].map((d) => (d as HTMLDetailsElement).open),
-    ).toEqual([true, false, false, false])
+    ).toEqual([true, false, false])
   })
 })
 
@@ -425,8 +346,7 @@ describe('keyboard-shortcuts section', () => {
   const panel = (props: { pageOpen?: boolean; loading?: boolean } = {}) => (
     <MetaPanel
       pageOpen={props.pageOpen ?? false}
-      backlinks={[]}
-      forwardlinks={[]}
+      links={[]}
       activePath={null}
       onSelect={() => {}}
       onOpenAsset={() => {}}
@@ -438,18 +358,15 @@ describe('keyboard-shortcuts section', () => {
   it('is the panel\u2019s last section and starts collapsed', () => {
     const { container } = render(panel())
     const sections = container.querySelectorAll('details')
-    expect(sections).toHaveLength(4)
-    const last = sections[3] as HTMLDetailsElement
+    expect(sections).toHaveLength(3)
+    const last = sections[2] as HTMLDetailsElement
     expect(last.open).toBe(false)
     expect(last.querySelector('summary')?.textContent).toBe('Keyboard shortcuts')
     // Nothing follows it.
-    expect(container.querySelectorAll('details')[3].nextElementSibling).toBeNull()
+    expect(container.querySelectorAll('details')[2].nextElementSibling).toBeNull()
   })
 
   it('shows the reference in every panel state', () => {
-    // Brand empty state and search-results surfaces both reach the panel with
-    // no page open; the index-building state adds loading. The reference is a
-    // node App supplies, so the panel's job is to render it in every state.
     const states = [
       { pageOpen: false, loading: false },
       { pageOpen: false, loading: true },
@@ -464,33 +381,20 @@ describe('keyboard-shortcuts section', () => {
   })
 
   it('anchors the collapsed row to the panel\u2019s bottom', () => {
-    // jsdom has no layout, so this pins the wiring (the placement class on the
-    // last section) rather than the sticky behavior — the browser check in the
-    // change's final task covers where the row actually lands.
     const { container } = render(panel())
     const sections = container.querySelectorAll('details')
-    expect(sections[3].className).toContain(styles.footer)
+    expect(sections[2].className).toContain(styles.footer)
     expect(sections[0].className).not.toContain(styles.footer)
   })
 
-  it('opens independently of the link sections', () => {
+  it('opens independently of the Links section', () => {
     const { container } = render(panel({ pageOpen: true }))
     const sections = container.querySelectorAll('details')
-    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([
-      true,
-      true,
-      false,
-      false,
-    ])
+    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, false])
     fireEvent.click(within(meta()).getByText('Keyboard shortcuts'))
-    expect(sections[3].open).toBe(true)
-    // Opening the reference leaves the link sections as they were.
-    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([
-      true,
-      true,
-      false,
-      true,
-    ])
+    expect(sections[2].open).toBe(true)
+    // Opening the reference leaves the Links section as it was.
+    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, true])
   })
 })
 
@@ -499,13 +403,12 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
     render(
       <MetaPanel
         pageOpen={false}
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         boardOpen
         boardReferrers={[
-          { kind: 'page', title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
-          { kind: 'page', title: 'Log', path: 'pages/Log.md', materialized: true },
+          { kind: 'page', badge: 'in', title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
+          { kind: 'page', badge: 'in', title: 'Log', path: 'pages/Log.md', materialized: true },
         ]}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -516,8 +419,11 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
     expect(panel.getByText('Referenced by')).toBeTruthy()
     expect(panel.getByRole('button', { name: 'Ideas' })).toBeTruthy()
     expect(panel.getByRole('button', { name: 'Log' })).toBeTruthy()
-    expect(panel.queryByText('Backlinks')).toBeNull()
-    expect(panel.queryByText('Forwardlinks')).toBeNull()
+    // A referrer is a backlink, so it carries the `in` badge.
+    expect(
+      panel.getByRole('button', { name: 'Ideas' }).querySelector(`.${styles.badge}`)?.textContent,
+    ).toBe('in')
+    expect(panel.queryByText('Links')).toBeNull()
   })
 
   it('navigates when a referrer row is activated', () => {
@@ -525,12 +431,11 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
     render(
       <MetaPanel
         pageOpen={false}
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         boardOpen
         boardReferrers={[
-          { kind: 'page', title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
+          { kind: 'page', badge: 'in', title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
         ]}
         onSelect={onSelect}
         onOpenAsset={() => {}}
@@ -545,8 +450,7 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
     render(
       <MetaPanel
         pageOpen={false}
-        backlinks={[]}
-        forwardlinks={[]}
+        links={[]}
         activePath={null}
         boardOpen
         boardReferrers={[]}
