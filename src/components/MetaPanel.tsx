@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { ContentEntry } from '../vault/contents'
 import { Accordion } from './Accordion'
 import styles from './MetaPanel.module.css'
 
@@ -7,8 +8,8 @@ import styles from './MetaPanel.module.css'
 // row is dimmed but still navigable, opening a blank page that materializes on
 // first save (static-navigation spec). What activating a row does belongs to
 // the section holding it, not to the row: a page row navigates and an asset row
-// (References, vault-assets) opens the file it names and leaves the app where
-// it is.
+// (the Files group, vault-assets) opens the file it names and leaves the app
+// where it is.
 export type LinkRow = {
   title: string
   path: string
@@ -24,10 +25,10 @@ function LinkList({
 }: {
   rows: LinkRow[]
   /** The open page's path, for the active-row marking; null when the section's
-   *  rows are not pages (References), which no row can then mark. */
+   *  rows are not pages (Files), which no row can then mark. */
   activePath: string | null
   onActivate: (path: string) => void
-  /** Whether an unmaterialized row is dimmed. Only a page row can be: an asset
+  /** Whether an unmaterialized row is dimmed. Only a page row can be: a file
    *  row exists by definition, because the row is built from the vault's own
    *  listing. */
   dim: boolean
@@ -65,18 +66,53 @@ function LinkList({
   )
 }
 
-// The right meta panel: Backlinks, Forwardlinks, References, and the
-// keyboard-shortcuts reference. Forwardlinks holds page rows; the page's files
-// live in their own section (References), one kind per list. Placeholder copy
-// while no page is open; real, navigable rows (or empty-state copy) once one is
-// (ui-shell spec); skeleton rows while the active folder's index builds
-// (indexing-loading-state). Components never import the vault — App supplies
-// rows, and it supplies the shortcuts reference as a node too
+// The Contents list (add-page-contents): one row per heading, indented by
+// level. Activating a row asks the app to locate that heading's block, which
+// is a view operation — it never opens a page or edits anything.
+function ContentList({
+  entries,
+  onLocate,
+}: {
+  entries: ContentEntry[]
+  onLocate: (block: number) => void
+}) {
+  if (entries.length === 0) {
+    return <p className="section-placeholder">No headings on this page.</p>
+  }
+  return (
+    <div className={styles.list}>
+      {entries.map((entry) => (
+        <button
+          key={`${entry.block}:${entry.text}`}
+          type="button"
+          className={styles.row}
+          // One indent step per level below the top heading.
+          style={{ paddingLeft: 8 + (entry.level - 1) * 12 }}
+          onClick={() => onLocate(entry.block)}
+        >
+          <span className={styles.rowText}>{entry.text}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// The right meta panel: Contents, Backlinks, Forwardlinks (its Pages and Files
+// groups), and the keyboard-shortcuts reference (add-page-contents). Contents
+// lists the open page's headings (page-contents capability); Forwardlinks holds
+// every outgoing reference, split into the pages it names and the files it
+// points at — assets and boards — so no page row and file row share a list
+// while the panel keeps a single section. Backlinks stays its own section.
+// Placeholder copy while no page is open; real, navigable rows (or empty-state
+// copy) once one is (ui-shell spec); skeleton rows while the active folder's
+// index builds (indexing-loading-state). Components never import the vault —
+// App supplies rows, and it supplies the shortcuts reference as a node too
 // (apply-shortcuts-on-click), so the panel stays layout and knows nothing about
 // what a key combination does. The shortcuts reference is content-only and
 // renders in every state (move-help-to-right-panel).
 export function MetaPanel({
   pageOpen,
+  contents = [],
   backlinks,
   forwardlinks,
   references,
@@ -84,16 +120,19 @@ export function MetaPanel({
   boardOpen = false,
   boardReferrers = [],
   onSelect,
+  onLocate = () => {},
   onOpenAsset,
   loading = false,
   shortcuts,
   collapsed = false,
 }: {
   pageOpen: boolean
+  /** The open page's headings, above Backlinks (add-page-contents). */
+  contents?: ContentEntry[]
   backlinks: LinkRow[]
   forwardlinks: LinkRow[]
-  /** The open page's files (vault-assets); its own section, collapsed by
-   *  default, so no page row and asset row share a list. */
+  /** The open page's files — assets and boards — shown in Forwardlinks' Files
+   *  group (vault-assets, whiteboards). */
   references: LinkRow[]
   activePath: string | null
   /** A board is open (add-whiteboards): the panel shows the pages that
@@ -102,8 +141,10 @@ export function MetaPanel({
   /** The pages that reference the open board (add-whiteboards). */
   boardReferrers?: LinkRow[]
   onSelect: (path: string) => void
-  /** Open an asset row's file (vault-assets). Read by References only, which
-   *  is the one list that carries asset rows. */
+  /** Locate a heading's block on the open page (add-page-contents). View-only. */
+  onLocate?: (block: number) => void
+  /** Open a file or board row's target (vault-assets). Read by the Files group,
+   *  the one list that carries file rows. */
   onOpenAsset: (path: string) => void
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
@@ -149,6 +190,23 @@ export function MetaPanel({
         </Accordion>
       ) : (
         <>
+          {/* Contents (add-page-contents): the page's own shape, above its
+              links. It sizes to its list up to a cap, so a short outline never
+              claims a share of the panel's height. */}
+          <Accordion
+            title="Contents"
+            defaultOpen
+            className={styles.contents}
+            bodyClassName={styles.contentsBody}
+          >
+            {loading ? (
+              skeletonLine
+            ) : pageOpen ? (
+              <ContentList entries={contents} onLocate={onLocate} />
+            ) : (
+              <p className="section-placeholder">Headings appear once a page is open.</p>
+            )}
+          </Accordion>
           <Accordion
             title="Backlinks"
             defaultOpen
@@ -171,49 +229,40 @@ export function MetaPanel({
               </p>
             )}
           </Accordion>
+          {/* Forwardlinks (add-page-contents): every outgoing reference in one
+              section, split into the pages it names (navigate) and the files it
+              points at — assets and boards (vault-assets, whiteboards) — so the
+              two row behaviours stay legible. Collapsed by default, so the
+              panel opens on the page's shape and what links here. */}
           <Accordion
             title="Forwardlinks"
-            defaultOpen
             className={styles.section}
             bodyClassName={styles.fillBody}
           >
             {loading ? (
               skeletonLine
             ) : pageOpen ? (
-              <LinkList
-                rows={forwardlinks}
-                activePath={activePath}
-                onActivate={onSelect}
-                dim
-                emptyCopy="This page links to nothing."
-              />
+              <div className={styles.groups}>
+                <p className={styles.groupLabel}>Pages</p>
+                <LinkList
+                  rows={forwardlinks}
+                  activePath={activePath}
+                  onActivate={onSelect}
+                  dim
+                  emptyCopy="This page links to nothing."
+                />
+                <p className={styles.groupLabel}>Files</p>
+                <LinkList
+                  rows={references}
+                  activePath={null}
+                  onActivate={onOpenAsset}
+                  dim
+                  emptyCopy="No files on this page."
+                />
+              </div>
             ) : (
               <p className="section-placeholder">
                 Links from this page appear once a page is open.
-              </p>
-            )}
-          </Accordion>
-          {/* References (vault-assets, board-references-in-panel): the open
-          page's files — its assets and the boards it references — collapsed by
-          default like the sidebar's Assets section, so the panel looks as it did
-          before this section existed until the reader asks for it. Asset rows
-          never dim (a row exists only for a file the vault holds); a board row
-          for a board with no file yet dims but stays activatable. No row carries
-          the open page's marking — activating one opens the file or the board. */}
-          <Accordion title="References" className={styles.section} bodyClassName={styles.fillBody}>
-            {loading ? (
-              skeletonLine
-            ) : pageOpen ? (
-              <LinkList
-                rows={references}
-                activePath={null}
-                onActivate={onOpenAsset}
-                dim
-                emptyCopy="No files on this page."
-              />
-            ) : (
-              <p className="section-placeholder">
-                Files this page points at appear once a page is open.
               </p>
             )}
           </Accordion>

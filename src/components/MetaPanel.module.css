@@ -78,6 +78,52 @@
   min-height: 32px; /* a long listing still leaves something to grab */
 }
 
+/* The Contents band (add-page-contents): sizes to its list up to a cap, then
+   scrolls, so a short outline never claims a share of the panel's height. It
+   does not join the link sections' height sharing. */
+.contents {
+  flex: 0 0 auto;
+}
+
+.contentsBody {
+  max-height: 40vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable; /* DESIGN.md, scroll regions */
+}
+
+.contentsBody::-webkit-scrollbar {
+  background: transparent;
+}
+
+.contentsBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.contentsBody::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px;
+}
+
+/* The two groups inside Forwardlinks (add-page-contents): the pages the open
+   page references, and the files it points at. */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.groupLabel {
+  margin: 6px 0 0;
+  padding: 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--stone);
+}
+
 /* Bottom-anchored keyboard-shortcuts section: the three bands above it claim
    the leftover height, so this row lands on the panel's bottom edge by layout;
    `position: sticky` keeps it there once an open reference makes the panel

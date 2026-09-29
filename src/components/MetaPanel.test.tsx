@@ -46,9 +46,7 @@ describe('MetaPanel', () => {
     expect(
       within(meta()).getByText('Links from this page appear once a page is open.'),
     ).toBeTruthy()
-    expect(
-      within(meta()).getByText('Files this page points at appear once a page is open.'),
-    ).toBeTruthy()
+    expect(within(meta()).getByText('Headings appear once a page is open.')).toBeTruthy()
   })
 
   it('shows skeleton rows instead of placeholder copy while the index builds', () => {
@@ -173,8 +171,10 @@ describe('MetaPanel', () => {
     const section = (title: string) => screen.getByText(title).closest('details') as HTMLElement
     const labels = (title: string) =>
       [...section(title).querySelectorAll('button')].map((b) => b.textContent)
-    expect(labels('Forwardlinks')).toEqual(['Roadmap'])
-    expect(labels('References')).toEqual(['a.png', 'q3-report.pdf'])
+    // One Forwardlinks section holds both groups: Pages then Files.
+    expect(labels('Forwardlinks')).toEqual(['Roadmap', 'a.png', 'q3-report.pdf'])
+    expect(within(section('Forwardlinks')).getByText('Pages')).toBeTruthy()
+    expect(within(section('Forwardlinks')).getByText('Files')).toBeTruthy()
   })
 
   it('opens an asset row instead of navigating, and never dims it', () => {
@@ -199,7 +199,7 @@ describe('MetaPanel', () => {
     expect(onSelect).not.toHaveBeenCalled()
   })
 
-  it('keeps the References section collapsed by default, after the page sections', () => {
+  it('opens Contents and Backlinks by default, with Forwardlinks collapsed', () => {
     const { container } = render(
       <MetaPanel
         pageOpen
@@ -214,9 +214,9 @@ describe('MetaPanel', () => {
     )
     const sections = [...container.querySelectorAll('details')] as HTMLDetailsElement[]
     expect(sections.map((s) => s.querySelector('summary')?.textContent)).toEqual([
+      'Contents',
       'Backlinks',
       'Forwardlinks',
-      'References',
       'Keyboard shortcuts',
     ])
     expect(sections.map((s) => s.open)).toEqual([true, true, false, false])
@@ -253,7 +253,7 @@ describe('MetaPanel', () => {
     ).toContain(styles.dimmed)
   })
 
-  it('shows References its own empty copy, and copies only its own section', () => {
+  it('shows the Files group its own empty copy, and copies only its own group', () => {
     render(
       <MetaPanel
         pageOpen
@@ -266,12 +266,77 @@ describe('MetaPanel', () => {
         shortcuts={shortcuts}
       />,
     )
-    const references = screen.getByText('References').closest('details') as HTMLElement
-    expect(within(references).getByText('No files on this page.')).toBeTruthy()
-    expect(within(references).queryByRole('button')).toBeNull()
+    const forward = screen.getByText('Forwardlinks').closest('details') as HTMLElement
+    expect(within(forward).getByText('No files on this page.')).toBeTruthy()
     // The page sections keep their rows and their own empty copy.
     expect(within(meta()).queryByText('Nothing links here yet.')).toBeNull()
     expect(within(meta()).queryByText('This page links to nothing.')).toBeNull()
+  })
+
+  it('lists the page headings in Contents, indented by level, and locates on activation', () => {
+    const onLocate = vi.fn()
+    render(
+      <MetaPanel
+        pageOpen
+        contents={[
+          { level: 1, text: 'Alpha', block: 0 },
+          { level: 2, text: 'Beta', block: 2 },
+        ]}
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onLocate={onLocate}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const contents = screen.getByText('Contents').closest('details') as HTMLElement
+    const buttons = [...contents.querySelectorAll('button')] as HTMLElement[]
+    expect(buttons.map((b) => b.textContent)).toEqual(['Alpha', 'Beta'])
+    // A level-two heading is indented further than a level-one heading.
+    const alpha = Number.parseFloat(buttons[0].style.paddingLeft)
+    const beta = Number.parseFloat(buttons[1].style.paddingLeft)
+    expect(beta).toBeGreaterThan(alpha)
+    fireEvent.click(buttons[1])
+    expect(onLocate).toHaveBeenCalledWith(2)
+  })
+
+  it('shows empty copy in Contents for a page with no headings', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        contents={[]}
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const contents = screen.getByText('Contents').closest('details') as HTMLElement
+    expect(within(contents).getByText('No headings on this page.')).toBeTruthy()
+  })
+
+  it('shows no Contents section while a board is open', () => {
+    render(
+      <MetaPanel
+        pageOpen={false}
+        boardOpen
+        backlinks={[]}
+        forwardlinks={[]}
+        references={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    expect(screen.queryByText('Contents')).toBeNull()
+    expect(screen.getByText('Referenced by')).toBeTruthy()
   })
 })
 

@@ -142,9 +142,19 @@ const pane = () => screen.getByRole('main')
 
 // Page rows live in the Pages section, so a row query says which section it
 // means. Sections are `details` elements whose summary carries the title.
-const section = (title: string) =>
-  within((screen.getByText(title) as HTMLElement).closest('details') as HTMLElement)
-const pagesSection = () => section('Pages')
+const section = (title: string, root: HTMLElement = document.body) =>
+  within((within(root).getByText(title) as HTMLElement).closest('details') as HTMLElement)
+const pagesSection = () => section('Pages', document.getElementById('sidebar-pane') as HTMLElement)
+
+/** The Forwardlinks section, opened so its rows are reachable (it is collapsed
+ *  by default since add-page-contents). */
+const forwardlinks = () => {
+  const el = (within(document.body).getByText('Forwardlinks') as HTMLElement).closest(
+    'details',
+  ) as HTMLDetailsElement
+  el.open = true
+  return within(el)
+}
 
 /** The fixture vault's pages directory: pages live under `pages/`. */
 const pagesDir = (tree: FakeDirectoryHandle) => tree.children.get('pages') as FakeDirectoryHandle
@@ -414,11 +424,12 @@ describe('navigation over the real index', () => {
 
     // The file is listed in its own section, named for the file, and is not
     // dimmed: an asset row exists only for a file the vault holds.
-    const row = await section('References').findByRole('button', { name: 'q3-report.pdf' })
+    const forward = forwardlinks()
+    const row = await forward.findByRole('button', { name: 'q3-report.pdf' })
     expect(row.className).not.toContain('dimmed')
     expect(row.getAttribute('aria-current')).toBeNull()
-    // Forwardlinks holds page rows only, so the same page's file is not there.
-    expect(section('Forwardlinks').queryByRole('button')).toBeNull()
+    // The file sits in the Files group; the Pages group holds no page rows.
+    expect(forward.getByText('This page links to nothing.')).toBeTruthy()
 
     fireEvent.click(row)
     await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
@@ -1533,13 +1544,10 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     await openFixture(tree)
     fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
 
-    const row = await section('References').findByRole('button', {
+    const row = await forwardlinks().findByRole('button', {
       name: 'Migration.excalidraw',
     })
     expect(row.className).not.toContain('dimmed')
-    expect(
-      section('Forwardlinks').queryByRole('button', { name: 'Migration.excalidraw' }),
-    ).toBeNull()
 
     fireEvent.click(row)
     expect(await screen.findByTestId('board-view')).toBeTruthy()
@@ -1554,7 +1562,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     })
     await openFixture(tree)
     fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
-    const rows = await section('References').findAllByRole('button', {
+    const rows = await forwardlinks().findAllByRole('button', {
       name: 'Migration.excalidraw',
     })
     expect(rows).toHaveLength(1)
@@ -1566,7 +1574,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     const tree = buildTree({ pages: { 'Ideas.md': 'A sketch: #!Architecture' } })
     await openFixture(tree)
     fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
-    const row = await section('References').findByRole('button', {
+    const row = await forwardlinks().findByRole('button', {
       name: 'Architecture.excalidraw',
     })
     expect(row.className).toContain('dimmed')
@@ -1715,6 +1723,34 @@ describe('presentations (add-presentations)', () => {
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Presentation' })).toBeNull())
       expect(editor().content).toContain('This is Folio')
       // Presenting and closing wrote nothing to the vault.
+      expect(write).not.toHaveBeenCalled()
+    } finally {
+      write.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+// The Contents section (add-page-contents): the open page's headings, and a row
+// that locates its heading without changing anything.
+describe('page contents (add-page-contents)', () => {
+  it("lists the open page's headings and locates one without changing the page", async () => {
+    const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
+    try {
+      render(<App />)
+      const tree = buildTree({ pages: { 'Notes.md': '# Alpha\n\nBody text\n\n## Beta\n' } })
+      await openFixture(tree)
+      fireEvent.click(pagesSection().getByRole('button', { name: 'Notes' }))
+      await waitFor(() => expect(editor().content).toContain('Alpha'))
+
+      const contents = section('Contents')
+      expect(contents.getByRole('button', { name: 'Alpha' })).toBeTruthy()
+      // `## Beta` is the third top-level block (heading, paragraph, heading).
+      fireEvent.click(contents.getByRole('button', { name: 'Beta' }))
+      await waitFor(() => expect(editor().highlights).toContain(2))
+
+      // Locating is view-only: the page is the same and nothing is written.
+      expect(editor().content).toContain('Alpha')
       expect(write).not.toHaveBeenCalled()
     } finally {
       write.mockRestore()

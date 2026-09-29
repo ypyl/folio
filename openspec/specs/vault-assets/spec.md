@@ -65,7 +65,8 @@ The sidebar's Assets section SHALL list the vault's asset inventory (vault-index
 - **THEN** the file is listed in the Assets section
 
 ### Requirement: Activating an asset opens the file and changes nothing else
-Activating an asset row — in the Assets section or in a page's References section — SHALL open the file at that path exactly as a vault link opens (ADR-0021): a type the browser displays SHALL be shown in a new window, and every other type SHALL be downloaded for the operating system's registered application. The path SHALL be used as the file's literal name, without percent-decoding. The vault file SHALL NOT be written, the page's Markdown SHALL NOT be changed, and no app state SHALL change: the open page stays open, the sidebar's active marking does not move, the history trail gains no entry, and nothing on the search surface changes. A path the vault cannot read — a file deleted since the index was built — SHALL open nothing and leave the app as it is.
+
+Activating an asset row — in the Assets section or in a page's Forwardlinks Files group — SHALL open the file at that path exactly as a vault link opens (ADR-0021): a type the browser displays SHALL be shown in a new window, and every other type SHALL be downloaded for the operating system's registered application. The path SHALL be used as the file's literal name, without percent-decoding. The vault file SHALL NOT be written, the page's Markdown SHALL NOT be changed, and no app state SHALL change: the open page stays open, the sidebar's active marking does not move, the history trail gains no entry, and nothing on the search surface changes. A path the vault cannot read — a file deleted since the index was built — SHALL open nothing and leave the app as it is.
 
 #### Scenario: A displayable asset opens in a window
 
@@ -97,31 +98,32 @@ Activating an asset row — in the Assets section or in a page's References sect
 - **WHEN** the user activates the row
 - **THEN** nothing opens and the app remains as it was
 
-### Requirement: The References section lists a page's assets
-When a page is open, the meta panel's References section SHALL list one row per asset the page references, labelled with the file's name and ordered by label, and never dimmed or marked as the open page. The section SHALL be the only panel section holding asset rows: a page's assets SHALL NOT appear in Forwardlinks. Activating an asset row SHALL open the file (see "Activating an asset opens the file and changes nothing else"). While the index builds, the section SHALL show the shell's loading placeholders, and when the open page references no asset it SHALL show empty-state copy.
+### Requirement: A page's files are listed in the Forwardlinks Files group
+
+When a page is open, the Forwardlinks section's Files group SHALL list one row per asset the page references, labelled with the file's name and ordered by label within the group, and never dimmed or marked as the open page. The Files group SHALL be the only panel list holding asset rows: a page's assets SHALL NOT appear in the Forwardlinks Pages group. Board references share the same group (whiteboards capability). Activating an asset row SHALL open the file (see "Activating an asset opens the file and changes nothing else"). While the index builds, the group SHALL show the shell's loading placeholders, and when the open page references no asset it SHALL show empty-state copy.
 
 #### Scenario: A page's files appear in the References section
 
 - **GIVEN** an open page whose content is `[Q3 report](assets/q3-report.pdf) and #Roadmap`
-- **WHEN** the user looks at the References section
-- **THEN** it lists a `q3-report.pdf` row, and no page row
+- **WHEN** the user looks at the Forwardlinks section
+- **THEN** its Files group lists a `q3-report.pdf` row, and its Pages group holds no asset row
 
 #### Scenario: A page's files are not page rows
 
 - **GIVEN** an open page whose content is `[Q3 report](assets/q3-report.pdf) and #Roadmap`
-- **WHEN** the user looks at the Forwardlinks section
+- **WHEN** the user looks at the Forwardlinks Pages group
 - **THEN** it lists only the `Roadmap` row
 
 #### Scenario: An asset row opens instead of navigating
 
-- **GIVEN** an open page whose References section lists `q3-report.pdf`
+- **GIVEN** an open page whose Forwardlinks Files group lists `q3-report.pdf`
 - **WHEN** the user activates that row
 - **THEN** the file opens, and the editor keeps showing the same page with the same active marking
 
 #### Scenario: A page with no assets shows copy
 
 - **GIVEN** an open page that references pages but no vault files
-- **WHEN** the user opens the References section
+- **WHEN** the user opens the Forwardlinks Files group
 - **THEN** it shows empty-state copy and no rows
 
 ### Requirement: A reference to an existing asset is completed at the link destination
@@ -155,7 +157,7 @@ While the caret is inside an inline link's or image's destination in the editor,
 #### Scenario: A reference deleted earlier can be added back
 - **GIVEN** a page whose text no longer mentions `assets/shot.png`, and a vault that still holds it
 - **WHEN** the user types `[shot](sh` and accepts the row for `shot.png`, then the page is saved
-- **THEN** the page's text holds a link to `assets/shot.png` and the open page's References section lists `shot.png`
+- **THEN** the page's text holds a link to `assets/shot.png` and the open page's Forwardlinks Files group lists `shot.png`
 
 #### Scenario: An ordinary link to another site is left alone
 - **GIVEN** a vault holding `assets/shot.png` and a page open

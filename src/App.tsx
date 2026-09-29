@@ -14,6 +14,7 @@ import { BoardView } from './editor/boardView'
 import { chordToKeyEventInit } from './editor/chord'
 import { createDebouncedSaver } from './editor/saver'
 import { deriveSlides } from './presentation/slides'
+import { deriveContents } from './vault/contents'
 import { copyDroppedFiles } from './vault/assets'
 import { isBoardTarget, openVaultPath } from './vault/assetOpen'
 import type { ReferenceKind } from './vault/parse'
@@ -250,6 +251,14 @@ function App() {
     },
     [graph, drafts],
   )
+
+  // Locating a heading from the Contents section (add-page-contents): set the
+  // same highlight state a search result uses, so the editor scrolls and marks
+  // the block. It never re-opens the page, so the draft and caret are
+  // untouched and nothing is written.
+  const handleLocate = useCallback((block: number) => {
+    setMatchHighlight((prev) => ({ block, nonce: (prev?.nonce ?? 0) + 1 }))
+  }, [])
 
   // Opening a board (add-whiteboards, design D5): the main pane switches to the
   // board editor and the board's text is read once into `boardScene`. The path
@@ -646,6 +655,11 @@ function App() {
     () => (graph && page ? pageReferenceRows(page, graph) : []),
     [graph, page],
   )
+  // The open page's headings for the Contents section (add-page-contents),
+  // derived from the page's saved content and keyed on the content string, so
+  // it rebuilds after auto-save and never on a keystroke.
+  /* oxlint-disable-next-line react/refs */
+  const contentsRows = useMemo(() => deriveContents(page?.content ?? ''), [page?.content])
 
   // The vault's assets, path-ordered (vault-assets): App hands the index's own
   // array through, so the memoized sidebar sees a new one only on a scan.
@@ -868,6 +882,7 @@ function App() {
           // StatusBar props suppress).
           /* oxlint-disable react/refs */
           pageOpen={mode === 'page' && page !== null}
+          contents={mode === 'page' ? contentsRows : []}
           backlinks={mode === 'page' ? backlinkRows : []}
           forwardlinks={mode === 'page' ? forwardlinkRows : []}
           references={mode === 'page' ? referenceRows : []}
@@ -875,6 +890,7 @@ function App() {
           boardOpen={mode === 'board'}
           boardReferrers={boardReferrerRows}
           onSelect={handleSelect}
+          onLocate={handleLocate}
           onOpenAsset={handleOpenAsset}
           loading={indexing}
           shortcuts={<ShortcutsList onApply={applyShortcut} canApply={canApply} />}
