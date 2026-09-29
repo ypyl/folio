@@ -1050,7 +1050,7 @@ The gesture SHALL write nothing to the vault: no file is copied, created, rename
 
 - **GIVEN** a vault holding `assets/q3-report.pdf` and an open page, with the caret somewhere in the page
 - **WHEN** the `q3-report.pdf` row is dragged from the Files section's asset rows and released over a paragraph below the caret
-- **THEN** the text `[q3-report](assets/q3-report.pdf)` is inserted at that paragraph, the page's Forwardlinks Files group lists the file after the next save, and the file's bytes and the vault's listing are unchanged
+- **THEN** the text `[q3-report](assets/q3-report.pdf)` is inserted at that paragraph, the page's Forwardlinks list includes the file after the next save, and the file's bytes and the vault's listing are unchanged
 
 #### Scenario: Dragging an image row writes an image
 

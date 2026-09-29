@@ -67,7 +67,7 @@ The sidebar's Files listing SHALL hold the vault's asset rows: the vault's asset
 
 ### Requirement: Activating an asset opens the file and changes nothing else
 
-Activating an asset row — in the Files section's asset rows or in a page's Forwardlinks Files group — SHALL open the file at that path exactly as a vault link opens (ADR-0021): a type the browser displays SHALL be shown in a new window, and every other type SHALL be downloaded for the operating system's registered application. The path SHALL be used as the file's literal name, without percent-decoding. The vault file SHALL NOT be written, the page's Markdown SHALL NOT be changed, and no app state SHALL change: the open page stays open, the sidebar's active marking does not move, the history trail gains no entry, and nothing on the search surface changes. A path the vault cannot read — a file deleted since the index was built — SHALL open nothing and leave the app as it is.
+Activating an asset row — in the Files section's asset rows or in a page's Forwardlinks file rows — SHALL open the file at that path exactly as a vault link opens (ADR-0021): a type the browser displays SHALL be shown in a new window, and every other type SHALL be downloaded for the operating system's registered application. The path SHALL be used as the file's literal name, without percent-decoding. The vault file SHALL NOT be written, the page's Markdown SHALL NOT be changed, and no app state SHALL change: the open page stays open, the sidebar's active marking does not move, the history trail gains no entry, and nothing on the search surface changes. A path the vault cannot read — a file deleted since the index was built — SHALL open nothing and leave the app as it is.
 
 #### Scenario: A displayable asset opens in a window
 
@@ -99,33 +99,33 @@ Activating an asset row — in the Files section's asset rows or in a page's For
 - **WHEN** the user activates the row
 - **THEN** nothing opens and the app remains as it was
 
-### Requirement: A page's files are listed in the Forwardlinks Files group
+### Requirement: A page's files are listed in the Forwardlinks list
 
-When a page is open, the Forwardlinks section's Files group SHALL list one row per asset the page references, labelled with the file's name and listed in the order the references appear in the page, and never dimmed or marked as the open page. The Files group SHALL be the only panel list holding asset rows: a page's assets SHALL NOT appear in the Forwardlinks Pages group. Board references share the same group (whiteboards capability). Activating an asset row SHALL open the file (see "Activating an asset opens the file and changes nothing else"). While the index builds, the group SHALL show the shell's loading placeholders, and when the open page references no asset it SHALL show empty-state copy.
+When a page is open, the Forwardlinks list SHALL include one row per asset the page references, after its page rows, labelled with the file's name, marked with an `a` badge before its label, and listed in the order the references appear in the page, and never dimmed or marked as the open page. Asset rows SHALL be the only file rows besides boards; a page's assets SHALL NOT appear among the Forwardlinks page rows, which list page references only. Board references share this list (whiteboards capability). Activating an asset row SHALL open the file (see "Activating an asset opens the file and changes nothing else"). While the index builds, the list SHALL show the shell's loading placeholders, and when the open page references nothing the list SHALL show empty-state copy.
 
 #### Scenario: A page's files appear in the References section
 
 - **GIVEN** an open page whose content is `[Q3 report](assets/q3-report.pdf) and #Roadmap`
 - **WHEN** the user looks at the Forwardlinks section
-- **THEN** its Files group lists a `q3-report.pdf` row, and its Pages group holds no asset row
+- **THEN** it lists a `q3-report.pdf` row marked with an `a` badge, and no page row carries a badge
 
 #### Scenario: A page's files are not page rows
 
 - **GIVEN** an open page whose content is `[Q3 report](assets/q3-report.pdf) and #Roadmap`
-- **WHEN** the user looks at the Forwardlinks Pages group
-- **THEN** it lists only the `Roadmap` row
+- **WHEN** the user looks at the Forwardlinks page rows
+- **THEN** they list only the `Roadmap` row, unbadged
 
 #### Scenario: An asset row opens instead of navigating
 
-- **GIVEN** an open page whose Forwardlinks Files group lists `q3-report.pdf`
+- **GIVEN** an open page whose Forwardlinks list includes the asset row `q3-report.pdf`
 - **WHEN** the user activates that row
 - **THEN** the file opens, and the editor keeps showing the same page with the same active marking
 
 #### Scenario: A page with no assets shows copy
 
 - **GIVEN** an open page that references pages but no vault files
-- **WHEN** the user opens the Forwardlinks Files group
-- **THEN** it shows empty-state copy and no rows
+- **WHEN** the user opens the Forwardlinks section
+- **THEN** it lists its page rows and no asset rows, with no empty-state copy
 
 ### Requirement: A reference to an existing asset is completed at the link destination
 While the caret is inside an inline link's or image's destination in the editor, the app SHALL offer the vault's files that match the text typed so far, and SHALL write the chosen file's vault-relative path as the destination when a candidate is accepted. The candidates SHALL be exactly the vault paths a page's asset reference can name — vault-relative, not a page, and held by the vault — each labelled by its path inside the `assets/` folder and matched against the typed text. The written reference SHALL be an ordinary Markdown link, or an ordinary Markdown image when the user is typing an image's destination, with the same label rule the drop and paste gestures use: the label the user typed, or the file's name when none was typed. Completion SHALL be offered only when the typed destination is vault-relative, does not begin with `#`, is not already closed by a `)` at the caret, and matches at least one candidate; an empty destination, a scheme, an absolute path, a fragment, and text matching no file SHALL offer nothing, so a link the app cannot complete behaves exactly as it did before. Accepting SHALL NOT open the file, navigate, or change any state other than the page's own text, and SHALL NOT create a page, a reference token, or any entry in the reference namespace.
@@ -158,7 +158,7 @@ While the caret is inside an inline link's or image's destination in the editor,
 #### Scenario: A reference deleted earlier can be added back
 - **GIVEN** a page whose text no longer mentions `assets/shot.png`, and a vault that still holds it
 - **WHEN** the user types `[shot](sh` and accepts the row for `shot.png`, then the page is saved
-- **THEN** the page's text holds a link to `assets/shot.png` and the open page's Forwardlinks Files group lists `shot.png`
+- **THEN** the page's text holds a link to `assets/shot.png` and the open page's Forwardlinks list includes `shot.png`
 
 #### Scenario: An ordinary link to another site is left alone
 - **GIVEN** a vault holding `assets/shot.png` and a page open
