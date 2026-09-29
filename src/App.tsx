@@ -86,11 +86,16 @@ function orderByLastEdited(graph: Graph, paths: string[]): string[] {
 function pageReferenceRows(page: IndexPage, graph: Graph): LinkRow[] {
   const rows = new Map<string, LinkRow>()
   for (const path of pageAssets(page, graph)) {
-    rows.set(path, { title: assetName(path), path, materialized: true })
+    rows.set(path, { kind: 'asset', title: assetName(path), path, materialized: true })
   }
   for (const ref of page.boards) {
     const path = resolveBoardPath(ref.target, graph.boardsByName)
-    rows.set(path, { title: boardName(path), path, materialized: graph.files.has(path) })
+    rows.set(path, {
+      kind: 'board',
+      title: boardName(path),
+      path,
+      materialized: graph.files.has(path),
+    })
   }
   return [...rows.values()]
 }
@@ -617,7 +622,7 @@ function App() {
         ? orderByLastEdited(graph, graph.backlinks.get(page.title.toLowerCase()) ?? []).map(
             (path) => {
               const p = graph.pages.get(path)
-              return { title: p ? p.title : path, path, materialized: true }
+              return { kind: 'page' as const, title: p ? p.title : path, path, materialized: true }
             },
           )
         : [],
@@ -631,42 +636,64 @@ function App() {
       graph && activePath !== null && mode === 'board'
         ? orderByLastEdited(graph, boardReferrers(graph, activePath)).map((path) => {
             const p = graph.pages.get(path)
-            return { title: p ? p.title : path, path, materialized: p !== undefined }
+            return {
+              kind: 'page' as const,
+              title: p ? p.title : path,
+              path,
+              materialized: p !== undefined,
+            }
           })
         : [],
     [graph, activePath, mode],
   )
 
+  // Forwardlinks (merge-forwardlinks-groups): the page references the open page
+  // makes (document order), then the files it points at — assets then boards.
+  // One list now, badged by kind; the order is unchanged from the two former
+  // groups. Memoized on [graph, page]: a keystroke bumps the draft version and
+  // re-renders, but the graph does not change until a save lands, so typing must
+  // not re-walk the link graph (vault-proportional work stays off the typing
+  // path).
   const forwardlinkRows = useMemo<LinkRow[]>(
     () =>
       graph && page
-        ? page.links
-            .map((l) => {
-              const targetPath = resolveReferencePath(l.target, graph.byName)
-              const p = graph.pages.get(targetPath)
-              if (p) return { title: p.title, path: targetPath, materialized: true }
-              // No page matches the reference: it is unmaterialized. A name
-              // that is not a date materializes under `pages/`, preserving any
-              // directory part in bracketed names; a date name is the journal
-              // day, which materializes under `journals/`.
-              return { title: l.target, path: targetPath, materialized: false }
-            })
-            .filter(
-              // A page's link to itself isn't useful navigation (mirrors the
-              // index's backlink self-exclusion).
-              (r) => r.path !== page.path,
-            )
+        ? [
+            ...page.links
+              .map((l) => {
+                const targetPath = resolveReferencePath(l.target, graph.byName)
+                const p = graph.pages.get(targetPath)
+                if (p) {
+                  return {
+                    kind: 'page' as const,
+                    title: p.title,
+                    path: targetPath,
+                    materialized: true,
+                  }
+                }
+                // No page matches the reference: it is unmaterialized. A name
+                // that is not a date materializes under `pages/`, preserving any
+                // directory part in bracketed names; a date name is the journal
+                // day, which materializes under `journals/`.
+                return {
+                  kind: 'page' as const,
+                  title: l.target,
+                  path: targetPath,
+                  materialized: false,
+                }
+              })
+              .filter(
+                // A page's link to itself isn't useful navigation (mirrors the
+                // index's backlink self-exclusion).
+                (r) => r.path !== page.path,
+              ),
+            // The page's files (vault-assets, design D1) follow the page rows,
+            // labelled with the file's name and badged by kind. Whether one
+            // exists is read from the vault's own listing, so a file deleted
+            // outside the app drops out on the next scan even though this page's
+            // record is carried over untouched.
+            ...pageReferenceRows(page, graph),
+          ]
         : [],
-    [graph, page],
-  )
-  // The page's files (vault-assets, design D1), labelled with the file's name
-  // and kept out of Forwardlinks so each panel section holds one kind of row.
-  // Whether one exists is read from the vault's own listing, so a file deleted
-  // outside the app drops out on the next scan even though this page's record
-  // is carried over untouched. Same [graph, page] deps as the rows above: a
-  // keystroke re-renders but re-derives neither.
-  const referenceRows = useMemo<LinkRow[]>(
-    () => (graph && page ? pageReferenceRows(page, graph) : []),
     [graph, page],
   )
   // The open page's headings for the Contents section (add-page-contents),
@@ -915,7 +942,6 @@ function App() {
           contents={mode === 'page' ? contentsRows : []}
           backlinks={mode === 'page' ? backlinkRows : []}
           forwardlinks={mode === 'page' ? forwardlinkRows : []}
-          references={mode === 'page' ? referenceRows : []}
           activePath={mode === 'page' ? activePath : null}
           boardOpen={mode === 'board'}
           boardReferrers={boardReferrerRows}

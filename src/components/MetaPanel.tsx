@@ -4,13 +4,15 @@ import { Accordion } from './Accordion'
 import styles from './MetaPanel.module.css'
 
 // One link row in the meta panel. `path` is the target's vault-relative path;
-// `materialized` is false when the target page has no file on disk yet — the
-// row is dimmed but still navigable, opening a blank page that materializes on
-// first save (static-navigation spec). What activating a row does belongs to
-// the section holding it, not to the row: a page row navigates and an asset row
-// (the Files group, vault-assets) opens the file it names and leaves the app
-// where it is.
+// `kind` is what the row points at, which decides both its badge (a board `b`,
+// an asset `a`; a page none) and what activating it does: a page row navigates,
+// a file row opens the file or board it names and leaves the app where it is.
+// `materialized` is false when the target has no file on disk yet — a page or
+// board row is dimmed but still activatable, opening a blank page or board that
+// materializes on first save (static-navigation spec); an asset row is never
+// dimmed, because it exists only for a file the vault holds.
 export type LinkRow = {
+  kind: 'page' | 'board' | 'asset'
   title: string
   path: string
   materialized: boolean
@@ -19,23 +21,23 @@ export type LinkRow = {
 function LinkList({
   rows,
   activePath,
-  onActivate,
-  dim,
+  onSelect,
+  onOpenAsset,
   emptyCopy,
 }: {
   rows: LinkRow[]
-  /** The open page's path, for the active-row marking; null when the section's
-   *  rows are not pages (Files), which no row can then mark. */
+  /** The open page's path, for the active-row marking; null where no row can
+   *  be the open page (the board Referenced-by list). */
   activePath: string | null
-  onActivate: (path: string) => void
-  /** Whether an unmaterialized row is dimmed. Only a page row can be: a file
-   *  row exists by definition, because the row is built from the vault's own
-   *  listing. */
-  dim: boolean
+  /** Activate a page row: navigate to the page it names. */
+  onSelect: (path: string) => void
+  /** Activate a file row: open the file or board it names (vault-assets). */
+  onOpenAsset: (path: string) => void
   emptyCopy: string
 }) {
-  // Rows arrive already ordered by the caller (reorder-meta-panel-lists):
-  // the list renders them as given and never re-sorts.
+  // Rows arrive already ordered by the caller (reorder-meta-panel-lists,
+  // merge-forwardlinks-groups): the list renders them as given and never
+  // re-sorts.
   if (rows.length === 0) {
     return <p className="section-placeholder">{emptyCopy}</p>
   }
@@ -43,7 +45,9 @@ function LinkList({
     <div className={styles.list}>
       {rows.map((row) => {
         const isActive = activePath !== null && row.path === activePath
-        const dimmed = dim && !row.materialized
+        // Only an asset row is never dimmed: it exists only for a file the
+        // vault holds, while a page or a board may not exist on disk yet.
+        const dimmed = row.kind !== 'asset' && !row.materialized
         return (
           <button
             key={row.path}
@@ -51,8 +55,13 @@ function LinkList({
             className={dimmed ? `${styles.row} ${styles.dimmed}` : styles.row}
             data-active={isActive || undefined}
             aria-current={isActive ? 'page' : undefined}
-            onClick={() => onActivate(row.path)}
+            onClick={() => (row.kind === 'page' ? onSelect(row.path) : onOpenAsset(row.path))}
           >
+            {row.kind !== 'page' && (
+              <span className={styles.badge} aria-hidden="true">
+                {row.kind === 'board' ? 'b' : 'a'}
+              </span>
+            )}
             <span className={styles.rowText}>{row.title}</span>
           </button>
         )
@@ -92,12 +101,12 @@ function ContentList({
   )
 }
 
-// The right meta panel: Contents, Backlinks, Forwardlinks (its Pages and Files
-// groups), and the keyboard-shortcuts reference (add-page-contents). Contents
-// lists the open page's headings (page-contents capability); Forwardlinks holds
-// every outgoing reference, split into the pages it names and the files it
-// points at — assets and boards — so no page row and file row share a list
-// while the panel keeps a single section. Backlinks stays its own section.
+// The right meta panel: Contents, Backlinks, Forwardlinks, and the
+// keyboard-shortcuts reference (add-page-contents). Contents lists the open
+// page's headings (page-contents capability); Forwardlinks holds every outgoing
+// reference in one list — the pages it names, then the files it points at,
+// assets and boards — each row badged by kind (merge-forwardlinks-groups).
+// Backlinks stays its own page-only section.
 // Placeholder copy while no page is open; real, navigable rows (or empty-state
 // copy) once one is (ui-shell spec); skeleton rows while the active folder's
 // index builds (indexing-loading-state). Components never import the vault —
@@ -110,7 +119,6 @@ export function MetaPanel({
   contents = [],
   backlinks,
   forwardlinks,
-  references,
   activePath,
   boardOpen = false,
   boardReferrers = [],
@@ -125,10 +133,9 @@ export function MetaPanel({
   /** The open page's headings, above Backlinks (add-page-contents). */
   contents?: ContentEntry[]
   backlinks: LinkRow[]
+  /** The open page's outgoing references — its page references, then its files
+   *  (assets and boards) — in one badged list (merge-forwardlinks-groups). */
   forwardlinks: LinkRow[]
-  /** The open page's files — assets and boards — shown in Forwardlinks' Files
-   *  group (vault-assets, whiteboards). */
-  references: LinkRow[]
   activePath: string | null
   /** A board is open (add-whiteboards): the panel shows the pages that
    *  reference it instead of the page-metadata sections. */
@@ -138,8 +145,8 @@ export function MetaPanel({
   onSelect: (path: string) => void
   /** Locate a heading's block on the open page (add-page-contents). View-only. */
   onLocate?: (block: number) => void
-  /** Open a file or board row's target (vault-assets). Read by the Files group,
-   *  the one list that carries file rows. */
+  /** Open a file or board row's target (vault-assets). Read by every list that
+   *  carries a file row. */
   onOpenAsset: (path: string) => void
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
@@ -177,8 +184,8 @@ export function MetaPanel({
             <LinkList
               rows={boardReferrers}
               activePath={null}
-              onActivate={onSelect}
-              dim
+              onSelect={onSelect}
+              onOpenAsset={onOpenAsset}
               emptyCopy="No pages reference this board."
             />
           )}
@@ -220,8 +227,8 @@ export function MetaPanel({
                 <LinkList
                   rows={backlinks}
                   activePath={activePath}
-                  onActivate={onSelect}
-                  dim
+                  onSelect={onSelect}
+                  onOpenAsset={onOpenAsset}
                   emptyCopy="Nothing links here yet."
                 />
               ) : (
@@ -230,11 +237,11 @@ export function MetaPanel({
                 </p>
               )}
             </Accordion>
-            {/* Forwardlinks (add-page-contents): every outgoing reference in one
-              section, split into the pages it names (navigate) and the files it
-              points at — assets and boards (vault-assets, whiteboards) — so the
-              two row behaviours stay legible. Collapsed by default, so the
-              panel opens on the page's shape and what links here. */}
+            {/* Forwardlinks (add-page-contents, merge-forwardlinks-groups):
+              every outgoing reference in one list — the pages it names, then
+              the files it points at (assets, then boards), each row badged by
+              kind. Collapsed by default, so the panel opens on the page's shape
+              and what links here. */}
             <Accordion
               title="Forwardlinks"
               className={styles.section}
@@ -243,24 +250,13 @@ export function MetaPanel({
               {loading ? (
                 skeletonLine
               ) : pageOpen ? (
-                <div className={styles.groups}>
-                  <p className={styles.groupLabel}>Pages</p>
-                  <LinkList
-                    rows={forwardlinks}
-                    activePath={activePath}
-                    onActivate={onSelect}
-                    dim
-                    emptyCopy="This page links to nothing."
-                  />
-                  <p className={styles.groupLabel}>Files</p>
-                  <LinkList
-                    rows={references}
-                    activePath={null}
-                    onActivate={onOpenAsset}
-                    dim
-                    emptyCopy="No files on this page."
-                  />
-                </div>
+                <LinkList
+                  rows={forwardlinks}
+                  activePath={activePath}
+                  onSelect={onSelect}
+                  onOpenAsset={onOpenAsset}
+                  emptyCopy="This page links to nothing."
+                />
               ) : (
                 <p className="section-placeholder">
                   Links from this page appear once a page is open.

@@ -12,6 +12,7 @@ const shortcuts = <p>shortcuts</p>
 // hands it and reports navigation through onSelect. No editor/vault deps.
 
 const row = (path: string, materialized = true): LinkRow => ({
+  kind: 'page',
   title: path.replace('.md', ''),
   path,
   materialized,
@@ -19,9 +20,18 @@ const row = (path: string, materialized = true): LinkRow => ({
 
 /** An asset row as App builds it (vault-assets): a file the vault holds. */
 const assetRow = (path: string): LinkRow => ({
+  kind: 'asset',
   title: path.slice(path.lastIndexOf('/') + 1),
   path,
   materialized: true,
+})
+
+/** A board row as App builds it (whiteboards): the vault may not hold one yet. */
+const boardRow = (path: string, materialized = true): LinkRow => ({
+  kind: 'board',
+  title: path.slice(path.lastIndexOf('/') + 1),
+  path,
+  materialized,
 })
 
 const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
@@ -33,7 +43,6 @@ describe('MetaPanel', () => {
         pageOpen={false}
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -55,7 +64,6 @@ describe('MetaPanel', () => {
         pageOpen={false}
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -81,7 +89,6 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[row('Zeta.md'), row('Alpha.md')]}
         forwardlinks={[row('Beta.md'), row('Gama.md')]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -104,7 +111,6 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[]}
         forwardlinks={[row('Beta.md')]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -122,7 +128,6 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[]}
         forwardlinks={[row('missing.md', false)]}
-        references={[]}
         activePath={null}
         onSelect={onSelect}
         onOpenAsset={() => {}}
@@ -141,7 +146,6 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[row('Alpha.md'), row('Beta.md')]}
         forwardlinks={[]}
-        references={[]}
         activePath="Beta.md"
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -156,26 +160,60 @@ describe('MetaPanel', () => {
     ).toBeNull()
   })
 
-  it('renders Forwardlinks Pages then Files in the order it is given', () => {
+  it('renders Forwardlinks pages then files in the order it is given', () => {
     render(
       <MetaPanel
         pageOpen
         backlinks={[]}
-        forwardlinks={[row('Roadmap.md')]}
-        references={[assetRow('assets/q3-report.pdf'), assetRow('assets/a.png')]}
+        forwardlinks={[
+          row('Roadmap.md'),
+          assetRow('assets/q3-report.pdf'),
+          assetRow('assets/a.png'),
+        ]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    const section = (title: string) => screen.getByText(title).closest('details') as HTMLElement
-    const labels = (title: string) =>
-      [...section(title).querySelectorAll('button')].map((b) => b.textContent)
-    // One Forwardlinks section holds both groups: Pages then Files.
-    expect(labels('Forwardlinks')).toEqual(['Roadmap', 'q3-report.pdf', 'a.png'])
-    expect(within(section('Forwardlinks')).getByText('Pages')).toBeTruthy()
-    expect(within(section('Forwardlinks')).getByText('Files')).toBeTruthy()
+    const section = screen.getByText('Forwardlinks').closest('details') as HTMLElement
+    const labels = [...section.querySelectorAll('button')].map((b) => b.textContent)
+    // One Forwardlinks list: pages first, then the files (assets) badged by
+    // kind. No group labels remain (merge-forwardlinks-groups).
+    expect(labels).toEqual(['Roadmap', 'aq3-report.pdf', 'aa.png'])
+    expect(within(section).queryByText('Pages')).toBeNull()
+    expect(within(section).queryByText('Files')).toBeNull()
+  })
+
+  it('badges board and asset rows by kind and leaves page rows unbadged', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        backlinks={[]}
+        forwardlinks={[
+          row('Roadmap.md'),
+          boardRow('boards/Migration.excalidraw'),
+          assetRow('assets/shot.png'),
+        ]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const forward = screen.getByText('Forwardlinks').closest('details') as HTMLElement
+    expect(
+      within(forward).getByRole('button', { name: 'Roadmap' }).querySelector(`.${styles.badge}`),
+    ).toBeNull()
+    expect(
+      within(forward)
+        .getByRole('button', { name: 'Migration.excalidraw' })
+        .querySelector(`.${styles.badge}`)?.textContent,
+    ).toBe('b')
+    expect(
+      within(forward).getByRole('button', { name: 'shot.png' }).querySelector(`.${styles.badge}`)
+        ?.textContent,
+    ).toBe('a')
   })
 
   it('opens an asset row instead of navigating, and never dims it', () => {
@@ -185,8 +223,7 @@ describe('MetaPanel', () => {
       <MetaPanel
         pageOpen
         backlinks={[]}
-        forwardlinks={[]}
-        references={[assetRow('assets/q3-report.pdf')]}
+        forwardlinks={[assetRow('assets/q3-report.pdf')]}
         activePath={null}
         onSelect={onSelect}
         onOpenAsset={onOpenAsset}
@@ -205,8 +242,7 @@ describe('MetaPanel', () => {
       <MetaPanel
         pageOpen
         backlinks={[]}
-        forwardlinks={[]}
-        references={[assetRow('assets/shot.png')]}
+        forwardlinks={[assetRow('assets/shot.png')]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -231,10 +267,15 @@ describe('MetaPanel', () => {
       <MetaPanel
         pageOpen
         backlinks={[]}
-        forwardlinks={[]}
-        references={[
-          { title: 'q3-report.pdf', path: 'assets/q3-report.pdf', materialized: true },
+        forwardlinks={[
           {
+            kind: 'asset',
+            title: 'q3-report.pdf',
+            path: 'assets/q3-report.pdf',
+            materialized: true,
+          },
+          {
+            kind: 'board',
             title: 'Architecture.excalidraw',
             path: 'boards/Architecture.excalidraw',
             materialized: false,
@@ -254,24 +295,34 @@ describe('MetaPanel', () => {
     ).toContain(styles.dimmed)
   })
 
-  it('shows the Files group its own empty copy, and copies only its own group', () => {
-    render(
+  it('shows one empty copy only when the whole Forwardlinks list is empty', () => {
+    const { rerender } = render(
       <MetaPanel
         pageOpen
-        backlinks={[row('Alpha.md')]}
-        forwardlinks={[row('Beta.md')]}
-        references={[]}
+        backlinks={[]}
+        forwardlinks={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
       />,
     )
-    const forward = screen.getByText('Forwardlinks').closest('details') as HTMLElement
-    expect(within(forward).getByText('No files on this page.')).toBeTruthy()
-    // The page sections keep their rows and their own empty copy.
-    expect(within(meta()).queryByText('Nothing links here yet.')).toBeNull()
-    expect(within(meta()).queryByText('This page links to nothing.')).toBeNull()
+    const forward = () => screen.getByText('Forwardlinks').closest('details') as HTMLElement
+    expect(within(forward()).getByText('This page links to nothing.')).toBeTruthy()
+    // A page-only list has rows, so no empty copy (merge-forwardlinks-groups).
+    rerender(
+      <MetaPanel
+        pageOpen
+        backlinks={[]}
+        forwardlinks={[row('Beta.md')]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    expect(within(forward()).queryByText('This page links to nothing.')).toBeNull()
+    expect(within(forward()).getByRole('button', { name: 'Beta' })).toBeTruthy()
   })
 
   it('lists the page headings in Contents, indented by level, and locates on activation', () => {
@@ -285,7 +336,6 @@ describe('MetaPanel', () => {
         ]}
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onLocate={onLocate}
@@ -311,7 +361,6 @@ describe('MetaPanel', () => {
         contents={[]}
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -329,7 +378,6 @@ describe('MetaPanel', () => {
         boardOpen
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -346,7 +394,6 @@ describe('MetaPanel', () => {
         pageOpen
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -380,7 +427,6 @@ describe('keyboard-shortcuts section', () => {
       pageOpen={props.pageOpen ?? false}
       backlinks={[]}
       forwardlinks={[]}
-      references={[]}
       activePath={null}
       onSelect={() => {}}
       onOpenAsset={() => {}}
@@ -455,12 +501,11 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
         pageOpen={false}
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         boardOpen
         boardReferrers={[
-          { title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
-          { title: 'Log', path: 'pages/Log.md', materialized: true },
+          { kind: 'page', title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
+          { kind: 'page', title: 'Log', path: 'pages/Log.md', materialized: true },
         ]}
         onSelect={() => {}}
         onOpenAsset={() => {}}
@@ -482,10 +527,11 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
         pageOpen={false}
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         boardOpen
-        boardReferrers={[{ title: 'Ideas', path: 'pages/Ideas.md', materialized: true }]}
+        boardReferrers={[
+          { kind: 'page', title: 'Ideas', path: 'pages/Ideas.md', materialized: true },
+        ]}
         onSelect={onSelect}
         onOpenAsset={() => {}}
         shortcuts={shortcuts}
@@ -501,7 +547,6 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
         pageOpen={false}
         backlinks={[]}
         forwardlinks={[]}
-        references={[]}
         activePath={null}
         boardOpen
         boardReferrers={[]}

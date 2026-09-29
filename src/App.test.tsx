@@ -469,11 +469,12 @@ describe('navigation over the real index', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Hub' }))
     const forward = forwardlinks()
     await forward.findByRole('button', { name: 'q3-report.pdf' })
-    // The Files group lists the page's assets first, then its boards — both
-    // in document order — so a board named before an asset still follows it.
+    // The Forwardlinks list holds the page's files — assets first, then boards,
+    // both in document order, so a board named before an asset still follows
+    // it — each badged by kind (merge-forwardlinks-groups).
     expect(forward.getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'q3-report.pdf',
-      'Migration.excalidraw',
+      'aq3-report.pdf',
+      'bMigration.excalidraw',
     ])
   })
 
@@ -493,14 +494,14 @@ describe('navigation over the real index', () => {
     await openFixture(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Report' }))
 
-    // The file is listed in its own section, named for the file, and is not
-    // dimmed: an asset row exists only for a file the vault holds.
+    // The file is listed in the one Forwardlinks list, named for the file, and
+    // is not dimmed: an asset row exists only for a file the vault holds.
     const forward = forwardlinks()
     const row = await forward.findByRole('button', { name: 'q3-report.pdf' })
     expect(row.className).not.toContain('dimmed')
     expect(row.getAttribute('aria-current')).toBeNull()
-    // The file sits in the Files group; the Pages group holds no page rows.
-    expect(forward.getByText('This page links to nothing.')).toBeTruthy()
+    // The file row is in the list, so the list is not empty.
+    expect(forward.queryByText('This page links to nothing.')).toBeNull()
 
     fireEvent.click(row)
     await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))

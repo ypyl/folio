@@ -120,23 +120,6 @@
   min-height: 32px;
 }
 
-/* The two groups inside Forwardlinks (add-page-contents): the pages the open
-   page references, and the files it points at. */
-.groups {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.groupLabel {
-  margin: 6px 0 0;
-  padding: 0 8px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--stone);
-}
-
 /* Bottom-anchored keyboard-shortcuts section: the three bands above it claim
    the leftover height, so this row lands on the panel's bottom edge by layout;
    `position: sticky` keeps it there once an open reference makes the panel
@@ -159,7 +142,9 @@
 }
 
 .row {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   padding: 6px 8px;
   border: none;
@@ -189,11 +174,33 @@
 .rowText {
   /* A block box is what makes the ellipsis apply: `overflow`/`text-overflow`
      have no effect on a non-replaced inline, so a long name used to run past
-     the row (and its hover fill) instead of truncating. */
+     the row (and its hover fill) instead of truncating. As a flex item it
+     needs `min-width: 0` so it can shrink below its content width. */
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Kind badge (merge-forwardlinks-groups): a board's `b`, an asset's `a`,
+   leading the label. A page row carries none, matching the sidebar. Muted chip,
+   so the badge never competes with the title. */
+.badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--warm-sand);
+  color: var(--stone);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 /* Placeholder line (indexing-loading-state): sized to the placeholder copy
