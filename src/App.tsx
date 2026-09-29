@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Sidebar } from './components/Sidebar'
+import { Sidebar, type SidebarRow } from './components/Sidebar'
 import { EditorPane, type EditorPaneHandle } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { ShortcutsList } from './components/ShortcutsList'
@@ -697,6 +697,25 @@ function App() {
     [graph],
   )
 
+  // The sidebar's single listing (merge-sidebar-sections): pages lead (pinned
+  // then recency, from the ordered `pages`), then boards, then assets — each
+  // labelled by kind. Memoized on its inputs' identity so the memoized Sidebar
+  // bails on every keystroke (App.test: the sidebar memo), and so the
+  // vault-sized ordering never runs per keystroke.
+  const sidebarRows = useMemo<SidebarRow[]>(() => {
+    const pinned = new Set(pins)
+    return [
+      ...pages.map((p) => ({
+        kind: 'page' as const,
+        path: p.path,
+        label: p.title,
+        pinned: pinned.has(p.path),
+      })),
+      ...boards.map((path) => ({ kind: 'board' as const, path, label: boardName(path) })),
+      ...assets.map((path) => ({ kind: 'asset' as const, path, label: assetName(path) })),
+    ]
+  }, [pages, boards, assets, pins])
+
   // Whether either control has anywhere to step (add-history-navigation).
   const canBack = canStep(trail, -1)
   const canForward = canStep(trail, 1)
@@ -802,15 +821,12 @@ function App() {
         />
         <Sidebar
           collapsed={leftCollapsed}
-          pages={pages}
+          rows={sidebarRows}
           journalEntries={journalEntries}
-          assets={assets}
-          boards={boards}
           activePath={activePath}
           onSelect={handleSelect}
           onOpenAsset={handleOpenAsset}
           onOpenBoard={handleOpenBoard}
-          pinnedPaths={pins}
           hasVault={graph !== null}
           loading={indexing}
           todayTick={todayTick}

@@ -119,7 +119,9 @@
 }
 
 .row {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   padding: 6px 8px;
   border: none;
@@ -144,11 +146,33 @@
 .rowText {
   /* A block box is what makes the ellipsis apply: `overflow`/`text-overflow`
      have no effect on a non-replaced inline, so a long name used to run past
-     the row (and its hover fill) instead of truncating. */
+     the row (and its hover fill) instead of truncating. As a flex item it
+     needs `min-width: 0` so it can shrink below its content width. */
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Kind badge (merge-sidebar-sections): a board's `b`, an asset's `a`, leading
+   the label. A page — the default kind — carries none. Muted chip, so the
+   badge never competes with the title. */
+.badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--warm-sand);
+  color: var(--stone);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 /* Pinned row (add-pinned-pages): marked by the row's own style — a bolder,

@@ -144,7 +144,7 @@ const pane = () => screen.getByRole('main')
 // means. Sections are `details` elements whose summary carries the title.
 const section = (title: string, root: HTMLElement = document.body) =>
   within((within(root).getByText(title) as HTMLElement).closest('details') as HTMLElement)
-const pagesSection = () => section('Pages', document.getElementById('sidebar-pane') as HTMLElement)
+const filesSection = () => section('Files', document.getElementById('sidebar-pane') as HTMLElement)
 
 /** The Forwardlinks section, opened so its rows are reachable (it is collapsed
  *  by default since add-page-contents). */
@@ -228,7 +228,7 @@ describe('application shell', () => {
       expect(screen.getByRole('button', { name: 'Folio, go home' })).toBeTruthy()
       expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
       expect(screen.getByText('Journal')).toBeTruthy()
-      expect(screen.getByText('Pages')).toBeTruthy()
+      expect(screen.getByText('Files')).toBeTruthy()
       expect(screen.getByText('Backlinks')).toBeTruthy()
       // Restore resolves async; once no folder is present the hint settles.
       expect(await screen.findByText('Open a folder to begin.')).toBeTruthy()
@@ -378,11 +378,11 @@ describe('navigation over the real index', () => {
       expect(editor().setContents[0]).toContain('A running list of things to read'),
     )
     expect(
-      pagesSection().getByRole('button', { name: 'Reading' }).getAttribute('aria-current'),
+      filesSection().getByRole('button', { name: 'Reading' }).getAttribute('aria-current'),
     ).toBe('page')
     // Only the open page is marked: the other row keeps its plain state.
     expect(
-      pagesSection().getByRole('button', { name: 'Welcome' }).getAttribute('aria-current'),
+      filesSection().getByRole('button', { name: 'Welcome' }).getAttribute('aria-current'),
     ).toBeNull()
     vi.unstubAllGlobals()
   })
@@ -523,21 +523,47 @@ describe('navigation over the real index', () => {
     render(<App />)
     await openFixture(tree)
 
-    // Path-ordered, labelled by the path inside assets/.
-    const rows = section('Assets')
+    // Path-ordered, labelled by the path inside assets/. The asset rows trail
+    // the page rows and carry an `a` badge.
+    const rows = filesSection()
       .getAllByRole('button')
       .map((b) => b.textContent)
-    expect(rows).toEqual(['q3-report.pdf', 'shot.png'])
+    expect(rows).toEqual(['Report', 'aq3-report.pdf', 'ashot.png'])
 
-    // Rows are in the document even while the section is collapsed, so a file
-    // is reachable without opening it first (the summary is always rendered).
-    expect(
-      (screen.getByText('Assets').closest('details') as HTMLElement).hasAttribute('open'),
-    ).toBe(false)
+    // The Files section is open by default, so its rows are reachable.
+    const sidebar = document.getElementById('sidebar-pane') as HTMLElement
+    const files = [...sidebar.querySelectorAll('details')].find(
+      (d) => d.querySelector('summary')?.textContent === 'Files',
+    ) as HTMLDetailsElement
+    expect(files.hasAttribute('open')).toBe(true)
 
-    fireEvent.click(section('Assets').getByRole('button', { name: 'shot.png' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'shot.png' }))
     await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
     expect(tab.location.href).toMatch(/^blob:/)
+    vi.unstubAllGlobals()
+  })
+
+  it('orders the Files listing pages, then boards, then assets', async () => {
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Log.md': 'no references here' },
+      boards: { 'sprint-14.excalidraw': '{}', 'kitchen.excalidraw': '{}' },
+      assets: { 'shot.png': 'png bytes', 'q3-report.pdf': 'pdf bytes' },
+    })
+    await openFixture(tree)
+    await screen.findByRole('button', { name: 'Log' })
+    // Pages lead (one here), then boards in path order (each `b`-badged), then
+    // assets in path order (each `a`-badged).
+    const titles = filesSection()
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+    expect(titles).toEqual([
+      'Log',
+      'bkitchen.excalidraw',
+      'bsprint-14.excalidraw',
+      'aq3-report.pdf',
+      'ashot.png',
+    ])
     vi.unstubAllGlobals()
   })
 
@@ -596,7 +622,7 @@ describe('auto-save (page-editing spec)', () => {
     editor().emitChange('draft of welcome')
     fireEvent.click(await screen.findByRole('button', { name: 'Reading' }))
     // Welcome now sits in the trail too, so name the Pages row.
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
 
     // The fresh Welcome editor mounts with the draft, not the indexed content.
     const reopened = editor()
@@ -1180,7 +1206,7 @@ describe('pinned pages (add-pinned-pages)', () => {
 
     // Back on Welcome (the Pages row — the meta panel's forwardlinks also
     // carry a Welcome row), unpinning restores edit order and clears the marker.
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
     const unpin = await screen.findByRole('button', { name: 'Unpin Welcome' })
     fireEvent.click(unpin)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Pin Welcome' })).toBeTruthy())
@@ -1333,7 +1359,7 @@ describe('history navigation (add-history-navigation spec)', () => {
   const forward = () => screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement
   // The page the sidebar marks as open.
   const openRow = () =>
-    pagesSection()
+    filesSection()
       .getAllByRole('button')
       .find((b) => b.getAttribute('aria-current') === 'page')?.textContent
 
@@ -1349,8 +1375,8 @@ describe('history navigation (add-history-navigation spec)', () => {
   it('steps back and forward through the pages opened, without adding entries', async () => {
     render(<App />)
     await openFixture()
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Reading' }))
     await waitFor(() => expect(openRow()).toBe('Reading'))
     expect(back().disabled).toBe(false)
     expect(forward().disabled).toBe(true)
@@ -1373,15 +1399,15 @@ describe('history navigation (add-history-navigation spec)', () => {
   it('discards what was ahead when a new page opens', async () => {
     render(<App />)
     await openFixture()
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Folio' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Reading' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Folio' }))
     fireEvent.click(back()) // back to Reading
     await waitFor(() => expect(openRow()).toBe('Reading'))
     expect(forward().disabled).toBe(false)
 
     // A fresh navigation from a backed-out position starts a new line.
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Inbox' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Inbox' }))
     await waitFor(() => expect(openRow()).toBe('Inbox'))
     expect(forward().disabled).toBe(true)
     fireEvent.click(back())
@@ -1394,8 +1420,8 @@ describe('history navigation (add-history-navigation spec)', () => {
   it('clears the trail when the folder changes', async () => {
     render(<App />)
     await openFixture()
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Reading' }))
     await waitFor(() => expect(back().disabled).toBe(false))
 
     const home = buildTree({ pages: { 'b.md': 'b' } })
@@ -1439,7 +1465,7 @@ describe('history navigation (add-history-navigation spec)', () => {
   it('does not re-render the sidebar on a keystroke, but does on a navigation', async () => {
     render(<App />)
     await openFixture()
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
 
     const before = dayLabelCalls.count
@@ -1452,7 +1478,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     expect(dayLabelCalls.count).toBe(before)
 
     // A navigation does change what the sidebar shows, so it re-renders.
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Reading' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Reading' }))
     expect(dayLabelCalls.count).toBeGreaterThan(before)
     vi.unstubAllGlobals()
   })
@@ -1463,7 +1489,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     const today = new Date()
     const todayPath = `journals/${localDayString(today)}.md`
     // Leave today's journal for a page, so the control has to bring it back.
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'Today' }))
@@ -1562,7 +1588,7 @@ describe('whiteboards (add-whiteboards)', () => {
       boards: { 'Migration.excalidraw': '{"type":"excalidraw","elements":[]}' },
     })
     await openFixture(tree)
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
     await waitFor(() => expect(editor().content).toContain('#!Migration'))
 
     act(() => editor().emitReferenceClick('Migration', 'board'))
@@ -1584,7 +1610,7 @@ describe('whiteboards (add-whiteboards)', () => {
       boards: { 'Migration.excalidraw': '{}' },
     })
     await openFixture(tree)
-    fireEvent.click(section('Boards').getByRole('button', { name: 'Migration.excalidraw' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Migration.excalidraw' }))
     expect(await screen.findByTestId('board-view')).toBeTruthy()
   })
 
@@ -1596,7 +1622,7 @@ describe('whiteboards (add-whiteboards)', () => {
       boards: { 'Migration.excalidraw': '{}' },
     })
     await openFixture(tree)
-    fireEvent.click(section('Boards').getByRole('button', { name: 'Migration.excalidraw' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Migration.excalidraw' }))
     await screen.findByTestId('board-view')
     const panel = within(screen.getByRole('complementary', { name: 'Page sidebar' }))
     expect(panel.getByText('Referenced by')).toBeTruthy()
@@ -1614,7 +1640,7 @@ describe('whiteboards (add-whiteboards)', () => {
     ;(pages.children.get('Second.md') as FakeFileHandle).lastModified = 200
     render(<App />)
     await openFixture(tree)
-    fireEvent.click(section('Boards').getByRole('button', { name: 'Migration.excalidraw' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Migration.excalidraw' }))
     await screen.findByTestId('board-view')
     await waitFor(() =>
       expect(section('Referenced by').getByRole('button', { name: 'Second' })).toBeTruthy(),
@@ -1636,7 +1662,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
       boards: { 'Migration.excalidraw': '{}' },
     })
     await openFixture(tree)
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
 
     const row = await forwardlinks().findByRole('button', {
       name: 'Migration.excalidraw',
@@ -1655,7 +1681,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
       boards: { 'Migration.excalidraw': '{}' },
     })
     await openFixture(tree)
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
     const rows = await forwardlinks().findAllByRole('button', {
       name: 'Migration.excalidraw',
     })
@@ -1667,7 +1693,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     render(<App />)
     const tree = buildTree({ pages: { 'Ideas.md': 'A sketch: #!Architecture' } })
     await openFixture(tree)
-    fireEvent.click(pagesSection().getByRole('button', { name: 'Ideas' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
     const row = await forwardlinks().findByRole('button', {
       name: 'Architecture.excalidraw',
     })
@@ -1834,7 +1860,7 @@ describe('page contents (add-page-contents)', () => {
       render(<App />)
       const tree = buildTree({ pages: { 'Notes.md': '# Alpha\n\nBody text\n\n## Beta\n' } })
       await openFixture(tree)
-      fireEvent.click(pagesSection().getByRole('button', { name: 'Notes' }))
+      fireEvent.click(filesSection().getByRole('button', { name: 'Notes' }))
       await waitFor(() => expect(editor().content).toContain('Alpha'))
 
       const contents = section('Contents')

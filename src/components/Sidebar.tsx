@@ -12,23 +12,33 @@ import { Accordion } from './Accordion'
 import { JournalCalendar } from './JournalCalendar'
 import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
-import { assetName, boardName } from '../vault/index'
 import { isReferenceable } from '../vault/parse'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
+/** One row in the sidebar's single Files listing (merge-sidebar-sections).
+ *  The kind is the row's contract: a page row navigates, a board row opens the
+ *  board editor, and an asset row opens the file (ADR-0021, ADR-0024). `pinned`
+ *  is page-only; App bakes it in from the index's pins. Labels are precomputed
+ *  by App (page title, board path inside `boards/`, asset path inside
+ *  `assets/`), so the sidebar stays a renderer. */
+export type SidebarRow = {
+  kind: 'page' | 'board' | 'asset'
+  path: string
+  label: string
+  pinned?: boolean
+}
+
 /** One listing's scroll geometry (add-history-navigation D5): what
- *  `windowPieces` needs, and nothing about which listing it is. Each sidebar
- *  listing measures its own body, so a scroll in one never re-windows the
- *  other (add-asset-navigation D5). */
+ *  `windowPieces` needs, and nothing about which listing it is. */
 type ListView = { scrollTop: number; viewportHeight: number; listTop: number }
 
 /** Before anything is measured — a collapsed section, or a first render — the
  *  head of a listing is drawn: a zero-height viewport is exactly that. */
 const UNMEASURED: ListView = { scrollTop: 0, viewportHeight: 0, listTop: 0 }
 
-/** Where a listing sits inside its own scroll body: the body scrolls, the list
- *  inside it does not. */
+/** Where the listing sits inside its own scroll body: the body scrolls, the
+ *  list inside it does not. */
 function measureList(body: HTMLElement | null, list: HTMLElement | null): ListView {
   if (!body || !list) return UNMEASURED
   return {
@@ -46,53 +56,43 @@ function sameView(a: ListView, b: ListView): boolean {
   )
 }
 
-// Receives page data via props (design decision 3): components never import the
+// Receives row data via props (design decision 3): components never import the
 // vault directly, so the index can swap per folder at App only. Rows are keyed
-// and tracked by vault-relative path (design D1/D6), not object identity -
-// index pages are re-derived on every refresh.
+// and tracked by vault-relative path, not object identity - the index re-derives
+// them on every refresh.
 //
-// The sidebar is a column of bands (add-asset-navigation, D5): the navigation
-// controls, then Journal sized to its calendar, then the Pages and Assets
-// sections, which share whatever height is left and each scroll inside their
-// own body. Every section summary is always in the document, so nothing can be
-// buried below a long listing the way the removed History section was.
+// The sidebar is two bands (merge-sidebar-sections): the Journal calendar, sized
+// to its content, and the Files section, one listing of the vault's pages,
+// boards, and assets that scrolls inside its own body. Every section summary is
+// always in the document, so nothing can be buried below a long listing.
 //
 // Memoized so a keystroke in the open page does not re-create a row element per
-// page (add-page-history, design D8, AGENTS.md: the keystroke budget). The memo
+// row (add-page-history, design D8, AGENTS.md: the keystroke budget). The memo
 // only bails while every prop keeps its identity, so App must keep this
 // inventory referentially stable:
-//   pages / journalEntries - useMemo on graph identity
-//   assets                 - graph.assets, which changes only on a scan
-//   pinnedPaths            - useIndex's pins, a constant empty array while the
-//                            graph is null
-//   onSelect / onOpenAsset / onBack / onForward / onToday - useCallback reading
-//                            only what they need
-//   canBack / canForward, activePath, hasVault, loading - primitives
+//   rows           - useMemo on graph/pins identity (App builds and orders it)
+//   journalEntries - useMemo on graph identity
+//   onSelect / onOpenAsset / onOpenBoard - useCallback reading only what they need
+//   activePath, hasVault, loading, todayTick, collapsed - primitives
 // A new prop that is rebuilt on every render silently disables this, so
 // re-run the change's measurement when this list changes.
 export const Sidebar = memo(function Sidebar({
-  pages,
+  rows,
   journalEntries,
-  assets,
-  boards = [],
   activePath,
   onSelect,
   onOpenAsset,
   onOpenBoard,
-  pinnedPaths = [],
   hasVault,
   loading = false,
   todayTick = 0,
   collapsed = false,
 }: {
-  pages: Page[]
+  /** The vault's non-journal files in listing order: pages (pinned then
+   *  recency), then boards, then assets (merge-sidebar-sections). App orders
+   *  and memoizes this array; the sidebar renders it as given. */
+  rows: SidebarRow[]
   journalEntries: Page[]
-  /** The vault's assets, path-ordered (vault-assets). App passes the index's
-   *  own array, so a scan is the only thing that changes it. */
-  assets: string[]
-  /** The vault's boards, path-ordered (add-whiteboards). App passes the
-   *  index's own array, so a scan is the only thing that changes it. */
-  boards?: string[]
   activePath: string | null
   onSelect: (path: string) => void
   /** Activate an asset row: open the file (ADR-0021). An asset row never
@@ -101,11 +101,8 @@ export const Sidebar = memo(function Sidebar({
   /** Activate a board row: open the board editor in the main pane
    *  (add-whiteboards). */
   onOpenBoard?: (path: string) => void
-  /** Pinned page paths, in pin order (most recently pinned first); pinned
-   *  rows render a non-interactive star marker (add-pinned-pages). */
-  pinnedPaths?: string[]
-  /** A folder is open and indexed; gates the journal calendar and the Assets
-   *  section's empty state (D6). */
+  /** A folder is open and indexed; gates the journal calendar and the Files
+   *  section's empty state. */
   hasVault: boolean
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
@@ -118,37 +115,17 @@ export const Sidebar = memo(function Sidebar({
    *  box (and its descendants' focusability) out of the layout. */
   collapsed?: boolean
 }) {
-  const pinnedSet = new Set(pinnedPaths)
-
-  // Two windowed listings, two measured bodies (add-asset-navigation, D5). The
-  // aside is watched, not measured: its children are the bands whose height the
-  // flex split changes when a section opens or closes.
+  // One windowed listing, one measured body (merge-sidebar-sections). The aside
+  // is watched, not measured: its children are the bands whose height the flex
+  // split changes when a section opens or closes.
   const asideRef = useRef<HTMLElement | null>(null)
-  const pagesBodyRef = useRef<HTMLDivElement | null>(null)
-  const pagesListRef = useRef<HTMLUListElement | null>(null)
-  const boardsBodyRef = useRef<HTMLDivElement | null>(null)
-  const boardsListRef = useRef<HTMLUListElement | null>(null)
-  const assetsBodyRef = useRef<HTMLDivElement | null>(null)
-  const assetsListRef = useRef<HTMLUListElement | null>(null)
-  const [views, setViews] = useState<{ pages: ListView; boards: ListView; assets: ListView }>({
-    pages: UNMEASURED,
-    boards: UNMEASURED,
-    assets: UNMEASURED,
-  })
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const [view, setView] = useState<ListView>(UNMEASURED)
 
   const measure = useCallback(() => {
-    const next = {
-      pages: measureList(pagesBodyRef.current, pagesListRef.current),
-      boards: measureList(boardsBodyRef.current, boardsListRef.current),
-      assets: measureList(assetsBodyRef.current, assetsListRef.current),
-    }
-    setViews((prev) =>
-      sameView(prev.pages, next.pages) &&
-      sameView(prev.boards, next.boards) &&
-      sameView(prev.assets, next.assets)
-        ? prev
-        : next,
-    )
+    const next = measureList(bodyRef.current, listRef.current)
+    setView((prev) => (sameView(prev, next) ? prev : next))
   }, [])
 
   // One recompute per frame at most: a scroll fires far faster than the window
@@ -164,7 +141,7 @@ export const Sidebar = memo(function Sidebar({
     })
   }, [measure])
 
-  // Sections above a listing open, and the calendar changes month, without
+  // The band above the listing opens, and the calendar changes month, without
   // re-rendering this component, so the bands' boxes are watched rather than
   // assumed. A band's height comes from the flex split and never from its
   // content — the listing scrolls inside it — so watching it cannot feed back
@@ -181,103 +158,106 @@ export const Sidebar = memo(function Sidebar({
     measure()
   }, [measure])
 
+  // The open item's row — page or board — must stay rendered and marked, so the
+  // single window is given the active index across all kinds (design D5). An
+  // asset is never active. `findIndex` is a linear pass over the already-built
+  // array, off the keystroke path.
   const activeIndex = useMemo(
-    () => pages.findIndex((page) => page.path === activePath),
-    [pages, activePath],
+    () => rows.findIndex((row) => row.path === activePath),
+    [rows, activePath],
   )
 
-  const pagesPieces = useMemo(
-    () => windowPieces({ total: pages.length, ...views.pages, keep: activeIndex }),
-    [pages.length, views.pages, activeIndex],
+  const pieces = useMemo(
+    () => windowPieces({ total: rows.length, ...view, keep: activeIndex }),
+    [rows.length, view, activeIndex],
   )
 
-  const assetPieces = useMemo(
-    () => windowPieces({ total: assets.length, ...views.assets }),
-    [assets.length, views.assets],
+  // A kind badge (merge-sidebar-sections): the page is the default kind and
+  // carries none; a board and an asset are marked with a leading letter. The
+  // badge is presentational only, so the row stays one button.
+  const badge = (kind: 'board' | 'asset') => (
+    <span className={styles.badge} aria-hidden="true">
+      {kind === 'board' ? 'b' : 'a'}
+    </span>
   )
 
-  const boardPieces = useMemo(
-    () => windowPieces({ total: boards.length, ...views.boards }),
-    [boards.length, views.boards],
-  )
-
-  // Pinned rows are marked by the row's own style (bolder title) — no icon
-  // and no extra control; the toggle lives in the status bar (design D6).
-  const renderRow = (page: Page, index: number) => {
-    const isPinned = pinnedSet.has(page.path)
-    // A page row is a drag source only when its name can be written as a token
-    // that reads back to it (drag-references-into-editor, design D3) — the same
-    // rule that keeps such a name out of the completion pool. Dragging writes
-    // the reference into the open page; a drag is not an activation, so the
-    // click below is untouched.
-    const draggable = isReferenceable(page.title)
+  // Rows are keyed by vault-relative path. A row's click does what its kind
+  // says: a page navigates, a board opens the board editor, an asset opens the
+  // file and changes nothing else (ADR-0021).
+  const renderRow = (row: SidebarRow, index: number) => {
+    const isActive = row.path === activePath
+    if (row.kind === 'page') {
+      // A page row is a drag source only when its name can be written as a
+      // token that reads back to it (drag-references-into-editor, design D3) —
+      // the same rule that keeps such a name out of the completion pool.
+      const draggable = isReferenceable(row.label)
+      return (
+        <li
+          key={row.path}
+          className={styles.item}
+          aria-setsize={rows.length}
+          aria-posinset={index + 1}
+        >
+          <button
+            type="button"
+            className={`${styles.row}${row.pinned ? ` ${styles.rowPinned}` : ''}`}
+            data-pinned={row.pinned || undefined}
+            data-active={isActive || undefined}
+            aria-current={isActive ? 'page' : undefined}
+            draggable={draggable}
+            onDragStart={
+              draggable
+                ? (e) => writeDragRef(e.dataTransfer, { kind: 'page', name: row.label })
+                : undefined
+            }
+            onClick={() => onSelect(row.path)}
+          >
+            <span className={styles.rowText}>{row.label}</span>
+          </button>
+        </li>
+      )
+    }
+    if (row.kind === 'board') {
+      return (
+        <li
+          key={row.path}
+          className={styles.item}
+          aria-setsize={rows.length}
+          aria-posinset={index + 1}
+        >
+          <button
+            type="button"
+            className={styles.row}
+            data-active={isActive || undefined}
+            aria-current={isActive ? 'page' : undefined}
+            onClick={() => onOpenBoard?.(row.path)}
+          >
+            {badge('board')}
+            <span className={styles.rowText}>{row.label}</span>
+          </button>
+        </li>
+      )
+    }
+    // Asset row (vault-assets): labelled by its path inside `assets/`, and a
+    // single button that opens the file. It carries no active marking — the
+    // open page is a page — and is never dimmed: a row exists only for a file
+    // the vault holds. It is also a drag source (drag-references-into-editor).
     return (
-      // The row sits in a list item so the windowed listing can still report its
-      // position and the listing's total size to assistive technology
-      // (add-history-navigation, D5): a `button` cannot carry either attribute.
       <li
-        key={page.path}
+        key={row.path}
         className={styles.item}
-        aria-setsize={pages.length}
+        aria-setsize={rows.length}
         aria-posinset={index + 1}
       >
         <button
           type="button"
-          className={`${styles.row}${isPinned ? ` ${styles.rowPinned}` : ''}`}
-          data-pinned={isPinned || undefined}
-          data-active={page.path === activePath || undefined}
-          aria-current={page.path === activePath ? 'page' : undefined}
-          draggable={draggable}
-          onDragStart={
-            draggable
-              ? (e) => writeDragRef(e.dataTransfer, { kind: 'page', name: page.title })
-              : undefined
-          }
-          onClick={() => onSelect(page.path)}
-        >
-          <span className={styles.rowText}>{page.title}</span>
-        </button>
-      </li>
-    )
-  }
-
-  // An asset row (vault-assets): labelled by its path inside `assets/`, and a
-  // single button that opens the file. It carries no active marking — the open
-  // page is a page — and is never dimmed: a row exists only for a file the
-  // vault holds. It is also a drag source (drag-references-into-editor): the
-  // payload names the file's vault path, which the editor turns into a link.
-  const renderAssetRow = (index: number) => {
-    const path = assets[index]
-    return (
-      <li key={path} className={styles.item} aria-setsize={assets.length} aria-posinset={index + 1}>
-        <button
-          type="button"
           className={styles.row}
           draggable
-          onDragStart={(e) => writeDragRef(e.dataTransfer, { kind: 'asset', path })}
-          onClick={() => onOpenAsset(path)}
+          onDragStart={(e) => writeDragRef(e.dataTransfer, { kind: 'asset', path: row.path })}
+          onClick={() => onOpenAsset(row.path)}
         >
-          <span className={styles.rowText}>{assetName(path)}</span>
-        </button>
-      </li>
-    )
-  }
-
-  // A board row (add-whiteboards): labelled by its path inside `boards/`, and a
-  // single button that opens the board editor. The row for the open board
-  // carries the active marking, the way a page row does.
-  const renderBoardRow = (index: number) => {
-    const path = boards[index]
-    return (
-      <li key={path} className={styles.item} aria-setsize={boards.length} aria-posinset={index + 1}>
-        <button
-          type="button"
-          className={styles.row}
-          data-active={path === activePath || undefined}
-          aria-current={path === activePath ? 'page' : undefined}
-          onClick={() => onOpenBoard?.(path)}
-        >
-          <span className={styles.rowText}>{boardName(path)}</span>
+          {badge('asset')}
+          <span className={styles.rowText}>{row.label}</span>
         </button>
       </li>
     )
@@ -287,10 +267,10 @@ export const Sidebar = memo(function Sidebar({
   // spacers standing in for the rest, so the body's scroll extent is the whole
   // listing (add-history-navigation, D5).
   const renderListing = (
-    pieces: ReturnType<typeof windowPieces>,
+    listingPieces: ReturnType<typeof windowPieces>,
     row: (index: number) => ReactNode,
   ) =>
-    pieces.map((piece, i) =>
+    listingPieces.map((piece, i) =>
       piece.kind === 'gap' ? (
         <li
           key={`gap-${i}`}
@@ -354,59 +334,27 @@ export const Sidebar = memo(function Sidebar({
               />
             )}
       </Accordion>
+      {/* The Files section (merge-sidebar-sections) owns the single listing:
+          pages lead (pinned, then recency), boards and assets trail by path.
+          It is open by default and takes the sidebar's remaining height. */}
       <Accordion
-        title="Pages"
+        title="Files"
         defaultOpen
         className={styles.section}
         bodyClassName={styles.fillBody}
       >
-        <div className={styles.scrollBody} ref={pagesBodyRef} onScroll={onScroll}>
+        <div className={styles.scrollBody} ref={bodyRef} onScroll={onScroll}>
           {loading ? (
             <div className={styles.list} aria-hidden="true">
               {skeletonRows}
             </div>
-          ) : (
-            <ul className={styles.list} ref={pagesListRef}>
-              {renderListing(pagesPieces, (index) => renderRow(pages[index], index))}
-            </ul>
-          )}
-        </div>
-      </Accordion>
-      {/* Boards (add-whiteboards) sits between Pages and Assets, collapsed:
-          most vaults hold none, so it does not take height from the pages
-          until the user opens it. */}
-      <Accordion title="Boards" className={styles.section} bodyClassName={styles.fillBody}>
-        <div className={styles.scrollBody} ref={boardsBodyRef} onScroll={onScroll}>
-          {loading ? (
-            <div className={styles.list} aria-hidden="true">
-              {skeletonRows}
-            </div>
-          ) : boards.length === 0 ? (
+          ) : rows.length === 0 ? (
             hasVault ? (
-              <p className="section-placeholder">No boards yet.</p>
+              <p className="section-placeholder">No notes yet.</p>
             ) : null
           ) : (
-            <ul className={styles.list} ref={boardsListRef}>
-              {renderListing(boardPieces, renderBoardRow)}
-            </ul>
-          )}
-        </div>
-      </Accordion>
-      {/* Assets (vault-assets) closes the sidebar, collapsed: its summary is
-          always in the document, and opening it takes its height from Pages. */}
-      <Accordion title="Assets" className={styles.section} bodyClassName={styles.fillBody}>
-        <div className={styles.scrollBody} ref={assetsBodyRef} onScroll={onScroll}>
-          {loading ? (
-            <div className={styles.list} aria-hidden="true">
-              {skeletonRows}
-            </div>
-          ) : assets.length === 0 ? (
-            hasVault ? (
-              <p className="section-placeholder">No assets yet.</p>
-            ) : null
-          ) : (
-            <ul className={styles.list} ref={assetsListRef}>
-              {renderListing(assetPieces, renderAssetRow)}
+            <ul className={styles.list} ref={listRef}>
+              {renderListing(pieces, (index) => renderRow(rows[index], index))}
             </ul>
           )}
         </div>

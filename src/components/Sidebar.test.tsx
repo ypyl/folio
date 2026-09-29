@@ -1,10 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Sidebar } from './Sidebar'
+import { Sidebar, type SidebarRow } from './Sidebar'
 import styles from './Sidebar.module.css'
 import { monthYearLabel } from './months'
-import { localDayString } from '../vault/index'
-import type { Page } from '../page'
+import { assetName, boardName, localDayString } from '../vault/index'
 
 const journal = {
   path: 'journals/2026-09-06.md',
@@ -12,33 +11,36 @@ const journal = {
   kind: 'journal' as const,
   content: '',
 }
-const page = { path: 'notes.md', title: 'notes', kind: 'page' as const, content: '' }
 
-const manyPages = (count: number): Page[] =>
-  Array.from({ length: count }, (_, i) => ({
-    path: `p${i}.md`,
-    title: `p${i}`,
-    kind: 'page' as const,
-    content: '',
-  }))
+/** Row builders (merge-sidebar-sections): App orders and labels the rows; the
+ *  sidebar only renders them, so a test states a row directly. */
+const pageRow = (path: string, label = path.replace(/\.md$/, ''), pinned = false): SidebarRow => ({
+  kind: 'page',
+  path,
+  label,
+  pinned,
+})
+const boardRow = (path: string): SidebarRow => ({ kind: 'board', path, label: boardName(path) })
+const assetRow = (path: string): SidebarRow => ({ kind: 'asset', path, label: assetName(path) })
+
+const manyPageRows = (count: number): SidebarRow[] =>
+  Array.from({ length: count }, (_, i) => pageRow(`p${i}.md`, `p${i}`))
 
 // The section body for a title, so a test can say which list it means.
 const section = (title: string) =>
   within((screen.getByText(title) as HTMLElement).closest('details') as HTMLElement)
 
-/** A section's own scroll body (add-asset-navigation): the element its listing
- *  is windowed against, since the sections share the pane. */
-const scrollBody = (title: string) =>
-  (screen.getByText(title) as HTMLElement)
+/** The Files listing's own scroll body: the element it is windowed against. */
+const scrollBody = () =>
+  (screen.getByText('Files') as HTMLElement)
     .closest('details')!
     .querySelector(`.${styles.scrollBody}`) as HTMLElement
 
-function sidebar(loading: boolean) {
+function sidebar(loading: boolean, rows: SidebarRow[] = [pageRow('notes.md', 'notes')]) {
   return render(
     <Sidebar
-      pages={[page]}
+      rows={rows}
       journalEntries={[journal]}
-      assets={[]}
       onOpenAsset={() => {}}
       activePath={null}
       onSelect={() => {}}
@@ -53,9 +55,13 @@ afterEach(() => {
 })
 
 describe('Sidebar', () => {
-  it('renders sections and page rows when loaded', () => {
+  it('renders two sections and the listing rows when loaded', () => {
     sidebar(false)
     expect(screen.getByRole('button', { name: 'notes' })).toBeTruthy()
+    const summaries = [...screen.getByRole('complementary').querySelectorAll('summary')].map(
+      (s) => s.textContent,
+    )
+    expect(summaries).toEqual(['Journal', 'Files'])
     expect(within(screen.getByRole('complementary')).getAllByRole('button').length).toBeGreaterThan(
       0,
     )
@@ -69,19 +75,17 @@ describe('Sidebar', () => {
       expect(within(el).queryByRole('button', { name: '2026-09-06' })).toBeNull()
     }
     const sections = screen.getAllByRole('group')
-    expect(sections.length).toBe(4)
+    expect(sections.length).toBe(2)
     // Journal mirrors the calendar geometry (month bar + weekday letters + a
-    // 6x7 day grid = 43 placeholders); Pages and Assets each show three
+    // 6x7 day grid = 43 placeholders); the Files listing shows three
     // text-height rows.
     expect(sections[0].querySelectorAll('.skeleton').length).toBe(43)
     expect(sections[1].querySelectorAll('.skeleton').length).toBe(3)
-    expect(sections[2].querySelectorAll('.skeleton').length).toBe(3)
     // Switching back to loaded content shows the real rows again.
     rerender(
       <Sidebar
-        pages={[page]}
+        rows={[pageRow('notes.md', 'notes')]}
         journalEntries={[journal]}
-        assets={[]}
         onOpenAsset={() => {}}
         activePath={null}
         onSelect={() => {}}
@@ -97,9 +101,8 @@ describe('Sidebar calendar re-anchor (move-nav-controls-to-status-bar)', () => {
   it('re-anchors the calendar when App bumps the Today tick', () => {
     const today = `journals/${localDayString(new Date())}.md`
     const base = {
-      pages: [page],
+      rows: [pageRow('notes.md', 'notes')],
       journalEntries: [journal],
-      assets: [],
       onOpenAsset: () => {},
       activePath: today,
       onSelect: () => {},
@@ -119,9 +122,8 @@ describe('Sidebar calendar re-anchor (move-nav-controls-to-status-bar)', () => {
   it('holds no navigation controls in the sidebar', () => {
     render(
       <Sidebar
-        pages={[page]}
+        rows={[pageRow('notes.md', 'notes')]}
         journalEntries={[journal]}
-        assets={[]}
         onOpenAsset={() => {}}
         activePath={null}
         onSelect={() => {}}
@@ -150,24 +152,21 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
     ({ top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top }) as DOMRect
 
   const renderWindowed = (
-    pages: Page[],
+    rows: SidebarRow[],
     activePath: string | null = null,
-    { clientHeight = 600, listOffset = 200, pinnedPaths = [] as string[] } = {},
-    assets: string[] = [],
+    { clientHeight = 600, listOffset = 200 } = {},
   ) => {
     render(
       <Sidebar
-        pages={pages}
+        rows={rows}
         journalEntries={[]}
-        assets={assets}
         onOpenAsset={() => {}}
         activePath={activePath}
         onSelect={() => {}}
-        pinnedPaths={pinnedPaths}
         hasVault
       />,
     )
-    const body = scrollBody('Pages')
+    const body = scrollBody()
     const list = body.querySelector('ul') as HTMLUListElement
     Object.defineProperty(body, 'clientHeight', { value: clientHeight, configurable: true })
     Object.defineProperty(body, 'scrollTop', { value: 0, writable: true, configurable: true })
@@ -189,19 +188,19 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
   }
 
   const rowTitles = () =>
-    section('Pages')
+    section('Files')
       .getAllByRole('button')
       .map((b) => b.textContent)
 
   it('renders a bounded number of rows however long the listing is', () => {
-    renderWindowed(manyPages(10_000))
+    renderWindowed(manyPageRows(10_000))
     const titles = rowTitles()
     expect(titles.length).toBeLessThan(50)
-    // The listing starts below the sections, so its first row is still rendered.
+    // The listing starts below the Journal band, so its first row is still rendered.
     expect(titles[0]).toBe('p0')
     // The spacers stand in for the rest, so the listing's scroll extent is the
     // whole listing rather than the rendered slice.
-    const gaps = section('Pages')
+    const gaps = section('Files')
       .getAllByRole('presentation', { hidden: true })
       .reduce((sum, el) => sum + Number.parseInt((el as HTMLElement).style.height, 10), 0)
     expect(gaps).toBeGreaterThan(0)
@@ -209,7 +208,7 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
   })
 
   it('renders the rows around a deep scroll position', () => {
-    const { aside } = renderWindowed(manyPages(10_000))
+    const { aside } = renderWindowed(manyPageRows(10_000))
     scrollTo(aside, 1000 * 35)
     const titles = rowTitles()
     expect(titles).toContain('p1000')
@@ -217,8 +216,8 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
   })
 
   it('reports each row position and the listing size to assistive technology', () => {
-    renderWindowed(manyPages(1000))
-    const rows = section('Pages').getAllByRole('button')
+    renderWindowed(manyPageRows(1000))
+    const rows = section('Files').getAllByRole('button')
     const first = rows[0].closest('li') as HTMLElement
     expect(first.getAttribute('aria-setsize')).toBe('1000')
     expect(first.getAttribute('aria-posinset')).toBe('1')
@@ -227,25 +226,33 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
   })
 
   it('renders the open page row even when it is outside the window', () => {
-    const pages = manyPages(1000)
-    renderWindowed(pages, pages[900].path)
+    const rows = manyPageRows(1000)
+    renderWindowed(rows, rows[900].path)
     const active = screen.getByRole('button', { name: 'p900' })
     expect(active.getAttribute('aria-current')).toBe('page')
     // And it sits at its real position, not next to the rendered window.
     expect((active.closest('li') as HTMLElement).getAttribute('aria-posinset')).toBe('901')
   })
 
+  it('renders the open board row even when it is outside the window', () => {
+    const rows = [...manyPageRows(1000), boardRow('boards/Migration.excalidraw')]
+    renderWindowed(rows, 'boards/Migration.excalidraw')
+    const active = screen.getByRole('button', { name: 'Migration.excalidraw' })
+    expect(active.getAttribute('aria-current')).toBe('page')
+    expect((active.closest('li') as HTMLElement).getAttribute('aria-posinset')).toBe('1001')
+  })
+
   it('renders every row when the listing fits the viewport', () => {
-    renderWindowed(manyPages(5), null, { listOffset: 0 })
+    renderWindowed(manyPageRows(5), null, { listOffset: 0 })
     expect(rowTitles()).toEqual(['p0', 'p1', 'p2', 'p3', 'p4'])
-    expect(section('Pages').queryAllByRole('presentation', { hidden: true })).toHaveLength(0)
+    expect(section('Files').queryAllByRole('presentation', { hidden: true })).toHaveLength(0)
   })
 
   it('follows the order it is given, pinned rows first', () => {
-    const pages = manyPages(1000)
-    // What App hands over after orderPages: the pinned page leads the listing.
-    const ordered = [pages[900], ...pages.filter((p) => p.path !== pages[900].path)]
-    renderWindowed(ordered, null, { pinnedPaths: [pages[900].path] })
+    const rows = manyPageRows(1000)
+    // What App hands over after ordering: the pinned page leads the listing.
+    const ordered = [pageRow('p900.md', 'p900', true), ...rows.filter((r) => r.path !== 'p900.md')]
+    renderWindowed(ordered)
     const titles = rowTitles()
     expect(titles[0]).toBe('p900')
     expect(titles[1]).toBe('p0')
@@ -253,9 +260,61 @@ describe('Sidebar windowed listing (add-history-navigation)', () => {
   })
 })
 
-describe('Sidebar assets (vault-assets)', () => {
-  const manyAssets = (count: number): string[] =>
-    Array.from({ length: count }, (_, i) => `assets/a${i}.png`)
+describe('Sidebar Files listing kinds (merge-sidebar-sections)', () => {
+  it('badges board rows with b and asset rows with a, and leaves pages unbadged', () => {
+    render(
+      <Sidebar
+        rows={[
+          pageRow('Log.md', 'Log'),
+          boardRow('boards/Migration.excalidraw'),
+          assetRow('assets/shot.png'),
+        ]}
+        journalEntries={[]}
+        onOpenAsset={() => {}}
+        onOpenBoard={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Log' }).querySelector(`.${styles.badge}`)).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Migration.excalidraw' }).querySelector(`.${styles.badge}`)
+        ?.textContent,
+    ).toBe('b')
+    expect(
+      screen.getByRole('button', { name: 'shot.png' }).querySelector(`.${styles.badge}`)
+        ?.textContent,
+    ).toBe('a')
+  })
+
+  it('renders rows in the order it is given across all kinds', () => {
+    render(
+      <Sidebar
+        rows={[
+          pageRow('Log.md', 'Log'),
+          boardRow('boards/Migration.excalidraw'),
+          assetRow('assets/shot.png'),
+        ]}
+        journalEntries={[]}
+        onOpenAsset={() => {}}
+        onOpenBoard={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    expect(
+      section('Files')
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Log', 'bMigration.excalidraw', 'ashot.png'])
+  })
+})
+
+describe('Sidebar asset rows (vault-assets)', () => {
+  const manyAssets = (count: number): SidebarRow[] =>
+    Array.from({ length: count }, (_, i) => assetRow(`assets/a${i}.png`))
 
   const renderAssets = (
     assets: string[],
@@ -263,9 +322,8 @@ describe('Sidebar assets (vault-assets)', () => {
   ) => {
     render(
       <Sidebar
-        pages={[]}
+        rows={assets.map(assetRow)}
         journalEntries={[]}
-        assets={assets}
         onOpenAsset={onOpenAsset}
         activePath={null}
         onSelect={onSelect}
@@ -275,47 +333,10 @@ describe('Sidebar assets (vault-assets)', () => {
     return { onOpenAsset, onSelect }
   }
 
-  it('renders all four summaries, with Boards and Assets last and collapsed', () => {
-    renderAssets(['assets/shot.png'])
-    const details = [...screen.getByRole('complementary').querySelectorAll('details')]
-    expect(details.map((d) => d.querySelector('summary')?.textContent)).toEqual([
-      'Journal',
-      'Pages',
-      'Boards',
-      'Assets',
-    ])
-    expect(details[0].hasAttribute('open')).toBe(true)
-    expect(details[1].hasAttribute('open')).toBe(true)
-    expect(details[2].hasAttribute('open')).toBe(false)
-    expect(details[3].hasAttribute('open')).toBe(false)
-  })
-
-  it('keeps every summary outside the scrolling bodies', () => {
-    renderAssets(['assets/a.png'])
-    for (const title of ['Journal', 'Pages', 'Boards', 'Assets']) {
-      expect((screen.getByText(title) as HTMLElement).closest(`.${styles.scrollBody}`)).toBeNull()
-    }
-    // The sidebar leads with the Journal section now; there is no control row
-    // above it (move-nav-controls-to-status-bar).
-    const aside = screen.getByRole('complementary')
-    const first = aside.firstElementChild as HTMLElement
-    expect(first.tagName).toBe('DETAILS')
-    expect(first.querySelector('summary')?.textContent).toBe('Journal')
-  })
-
-  it('gives each listing its own scroll body', () => {
-    renderAssets(['assets/a.png'])
-    const pages = scrollBody('Pages')
-    const assets = scrollBody('Assets')
-    expect(pages).not.toBe(assets)
-    expect(pages.className).toContain(styles.scrollBody)
-    expect(assets.className).toContain(styles.scrollBody)
-  })
-
   it('labels a row by its path inside assets/', () => {
     renderAssets(['assets/shot.png', 'assets/2026/q3.pdf'])
-    expect(section('Assets').getByRole('button', { name: 'shot.png' })).toBeTruthy()
-    expect(section('Assets').getByRole('button', { name: '2026/q3.pdf' })).toBeTruthy()
+    expect(section('Files').getByRole('button', { name: 'shot.png' })).toBeTruthy()
+    expect(section('Files').getByRole('button', { name: '2026/q3.pdf' })).toBeTruthy()
   })
 
   it('opens the file when its row is activated, without navigating', () => {
@@ -332,24 +353,38 @@ describe('Sidebar assets (vault-assets)', () => {
     expect(row.getAttribute('data-active')).toBeNull()
   })
 
-  it('shows empty-state copy for a vault with no assets', () => {
+  it('shows empty-state copy only when the whole listing is empty', () => {
     renderAssets([])
-    expect(section('Assets').getByText('No assets yet.')).toBeTruthy()
+    expect(section('Files').getByText('No notes yet.')).toBeTruthy()
+  })
+
+  it('shows no copy when the vault holds pages but no files', () => {
+    render(
+      <Sidebar
+        rows={[pageRow('Log.md', 'Log')]}
+        journalEntries={[]}
+        onOpenAsset={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    expect(section('Files').queryByText('No notes yet.')).toBeNull()
   })
 
   it('renders no copy or rows while no vault is open', () => {
     renderAssets([], { hasVault: false })
-    expect(section('Assets').queryByText('No assets yet.')).toBeNull()
-    expect(section('Assets').queryAllByRole('button')).toHaveLength(0)
+    expect(section('Files').queryByText('No notes yet.')).toBeNull()
+    expect(section('Files').queryAllByRole('button')).toHaveLength(0)
   })
 
-  it('renders a bounded number of rows however many assets the vault holds', () => {
-    renderAssets(manyAssets(10_000))
-    const rows = section('Assets').getAllByRole('button')
+  it('renders a bounded number of rows however many files the vault holds', () => {
+    renderAssets(manyAssets(10_000).map((r) => r.path))
+    const rows = section('Files').getAllByRole('button')
     expect(rows.length).toBeLessThan(50)
     // The spacers stand in for the rest, so the listing's scroll extent is the
     // whole listing rather than the rendered slice.
-    const gaps = section('Assets')
+    const gaps = section('Files')
       .getAllByRole('presentation', { hidden: true })
       .reduce((sum, el) => sum + Number.parseInt((el as HTMLElement).style.height, 10), 0)
     expect(gaps).toBeGreaterThan(0)
@@ -357,8 +392,8 @@ describe('Sidebar assets (vault-assets)', () => {
   })
 
   it('reports each asset row position and the listing size', () => {
-    renderAssets(manyAssets(1000))
-    const rows = section('Assets').getAllByRole('button')
+    renderAssets(manyAssets(1000).map((r) => r.path))
+    const rows = section('Files').getAllByRole('button')
     const first = rows[0].closest('li') as HTMLElement
     expect(first.getAttribute('aria-setsize')).toBe('1000')
     expect(first.getAttribute('aria-posinset')).toBe('1')
@@ -366,26 +401,20 @@ describe('Sidebar assets (vault-assets)', () => {
 })
 
 describe('Sidebar pinned rows (add-pinned-pages)', () => {
-  const renderRows = (pages: (typeof page)[], pinnedPaths: string[], onSelect = vi.fn()) =>
+  const renderRows = (rows: SidebarRow[], onSelect = vi.fn()) =>
     render(
       <Sidebar
-        pages={pages}
+        rows={rows}
         journalEntries={[]}
-        assets={[]}
         onOpenAsset={() => {}}
         activePath={null}
         onSelect={onSelect}
-        pinnedPaths={pinnedPaths}
         hasVault
       />,
     )
 
   it('a pinned row shows the pinned style and data-pinned; unpinned rows show neither', () => {
-    const folded = [
-      { path: 'a.md', title: 'a', kind: 'page' as const, content: '' },
-      { path: 'b.md', title: 'b', kind: 'page' as const, content: '' },
-    ]
-    renderRows(folded, ['a.md'])
+    renderRows([pageRow('a.md', 'a', true), pageRow('b.md', 'b')])
     const a = screen.getByRole('button', { name: 'a' })
     const b = screen.getByRole('button', { name: 'b' })
     expect(a.getAttribute('data-pinned')).toBe('true')
@@ -396,7 +425,7 @@ describe('Sidebar pinned rows (add-pinned-pages)', () => {
   })
 
   it('a page row is a single navigable button — no star control on the row', () => {
-    renderRows([page], ['notes.md'])
+    renderRows([pageRow('notes.md', 'notes', true)])
     expect(screen.queryByRole('button', { name: /pin notes/i })).toBeNull()
     const row = screen.getByRole('button', { name: 'notes' })
     expect(row.getAttribute('data-pinned')).toBe('true')
@@ -406,17 +435,13 @@ describe('Sidebar pinned rows (add-pinned-pages)', () => {
 
   it('clicking the row navigates', () => {
     const onSelect = vi.fn()
-    renderRows([page], [], onSelect)
+    renderRows([pageRow('notes.md', 'notes')], onSelect)
     fireEvent.click(screen.getByRole('button', { name: 'notes' }))
     expect(onSelect).toHaveBeenCalledWith('notes.md')
   })
 
   it('renders rows in the given order, marking only the pinned ones', () => {
-    const folded = [
-      { path: 'a.md', title: 'a', kind: 'page' as const, content: '' },
-      { path: 'b.md', title: 'b', kind: 'page' as const, content: '' },
-    ]
-    renderRows(folded, ['a.md'])
+    renderRows([pageRow('a.md', 'a', true), pageRow('b.md', 'b')])
     expect(screen.getAllByRole('button', { name: /^(a|b)$/ }).map((b) => b.textContent)).toEqual([
       'a',
       'b',
@@ -443,17 +468,11 @@ describe('Sidebar drag sources (drag-references-into-editor)', () => {
     } as unknown as DataTransfer
   }
 
-  const renderMixed = (
-    pages: Page[],
-    assets: string[],
-    onOpenAsset = vi.fn(),
-    onSelect = vi.fn(),
-  ) =>
+  const renderMixed = (rows: SidebarRow[], onOpenAsset = vi.fn(), onSelect = vi.fn()) =>
     render(
       <Sidebar
-        pages={pages}
+        rows={rows}
         journalEntries={[]}
-        assets={assets}
         onOpenAsset={onOpenAsset}
         activePath={null}
         onSelect={onSelect}
@@ -462,9 +481,9 @@ describe('Sidebar drag sources (drag-references-into-editor)', () => {
     )
 
   it('carries the file path an asset row names, not its label', () => {
-    renderMixed([], ['assets/2026/q3-report.pdf'])
+    renderMixed([assetRow('assets/2026/q3-report.pdf')])
     const dt = dragTransfer()
-    fireEvent.dragStart(section('Assets').getByRole('button', { name: '2026/q3-report.pdf' }), {
+    fireEvent.dragStart(section('Files').getByRole('button', { name: '2026/q3-report.pdf' }), {
       dataTransfer: dt,
     })
     expect(dt.getData('application/x-folio-asset')).toBe('assets/2026/q3-report.pdf')
@@ -472,9 +491,9 @@ describe('Sidebar drag sources (drag-references-into-editor)', () => {
   })
 
   it('carries the page name a page row names', () => {
-    renderMixed([{ path: 'reading list.md', title: 'reading list', kind: 'page', content: '' }], [])
+    renderMixed([pageRow('reading list.md', 'reading list')])
     const dt = dragTransfer()
-    fireEvent.dragStart(section('Pages').getByRole('button', { name: 'reading list' }), {
+    fireEvent.dragStart(section('Files').getByRole('button', { name: 'reading list' }), {
       dataTransfer: dt,
     })
     expect(dt.getData('application/x-folio-page')).toBe('reading list')
@@ -483,8 +502,8 @@ describe('Sidebar drag sources (drag-references-into-editor)', () => {
   // The same predicate that keeps such a name out of the completion pool: a
   // token would read back as a different page, which is a silent wrong answer.
   it('is not a drag source when no reference token can express the name', () => {
-    renderMixed([{ path: 'weird]name.md', title: 'weird]name', kind: 'page', content: '' }], [])
-    const row = section('Pages').getByRole('button', { name: 'weird]name' })
+    renderMixed([pageRow('weird]name.md', 'weird]name')])
+    const row = section('Files').getByRole('button', { name: 'weird]name' })
     const dt = dragTransfer()
     fireEvent.dragStart(row, { dataTransfer: dt })
     expect(dt.types).toEqual([])
@@ -494,28 +513,25 @@ describe('Sidebar drag sources (drag-references-into-editor)', () => {
   it('leaves the click alone: a row that does not move still opens', () => {
     const onOpenAsset = vi.fn()
     const onSelect = vi.fn()
-    renderMixed(
-      [{ path: 'notes.md', title: 'notes', kind: 'page', content: '' }],
-      ['assets/shot.png'],
-      onOpenAsset,
-      onSelect,
-    )
-    fireEvent.click(section('Assets').getByRole('button', { name: 'shot.png' }))
-    fireEvent.click(section('Pages').getByRole('button', { name: 'notes' }))
+    renderMixed([pageRow('notes.md', 'notes'), assetRow('assets/shot.png')], onOpenAsset, onSelect)
+    fireEvent.click(section('Files').getByRole('button', { name: 'shot.png' }))
+    fireEvent.click(section('Files').getByRole('button', { name: 'notes' }))
     expect(onOpenAsset).toHaveBeenCalledWith('assets/shot.png')
     expect(onSelect).toHaveBeenCalledWith('notes.md')
   })
 })
 
 describe('Sidebar boards (add-whiteboards)', () => {
-  it('lists boards under a Boards section and opens one on click', () => {
+  it('lists boards in the Files listing and opens one on click', () => {
     const onOpenBoard = vi.fn()
     render(
       <Sidebar
-        pages={[page]}
+        rows={[
+          pageRow('notes.md', 'notes'),
+          boardRow('boards/2026/q3.excalidraw'),
+          boardRow('boards/Migration.excalidraw'),
+        ]}
         journalEntries={[journal]}
-        assets={[]}
-        boards={['boards/2026/q3.excalidraw', 'boards/Migration.excalidraw']}
         onOpenAsset={() => {}}
         onOpenBoard={onOpenBoard}
         activePath={null}
@@ -523,20 +539,22 @@ describe('Sidebar boards (add-whiteboards)', () => {
         hasVault
       />,
     )
-    const boards = section('Boards')
-    const rows = boards.getAllByRole('button').map((b) => b.textContent)
-    expect(rows).toEqual(['2026/q3.excalidraw', 'Migration.excalidraw'])
-    fireEvent.click(boards.getByRole('button', { name: 'Migration.excalidraw' }))
+    const boardButtons = section('Files')
+      .getAllByRole('button')
+      .filter((b) => b.querySelector(`.${styles.badge}`)?.textContent === 'b')
+    expect(boardButtons.map((b) => b.textContent)).toEqual([
+      'b2026/q3.excalidraw',
+      'bMigration.excalidraw',
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Migration.excalidraw' }))
     expect(onOpenBoard).toHaveBeenCalledWith('boards/Migration.excalidraw')
   })
 
   it('marks the open board as the active row', () => {
     render(
       <Sidebar
-        pages={[page]}
+        rows={[pageRow('notes.md', 'notes'), boardRow('boards/Migration.excalidraw')]}
         journalEntries={[journal]}
-        assets={[]}
-        boards={['boards/Migration.excalidraw']}
         onOpenAsset={() => {}}
         onOpenBoard={() => {}}
         activePath="boards/Migration.excalidraw"
@@ -544,17 +562,15 @@ describe('Sidebar boards (add-whiteboards)', () => {
         hasVault
       />,
     )
-    const row = section('Boards').getByRole('button', { name: 'Migration.excalidraw' })
+    const row = screen.getByRole('button', { name: 'Migration.excalidraw' })
     expect(row.getAttribute('aria-current')).toBe('page')
   })
 
-  it('shows empty-state copy when the vault holds no boards', () => {
+  it('shows no board rows when the vault holds none', () => {
     render(
       <Sidebar
-        pages={[page]}
+        rows={[pageRow('notes.md', 'notes')]}
         journalEntries={[journal]}
-        assets={[]}
-        boards={[]}
         onOpenAsset={() => {}}
         onOpenBoard={() => {}}
         activePath={null}
@@ -562,6 +578,7 @@ describe('Sidebar boards (add-whiteboards)', () => {
         hasVault
       />,
     )
-    expect(section('Boards').getByText('No boards yet.')).toBeTruthy()
+    expect(section('Files').queryByText('No boards yet.')).toBeNull()
+    expect(section('Files').getAllByRole('button')).toHaveLength(1)
   })
 })
