@@ -96,6 +96,45 @@
   height: 14px;
 }
 
+/* The Present control (add-presentations, design D1): pinned at the pane's
+   top-right. The bar is zero-height, so the control takes no space in the
+   document's layout and the first block keeps its start line; it is sticky so
+   it stays reachable while the page scrolls. */
+.presentBar {
+  position: sticky;
+  top: 0;
+  height: 0;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.presentButton {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 12px 0 0;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--stone);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.presentButton:hover {
+  color: var(--brand);
+}
+
+.presentButton svg {
+  width: 14px;
+  height: 14px;
+}
+
 .document {
   /* A symmetric reading gutter: the prose column keeps the same margin on both
      sides now that the old left control lane is gone. */

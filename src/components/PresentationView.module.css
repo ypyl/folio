@@ -1,0 +1,248 @@
+/* The presentation surface (add-presentations, design D7): Kami tokens only —
+   parchment canvas, near-black text, ink-blue accent, no new colors, no
+   shadows. Type is the app's scale, sized up for the room. */
+
+.dialog {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--parchment);
+  color: var(--near-black);
+}
+
+.dialog::backdrop {
+  background: var(--parchment);
+}
+
+.deck {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The slide scrolls within itself when it is taller than the viewport; slides
+   are never scaled to fit (design D5). */
+.slide {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 10vh 8vw 6vh;
+  font-size: 22px;
+  line-height: 1.6;
+}
+
+/* The app's own thumb in the reserved lane (DESIGN.md, scroll regions). */
+.slide::-webkit-scrollbar {
+  background: transparent;
+}
+
+.slide::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.slide::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px;
+}
+
+/* Prose inside a slide: the same constructs the editor renders, at slide size. */
+.slide :global(p) {
+  margin: 0 0 0.7em;
+}
+
+.slide :global(h1),
+.slide :global(h2),
+.slide :global(h3),
+.slide :global(h4),
+.slide :global(h5),
+.slide :global(h6) {
+  margin: 0.6em 0 0.35em;
+  font-weight: 600;
+  color: var(--near-black);
+  line-height: 1.2;
+}
+
+.slide :global(h1) {
+  font-size: 2.1em;
+}
+.slide :global(h2) {
+  font-size: 1.6em;
+}
+.slide :global(h3) {
+  font-size: 1.3em;
+}
+
+.slide :global(ul),
+.slide :global(ol) {
+  margin: 0 0 0.7em;
+  padding-left: 1.4em;
+}
+
+.slide :global(li)::marker {
+  color: var(--brand);
+}
+
+.slide :global(a) {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.slide :global(blockquote) {
+  margin: 0 0 0.7em;
+  padding-left: 1em;
+  border-left: 3px solid var(--border);
+  color: var(--olive);
+}
+
+.slide :global(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--inline-code-bg);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+
+.slide :global(pre) {
+  margin: 0 0 0.7em;
+  padding: 16px;
+  background: var(--ivory);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.slide :global(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.slide :global(hr) {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+.slide :global(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.slide :global(table) {
+  border-collapse: collapse;
+  margin: 0 0 0.7em;
+}
+
+.slide :global(th),
+.slide :global(td) {
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+}
+
+.slide :global(th) {
+  background: var(--warm-sand);
+}
+
+.toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.tool {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.tool:hover {
+  color: var(--brand);
+}
+
+.tool svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 16px;
+}
+
+.navButton {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.navButton:hover:not(:disabled) {
+  color: var(--brand);
+}
+
+.navButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.navButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--stone);
+  font-size: 13px;
+}
+
+.position {
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  width: 180px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--warm-sand);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+}

@@ -14,7 +14,12 @@ import {
 import { history } from '@milkdown/plugin-history'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
-import type { Node as ProseNode, Fragment, Slice } from '@milkdown/prose/model'
+import {
+  DOMSerializer,
+  type Node as ProseNode,
+  type Fragment,
+  type Slice,
+} from '@milkdown/prose/model'
 import { TextSelection } from '@milkdown/prose/state'
 import type { EditorView } from '@milkdown/prose/view'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/components/code-block'
@@ -41,7 +46,7 @@ import { vaultImageView } from './vaultImageView'
 import { referenceSuggest } from './referenceSuggest'
 import { documentTail, trimTrailingBlankLines } from './documentTail'
 import { separateEmptyListLines } from './emptyLines'
-import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
+import type { DropPoint, EditorAdapter, StaticBlock, SuggestionSources } from './editor'
 
 /** Private clipboard flavor carrying the selection's canonical Markdown
  *  (copy-as-markdown), so the app's own paste restores structure without the
@@ -532,6 +537,22 @@ export class MilkdownAdapter implements EditorAdapter {
         if (live) live.action((ctx) => clearHighlight(ctx.get(editorViewCtx)))
       }, HIGHLIGHT_MS)
     }
+  }
+
+  staticBlocks(): StaticBlock[] {
+    const editor = this.editor
+    if (!editor) return []
+    return editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const serializer = DOMSerializer.fromSchema(view.state.schema)
+      const wrapper = document.createElement('div')
+      const blocks: StaticBlock[] = []
+      view.state.doc.forEach((node) => {
+        wrapper.replaceChildren(serializer.serializeNode(node))
+        blocks.push({ type: node.type.name, html: wrapper.innerHTML })
+      })
+      return blocks
+    })
   }
 
   onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {

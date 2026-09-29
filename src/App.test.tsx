@@ -12,6 +12,24 @@ import { dayLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 
+// jsdom 30 has no <dialog> modal API, so `showModal()` cannot open the
+// presentation dialog and role queries would treat it as hidden. Stub the two
+// methods so the component's real open/close path runs.
+Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+  configurable: true,
+  writable: true,
+  value(this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  },
+})
+Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+  configurable: true,
+  writable: true,
+  value(this: HTMLDialogElement) {
+    this.removeAttribute('open')
+  },
+})
+
 // Replace the real ProseMirror transport with FakeEditor for App-level tests
 // (design D1). Instances are registered so tests can drive edits and assert
 // what each page's editor was seeded with.
@@ -106,6 +124,7 @@ vi.mock('./components/months', async (importOriginal) => {
 
 type FakeView = EditorAdapter & {
   content: string
+  blocks: { type: string; html: string }[]
   setContents: string[]
   insertions: string[]
   chords: string[]
@@ -1660,6 +1679,45 @@ describe('logseq import', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await waitFor(() => expect(screen.getByText('Roadmap')).toBeTruthy())
     } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+// Presentations (add-presentations): the open page becomes a full-viewport
+// deck, entered explicitly and left without changing the page or writing the
+// vault.
+describe('presentations (add-presentations)', () => {
+  it('presents the open page, closes back to the editor, and writes nothing', async () => {
+    const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
+    try {
+      render(<App />)
+      await openFixture()
+      fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+      await waitFor(() => expect(editor().content).toContain('This is Folio'))
+
+      // The deck is derived from the live editor's blocks.
+      editor().blocks = [
+        { type: 'heading', html: '<h1>Intro</h1>' },
+        { type: 'hr', html: '<hr>' },
+        { type: 'paragraph', html: '<p>Talk</p>' },
+      ]
+      fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Presentation' })
+      expect(within(dialog).getByRole('heading', { name: 'Intro' })).toBeTruthy()
+
+      // Navigation stays inside the deck.
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Next slide' }))
+      expect(within(dialog).getByText('2 / 2')).toBeTruthy()
+
+      // Escape (the dialog's cancel) returns to the same page, unchanged.
+      fireEvent(dialog, new Event('cancel', { bubbles: true, cancelable: true }))
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Presentation' })).toBeNull())
+      expect(editor().content).toContain('This is Folio')
+      // Presenting and closing wrote nothing to the vault.
+      expect(write).not.toHaveBeenCalled()
+    } finally {
+      write.mockRestore()
       vi.unstubAllGlobals()
     }
   })

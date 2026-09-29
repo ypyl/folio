@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { EditorAdapter } from '../editor/editor'
+import type { EditorAdapter, StaticBlock } from '../editor/editor'
 import type { Suggestion } from '../vault/suggest'
 import { EditorPane, type EditorPaneHandle } from './EditorPane'
 import { collectFiles, withPastedName } from './dropAssets'
@@ -38,6 +38,7 @@ type FakeEditorView = EditorAdapter & {
   assetReaders: ((path: string) => Promise<Blob>)[]
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string) => void
+  blocks: StaticBlock[]
   highlights: (number | null)[]
   destructed: boolean
   mounted: boolean
@@ -69,6 +70,46 @@ describe('EditorPane', () => {
     expect(editor.mounted).toBe(true)
     expect(editor.setContents).toEqual(['# hello'])
     expect(editor.content).toBe('# hello')
+  })
+
+  it('exposes the editor blocks through the handle without changing the document', async () => {
+    const ref = createRef<EditorPaneHandle>()
+    render(<EditorPane ref={ref} page={page} initialContent="# A" onChange={() => {}} />)
+    await act(async () => {})
+    const editor = fake()
+    editor.blocks = [{ type: 'heading', html: '<h1>A</h1>' }]
+    expect(ref.current?.staticBlocks()).toEqual([{ type: 'heading', html: '<h1>A</h1>' }])
+    expect(editor.content).toBe('# A')
+  })
+
+  it('offers a Present control only with an open page and a handler', async () => {
+    const onPresent = vi.fn()
+    const { rerender } = render(
+      <EditorPane page={page} initialContent="Body" onChange={() => {}} onPresent={onPresent} />,
+    )
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+    expect(onPresent).toHaveBeenCalled()
+    // Without a handler the control is absent.
+    rerender(<EditorPane page={page} initialContent="Body" onChange={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Present' })).toBeNull()
+  })
+
+  it('shows no Present control while no page is open or the index builds', async () => {
+    const { rerender } = render(
+      <EditorPane page={null} initialContent="" onChange={() => {}} onPresent={() => {}} />,
+    )
+    expect(screen.queryByRole('button', { name: 'Present' })).toBeNull()
+    rerender(
+      <EditorPane
+        page={page}
+        initialContent="Body"
+        onChange={() => {}}
+        onPresent={() => {}}
+        loading
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Present' })).toBeNull()
   })
 
   it('forwards edits to onChange with the serialized markdown', async () => {

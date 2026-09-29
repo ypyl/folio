@@ -1,7 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { CSSProperties, ClipboardEvent, DragEvent, ReactNode, Ref } from 'react'
 import { FolioMark } from '../FolioMark'
-import type { EditorAdapter } from '../editor/editor'
+import type { EditorAdapter, StaticBlock } from '../editor/editor'
 import { MilkdownAdapter } from '../editor/milkdown'
 import type { Page } from '../page'
 import type { ReferenceKind } from '../vault/parse'
@@ -55,6 +55,9 @@ const EMPTY_HINTS: Record<'notes' | 'open-folder' | 'browser-unsupported', strin
 export type EditorPaneHandle = {
   /** Apply a keyboard chord to the editor, as pressing it would. */
   applyChord: (chord: string) => boolean
+  /** The open document's top-level blocks for a presentation
+   *  (add-presentations); reading them changes nothing. */
+  staticBlocks: () => StaticBlock[]
 }
 
 export function EditorPane({
@@ -63,6 +66,7 @@ export function EditorPane({
   onChange,
   emptyHint = 'notes',
   brandAction,
+  onPresent,
   loading = false,
   onAttachFiles,
   onOpenReference,
@@ -89,6 +93,9 @@ export function EditorPane({
    *  (add-logseq-import): the Import from Logseq action. Presentational only —
    *  the pane owns no import state. */
   brandAction?: ReactNode
+  /** Open the open page as a presentation (add-presentations). Absent leaves
+   *  the control out; the pane shows it only while a page is open. */
+  onPresent?: () => void
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
   /** Copy files into the vault and resolve with the landed asset paths; fed by
@@ -138,6 +145,7 @@ export function EditorPane({
     ref,
     () => ({
       applyChord: (chord: string) => adapterRef.current?.applyChord(chord) ?? false,
+      staticBlocks: () => adapterRef.current?.staticBlocks() ?? [],
     }),
     [],
   )
@@ -367,6 +375,31 @@ export function EditorPane({
       onPaste={handlePaste}
       className={styles.pane}
     >
+      {onPresent && !loading ? (
+        // A Present control pinned in the pane's top-right corner
+        // (add-presentations, design D1). The bar is zero-height, so the
+        // document's first block keeps its start line and the control does
+        // not enter the content column; it sticks while the page scrolls.
+        <div className={styles.presentBar}>
+          <button
+            type="button"
+            className={styles.presentButton}
+            onClick={onPresent}
+            title="Present this page"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M6 4l14 8-14 8V4z" />
+            </svg>
+            Present
+          </button>
+        </div>
+      ) : null}
       <article className={styles.document}>
         <div
           ref={mountRef}

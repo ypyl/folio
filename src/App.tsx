@@ -8,10 +8,12 @@ import { PaneCollapseToggle } from './components/PaneCollapseToggle'
 import { SearchSpotlight } from './components/SearchSpotlight'
 import { SearchResultsView } from './components/SearchResultsView'
 import { StatusBar } from './components/StatusBar'
+import { PresentationView } from './components/PresentationView'
 import { DraftStore } from './editor/drafts'
 import { BoardView } from './editor/boardView'
 import { chordToKeyEventInit } from './editor/chord'
 import { createDebouncedSaver } from './editor/saver'
+import { deriveSlides } from './presentation/slides'
 import { copyDroppedFiles } from './vault/assets'
 import { isBoardTarget, openVaultPath } from './vault/assetOpen'
 import type { ReferenceKind } from './vault/parse'
@@ -170,6 +172,10 @@ function App() {
   const boardSaverRef = useRef<ReturnType<typeof createDebouncedSaver> | null>(null)
   const [boardScene, setBoardScene] = useState<string | null>(null)
   const [boardSaveState, setBoardSaveState] = useState<'clean' | 'saving' | 'failed'>('clean')
+  // The presentation deck (add-presentations, design D2/D3): derived once from
+  // the open page's blocks when the Present control is activated, and held
+  // until the deck closes. Null means no presentation.
+  const [slides, setSlides] = useState<string[] | null>(null)
   // The editor, reached through its one-method handle so the reference's rows
   // can apply a key combination (apply-shortcuts-on-click, design D8).
   const editorRef = useRef<EditorPaneHandle | null>(null)
@@ -509,6 +515,13 @@ function App() {
     setDraftVersion((v) => v + 1)
   }
 
+  // Presenting derives the deck once from the live editor document (design
+  // D3/D5): reading the blocks changes nothing, and moving between slides
+  // reuses the derived deck rather than re-parsing or re-reading.
+  const handlePresent = useCallback(() => {
+    setSlides(deriveSlides(editorRef.current?.staticBlocks() ?? []))
+  }, [])
+
   // A board's element change (add-whiteboards, design D7): schedule the scene
   // for the debounced board writer. Panning never reaches here (the board view
   // filters camera-only changes), so this runs once per real edit.
@@ -811,6 +824,7 @@ function App() {
             page={page}
             initialContent={initialContent}
             onChange={handleEdit}
+            onPresent={handlePresent}
             highlight={matchHighlight}
             onOpenReference={handleOpenReference}
             onBoardLink={handleOpenBoard}
@@ -923,6 +937,18 @@ function App() {
         onQueryResult={handleQueryResult}
         onSeeAll={handleOpenResults}
       />
+      {/* The presentation deck (add-presentations): a modal overlay over the
+          shell while open. Closing is a state flip, so the editor underneath
+          returns exactly as it was, and nothing is written to the vault. */}
+      {slides !== null ? (
+        <PresentationView
+          slides={slides}
+          onClose={() => setSlides(null)}
+          readAsset={
+            activeFolder?.storage ? (path) => activeFolder.storage!.readBinary(path) : undefined
+          }
+        />
+      ) : null}
     </div>
   )
 }

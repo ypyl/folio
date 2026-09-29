@@ -24,6 +24,12 @@ export type SuggestionSources = {
  *  (drag-references-into-editor, ADR-0023). */
 export type DropPoint = { left: number; top: number }
 
+/** One top-level block of the open document as static HTML, with its
+ *  ProseMirror node type name (add-presentations). Serialized from the
+ *  already-parsed document, so a presentation reuses the editor's grammar
+ *  rather than introducing a second one (ADR-0008). */
+export type StaticBlock = { type: string; html: string }
+
 export interface EditorAdapter {
   /** Attach the editor to a DOM element. Call once per instance, before use. */
   mount(el: HTMLElement): Promise<void>
@@ -42,6 +48,12 @@ export interface EditorAdapter {
    *  never reaches serialization. An index the document does not hold is
    *  ignored. */
   highlightBlock(index: number | null): void
+  /** The open document's top-level blocks, each as its node type name and its
+   *  node serialized to HTML (add-presentations). Read-only and side-effect
+   *  free: it reads the live document without changing it, so the caller can
+   *  derive a presentation from unsaved edits (ADR-0010 keeps the policy out
+   *  of this seam). */
+  staticBlocks(): StaticBlock[]
   /** Subscribe to document changes; the callback receives serialized Markdown. */
   onChange(listener: (markdown: string) => void): void
   /** Subscribe to reference activation (badge click or Mod+Enter); the callback

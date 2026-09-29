@@ -2114,3 +2114,52 @@ describe('MilkdownAdapter renders nested lists whole (remove-list-folding)', () 
     el.remove()
   })
 })
+
+// Static top-level blocks (add-presentations): the seam the presentation deck
+// is derived from. Each block carries its node type name and its node
+// serialized to HTML, read from the live document without changing it.
+describe('MilkdownAdapter static blocks (add-presentations)', () => {
+  const mount = async (seed: string) => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const adapter = new MilkdownAdapter()
+    await adapter.mount(el)
+    await adapter.setContent(seed)
+    return { adapter, el }
+  }
+
+  it('reports each top-level block with its type and serialized HTML', async () => {
+    const { adapter, el } = await mount('# Title\n\nBody\n\n---\n\n```js\nconst a = 1\n```\n')
+    const blocks = adapter.staticBlocks()
+    // The document keeps a maintained trailing empty paragraph after a code
+    // block (documentTail), so assert the four content blocks at the start.
+    expect(blocks.map((b) => b.type).slice(0, 4)).toEqual([
+      'heading',
+      'paragraph',
+      'hr',
+      'code_block',
+    ])
+    expect(blocks[0].html).toContain('<h1')
+    expect(blocks[0].html).toContain('Title')
+    expect(blocks[1].html).toContain('Body')
+    // A `---` is a top-level thematic break, serialized as an <hr>.
+    expect(blocks[2].html.trim()).toBe('<hr>')
+    expect(blocks[3].html).toContain('const a = 1')
+    await adapter.destroy()
+    el.remove()
+  })
+
+  it('reads the live document without changing it', async () => {
+    const { adapter, el } = await mount('One\n\nTwo\n')
+    const changes: string[] = []
+    adapter.onChange((markdown) => changes.push(markdown))
+    const before = adapter.staticBlocks()
+    const after = adapter.staticBlocks()
+    expect(after).toEqual(before)
+    // Reading blocks is side-effect free: the debounced change stream stays silent.
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    expect(changes).toEqual([])
+    await adapter.destroy()
+    el.remove()
+  })
+})

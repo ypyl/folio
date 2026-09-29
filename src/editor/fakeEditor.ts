@@ -3,7 +3,7 @@
 // with a test hook to simulate user edits. Tests inject it by mocking the
 // MilkdownAdapter module.
 
-import type { DropPoint, EditorAdapter, SuggestionSources } from './editor'
+import type { DropPoint, EditorAdapter, StaticBlock, SuggestionSources } from './editor'
 import { blockStartLines } from '../lineAnchors'
 import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
@@ -24,6 +24,9 @@ export class FakeEditor implements EditorAdapter {
   readonly chords: string[] = []
   /** Every highlightBlock call, in order (mark-search-matches-on-the-page). */
   readonly highlights: (number | null)[] = []
+  /** Static blocks the seam returns (add-presentations); tests set them and
+   *  `staticBlocks()` hands them back unchanged. */
+  blocks: StaticBlock[] = []
   private listeners: ((markdown: string) => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
   private boardLinkListeners: ((path: string) => void)[] = []
@@ -87,6 +90,10 @@ export class FakeEditor implements EditorAdapter {
 
   highlightBlock(index: number | null): void {
     this.highlights.push(index)
+  }
+
+  staticBlocks(): StaticBlock[] {
+    return this.blocks
   }
 
   insertMarkdown(markdown: string, point?: DropPoint): void {
