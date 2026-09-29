@@ -100,7 +100,7 @@ Activating an asset row — in the Assets section or in a page's Forwardlinks Fi
 
 ### Requirement: A page's files are listed in the Forwardlinks Files group
 
-When a page is open, the Forwardlinks section's Files group SHALL list one row per asset the page references, labelled with the file's name and ordered by label within the group, and never dimmed or marked as the open page. The Files group SHALL be the only panel list holding asset rows: a page's assets SHALL NOT appear in the Forwardlinks Pages group. Board references share the same group (whiteboards capability). Activating an asset row SHALL open the file (see "Activating an asset opens the file and changes nothing else"). While the index builds, the group SHALL show the shell's loading placeholders, and when the open page references no asset it SHALL show empty-state copy.
+When a page is open, the Forwardlinks section's Files group SHALL list one row per asset the page references, labelled with the file's name and listed in the order the references appear in the page, and never dimmed or marked as the open page. The Files group SHALL be the only panel list holding asset rows: a page's assets SHALL NOT appear in the Forwardlinks Pages group. Board references share the same group (whiteboards capability). Activating an asset row SHALL open the file (see "Activating an asset opens the file and changes nothing else"). While the index builds, the group SHALL show the shell's loading placeholders, and when the open page references no asset it SHALL show empty-state copy.
 
 #### Scenario: A page's files appear in the References section
 
@@ -125,7 +125,6 @@ When a page is open, the Forwardlinks section's Files group SHALL list one row p
 - **GIVEN** an open page that references pages but no vault files
 - **WHEN** the user opens the Forwardlinks Files group
 - **THEN** it shows empty-state copy and no rows
-
 ### Requirement: A reference to an existing asset is completed at the link destination
 While the caret is inside an inline link's or image's destination in the editor, the app SHALL offer the vault's files that match the text typed so far, and SHALL write the chosen file's vault-relative path as the destination when a candidate is accepted. The candidates SHALL be exactly the vault paths a page's asset reference can name — vault-relative, not a page, and held by the vault — each labelled by its path inside the `assets/` folder and matched against the typed text. The written reference SHALL be an ordinary Markdown link, or an ordinary Markdown image when the user is typing an image's destination, with the same label rule the drop and paste gestures use: the label the user typed, or the file's name when none was typed. Completion SHALL be offered only when the typed destination is vault-relative, does not begin with `#`, is not already closed by a `)` at the caret, and matches at least one candidate; an empty destination, a scheme, an absolute path, a fragment, and text matching no file SHALL offer nothing, so a link the app cannot complete behaves exactly as it did before. Accepting SHALL NOT open the file, navigate, or change any state other than the page's own text, and SHALL NOT create a page, a reference token, or any entry in the reference namespace.
 

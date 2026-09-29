@@ -75,7 +75,7 @@ describe('MetaPanel', () => {
     expect(meta().querySelectorAll('.skeleton[aria-hidden="true"]').length).toBe(3)
   })
 
-  it("sorts each section's rows alphabetically", () => {
+  it("renders each section's rows in the order it is given", () => {
     render(
       <MetaPanel
         pageOpen
@@ -88,12 +88,13 @@ describe('MetaPanel', () => {
         shortcuts={shortcuts}
       />,
     )
-    // Each section sorts its own list; DOM order follows the accordion
+    // The panel never re-sorts (reorder-meta-panel-lists): each list keeps the
+    // order its caller passed, and DOM order follows the accordion
     // (Backlinks then Forwardlinks).
     const lists = meta().querySelectorAll(`.${styles.list}`)
     const first = [...lists[0].querySelectorAll('button')].map((b) => b.textContent)
     const second = [...lists[1].querySelectorAll('button')].map((b) => b.textContent)
-    expect(first).toEqual(['Alpha', 'Zeta'])
+    expect(first).toEqual(['Zeta', 'Alpha'])
     expect(second).toEqual(['Beta', 'Gama'])
   })
 
@@ -155,7 +156,7 @@ describe('MetaPanel', () => {
     ).toBeNull()
   })
 
-  it('sorts page rows and asset rows in their own sections', () => {
+  it('renders Forwardlinks Pages then Files in the order it is given', () => {
     render(
       <MetaPanel
         pageOpen
@@ -172,7 +173,7 @@ describe('MetaPanel', () => {
     const labels = (title: string) =>
       [...section(title).querySelectorAll('button')].map((b) => b.textContent)
     // One Forwardlinks section holds both groups: Pages then Files.
-    expect(labels('Forwardlinks')).toEqual(['Roadmap', 'a.png', 'q3-report.pdf'])
+    expect(labels('Forwardlinks')).toEqual(['Roadmap', 'q3-report.pdf', 'a.png'])
     expect(within(section('Forwardlinks')).getByText('Pages')).toBeTruthy()
     expect(within(section('Forwardlinks')).getByText('Files')).toBeTruthy()
   })

@@ -406,6 +406,77 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
+  it('orders backlinks by last-edited, with a path tiebreak', async () => {
+    const tree = buildTree({
+      pages: {
+        'Topic.md': 'The topic.',
+        'Alpha.md': 'See #Topic.',
+        'Zeta.md': 'Also #Topic.',
+        'Recent.md': 'Newest #Topic.',
+      },
+    })
+    const pages = pagesDir(tree)
+    const at = (name: string, mtime: number) => {
+      const file = pages.children.get(name) as FakeFileHandle
+      file.lastModified = mtime
+    }
+    // Alpha and Zeta tie, so the path tiebreak decides; Recent is newest and
+    // leads despite sorting last alphabetically.
+    at('Alpha.md', 100)
+    at('Zeta.md', 100)
+    at('Recent.md', 200)
+
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.click(await screen.findByRole('button', { name: 'Topic' }))
+    await waitFor(() =>
+      expect(section('Backlinks').getByRole('button', { name: 'Recent' })).toBeTruthy(),
+    )
+    const labels = section('Backlinks')
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+    expect(labels).toEqual(['Recent', 'Alpha', 'Zeta'])
+    vi.unstubAllGlobals()
+  })
+
+  it('lists forwardlinks in the order the page references them', async () => {
+    const tree = buildTree({
+      pages: {
+        'Hub.md': 'See #Zulu then #Alpha.',
+        'Zulu.md': 'Zulu.',
+        'Alpha.md': 'Alpha.',
+      },
+    })
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.click(await screen.findByRole('button', { name: 'Hub' }))
+    const forward = forwardlinks()
+    await forward.findByRole('button', { name: 'Zulu' })
+    // Document order, not alphabetical: Zulu is referenced first.
+    expect(forward.getAllByRole('button').map((b) => b.textContent)).toEqual(['Zulu', 'Alpha'])
+    vi.unstubAllGlobals()
+  })
+
+  it("lists a page's files as assets then boards, each in appearance order", async () => {
+    boardInstances.list.length = 0
+    const tree = buildTree({
+      pages: { 'Hub.md': 'See #!Migration then [report](assets/q3-report.pdf).' },
+      boards: { 'Migration.excalidraw': '{}' },
+      assets: { 'q3-report.pdf': 'pdf' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.click(await screen.findByRole('button', { name: 'Hub' }))
+    const forward = forwardlinks()
+    await forward.findByRole('button', { name: 'q3-report.pdf' })
+    // The Files group lists the page's assets first, then its boards — both
+    // in document order — so a board named before an asset still follows it.
+    expect(forward.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'q3-report.pdf',
+      'Migration.excalidraw',
+    ])
+  })
+
   it("references list the open page's files and open them without leaving the page", async () => {
     const tree = buildTree({
       pages: { 'Report.md': 'Started the report: [Q3 report](assets/q3-report.pdf).' },
@@ -1530,6 +1601,29 @@ describe('whiteboards (add-whiteboards)', () => {
     const panel = within(screen.getByRole('complementary', { name: 'Page sidebar' }))
     expect(panel.getByText('Referenced by')).toBeTruthy()
     await waitFor(() => expect(panel.getByRole('button', { name: 'Ideas' })).toBeTruthy())
+  })
+
+  it("orders a board's Referenced by rows by last-edited", async () => {
+    boardInstances.list.length = 0
+    const tree = buildTree({
+      pages: { 'First.md': 'See #!Migration.', 'Second.md': 'Also #!Migration.' },
+      boards: { 'Migration.excalidraw': '{}' },
+    })
+    const pages = pagesDir(tree)
+    ;(pages.children.get('First.md') as FakeFileHandle).lastModified = 100
+    ;(pages.children.get('Second.md') as FakeFileHandle).lastModified = 200
+    render(<App />)
+    await openFixture(tree)
+    fireEvent.click(section('Boards').getByRole('button', { name: 'Migration.excalidraw' }))
+    await screen.findByTestId('board-view')
+    await waitFor(() =>
+      expect(section('Referenced by').getByRole('button', { name: 'Second' })).toBeTruthy(),
+    )
+    const labels = section('Referenced by')
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+    expect(labels).toEqual(['Second', 'First'])
+    vi.unstubAllGlobals()
   })
 })
 

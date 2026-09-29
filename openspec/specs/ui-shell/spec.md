@@ -73,7 +73,7 @@ The sidebar SHALL contain exactly four collapsible sections — Journal, then Pa
 
 The right meta panel SHALL contain the collapsible page sections Contents, Backlinks, and Forwardlinks, followed by the keyboard-shortcuts reference (the last-section requirement). Each section SHALL show placeholder copy while no page is open and no board is open; while a board is open it SHALL show the board's Referenced by section instead of the page sections (whiteboards capability). All page sections SHALL open and close independently. The Backlinks and Forwardlinks sections SHALL share the panel's remaining height, each body scrolling within itself when its rows do not fit, and each SHALL keep a minimum height so a short window cannot collapse it to nothing; the Contents section SHALL instead size to its content up to a maximum height, scrolling within itself when its list is longer, so it never claims more height than it needs. The panel itself SHALL scroll only as a fallback, when even the link sections' floors do not fit. Every section summary SHALL be rendered in every app state, and a collapsed section SHALL occupy exactly its summary row.
 
-When a page is open, each section SHALL list its rows instead of placeholder copy. Contents lists the page's headings (page-contents capability), each labelled with the heading's text and indented by level. Backlinks lists every page that references the open page. Forwardlinks lists the page's outgoing references in two labelled groups — Pages, holding the page references the open page makes, and Files, holding the assets and boards it references (vault-assets and whiteboards capabilities) — with each group ordered alphabetically by row label. A section or group with no rows SHALL show empty-state copy. Contents and Backlinks SHALL be open by default; Forwardlinks SHALL be collapsed by default. Rows SHALL use the sidebar's row styling and `aria-current` marking for the open page; page rows that target a page with no file on disk SHALL be visually dimmed to signal the page is not yet created, and remain clickable. Asset rows SHALL NOT be dimmed, because a row exists only for a file the vault holds. Clicking a page row navigates, and clicking an asset or board row opens the file or board it names (static-navigation and vault-assets requirements).
+When a page is open, each section SHALL list its rows instead of placeholder copy. Contents lists the page's headings (page-contents capability), each labelled with the heading's text and indented by level. Backlinks lists every page that references the open page, most recently edited first, with the path ascending as the tiebreak when two referrers share a last-edited time. Forwardlinks lists the page's outgoing references in two labelled groups — Pages, holding the page references the open page makes, and Files, holding the assets and boards it references (vault-assets and whiteboards capabilities) — each in document order: the order the references appear in the open page's content, which for the Files group means the assets in their own document order and then the boards in theirs. A section or group with no rows SHALL show empty-state copy. Contents and Backlinks SHALL be open by default; Forwardlinks SHALL be collapsed by default. Rows SHALL use the sidebar's row styling and `aria-current` marking for the open page; page rows that target a page with no file on disk SHALL be visually dimmed to signal the page is not yet created, and remain clickable. Asset rows SHALL NOT be dimmed, because a row exists only for a file the vault holds. Clicking a page row navigates, and clicking an asset or board row opens the file or board it names (static-navigation and vault-assets requirements).
 
 #### Scenario: Meta sections are independently collapsible
 
@@ -82,27 +82,27 @@ When a page is open, each section SHALL list its rows instead of placeholder cop
 
 #### Scenario: Backlinks list the open page's referrers
 
-- **GIVEN** `Topic.md` is open and referenced by `Ideas.md` and `Log.md`
+- **GIVEN** `Topic.md` is open and referenced by `Ideas.md` and `Log.md`, and `Log.md` was edited more recently than `Ideas.md`
 - **WHEN** the user looks at the Backlinks section
-- **THEN** the section lists `Ideas` and `Log` rows, alphabetically
+- **THEN** the section lists the `Log` row above the `Ideas` row, most recently edited first
 
 #### Scenario: Forwardlinks list the open page's targets
 
-- **GIVEN** an open page whose content references `Roadmap` and the journal day `2026-09-06`
+- **GIVEN** an open page whose content references `Roadmap` and the journal day `2026-09-06`, in that order
 - **WHEN** the user looks at the Forwardlinks section
-- **THEN** its Pages group lists `Roadmap` and `2026-09-06` rows, alphabetically, whether or not each target's file exists
+- **THEN** its Pages group lists the `Roadmap` row above the `2026-09-06` row, in the order the references appear, whether or not each target's file exists
 
 #### Scenario: Forwardlinks sort page and asset rows together
 
 - **GIVEN** an open page whose content references `Roadmap` and `assets/q3-report.pdf`
 - **WHEN** the user looks at the panel
-- **THEN** Forwardlinks lists the `Roadmap` row in its Pages group and the `q3-report.pdf` row in its Files group, and each group is ordered by its own row labels
+- **THEN** Forwardlinks lists the `Roadmap` row in its Pages group and the `q3-report.pdf` row in its Files group, each group keeping the order its references appear in the page
 
 #### Scenario: References lists the open page's files
 
 - **GIVEN** an open page whose content embeds `assets/shot.png` and links `assets/q3-report.pdf`
 - **WHEN** the user looks at the Forwardlinks section
-- **THEN** its Files group lists `q3-report.pdf` and `shot.png` rows, alphabetically, and its Pages group holds no asset row
+- **THEN** its Files group lists the `shot.png` row above the `q3-report.pdf` row, in the order the references appear, and its Pages group holds no asset row
 
 #### Scenario: References is collapsed by default
 
@@ -165,7 +165,6 @@ When a page is open, each section SHALL list its rows instead of placeholder cop
 - **GIVEN** a window too short to fit the link sections at their minimum heights
 - **WHEN** the panel lays out
 - **THEN** each link section keeps its minimum height and the panel itself scrolls, rather than a section being clipped to nothing
-
 ### Requirement: The right panel's last section is a keyboard-shortcuts reference
 
 The right meta panel SHALL hold the keyboard-shortcuts reference as its last collapsible section, after the page-metadata sections. The section SHALL be collapsed by default and its summary SHALL read "Keyboard shortcuts". While collapsed, the section's summary SHALL sit at the panel's bottom edge, below the page-metadata sections, whatever their open/closed state. Opening it SHALL expand the reference in place, growing upward from the panel's bottom edge: the reference SHALL NOT introduce a scrolling area or a height cap of its own, and the panel SHALL gain no scroll region beyond the fallback the meta-panel requirement specifies. Opening it SHALL list the app's keyboard shortcuts: the editor's formatting and editing shortcuts (bold, italic, inline code, undo, redo, heading levels one through six, paragraph, ordered and bullet lists, blockquote, code block, indent and outdent, line break) and the app's search shortcuts, one row per bound combination. The section SHALL list only shortcuts the app actually provides, and SHALL show each as a readable label with its key combination rendered as key tokens; heading levels one through six SHALL each be listed with their own entry showing that level's own key combination rather than a single key-range entry. The section SHALL be present and openable in every app state — with a vault open, while the index builds, on search-results surfaces, and on the brand empty state. The panel SHALL carry an accessible name that describes the whole panel, not only its link sections. Opening or closing the reference SHALL NOT change the open page, the search spotlight, or the open/closed state of the Contents, Backlinks, and Forwardlinks sections. Because the reference is a disclosure rather than a modal surface, opening it SHALL NOT move keyboard focus, trap focus, or require a dismissal gesture; its summary SHALL be reachable and toggleable by keyboard like any other disclosure.

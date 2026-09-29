@@ -191,13 +191,13 @@ While a board is open, the app SHALL save the board's scene to its file when the
 
 ### Requirement: While a board is open the meta panel shows the pages that reference it
 
-While a board is open, the meta panel SHALL show a "Referenced by" section listing one row per page whose Markdown contains a board reference resolving to that board, ordered by row label. Activating a row SHALL navigate to that page. When no page references the board, the section SHALL show empty-state copy, and while the index builds it SHALL show the shell's loading placeholders. The board's open/close state SHALL NOT otherwise change the panel's page-metadata sections.
+While a board is open, the meta panel SHALL show a "Referenced by" section listing one row per page whose Markdown contains a board reference resolving to that board, ordered most recently edited first, with the path ascending as the tiebreak when two referencing pages share a last-edited time. Activating a row SHALL navigate to that page. When no page references the board, the section SHALL show empty-state copy, and while the index builds it SHALL show the shell's loading placeholders. The board's open/close state SHALL NOT otherwise change the panel's page-metadata sections.
 
 #### Scenario: A board lists the pages that reference it
 
-- **GIVEN** `boards/Migration.excalidraw`, referenced from `Ideas.md` and `Log.md`
+- **GIVEN** `boards/Migration.excalidraw`, referenced from `Ideas.md` and `Log.md`, and `Log.md` was edited more recently than `Ideas.md`
 - **WHEN** the board is open
-- **THEN** the panel's Referenced by section lists `Ideas` and `Log` rows, alphabetically
+- **THEN** the panel's Referenced by section lists the `Log` row above the `Ideas` row, most recently edited first
 
 #### Scenario: A row navigates to its page
 
@@ -209,7 +209,6 @@ While a board is open, the meta panel SHALL show a "Referenced by" section listi
 - **GIVEN** a board no page references
 - **WHEN** the board is open
 - **THEN** the Referenced by section shows empty-state copy
-
 ### Requirement: A board with no background of its own opens on the app's parchment
 
 While a board is open, the board editor's canvas background SHALL be the scene's own `viewBackgroundColor` when the board carries one. A board whose scene names no background — a board created from a reference and never saved, or a file that carries no background value — SHALL open with the canvas background set to the app's parchment token (`--parchment`, `#f5f4ed`) rather than the editor's own white default, so a new board is not the one pure-white surface in the app. The default SHALL apply only when the scene names none: a board saved with a background, or one whose background the user changed with the editor's background picker, SHALL reopen with that value unchanged. The background SHALL be part of the board's scene, so it saves and reopens like any other board property, and the app SHALL NOT write a background over one the board already holds.
@@ -240,7 +239,7 @@ While a board is open, the board editor's canvas background SHALL be the scene's
 
 ### Requirement: A page's board references are listed in the Forwardlinks Files group
 
-While a page is open, the Forwardlinks section's Files group SHALL list one row per board the page's Markdown references with a `#!` token, in the same list as the page's asset rows and ordered with them alphabetically by row label. A board row SHALL be labelled by the board's path inside `boards/` — the label the sidebar's Boards section uses — and SHALL NOT appear in the Forwardlinks Pages group, which lists page references only. A board the vault does not hold yet SHALL be rendered dimmed and remain activatable; a board the vault holds SHALL NOT be dimmed. Activating a board row SHALL open the board in the main pane, as activating a Boards row does: a navigation recorded in the session trail, never a file copy, and the vault file SHALL NOT be written by the activation. A `.excalidraw` file reached from the Files group SHALL open in the board editor whether the row came from a `#!` token or an ordinary path link, because the extension decides the view. When a page references a board and also links the same file by path, the group SHALL list one row for it, not two.
+While a page is open, the Forwardlinks section's Files group SHALL list one row per board the page's Markdown references with a `#!` token, in the same list as the page's asset rows, after them: the group lists the page's assets in their order of appearance in the page, then the page's boards in theirs. A board row SHALL be labelled by the board's path inside `boards/` — the label the sidebar's Boards section uses — and SHALL NOT appear in the Forwardlinks Pages group, which lists page references only. A board the vault does not hold yet SHALL be rendered dimmed and remain activatable; a board the vault holds SHALL NOT be dimmed. Activating a board row SHALL open the board in the main pane, as activating a Boards row does: a navigation recorded in the session trail, never a file copy, and the vault file SHALL NOT be written by the activation. A `.excalidraw` file reached from the Files group SHALL open in the board editor whether the row came from a `#!` token or an ordinary path link, because the extension decides the view. When a page references a board and also links the same file by path, the group SHALL list one row for it, not two.
 
 #### Scenario: A page's board appears in References
 
@@ -252,7 +251,7 @@ While a page is open, the Forwardlinks section's Files group SHALL list one row 
 
 - **GIVEN** an open page whose content is `#!Migration and [report](assets/q3-report.pdf)`
 - **WHEN** the user looks at the Forwardlinks Files group
-- **THEN** it lists `Migration.excalidraw` and `q3-report.pdf` rows, ordered by label
+- **THEN** it lists the `q3-report.pdf` row above the `Migration.excalidraw` row, the page's assets before its boards
 
 #### Scenario: A board with no file is dimmed but opens
 
@@ -277,7 +276,6 @@ While a page is open, the Forwardlinks section's Files group SHALL list one row 
 - **GIVEN** an open page whose content is `#!Migration and [x](boards/Migration.excalidraw)`
 - **WHEN** the user looks at the Forwardlinks Files group
 - **THEN** it lists a single `Migration.excalidraw` row
-
 ### Requirement: The board editor's chrome renders in the app's palette
 
 While a board is open, the board editor's own chrome — its toolbar, islands, menus, dialogs, buttons, inputs, and popups — SHALL render in the app's design language rather than the editor library's stock light theme. The accent (selection, active tools, focus, links) SHALL be the app's ink-blue brand and no second chromatic colour SHALL appear in the chrome; island and panel surfaces SHALL be the app's warm ivory and parchment, never pure white; body and label text SHALL be the app's warm near-black and olive; borders SHALL be the app's warm hairline; floating surfaces SHALL carry the app's whisper shadow; and the interface font SHALL be the app's own, not the editor library's bundled font. The override SHALL be scoped to the board editor so no surface elsewhere in the app changes.

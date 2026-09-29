@@ -34,19 +34,14 @@ function LinkList({
   dim: boolean
   emptyCopy: string
 }) {
-  // Alphabetical, case-insensitive (design D5): page names and file names sort
-  // by the label the reader is scanning.
-  const sorted = [...rows].sort((a, b) => {
-    const x = a.title.toLowerCase()
-    const y = b.title.toLowerCase()
-    return x < y ? -1 : x > y ? 1 : 0
-  })
-  if (sorted.length === 0) {
+  // Rows arrive already ordered by the caller (reorder-meta-panel-lists):
+  // the list renders them as given and never re-sorts.
+  if (rows.length === 0) {
     return <p className="section-placeholder">{emptyCopy}</p>
   }
   return (
     <div className={styles.list}>
-      {sorted.map((row) => {
+      {rows.map((row) => {
         const isActive = activePath !== null && row.path === activePath
         const dimmed = dim && !row.materialized
         return (

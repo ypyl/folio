@@ -71,6 +71,18 @@ const EMPTY_BOARDS: string[] = []
  *  board's own view is what activating it opens. A board the vault does not
  *  hold yet is unmaterialized, so its row dims. Pure and vault-shaped, so the
  *  memo above it can stay a one-liner. */
+/** Order a "who references this" list (reorder-meta-panel-lists): the most
+ *  recently edited page first, path ascending as the tiebreak — the sidebar's
+ *  own rule (orderPages) minus pins. Returns a copy, because the index's
+ *  arrays are shared. */
+function orderByLastEdited(graph: Graph, paths: string[]): string[] {
+  return [...paths].sort(
+    (a, b) =>
+      (graph.pages.get(b)?.lastModified ?? 0) - (graph.pages.get(a)?.lastModified ?? 0) ||
+      a.localeCompare(b),
+  )
+}
+
 function pageReferenceRows(page: IndexPage, graph: Graph): LinkRow[] {
   const rows = new Map<string, LinkRow>()
   for (const path of pageAssets(page, graph)) {
@@ -602,10 +614,12 @@ function App() {
   const backlinkRows = useMemo<LinkRow[]>(
     () =>
       graph && page
-        ? (graph.backlinks.get(page.title.toLowerCase()) ?? []).map((path) => {
-            const p = graph.pages.get(path)
-            return { title: p ? p.title : path, path, materialized: true }
-          })
+        ? orderByLastEdited(graph, graph.backlinks.get(page.title.toLowerCase()) ?? []).map(
+            (path) => {
+              const p = graph.pages.get(path)
+              return { title: p ? p.title : path, path, materialized: true }
+            },
+          )
         : [],
     [graph, page],
   )
@@ -615,7 +629,7 @@ function App() {
   const boardReferrerRows = useMemo<LinkRow[]>(
     () =>
       graph && activePath !== null && mode === 'board'
-        ? boardReferrers(graph, activePath).map((path) => {
+        ? orderByLastEdited(graph, boardReferrers(graph, activePath)).map((path) => {
             const p = graph.pages.get(path)
             return { title: p ? p.title : path, path, materialized: p !== undefined }
           })
