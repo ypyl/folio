@@ -66,7 +66,7 @@ export function EditorPane({
   onChange,
   emptyHint = 'notes',
   brandAction,
-  onPresent,
+  onReady,
   loading = false,
   onAttachFiles,
   onOpenReference,
@@ -93,9 +93,11 @@ export function EditorPane({
    *  (add-logseq-import): the Import from Logseq action. Presentational only —
    *  the pane owns no import state. */
   brandAction?: ReactNode
-  /** Open the open page as a presentation (add-presentations). Absent leaves
-   *  the control out; the pane shows it only while a page is open. */
-  onPresent?: () => void
+  /** The editor has mounted and applied its initial content. App uses this to
+   *  present a page it just opened (add-row-context-menu, navigate-then-
+   *  present): the document is live, so its blocks are ready to derive. Fires
+   *  once per mount, after the seed lands. */
+  onReady?: () => void
   /** The active folder's index is building (indexing-loading-state). */
   loading?: boolean
   /** Copy files into the vault and resolve with the landed asset paths; fed by
@@ -250,6 +252,7 @@ export function EditorPane({
           readyRef.current = true
           adapter.highlightBlock(highlightRef.current?.block ?? null)
           updateImages()
+          onReady?.()
         })
       })
       .catch(() => {
@@ -375,31 +378,6 @@ export function EditorPane({
       onPaste={handlePaste}
       className={styles.pane}
     >
-      {onPresent && !loading ? (
-        // A Present control pinned in the pane's top-right corner
-        // (add-presentations, design D1). The bar is zero-height, so the
-        // document's first block keeps its start line and the control does
-        // not enter the content column; it sticks while the page scrolls.
-        <div className={styles.presentBar}>
-          <button
-            type="button"
-            className={styles.presentButton}
-            onClick={onPresent}
-            title="Present this page"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M6 4l14 8-14 8V4z" />
-            </svg>
-            Present
-          </button>
-        </div>
-      ) : null}
       <article className={styles.document}>
         <div
           ref={mountRef}

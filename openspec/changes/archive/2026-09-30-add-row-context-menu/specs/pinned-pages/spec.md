@@ -1,37 +1,18 @@
-# pinned-pages Specification
+## REMOVED Requirements
 
-## Purpose
+### Requirement: User can pin and unpin the open page
 
-Lets users pin pages so notes that need attention stay at the top of the sidebar, with pin state kept as an ordered list inside the vault and rebuildable from the folder.
+**Reason**: The pin control leaves the status bar. A page's favorite state is toggled from its own row's context menu (row-context-menu capability), and the user-facing concept is renamed from "pin" to "favorite". The disabled-star cases (a journal day, the search-results view, a file-less page, no page) disappear with the control, because only a file-backed page has a row and therefore a menu.
 
-## Requirements
+**Migration**: To favorite a page, open its row's context menu in the Files listing and choose Favorite or Unfavorite. There is no status-bar control.
 
-### Requirement: Pins persist in a hidden vault meta file
+### Requirement: Pinned pages stay in the Pages list, styled as pinned
 
-Pin state SHALL persist inside the vault as an ordered list of page paths in a hidden meta file (`.folio/pins.md`), so pins survive reopening the vault, belong to that vault alone, and can be rebuilt by scanning the folder (ADR-0001). The meta file SHALL NOT appear as a page in the Files listing, in search results, or anywhere else in the app. The list's order SHALL be pin order with the most recently pinned page first. Editing the meta file in another tool SHALL reorder the pins accordingly, and the app SHALL pick up such a change on its normal refresh.
+**Reason**: Renamed to favorites and respecified with the toggle in the row's context menu. The listing behavior is otherwise unchanged: favorites still remain rows in the listing and still lead it.
 
-#### Scenario: Reopening the vault restores pins
+**Migration**: None for users. The persisted list is unchanged (see the persistence requirement). Follow "Favorited pages stay in the Files list, styled as favorited".
 
-- **GIVEN** the user pinned `Ideas.md` and `Vision.md`, with `Ideas.md` pinned most recently
-- **WHEN** the folder is closed and reopened
-- **THEN** both pages are still pinned and `Ideas.md` sits above `Vision.md` in the pinned ordering
-
-#### Scenario: The pin file is invisible to the app as a page
-
-- **GIVEN** a vault whose `.folio/pins.md` lists several pages
-- **WHEN** the user opens the Files listing or searches
-- **THEN** no "pins" page or entry appears, and the pin file itself is not listed or searchable
-
-#### Scenario: An external edit to the pin file reorders pins
-
-- **GIVEN** `.folio/pins.md` lists `a.md` then `b.md`
-- **WHEN** another tool rewrites it to list `b.md` then `a.md` and a refresh occurs
-- **THEN** the pinned rows show `b.md` first
-
-#### Scenario: No pin file means nothing pinned and nothing created
-
-- **WHEN** a vault has no `.folio/pins.md`
-- **THEN** the Files list has no pinned rows and the app creates no file merely by rendering the sidebar
+## ADDED Requirements
 
 ### Requirement: User can favorite and unfavorite a page from its row
 

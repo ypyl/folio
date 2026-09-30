@@ -543,12 +543,46 @@ function App() {
     setDraftVersion((v) => v + 1)
   }
 
-  // Presenting derives the deck once from the live editor document (design
-  // D3/D5): reading the blocks changes nothing, and moving between slides
-  // reuses the derived deck rather than re-parsing or re-reading.
-  const handlePresent = useCallback(() => {
+  // Presenting a page (add-row-context-menu; presentations spec): the deck is
+  // derived once from the live editor document, so unsaved draft edits present
+  // and no vault file is read. The open page is live now; another page is
+  // opened first, and its deck is derived when the editor reports ready
+  // (navigate-then-present) rather than from a second Markdown render path.
+  const pendingPresent = useRef<string | null>(null)
+  const activePathRef = useRef(activePath)
+  /* oxlint-disable-next-line react/refs */
+  activePathRef.current = activePath
+
+  const handlePresent = useCallback(
+    (path: string) => {
+      if (path === activePath) {
+        setSlides(deriveSlides(editorRef.current?.staticBlocks() ?? []))
+        return
+      }
+      pendingPresent.current = path
+      handleSelect(path)
+    },
+    [activePath, handleSelect],
+  )
+
+  // The target page's editor has mounted and applied its content: derive its
+  // deck. The pending path is consumed once, and a mount for any other page is
+  // a no-op, so React's StrictMode double-mount cannot present twice.
+  const handleEditorReady = useCallback(() => {
+    const target = pendingPresent.current
+    if (target === null || target !== activePathRef.current) return
+    pendingPresent.current = null
     setSlides(deriveSlides(editorRef.current?.staticBlocks() ?? []))
   }, [])
+
+  // Favorite a page from its row's context menu (add-row-context-menu). This is
+  // the pin store the status-bar star used, now keyed by the row's own path.
+  const handleFavorite = useCallback(
+    (path: string) => {
+      void togglePin(path)
+    },
+    [togglePin],
+  )
 
   // A board's element change (add-whiteboards, design D7): schedule the scene
   // for the debounced board writer. Panning never reaches here (the board view
@@ -873,6 +907,8 @@ function App() {
           onSelect={handleSelect}
           onOpenAsset={handleOpenAsset}
           onOpenBoard={handleOpenBoard}
+          onFavorite={handleFavorite}
+          onPresent={handlePresent}
           hasVault={graph !== null}
           loading={indexing}
           todayTick={todayTick}
@@ -914,7 +950,7 @@ function App() {
             page={page}
             initialContent={initialContent}
             onChange={handleEdit}
-            onPresent={handlePresent}
+            onReady={handleEditorReady}
             highlight={matchHighlight}
             onOpenReference={handleOpenReference}
             onBoardLink={handleOpenBoard}
@@ -987,23 +1023,6 @@ function App() {
         // back to the open-time snapshot while the index builds (design D6).
         vaultName={activeFolder?.storage ? activeFolder.name : undefined}
         fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
-        // Pin toggle (add-pinned-pages): enabled only for a file-backed
-        // page — not a journal day, an unmaterialized page, or the results
-        // view. `page` derives from the lastKnown ref (existing react/refs
-        // quirk, suppressed as on the MetaPanel props below).
-        /* oxlint-disable-next-line react/refs */
-        pinned={page !== null && pins.includes(page.path)}
-        /* oxlint-disable react/refs */
-        canPin={
-          mode === 'page' &&
-          page !== null &&
-          page.kind === 'page' &&
-          (graph?.pages.has(page.path) ?? false)
-        }
-        /* oxlint-enable react/refs */
-        onTogglePin={() => {
-          if (page !== null) void togglePin(page.path)
-        }}
         canBack={canBack}
         canForward={canForward}
         onBack={handleBack}

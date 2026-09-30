@@ -1,20 +1,19 @@
 import { Fragment } from 'react'
 import { version } from '../../package.json'
 import type { DraftStatus } from '../editor/drafts'
-import { stem } from '../vault/index'
-import { StarIcon } from './StarIcon'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
 // thin bar below the workspace leading with the session navigation — Back,
-// Forward, and Today (move-nav-controls-to-status-bar) — then the pin, then
-// the open page's file path, the save/indexing status, and the active vault's
-// name and file count (right). The bar sits outside all pane scroll regions,
-// so its content never scrolls. Groups empty when their content has no source.
-// Its controls are the three navigation controls and the pin star
-// (add-pinned-pages); the status groups themselves are display-only. The
-// question-mark help button and its modal lived here until
-// move-help-to-right-panel moved the reference into the right panel.
+// Forward, and Today (move-nav-controls-to-status-bar) — then the open page's
+// file path, the save/indexing status, and the active vault's name and file
+// count (right). The bar sits outside all pane scroll regions, so its content
+// never scrolls. Groups empty when their content has no source. Its controls
+// are the three navigation controls; the status groups themselves are
+// display-only. The question-mark help button and its modal lived here until
+// move-help-to-right-panel moved the reference into the right panel, and the
+// pin star lived here until add-row-context-menu moved favoriting to a page
+// row's context menu.
 
 // A 24-viewBox chevron. aria-hidden: the control's accessible name says which
 // way it goes, so the glyph is decoration (the same rule the pin star follows).
@@ -43,11 +42,8 @@ const SAVE_LABELS: Record<Exclude<DraftStatus, 'clean'>, string> = {
   failed: 'Save failed',
 }
 
-// The pin toggle's label stem: the open page's filename without .md (the
-// journal date reads naturally too); a placeholder when no page is open.
-function pinName(pagePath: string | null): string {
-  return pagePath === null ? 'page' : stem(pagePath)
-}
+// The pin toggle's label stem was here; favoriting moved to the row's context
+// menu (add-row-context-menu), so the bar no longer names a page for it.
 
 export function StatusBar({
   pagePath,
@@ -56,9 +52,6 @@ export function StatusBar({
   indexing = false,
   vaultName,
   fileCount,
-  pinned = false,
-  canPin = false,
-  onTogglePin,
   canBack = false,
   canForward = false,
   onBack,
@@ -75,13 +68,6 @@ export function StatusBar({
   indexing?: boolean
   vaultName?: string
   fileCount?: number
-  /** The open page is pinned (add-pinned-pages). */
-  pinned?: boolean
-  /** The star is usable: a file-backed page is open — not a journal day, an
-   *  unmaterialized page, or the results view. */
-  canPin?: boolean
-  /** Toggles the open page's pin from the bar's leading star. */
-  onTogglePin?: () => void
   /** The trail has an entry before/after the open page; the Back and Forward
    *  controls lead the bar (move-nav-controls-to-status-bar). */
   canBack?: boolean
@@ -109,8 +95,8 @@ export function StatusBar({
   return (
     <footer className={styles.bar}>
       {/* Session navigation (move-nav-controls-to-status-bar): the trail's
-          Back and Forward and the Today control lead the bar, ahead of the
-          pin, so the sidebar can lead with its sections. */}
+          Back and Forward and the Today control lead the bar, so the sidebar
+          can lead with its sections. */}
       {(onBack || onForward || onToday) && (
         <div className={styles.nav}>
           <button
@@ -140,19 +126,6 @@ export function StatusBar({
             Today
           </button>
         </div>
-      )}
-      {onTogglePin && (
-        <button
-          type="button"
-          className={`${styles.pin}${pinned ? ` ${styles.pinActive}` : ''}`}
-          onClick={onTogglePin}
-          disabled={!canPin}
-          aria-pressed={pinned}
-          aria-label={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
-          title={`${pinned ? 'Unpin' : 'Pin'} ${pinName(pagePath)}`}
-        >
-          <StarIcon filled={pinned} className={styles.pinIcon} />
-        </button>
       )}
       <div className={styles.path} title={pagePath ?? undefined}>
         {hasDirs && (

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar, type SidebarRow } from './Sidebar'
 import styles from './Sidebar.module.css'
-import { monthYearLabel } from './months'
+import { dayLabel, monthYearLabel } from './months'
 import { assetName, boardName, localDayString } from '../vault/index'
 
 const journal = {
@@ -580,5 +580,101 @@ describe('Sidebar boards (add-whiteboards)', () => {
     )
     expect(section('Files').queryByText('No boards yet.')).toBeNull()
     expect(section('Files').getAllByRole('button')).toHaveLength(1)
+  })
+})
+
+// The page-row context menu (add-row-context-menu, row-context-menu spec):
+// only page rows open it, and its two items act on that row's page.
+describe('page-row context menu (add-row-context-menu)', () => {
+  const rows = [
+    pageRow('a.md', 'Alpha'),
+    boardRow('boards/Diagram.excalidraw'),
+    assetRow('assets/pic.png'),
+  ]
+
+  const list = (extra: Partial<Parameters<typeof Sidebar>[0]> = {}) =>
+    render(
+      <Sidebar
+        rows={rows}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        onOpenBoard={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+        {...extra}
+      />,
+    )
+
+  const rightClick = (name: string) =>
+    fireEvent.contextMenu(screen.getByRole('button', { name }), { clientX: 40, clientY: 40 })
+
+  it('opens on a page row with Favorite and Present, in order', () => {
+    list()
+    rightClick('Alpha')
+    expect(screen.getByRole('menu')).toBeTruthy()
+    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
+      'Favorite',
+      'Present',
+    ])
+  })
+
+  it('advertises the menu only on page rows', () => {
+    list()
+    expect(screen.getByRole('button', { name: 'Alpha' }).getAttribute('aria-haspopup')).toBe('menu')
+    expect(
+      screen
+        .getByRole('button', { name: boardName('boards/Diagram.excalidraw') })
+        .getAttribute('aria-haspopup'),
+    ).toBeNull()
+    expect(
+      screen
+        .getByRole('button', { name: assetName('assets/pic.png') })
+        .getAttribute('aria-haspopup'),
+    ).toBeNull()
+  })
+
+  it('does not open on a board row, an asset row, or a journal day', () => {
+    list()
+    rightClick(boardName('boards/Diagram.excalidraw'))
+    expect(screen.queryByRole('menu')).toBeNull()
+    rightClick(assetName('assets/pic.png'))
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.contextMenu(screen.getByRole('button', { name: dayLabel(new Date()) }), {
+      clientX: 1,
+      clientY: 1,
+    })
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('activates the actions with the row path and reflects the favorite state', () => {
+    const onFavorite = vi.fn()
+    const onPresent = vi.fn()
+    const { rerender } = list({ onFavorite, onPresent })
+
+    rightClick('Alpha')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Favorite' }))
+    expect(onFavorite).toHaveBeenCalledWith('a.md')
+
+    rightClick('Alpha')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
+    expect(onPresent).toHaveBeenCalledWith('a.md')
+
+    // A replacement rows array carrying the favorited flag flips the label.
+    rerender(
+      <Sidebar
+        rows={[pageRow('a.md', 'Alpha', true), boardRow('boards/Diagram.excalidraw')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        onOpenBoard={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+        onFavorite={onFavorite}
+        onPresent={onPresent}
+      />,
+    )
+    rightClick('Alpha')
+    expect(screen.getByRole('menuitem', { name: 'Unfavorite' })).toBeTruthy()
   })
 })

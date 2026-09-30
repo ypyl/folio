@@ -6,9 +6,9 @@ import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell/page-editing specs): the
 // crumb and save-state scenarios moved here from the editor pane, plus the
-// indexing label, vault info, the session navigation, and the pin toggle. Its
-// controls are the navigation controls and the pin star
-// (move-nav-controls-to-status-bar); the groups themselves are display-only.
+// indexing label, vault info, and the session navigation. Its controls are the
+// navigation controls (move-nav-controls-to-status-bar); the groups themselves
+// are display-only. The pin star was removed by add-row-context-menu.
 
 describe('StatusBar', () => {
   describe('path group (file breadcrumb)', () => {
@@ -133,8 +133,9 @@ describe('StatusBar', () => {
       const { container } = render(
         <StatusBar pagePath="notes/a.md" saveState="saving" vaultName="notes" fileCount={3} />,
       )
-      // Breadcrumb segments and the vault text are not interactive. The bar's
-      // only control is the pin star, which App opts into (add-pinned-pages).
+      // Breadcrumb segments and the vault text are not interactive, and the
+      // bar now renders no control of its own when App supplies no navigation
+      // (add-row-context-menu removed the pin star).
       expect(container.querySelectorAll('button')).toHaveLength(0)
     })
   })
@@ -150,7 +151,7 @@ describe('StatusBar', () => {
     }
 
     it('leads the bar with Back, Forward, and Today, in order', () => {
-      const { container } = render(<StatusBar pagePath="a.md" {...nav} onTogglePin={() => {}} />)
+      const { container } = render(<StatusBar pagePath="a.md" {...nav} />)
       const group = container.querySelector(`.${styles.nav}`) as HTMLElement
       const buttons = [...group.querySelectorAll('button')]
       expect(buttons.map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
@@ -158,11 +159,9 @@ describe('StatusBar', () => {
         'Forward',
         'Today',
       ])
-      // Nav precedes the pin, which precedes the breadcrumb.
-      const pin = container.querySelector(`.${styles.pin}`) as HTMLElement
+      // Nav precedes the breadcrumb.
       const path = container.querySelector(`.${styles.path}`) as HTMLElement
-      expect(group.compareDocumentPosition(pin) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(pin.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(group.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('disables Back and Forward when the trail has nowhere to step', () => {
@@ -210,48 +209,6 @@ describe('StatusBar', () => {
     it('renders no navigation controls without handlers', () => {
       const { container } = render(<StatusBar pagePath="a.md" />)
       expect(container.querySelector(`.${styles.nav}`)).toBeNull()
-    })
-  })
-
-  describe('pin toggle (add-pinned-pages)', () => {
-    it('is absent without a toggle handler', () => {
-      render(<StatusBar pagePath="a.md" />)
-      expect(screen.queryByRole('button', { name: /^Pin / })).toBeNull()
-    })
-
-    it('leads the bar before the path group', () => {
-      const { container } = render(<StatusBar pagePath="a.md" onTogglePin={() => {}} />)
-      const pin = container.querySelector(`.${styles.pin}`)
-      const path = container.querySelector(`.${styles.path}`)
-      const result = pin!.compareDocumentPosition(path!)
-      expect(result & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    })
-
-    it('is disabled when the open surface cannot be pinned (journal day, no file)', () => {
-      render(<StatusBar pagePath="journals/2026-09-09.md" onTogglePin={() => {}} />)
-      const pin = screen.getByRole('button', { name: 'Pin 2026-09-09' }) as HTMLButtonElement
-      expect(pin.disabled).toBe(true)
-    })
-
-    it('is enabled for a pinnable page and reports the unpinned state', () => {
-      render(<StatusBar pagePath="a.md" canPin onTogglePin={() => {}} />)
-      const pin = screen.getByRole('button', { name: 'Pin a' }) as HTMLButtonElement
-      expect(pin.disabled).toBe(false)
-      expect(pin.getAttribute('aria-pressed')).toBe('false')
-    })
-
-    it('reads as unpin with aria-pressed true when the page is pinned', () => {
-      render(<StatusBar pagePath="a.md" canPin pinned onTogglePin={() => {}} />)
-      const pin = screen.getByRole('button', { name: 'Unpin a' }) as HTMLButtonElement
-      expect(pin.disabled).toBe(false)
-      expect(pin.getAttribute('aria-pressed')).toBe('true')
-    })
-
-    it('activates the handler on click', () => {
-      const onTogglePin = vi.fn()
-      render(<StatusBar pagePath="a.md" canPin onTogglePin={onTogglePin} />)
-      fireEvent.click(screen.getByRole('button', { name: 'Pin a' }))
-      expect(onTogglePin).toHaveBeenCalledTimes(1)
     })
   })
 })

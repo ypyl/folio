@@ -82,34 +82,12 @@ describe('EditorPane', () => {
     expect(editor.content).toBe('# A')
   })
 
-  it('offers a Present control only with an open page and a handler', async () => {
-    const onPresent = vi.fn()
-    const { rerender } = render(
-      <EditorPane page={page} initialContent="Body" onChange={() => {}} onPresent={onPresent} />,
-    )
+  it('reports ready once after the editor mounts with its content', async () => {
+    const onReady = vi.fn()
+    render(<EditorPane page={page} initialContent="# A" onChange={() => {}} onReady={onReady} />)
     await act(async () => {})
-    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
-    expect(onPresent).toHaveBeenCalled()
-    // Without a handler the control is absent.
-    rerender(<EditorPane page={page} initialContent="Body" onChange={() => {}} />)
-    expect(screen.queryByRole('button', { name: 'Present' })).toBeNull()
-  })
-
-  it('shows no Present control while no page is open or the index builds', async () => {
-    const { rerender } = render(
-      <EditorPane page={null} initialContent="" onChange={() => {}} onPresent={() => {}} />,
-    )
-    expect(screen.queryByRole('button', { name: 'Present' })).toBeNull()
-    rerender(
-      <EditorPane
-        page={page}
-        initialContent="Body"
-        onChange={() => {}}
-        onPresent={() => {}}
-        loading
-      />,
-    )
-    expect(screen.queryByRole('button', { name: 'Present' })).toBeNull()
+    // Fires once per mount, after the seed lands (add-row-context-menu).
+    expect(onReady).toHaveBeenCalledTimes(1)
   })
 
   it('forwards edits to onChange with the serialized markdown', async () => {

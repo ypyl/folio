@@ -1174,49 +1174,40 @@ describe('pinned pages (add-pinned-pages)', () => {
       .map((b) => (b.textContent ?? '').trim())
       .filter((t) => ['Welcome', 'Inbox', 'Ideas', 'Folio', 'Reading'].includes(t))
 
-  it('pins the open page from the status bar (pages only), persists, and unpins', async () => {
+  it('favorites a page from its row menu, persists, and unfavorites', async () => {
     render(<App />)
     const tree = await openFixture()
     const storage = new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
     await screen.findByRole('button', { name: 'Welcome' })
 
-    // The landing is today's journal (a journal day): the toggle is disabled.
-    const journalPin = screen.getByRole('button', { name: /^Pin / }) as HTMLButtonElement
-    expect(journalPin.disabled).toBe(true)
+    // Favorite a page that is not even open, straight from its row's menu.
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
+      clientX: 40,
+      clientY: 40,
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Favorite' }))
 
-    // Open a real page: the status-bar toggle enables.
-    fireEvent.click(screen.getByRole('button', { name: 'Welcome' }))
-    const star = (await screen.findByRole('button', { name: 'Pin Welcome' })) as HTMLButtonElement
-    expect(star.disabled).toBe(false)
-
-    // Pin it: the row gains the pinned style and leads the list.
-    fireEvent.click(star)
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Welcome' })).toBeTruthy())
-    expect(pageRowTitles()).toEqual(['Welcome', 'Reading', 'Folio', 'Ideas', 'Inbox'])
-    const welcomeRow = screen.getByRole('button', { name: 'Welcome' })
+    // The row gains the favorite style and leads the list; no extra control is
+    // added to the row itself.
+    await waitFor(() => expect(pageRowTitles()[0]).toBe('Welcome'))
+    const welcomeRow = filesSection().getByRole('button', { name: 'Welcome' })
     expect(welcomeRow.getAttribute('data-pinned')).toBe('true')
-    expect(welcomeRow.querySelector('svg')).toBeNull() // no icon on the row
-    // The pin persists in the vault meta file, not the app.
+    expect(welcomeRow.querySelector('svg')).toBeNull()
+    // It persists in the vault meta file, not the app.
     expect(await storage.read('.folio/pins.md')).toContain('- pages/Welcome.md')
 
-    // A journal day disables the toggle again.
-    fireEvent.click(screen.getByRole('button', { name: 'September 2, 2026' }))
+    // The menu now reads Unfavorite; activating it restores edit order and
+    // clears the marker.
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
+      clientX: 40,
+      clientY: 40,
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Unfavorite' }))
     await waitFor(() =>
-      expect((screen.getByRole('button', { name: /^Pin / }) as HTMLButtonElement).disabled).toBe(
-        true,
-      ),
+      expect(pageRowTitles()).toEqual(['Reading', 'Folio', 'Ideas', 'Inbox', 'Welcome']),
     )
-
-    // Back on Welcome (the Pages row — the meta panel's forwardlinks also
-    // carry a Welcome row), unpinning restores edit order and clears the marker.
-    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
-    const unpin = await screen.findByRole('button', { name: 'Unpin Welcome' })
-    fireEvent.click(unpin)
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Pin Welcome' })).toBeTruthy())
-    expect(pageRowTitles()).toEqual(['Reading', 'Folio', 'Ideas', 'Inbox', 'Welcome'])
-    const welcomeRow2 = screen.getByRole('button', { name: 'Welcome' })
+    const welcomeRow2 = filesSection().getByRole('button', { name: 'Welcome' })
     expect(welcomeRow2.getAttribute('data-pinned')).toBeNull()
-    expect(welcomeRow2.className).not.toContain('rowPinned')
     vi.unstubAllGlobals()
   })
 })
@@ -1483,6 +1474,32 @@ describe('history navigation (add-history-navigation spec)', () => {
     // A navigation does change what the sidebar shows, so it re-renders.
     fireEvent.click(filesSection().getByRole('button', { name: 'Reading' }))
     expect(dayLabelCalls.count).toBeGreaterThan(before)
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the row context menu off the typing path', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+
+    // Open and dismiss the row menu: its state changes only on those gestures.
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
+      clientX: 40,
+      clientY: 40,
+    })
+    expect(screen.getByRole('menu')).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    // Typing re-renders App (the save indicator) but creates no menu and does
+    // not re-render the memoized sidebar.
+    const before = dayLabelCalls.count
+    await act(async () => {
+      editor().emitChange('a keystroke')
+    })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(dayLabelCalls.count).toBe(before)
     vi.unstubAllGlobals()
   })
 
@@ -1815,16 +1832,16 @@ describe('logseq import', () => {
   })
 })
 
-// Presentations (add-presentations): the open page becomes a full-viewport
-// deck, entered explicitly and left without changing the page or writing the
-// vault.
+// Presentations (add-presentations; entered from the row menu by
+// add-row-context-menu): a page becomes a full-viewport deck, entered
+// explicitly and left without changing the page or writing the vault.
 describe('presentations (add-presentations)', () => {
-  it('presents the open page, closes back to the editor, and writes nothing', async () => {
+  it('presents the open page from its row menu, closes back to the editor, and writes nothing', async () => {
     const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
     try {
       render(<App />)
       await openFixture()
-      fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+      fireEvent.click(await filesSection().findByRole('button', { name: 'Welcome' }))
       await waitFor(() => expect(editor().content).toContain('This is Folio'))
 
       // The deck is derived from the live editor's blocks.
@@ -1833,7 +1850,11 @@ describe('presentations (add-presentations)', () => {
         { type: 'hr', html: '<hr>' },
         { type: 'paragraph', html: '<p>Talk</p>' },
       ]
-      fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+      fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
+        clientX: 40,
+        clientY: 40,
+      })
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
       const dialog = await screen.findByRole('dialog', { name: 'Presentation' })
       expect(within(dialog).getByRole('heading', { name: 'Intro' })).toBeTruthy()
 
@@ -1851,6 +1872,25 @@ describe('presentations (add-presentations)', () => {
       write.mockRestore()
       vi.unstubAllGlobals()
     }
+  })
+
+  it('presents a page that is not open by opening it first', async () => {
+    render(<App />)
+    await openFixture()
+    // Land on a file-backed page so the presented row is a different one.
+    fireEvent.click(await filesSection().findByRole('button', { name: 'Inbox' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('A place to drop thoughts'))
+
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
+      clientX: 40,
+      clientY: 40,
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
+
+    // The clicked page opens, and the deck is shown for it.
+    await screen.findByRole('dialog', { name: 'Presentation' })
+    expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy()
+    vi.unstubAllGlobals()
   })
 })
 

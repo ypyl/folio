@@ -6,10 +6,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react'
 import { Accordion } from './Accordion'
 import { JournalCalendar } from './JournalCalendar'
+import { RowContextMenu } from './RowContextMenu'
 import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
@@ -83,6 +85,8 @@ export const Sidebar = memo(function Sidebar({
   onSelect,
   onOpenAsset,
   onOpenBoard,
+  onFavorite,
+  onPresent,
   hasVault,
   loading = false,
   todayTick = 0,
@@ -101,6 +105,12 @@ export const Sidebar = memo(function Sidebar({
   /** Activate a board row: open the board editor in the main pane
    *  (add-whiteboards). */
   onOpenBoard?: (path: string) => void
+  /** Favorite or unfavorite a page (add-row-context-menu): the row menu's
+   *  first item, acting on the row's own path. App owns the favorite store. */
+  onFavorite?: (path: string) => void
+  /** Present a page (add-row-context-menu): the row menu's second item. App
+   *  opens the page first when it is not already open. */
+  onPresent?: (path: string) => void
   /** A folder is open and indexed; gates the journal calendar and the Files
    *  section's empty state. */
   hasVault: boolean
@@ -172,6 +182,34 @@ export const Sidebar = memo(function Sidebar({
     [rows.length, view, activeIndex],
   )
 
+  // The page-row context menu (add-row-context-menu, row-context-menu spec):
+  // which row it belongs to, where it was invoked, and the row element focus
+  // returns to. Local, and it changes only when the menu opens or closes, never
+  // on a keystroke, so it cannot reach the typing path.
+  const [menu, setMenu] = useState<{
+    path: string
+    x: number
+    y: number
+    trigger: HTMLElement
+  } | null>(null)
+  const menuRow = menu === null ? undefined : rows.find((r) => r.path === menu.path)
+
+  // Open the menu at the invocation point. Chromium fires `contextmenu` for a
+  // right-click and for `Shift+F10`/the Menu key; the keyboard invocation
+  // reports zero coordinates, so it anchors at the focused row instead.
+  const openMenu = (e: ReactMouseEvent<HTMLButtonElement>, path: string) => {
+    e.preventDefault()
+    const trigger = e.currentTarget
+    const rect = trigger.getBoundingClientRect()
+    const keyboard = e.clientX === 0 && e.clientY === 0
+    setMenu({
+      path,
+      x: keyboard ? rect.left : e.clientX,
+      y: keyboard ? rect.bottom : e.clientY,
+      trigger,
+    })
+  }
+
   // A kind badge (merge-sidebar-sections): the page is the default kind and
   // carries none; a board and an asset are marked with a leading letter. The
   // badge is presentational only, so the row stays one button.
@@ -204,12 +242,14 @@ export const Sidebar = memo(function Sidebar({
             data-pinned={row.pinned || undefined}
             data-active={isActive || undefined}
             aria-current={isActive ? 'page' : undefined}
+            aria-haspopup="menu"
             draggable={draggable}
             onDragStart={
               draggable
                 ? (e) => writeDragRef(e.dataTransfer, { kind: 'page', name: row.label })
                 : undefined
             }
+            onContextMenu={(e) => openMenu(e, row.path)}
             onClick={() => onSelect(row.path)}
           >
             <span className={styles.rowText}>{row.label}</span>
@@ -359,6 +399,24 @@ export const Sidebar = memo(function Sidebar({
           )}
         </div>
       </Accordion>
+      {/* The page-row context menu: fixed-positioned at the invocation point,
+          so where it sits in this tree does not matter. Only page rows open
+          it; board and asset rows carry no handler. */}
+      {menu !== null ? (
+        <RowContextMenu
+          x={menu.x}
+          y={menu.y}
+          restoreFocusTo={menu.trigger}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: menuRow?.pinned ? 'Unfavorite' : 'Favorite',
+              onSelect: () => onFavorite?.(menu.path),
+            },
+            { label: 'Present', onSelect: () => onPresent?.(menu.path) },
+          ]}
+        />
+      ) : null}
     </aside>
   )
 })

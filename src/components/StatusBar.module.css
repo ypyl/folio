@@ -1,7 +1,7 @@
 /* App-level status frame (add-status-bar, ui-shell spec): a thin Kami bar
    below the workspace — stone 12px metadata on parchment, hairline top
    border, flat, no shadow. Flex layout: the session navigation leads, then
-   the pin, the path cluster, the status cluster; the vault stats pin to the
+   the path cluster, the status cluster; the vault stats pin to the
    far right via an auto margin on the right side. The bar leads at its own
    edge now, so it keeps a small left inset
    (move-nav-controls-to-status-bar). */
@@ -18,8 +18,8 @@
 }
 
 /* Session navigation (move-nav-controls-to-status-bar): the bar's leading
-   group, Back then Forward then Today, ahead of the pin. Stone at rest, brand
-   on hover/focus, dimmed when unavailable — the pin's own treatment. */
+   group, Back then Forward then Today. Stone at rest, brand on hover/focus,
+   dimmed when unavailable. */
 .nav {
   display: flex;
   align-items: center;
@@ -71,51 +71,9 @@
   font-size: 12px;
 }
 
-/* Pin toggle (add-pinned-pages): enabled only when a file-backed page is
-open (journal days, unmaterialized pages, and the results view disable it).
-Filled star in ink-blue when the open page is pinned; outline star in stone
-otherwise; disabled is dimmed but still labelled. It follows the navigation
-controls now (move-nav-controls-to-status-bar), so it no longer sits in a
-rail-aligned column. */
-.pin {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--stone);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.pin:hover:not(:disabled),
-.pin:focus-visible {
-  color: var(--brand);
-}
-
-.pin:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: -1px;
-}
-
-.pin:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.pinActive {
-  color: var(--brand);
-}
-
-.pinIcon {
-  display: block;
-  width: 14px;
-  height: 14px;
-}
+/* Pin toggle (add-pinned-pages) lived here until add-row-context-menu moved
+   favoriting to a page row's context menu; the status bar no longer carries
+   the star. */
 
 /* Path group (left): the open page's file path as inert segments. Fits its
    content (no stretch, no artificial gap between directory text and the
