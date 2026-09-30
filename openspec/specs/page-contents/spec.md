@@ -8,7 +8,7 @@ The right meta panel's Contents section: the open page's headings, shown as an i
 
 ### Requirement: The Contents section lists the open page's headings
 
-The right meta panel SHALL contain a Contents section, above the Links section. When a page is open the section SHALL list one row per heading in the page's content, in document order, labelled with the heading's text with inline formatting (emphasis, code, links) reduced to its plain text. Each row SHALL be indented one step further for each heading level below the top level, so the list shows the page's heading hierarchy. Only headings SHALL be listed: a list item, a paragraph, or any other block SHALL never produce a row (ADR-0027). The section SHALL be open by default, and it SHALL size to its content up to a maximum height, scrolling within itself when the list is longer; the panel's Links section SHALL keep taking the remaining height. Two headings with the same text SHALL be two rows.
+The right meta panel SHALL contain a Contents section, above the Links section. When a page is open the section SHALL list one row per heading in the page's content, in document order, labelled with the heading's text with inline formatting (emphasis, code, links) reduced to its plain text. Each row SHALL be indented one step further for each heading level below the top level, so the list shows the page's heading hierarchy. Only headings SHALL be listed: a list item, a paragraph, or any other block SHALL never produce a row (ADR-0027). The section SHALL be open by default, and it SHALL size to its content up to a maximum height, scrolling within itself when the list is longer; the panel's Links section SHALL keep taking the remaining height while it is open, and when the Links section is collapsed the Contents section SHALL take the height Links gave up, still scrolling within itself when the list is longer than that. Two headings with the same text SHALL be two rows.
 
 #### Scenario: Headings are listed in document order, indented by level
 
@@ -33,6 +33,12 @@ The right meta panel SHALL contain a Contents section, above the Links section. 
 - **GIVEN** an open page with more headings than the panel can show
 - **WHEN** the user scrolls the Contents list to its end
 - **THEN** only the Contents body scrolls, the panel itself does not scroll, and the other section summaries stay where they were
+
+#### Scenario: Contents takes the space Links gives up
+
+- **GIVEN** an open page with the Links section collapsed
+- **WHEN** the user looks at the Contents section
+- **THEN** it fills the panel's space above the collapsed Links summary and scrolls within itself when its list is longer than that
 
 ### Requirement: Contents shows a state for every surface
 
