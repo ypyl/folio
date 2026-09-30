@@ -274,14 +274,75 @@ describe('MetaPanel', () => {
       />,
     )
     const contents = screen.getByText('Contents').closest('details') as HTMLElement
-    const buttons = [...contents.querySelectorAll('button')] as HTMLElement[]
-    expect(buttons.map((b) => b.textContent)).toEqual(['Alpha', 'Beta'])
     // A level-two heading is indented further than a level-one heading.
-    const alpha = Number.parseFloat(buttons[0].style.paddingLeft)
-    const beta = Number.parseFloat(buttons[1].style.paddingLeft)
+    const rows = [...contents.querySelectorAll(`.${styles.contentRow}`)] as HTMLElement[]
+    expect(rows).toHaveLength(2)
+    const alpha = Number.parseFloat(rows[0].style.paddingLeft)
+    const beta = Number.parseFloat(rows[1].style.paddingLeft)
     expect(beta).toBeGreaterThan(alpha)
-    fireEvent.click(buttons[1])
+    fireEvent.click(within(contents).getByRole('button', { name: 'Beta' }))
     expect(onLocate).toHaveBeenCalledWith(2)
+  })
+
+  it('nests headings and collapses and expands a subtree', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        contents={[
+          { level: 1, text: 'Alpha', block: 0 },
+          { level: 2, text: 'Beta', block: 2 },
+          { level: 3, text: 'Gamma', block: 3 },
+          { level: 1, text: 'Delta', block: 5 },
+        ]}
+        links={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const contents = screen.getByText('Contents').closest('details') as HTMLElement
+    const panel = within(contents)
+    // Only headings with a subtree carry a disclosure control.
+    const alpha = panel.getByRole('button', { name: 'Collapse Alpha' })
+    expect(panel.queryByRole('button', { name: 'Collapse Delta' })).toBeNull()
+    // Collapsing Alpha hides its descendants and leaves the sibling root.
+    fireEvent.click(alpha)
+    expect(panel.queryByRole('button', { name: 'Beta' })).toBeNull()
+    expect(panel.queryByRole('button', { name: 'Gamma' })).toBeNull()
+    expect(panel.getByRole('button', { name: 'Delta' })).toBeTruthy()
+    expect(panel.getByRole('button', { name: 'Expand Alpha' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    )
+    // Expanding shows them again.
+    fireEvent.click(panel.getByRole('button', { name: 'Expand Alpha' }))
+    expect(panel.getByRole('button', { name: 'Beta' })).toBeTruthy()
+    expect(panel.getByRole('button', { name: 'Gamma' })).toBeTruthy()
+  })
+
+  it('resets collapse state when a different page opens', () => {
+    const tree = [
+      { level: 1, text: 'Alpha', block: 0 },
+      { level: 2, text: 'Beta', block: 2 },
+    ]
+    const panel = (activePath: string) => (
+      <MetaPanel
+        pageOpen
+        contents={tree}
+        links={[]}
+        activePath={activePath}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />
+    )
+    const { rerender } = render(panel('pages/A.md'))
+    const contents = screen.getByText('Contents').closest('details') as HTMLElement
+    fireEvent.click(within(contents).getByRole('button', { name: 'Collapse Alpha' }))
+    expect(within(contents).queryByRole('button', { name: 'Beta' })).toBeNull()
+    // A different page starts with every heading expanded.
+    rerender(panel('pages/B.md'))
+    expect(within(contents).getByRole('button', { name: 'Beta' })).toBeTruthy()
   })
 
   it('shows empty copy in Contents for a page with no headings', () => {

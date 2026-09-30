@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveContents } from './contents'
+import { buildContentTree, deriveContents } from './contents'
 
 describe('deriveContents (add-page-contents)', () => {
   it('lists headings in document order with level and block', () => {
@@ -45,5 +45,46 @@ describe('deriveContents (add-page-contents)', () => {
 
   it('strips ATX closing hashes', () => {
     expect(deriveContents('## Beta ##\n')).toEqual([{ level: 2, text: 'Beta', block: 0 }])
+  })
+})
+
+describe('buildContentTree (add-contents-tree)', () => {
+  const entry = (level: number, text: string, block: number) => ({ level, text, block })
+
+  it('nests deeper headings under the nearest shallower one', () => {
+    const tree = buildContentTree([
+      entry(1, 'Alpha', 0),
+      entry(2, 'Beta', 2),
+      entry(3, 'Gamma', 3),
+      entry(1, 'Delta', 5),
+    ])
+    expect(tree.map((n) => n.text)).toEqual(['Alpha', 'Delta'])
+    expect(tree[0].children.map((n) => n.text)).toEqual(['Beta'])
+    expect(tree[0].children[0].children.map((n) => n.text)).toEqual(['Gamma'])
+    expect(tree[1].children).toEqual([])
+  })
+
+  it('closes a run when a sibling at the same level arrives', () => {
+    const tree = buildContentTree([entry(1, 'Alpha', 0), entry(2, 'Beta', 1), entry(2, 'Gamma', 2)])
+    expect(tree[0].children.map((n) => n.text)).toEqual(['Beta', 'Gamma'])
+  })
+
+  it('nests a skipped level under the shallower heading', () => {
+    const tree = buildContentTree([entry(1, 'Alpha', 0), entry(3, 'Deep', 1)])
+    expect(tree[0].children.map((n) => n.text)).toEqual(['Deep'])
+  })
+
+  it('makes headings with no shallower predecessor roots', () => {
+    const tree = buildContentTree([entry(2, 'Beta', 0), entry(1, 'Alpha', 1)])
+    expect(tree.map((n) => n.text)).toEqual(['Beta', 'Alpha'])
+  })
+
+  it('returns a single root for a lone heading', () => {
+    const tree = buildContentTree([entry(2, 'Only', 4)])
+    expect(tree).toEqual([{ level: 2, text: 'Only', block: 4, children: [] }])
+  })
+
+  it('returns nothing for no headings', () => {
+    expect(buildContentTree([])).toEqual([])
   })
 })

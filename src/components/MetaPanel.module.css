@@ -104,6 +104,70 @@
   scrollbar-gutter: stable; /* DESIGN.md, scroll regions */
 }
 
+/* A Contents row (add-contents-tree): the level indent is on the row, so the
+   disclosure control sits at the heading's own indent. Inside it the label
+   button gives up the fixed width and horizontal padding `.row` carries for a
+   full-width listing row, and fills the space beside the control. */
+.contentRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.contentRow .row {
+  flex: 1 1 auto;
+  width: auto;
+  padding-left: 0;
+  padding-right: 8px;
+}
+
+/* The disclosure control (add-contents-tree): the same border-rotate chevron
+   the section summaries use, pointing right while collapsed and down while
+   expanded. A leaf gets an equal spacer so labels in one column align. */
+.disclosure,
+.disclosureSpacer {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.disclosure:hover {
+  color: var(--dark-warm);
+}
+
+.disclosure::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-left: -1px; /* optical centering of the rotated corner */
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg); /* points right while collapsed */
+  transition: transform 0.15s;
+}
+
+.disclosure[aria-expanded='true']::after {
+  transform: rotate(45deg); /* points down while expanded */
+}
+
+/* Nested rows add no indent of their own: the level indent lives on each row,
+   so the tree changes which rows show, not how far they sit. */
+.contentChildren {
+  margin: 0;
+  padding: 0;
+}
+
 /* When Links is collapsed it gives its height to Contents (grow-contents-when-
    links-collapsed): Contents grows, its body drops the cap and fills, and the
    collapsed Links summary keeps its place at the panel's bottom. Only while

@@ -13,6 +13,9 @@ import { blockStartLines } from '../lineAnchors'
  *  top-level block it begins (the index `highlightBlock` expects). */
 export type ContentEntry = { level: number; text: string; block: number }
 
+/** A Contents row plus the headings nested under it (add-contents-tree). */
+export type ContentNode = ContentEntry & { children: ContentNode[] }
+
 // An ATX heading: one to six `#` followed by whitespace or end of line (so
 // `#tag` and `#######` are not headings), an optional trailing run of `#`.
 const ATX = /^(#{1,6})(?=\s|$)\s*(.*?)\s*#*\s*$/
@@ -41,4 +44,32 @@ export function deriveContents(markdown: string): ContentEntry[] {
     entries.push({ level: match[1].length, text: plainText(match[2]), block })
   })
   return entries
+}
+
+/**
+ * The headings of `entries` as a tree (add-contents-tree): a heading is a
+ * child of the nearest preceding heading with a lower level, and the run of
+ * deeper headings before the next heading at its level or lower is its
+ * subtree. Roots are the headings with no shallower heading before them, so
+ * levels need not start at one and a skipped level (an `#` then a `###`)
+ * still nests. `entries` are taken in document order.
+ */
+export function buildContentTree(entries: ContentEntry[]): ContentNode[] {
+  const roots: ContentNode[] = []
+  // The open ancestor chain, shallowest first; the last node is the current
+  // parent of whatever heading comes next.
+  const stack: ContentNode[] = []
+  for (const entry of entries) {
+    const node: ContentNode = { ...entry, children: [] }
+    while (stack.length > 0 && stack[stack.length - 1].level >= entry.level) {
+      stack.pop()
+    }
+    if (stack.length === 0) {
+      roots.push(node)
+    } else {
+      stack[stack.length - 1].children.push(node)
+    }
+    stack.push(node)
+  }
+  return roots
 }

@@ -1,7 +1,12 @@
-import type { ReactNode } from 'react'
-import type { ContentEntry } from '../vault/contents'
+import { useMemo, useState, type ReactNode } from 'react'
+import { buildContentTree, type ContentEntry, type ContentNode } from '../vault/contents'
 import { Accordion } from './Accordion'
 import styles from './MetaPanel.module.css'
+
+// Stable empty inputs: a defaulted prop must not be a fresh array each render,
+// so the Contents tree memo rebuilds only when the caller's rows change.
+const EMPTY_CONTENTS: ContentEntry[] = []
+const EMPTY_BLOCKS: ReadonlySet<number> = new Set()
 
 // One link row in the meta panel. `path` is the target's vault-relative path;
 // `kind` is what the row points at, which decides what activating it does: a
@@ -70,33 +75,84 @@ function LinkList({
   )
 }
 
-// The Contents list (add-page-contents): one row per heading, indented by
-// level. Activating a row asks the app to locate that heading's block, which
-// is a view operation — it never opens a page or edits anything.
-function ContentList({
-  entries,
+// The Contents list (add-page-contents, add-contents-tree): the page's
+// headings as a tree, one row per heading indented by level. A heading with a
+// subtree carries a disclosure control that collapses or expands that subtree
+// — a view operation that changes only what is shown — while activating the
+// row's label locates the heading's block (never the other way around).
+function ContentNodes({
+  nodes,
+  collapsed,
+  onToggle,
   onLocate,
 }: {
-  entries: ContentEntry[]
+  nodes: ContentNode[]
+  collapsed: ReadonlySet<number>
+  onToggle: (block: number) => void
   onLocate: (block: number) => void
 }) {
-  if (entries.length === 0) {
+  return (
+    <>
+      {nodes.map((node) => {
+        const isCollapsed = collapsed.has(node.block)
+        const hasChildren = node.children.length > 0
+        return (
+          <div key={`${node.block}:${node.text}`}>
+            <div
+              className={styles.contentRow}
+              // One indent step per level below the top heading, so nesting
+              // changes which rows show, not how far they are indented.
+              style={{ paddingLeft: 8 + (node.level - 1) * 12 }}
+            >
+              {hasChildren ? (
+                <button
+                  type="button"
+                  className={styles.disclosure}
+                  aria-expanded={!isCollapsed}
+                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${node.text}`}
+                  onClick={() => onToggle(node.block)}
+                />
+              ) : (
+                <span className={styles.disclosureSpacer} aria-hidden="true" />
+              )}
+              <button type="button" className={styles.row} onClick={() => onLocate(node.block)}>
+                <span className={styles.rowText}>{node.text}</span>
+              </button>
+            </div>
+            {hasChildren && !isCollapsed && (
+              <div className={styles.contentChildren}>
+                <ContentNodes
+                  nodes={node.children}
+                  collapsed={collapsed}
+                  onToggle={onToggle}
+                  onLocate={onLocate}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function ContentList({
+  tree,
+  collapsed,
+  onToggle,
+  onLocate,
+}: {
+  tree: ContentNode[]
+  collapsed: ReadonlySet<number>
+  onToggle: (block: number) => void
+  onLocate: (block: number) => void
+}) {
+  if (tree.length === 0) {
     return <p className="section-placeholder">No headings on this page.</p>
   }
   return (
     <div className={styles.list}>
-      {entries.map((entry) => (
-        <button
-          key={`${entry.block}:${entry.text}`}
-          type="button"
-          className={styles.row}
-          // One indent step per level below the top heading.
-          style={{ paddingLeft: 8 + (entry.level - 1) * 12 }}
-          onClick={() => onLocate(entry.block)}
-        >
-          <span className={styles.rowText}>{entry.text}</span>
-        </button>
-      ))}
+      <ContentNodes nodes={tree} collapsed={collapsed} onToggle={onToggle} onLocate={onLocate} />
     </div>
   )
 }
@@ -116,7 +172,7 @@ function ContentList({
 // renders in every state (move-help-to-right-panel).
 export function MetaPanel({
   pageOpen,
-  contents = [],
+  contents = EMPTY_CONTENTS,
   links,
   activePath,
   boardOpen = false,
@@ -161,6 +217,30 @@ export function MetaPanel({
   // panel doesn't jump when the copy renders.
   const skeletonLine = <span className={`skeleton ${styles.skeletonLine}`} aria-hidden="true" />
 
+  // The heading tree (add-contents-tree), built from the rows App memoizes on
+  // the saved content, so it is built once per save and never per keystroke.
+  const tree = useMemo(() => buildContentTree(contents), [contents])
+
+  // Collapse state is session-scoped and per open page (design D2): a `block`
+  // index set that resets when a different page opens. Adjust-during-render,
+  // so the reset lands before the new page's rows are shown; the guard keeps
+  // the previous page's set from applying to the new page's rows meanwhile.
+  const [collapse, setCollapse] = useState<{ path: string | null; blocks: ReadonlySet<number> }>(
+    () => ({ path: activePath, blocks: EMPTY_BLOCKS }),
+  )
+  if (collapse.path !== activePath) {
+    setCollapse({ path: activePath, blocks: EMPTY_BLOCKS })
+  }
+  const collapsedBlocks = collapse.path === activePath ? collapse.blocks : EMPTY_BLOCKS
+  const toggleSubtree = (block: number) => {
+    setCollapse((prev) => {
+      const blocks = new Set(prev.blocks)
+      if (blocks.has(block)) blocks.delete(block)
+      else blocks.add(block)
+      return { path: prev.path, blocks }
+    })
+  }
+
   return (
     <aside
       id="meta-panel"
@@ -203,7 +283,12 @@ export function MetaPanel({
             {loading ? (
               skeletonLine
             ) : pageOpen ? (
-              <ContentList entries={contents} onLocate={onLocate} />
+              <ContentList
+                tree={tree}
+                collapsed={collapsedBlocks}
+                onToggle={toggleSubtree}
+                onLocate={onLocate}
+              />
             ) : (
               <p className="section-placeholder">Headings appear once a page is open.</p>
             )}
