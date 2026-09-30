@@ -104,6 +104,43 @@
   scrollbar-gutter: stable; /* DESIGN.md, scroll regions */
 }
 
+/* When Links is collapsed it gives its height to Contents (grow-contents-when-
+   links-collapsed): Contents grows, its body drops the cap and fills, and the
+   collapsed Links summary keeps its place at the panel's bottom. Only while
+   Contents is itself open; a collapsed Contents stays exactly its summary row. */
+.panel:has(.links details:not([open])) .contents[open] {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Chromium renders an open details' content through ::details-content, so the
+   flex chain runs details -> ::details-content -> body, as the .section rules
+   do. */
+.panel:has(.links details:not([open])) .contents[open]::details-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel:has(.links details:not([open])) .contents[open] .contentsBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.panel:has(.links details:not([open])) .links {
+  flex: 0 0 auto;
+}
+
+/* The footer's auto margin would otherwise take the free space ahead of
+   Contents' grow; in this state it keeps its place at the bottom by order. */
+.panel:has(.links details:not([open])) .footer {
+  margin-top: 0;
+}
+
 .contentsBody::-webkit-scrollbar {
   background: transparent;
 }
