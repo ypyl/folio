@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import { createRef, type Ref } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Sidebar, type SidebarRow } from './Sidebar'
+import { Sidebar, type SidebarHandle, type SidebarRow } from './Sidebar'
 import styles from './Sidebar.module.css'
 import { dayLabel, monthYearLabel } from './months'
 import { assetName, boardName, localDayString } from '../vault/index'
@@ -676,5 +677,78 @@ describe('page-row context menu (add-row-context-menu)', () => {
     )
     rightClick('Alpha')
     expect(screen.getByRole('menuitem', { name: 'Unfavorite' })).toBeTruthy()
+  })
+})
+
+// Revealing the open page's row (reveal-open-page-in-files, the status-bar
+// reveal requirement): the sidebar exposes one imperative call that App makes
+// from the status bar. It opens the Files section, scrolls the row into view,
+// and focuses it — and does nothing when there is nothing to reveal.
+describe('Sidebar reveal (reveal-open-page-in-files)', () => {
+  const scrollIntoView = vi.fn()
+
+  // jsdom ships no scrollIntoView, so the test defines the seam that the
+  // browser provides; focus works in both.
+  beforeEach(() => {
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+      writable: true,
+    })
+  })
+  afterEach(() => {
+    scrollIntoView.mockClear()
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+
+  const filesSection = () =>
+    (screen.getByText('Files') as HTMLElement).closest('details') as HTMLDetailsElement
+
+  const list = (rows: SidebarRow[], activePath: string | null, ref: Ref<SidebarHandle>) =>
+    render(
+      <Sidebar
+        ref={ref}
+        rows={rows}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={activePath}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+
+  it('opens the Files section, scrolls the active row into view, and focuses it', () => {
+    const ref = createRef<SidebarHandle>()
+    list(manyPageRows(60), 'p49.md', ref)
+    const files = filesSection()
+    files.open = false
+
+    ref.current!.revealActive()
+
+    expect(files.open).toBe(true)
+    const row = screen.getByRole('button', { name: 'p49' })
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    expect(document.activeElement).toBe(row)
+  })
+
+  it('does nothing when there is no listing or no active row', () => {
+    const ref = createRef<SidebarHandle>()
+    const { rerender } = list([], null, ref)
+    expect(() => ref.current!.revealActive()).not.toThrow()
+
+    rerender(
+      <Sidebar
+        ref={ref}
+        rows={[pageRow('a.md', 'Alpha')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+    expect(() => ref.current!.revealActive()).not.toThrow()
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Alpha' }))
   })
 })

@@ -7,8 +7,9 @@ import styles from './StatusBar.module.css'
 // App-level status frame (add-status-bar, ui-shell/page-editing specs): the
 // crumb and save-state scenarios moved here from the editor pane, plus the
 // indexing label, vault info, and the session navigation. Its controls are the
-// navigation controls (move-nav-controls-to-status-bar); the groups themselves
-// are display-only. The pin star was removed by add-row-context-menu.
+// navigation controls (move-nav-controls-to-status-bar) and the open page's
+// name (reveal-open-page-in-files); the remaining groups are display-only. The
+// pin star was removed by add-row-context-menu.
 
 describe('StatusBar', () => {
   describe('path group (file breadcrumb)', () => {
@@ -125,6 +126,45 @@ describe('StatusBar', () => {
       expect(container.querySelector('button')).toBeNull()
       rerender(<StatusBar pagePath="a.md" saveState="saving" vaultName="notes" fileCount={1} />)
       expect(container.querySelector('button')).toBeNull()
+    })
+  })
+
+  describe('page-name reveal (reveal-open-page-in-files)', () => {
+    it('renders the page name as a control when the app supplies a reveal handler', () => {
+      const onRevealPage = vi.fn()
+      render(<StatusBar pagePath="notes/Deep/2026.md" onRevealPage={onRevealPage} />)
+      const name = screen.getByRole('button', { name: 'Reveal 2026.md in Files' })
+      expect(name.textContent).toBe('2026.md')
+      fireEvent.click(name)
+      expect(onRevealPage).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves the page name as inert text without a handler', () => {
+      render(<StatusBar pagePath="notes/Deep/2026.md" />)
+      expect(screen.queryByRole('button')).toBeNull()
+      expect(
+        screen.getByTitle('notes/Deep/2026.md').querySelector(`.${styles.crumbLast}`)?.textContent,
+      ).toBe('2026.md')
+    })
+
+    it('keeps the directory crumbs and the other groups inert', () => {
+      const onRevealPage = vi.fn()
+      const { container } = render(
+        <StatusBar
+          pagePath="notes/Deep/2026.md"
+          saveState="saving"
+          vaultName="notes"
+          fileCount={3}
+          onRevealPage={onRevealPage}
+        />,
+      )
+      // The page name is the bar's only button here: the directory crumbs, the
+      // status text, and the vault name carry no activation path.
+      const buttons = container.querySelectorAll('button')
+      expect(buttons).toHaveLength(1)
+      expect(buttons[0].textContent).toBe('2026.md')
+      fireEvent.click(container.querySelector(`.${styles.crumbDirs}`) as HTMLElement)
+      expect(onRevealPage).not.toHaveBeenCalled()
     })
   })
 

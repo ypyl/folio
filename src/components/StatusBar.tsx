@@ -8,9 +8,11 @@ import styles from './StatusBar.module.css'
 // Forward, and Today (move-nav-controls-to-status-bar) — then the open page's
 // file path, the save/indexing status, and the active vault's name and file
 // count (right). The bar sits outside all pane scroll regions, so its content
-// never scrolls. Groups empty when their content has no source. Its controls
-// are the three navigation controls; the status groups themselves are
-// display-only. The question-mark help button and its modal lived here until
+// never scrolls. Groups empty when their content has no source. The three
+// navigation controls and the open page's name are its only controls: the name
+// reveals the page's row in the Files listing (reveal-open-page-in-files),
+// while the directory crumbs and the other groups stay display-only. The
+// question-mark help button and its modal lived here until
 // move-help-to-right-panel moved the reference into the right panel, and the
 // pin star lived here until add-row-context-menu moved favoriting to a page
 // row's context menu.
@@ -58,6 +60,7 @@ export function StatusBar({
   onForward,
   canToday = false,
   onToday,
+  onRevealPage,
 }: {
   /** The open page's vault-relative path, or null when no page is open. */
   pagePath: string | null
@@ -79,6 +82,10 @@ export function StatusBar({
   /** Opens the current day's journal; the handler lives in App, so the open is
    *  an ordinary navigation. */
   onToday?: () => void
+  /** Reveal the open page's row in the sidebar's Files listing
+   *  (reveal-open-page-in-files). App supplies it only while the open item is a
+   *  page that has a Files row; the page name is inert text without it. */
+  onRevealPage?: () => void
 }) {
   const segments = pagePath?.split('/') ?? []
   const hasDirs = segments.length > 1
@@ -147,9 +154,22 @@ export function StatusBar({
             </span>
           </>
         )}
-        {segments.length > 0 && (
-          <span className={styles.crumbLast}>{segments[segments.length - 1]}</span>
-        )}
+        {segments.length > 0 &&
+          (onRevealPage ? (
+            // The page name is the bar's one non-navigation control
+            // (reveal-open-page-in-files): activating it reveals the page's
+            // row in the Files listing and does nothing else.
+            <button
+              type="button"
+              className={`${styles.crumbLast} ${styles.crumbReveal}`}
+              aria-label={`Reveal ${segments[segments.length - 1]} in Files`}
+              onClick={onRevealPage}
+            >
+              {segments[segments.length - 1]}
+            </button>
+          ) : (
+            <span className={styles.crumbLast}>{segments[segments.length - 1]}</span>
+          ))}
       </div>
       <div className={styles.center}>
         {statusText !== null ? (

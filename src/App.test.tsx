@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 import { Accordion } from './components/Accordion'
@@ -1777,6 +1777,155 @@ describe('collapsible sidebars (add-collapsible-sidebars spec)', () => {
     const reopened = screen.getByText('Keyboard shortcuts').closest('details') as HTMLDetailsElement
     expect(reopened).toBe(details)
     expect(reopened.open).toBe(true)
+  })
+})
+
+// Revealing the open page in the Files listing (reveal-open-page-in-files, the
+// status-bar reveal requirement): the status bar's page name is the trigger and
+// the sidebar does the work. The reveal is a view operation, so it re-renders
+// nothing and writes nothing.
+describe('revealing the open page in the Files listing (reveal-open-page-in-files)', () => {
+  const scrollIntoView = vi.fn()
+
+  // jsdom ships no scrollIntoView, so the test defines the seam the browser
+  // provides; focus works in both.
+  beforeEach(() => {
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+      writable: true,
+    })
+  })
+  afterEach(() => {
+    scrollIntoView.mockClear()
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+
+  const revealButton = (name: string) =>
+    screen.getByRole('button', { name: `Reveal ${name} in Files` })
+
+  it("reveals the open page's row from the status bar", async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+
+    fireEvent.click(revealButton('Welcome.md'))
+
+    const row = filesSection().getByRole('button', { name: 'Welcome' })
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    expect(document.activeElement).toBe(row)
+    // View-only: the page stays open, and only the page name is a control —
+    // the directory crumb beside it stays inert text.
+    const crumb = screen.getByTitle('pages/Welcome.md')
+    expect(crumb.querySelectorAll('button')).toHaveLength(1)
+    expect(revealButton('Welcome.md')).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('unfolds a folded left navigation before revealing', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse left navigation' }))
+    const pane = document.getElementById('sidebar-pane') as HTMLElement
+    expect(pane.className).toContain(sidebarStyles.collapsed)
+
+    fireEvent.click(revealButton('Welcome.md'))
+
+    // The pane unfolds first, then the row takes focus.
+    await waitFor(() => expect(pane.className).not.toContain(sidebarStyles.collapsed))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(filesSection().getByRole('button', { name: 'Welcome' })),
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('opens a collapsed Files section before revealing', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+
+    const files = (screen.getByText('Files') as HTMLElement).closest(
+      'details',
+    ) as HTMLDetailsElement
+    files.open = false
+
+    fireEvent.click(revealButton('Welcome.md'))
+
+    expect(files.open).toBe(true)
+    expect(document.activeElement).toBe(filesSection().getByRole('button', { name: 'Welcome' }))
+    vi.unstubAllGlobals()
+  })
+
+  it("leaves a journal day's breadcrumb inert", async () => {
+    render(<App />)
+    await openFixture()
+    const todayPath = `journals/${localDayString(new Date())}.md`
+    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
+    // The open item is a day, not a Files row, so the name gates off.
+    expect(screen.queryByRole('button', { name: /^Reveal / })).toBeNull()
+    expect(screen.getByTitle(todayPath).querySelector('button')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it("leaves a board's breadcrumb inert", async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'nothing' },
+      boards: { 'Migration.excalidraw': '{}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(filesSection().getByRole('button', { name: 'Migration.excalidraw' }))
+    await screen.findByTestId('board-view')
+    // A board has a Files row but its name is not a control.
+    expect(screen.getByTitle('boards/Migration.excalidraw').querySelector('button')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('changes nothing but what it reveals', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+    const pagesBefore = (tree.children.get('pages') as FakeDirectoryHandle).children.size
+
+    fireEvent.click(revealButton('Welcome.md'))
+
+    // Same page open, same editor seeding, no file materialized.
+    expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy()
+    expect(editor().setContents[0]).toContain('This is Folio')
+    expect((tree.children.get('pages') as FakeDirectoryHandle).children.size).toBe(pagesBefore)
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the reveal off the typing path', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+
+    // The reveal click re-renders nothing, so the memoized sidebar keeps its
+    // prop identities (dayLabel runs once per rendered calendar cell).
+    const before = dayLabelCalls.count
+    fireEvent.click(revealButton('Welcome.md'))
+    expect(dayLabelCalls.count).toBe(before)
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+
+    // A keystroke re-renders App (the save indicator) but reveals nothing and
+    // leaves focus where the reveal put it.
+    await act(async () => {
+      editor().emitChange('a keystroke')
+    })
+    expect(screen.getByRole('status')).toBeTruthy()
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(dayLabelCalls.count).toBe(before)
+    expect(document.activeElement).toBe(filesSection().getByRole('button', { name: 'Welcome' }))
+    vi.unstubAllGlobals()
   })
 })
 

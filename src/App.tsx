@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Sidebar, type SidebarRow } from './components/Sidebar'
+import { Sidebar, type SidebarHandle, type SidebarRow } from './components/Sidebar'
 import { EditorPane, type EditorPaneHandle } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
 import { ShortcutsList } from './components/ShortcutsList'
@@ -584,6 +584,30 @@ function App() {
     [togglePin],
   )
 
+  // Reveal the open page's row in the Files listing (reveal-open-page-in-files,
+  // ui-shell spec). The status bar offers this only while the open item is a
+  // page with a Files row; the sidebar performs it. A folded left pane is
+  // display: none, so nothing inside it can take focus: unfold first, then
+  // reveal after the commit that expanded it. View-only — no navigation, no
+  // re-open, no vault write.
+  const sidebarRef = useRef<SidebarHandle | null>(null)
+  const pendingReveal = useRef(false)
+
+  const handleRevealPage = useCallback(() => {
+    if (leftCollapsed) {
+      pendingReveal.current = true
+      setLeftCollapsed(false)
+      return
+    }
+    sidebarRef.current?.revealActive()
+  }, [leftCollapsed])
+
+  useEffect(() => {
+    if (leftCollapsed || !pendingReveal.current) return
+    pendingReveal.current = false
+    sidebarRef.current?.revealActive()
+  }, [leftCollapsed])
+
   // A board's element change (add-whiteboards, design D7): schedule the scene
   // for the debounced board writer. Panning never reaches here (the board view
   // filters camera-only changes), so this runs once per real edit.
@@ -796,6 +820,15 @@ function App() {
     ]
   }, [pages, boards, assets, pins])
 
+  // The status bar offers the reveal (reveal-open-page-in-files) only when the
+  // open item is a page that has a row here: a board's and a journal day's
+  // breadcrumb stay inert text. Memoized on the rows' identity, so it costs
+  // nothing per keystroke.
+  const canRevealPage = useMemo(
+    () => sidebarRows.some((row) => row.kind === 'page' && row.path === activePath),
+    [sidebarRows, activePath],
+  )
+
   // Whether either control has anywhere to step (add-history-navigation).
   const canBack = canStep(trail, -1)
   const canForward = canStep(trail, 1)
@@ -900,6 +933,7 @@ function App() {
           collapsed={leftCollapsed}
         />
         <Sidebar
+          ref={sidebarRef}
           collapsed={leftCollapsed}
           rows={sidebarRows}
           journalEntries={journalEntries}
@@ -1029,6 +1063,7 @@ function App() {
         onForward={handleForward}
         canToday={graph !== null}
         onToday={handleToday}
+        onRevealPage={canRevealPage ? handleRevealPage : undefined}
       />
       {/* Search spotlight (replace-header-with-spotlight): a modal overlay in
           every app state. Keyed on the folder so a switch remounts it and
