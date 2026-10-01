@@ -98,21 +98,44 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Give the board editor a deterministic chunk name so the precache
-        // exclusion above can name it. The board's whole reachable graph rides
-        // with it — Excalidraw, and the mermaid diagram renderers it pulls in
-        // for pasted Mermaid text — because those modules are only ever reached
-        // through the board's dynamic import and would otherwise be precached
-        // under their own chunk names.
-        manualChunks(id) {
-          if (
-            id.includes('node_modules/@excalidraw/') ||
-            id.includes('node_modules/@mermaid-js/') ||
-            id.includes('node_modules/mermaid/') ||
-            id.includes('node_modules/cytoscape') ||
-            id.includes('node_modules/katex')
-          ) {
-            return 'excalidraw'
-          }
+        // exclusion above can name it: Excalidraw, and the mermaid diagram
+        // renderers it pulls in for pasted Mermaid text, are captured here —
+        // with their board-only dependencies — as they are only reached through
+        // the board's dynamic import.
+        //
+        // `keep-board-chunk-lazy`: the board graph and the app's own static graph
+        // share libraries (`react`/`react-dom`, a peer of Excalidraw; `dompurify`
+        // via mermaid and @milkdown/components; `lodash-es`, `clsx`, `nanoid`,
+        // `@floating-ui` via @milkdown/components) and Vite's preload helper.
+        // Capturing those into the board chunk made the entry import it, so the
+        // app module-preloaded ~2.3 MB of board editor on every startup. A
+        // higher-priority group lifts the shared modules into their own `vendor`
+        // chunk — loaded by the entry, reached by both — so the board chunk stays
+        // out of the entry graph while its board-only dependencies still ride
+        // with it and out of the precache.
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor',
+              test: (id: string) =>
+                id === '\0vite/preload-helper.js' ||
+                /node_modules[\\/](?:react|react-dom|scheduler|dompurify|@floating-ui|lodash-es|clsx|nanoid)[\\/]/.test(
+                  id,
+                ),
+              priority: 10,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: 'excalidraw',
+              test: (id: string) =>
+                id.includes('node_modules/@excalidraw/') ||
+                id.includes('node_modules/@mermaid-js/') ||
+                id.includes('node_modules/mermaid/') ||
+                id.includes('node_modules/cytoscape') ||
+                id.includes('node_modules/katex'),
+              includeDependenciesRecursively: true,
+            },
+          ],
         },
       },
     },
