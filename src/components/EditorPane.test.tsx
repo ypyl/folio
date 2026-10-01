@@ -50,6 +50,42 @@ afterEach(() => {
   instances.list.length = 0
 })
 
+/** A controllable IntersectionObserver so a pane test can drive the viewport
+ *  lifecycle (bound-image-render-cost): `observe` records the target, and
+ *  `emit` delivers the entry the test chooses. */
+class ControlledObserver {
+  static instances: ControlledObserver[] = []
+  readonly observed: Element[] = []
+  disconnected = false
+  private readonly callback: IntersectionObserverCallback
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback
+    ControlledObserver.instances.push(this)
+  }
+  observe(target: Element): void {
+    this.observed.push(target)
+  }
+  unobserve(): void {}
+  disconnect(): void {
+    this.disconnected = true
+  }
+  takeRecords(): IntersectionObserverEntry[] {
+    return []
+  }
+  emit(target: Element, isIntersecting: boolean): void {
+    this.callback(
+      [
+        {
+          target,
+          isIntersecting,
+          intersectionRatio: isIntersecting ? 1 : 0,
+        } as unknown as IntersectionObserverEntry,
+      ],
+      this as unknown as IntersectionObserver,
+    )
+  }
+}
+
 describe('EditorPane', () => {
   it('renders only the editor surface with the initial content and no title heading', async () => {
     render(
@@ -254,6 +290,45 @@ describe('EditorPane', () => {
       return el as HTMLImageElement
     })
     expect(img.getAttribute('src')).toBe('assets/photo.png')
+  })
+
+  it('reads a vault image when the pane shows it, and releases it when it leaves', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    vi.stubGlobal('IntersectionObserver', ControlledObserver)
+    ControlledObserver.instances.length = 0
+    try {
+      const read = vi.fn(async () => new Blob(['png']))
+      render(
+        <EditorPane
+          page={page}
+          initialContent={'![photo](assets/photo.png)'}
+          onChange={() => {}}
+          readAsset={read}
+        />,
+      )
+      const img = await waitFor(() => {
+        const el = document.querySelector(`main img`)
+        expect(el).not.toBeNull()
+        return el as HTMLImageElement
+      })
+      const observer = await waitFor(() => {
+        const el = ControlledObserver.instances[0]
+        expect(el).toBeDefined()
+        return el
+      })
+      expect(observer.observed).toContain(img)
+      // The pane registers the image but reads nothing until it is needed.
+      expect(read).not.toHaveBeenCalled()
+      act(() => observer.emit(img, true))
+      await waitFor(() => expect(read).toHaveBeenCalledWith('assets/photo.png'))
+      await waitFor(() => expect(img.getAttribute('src')).toMatch(/^blob:/))
+      const url = img.getAttribute('src')
+      act(() => observer.emit(img, false))
+      expect(revoke.mock.calls.map(([u]) => u)).toContain(url)
+    } finally {
+      vi.unstubAllGlobals()
+      revoke.mockRestore()
+    }
   })
 
   // open-vault-assets: the pane hands the adapter the vault reader a link into

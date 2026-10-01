@@ -476,10 +476,11 @@
 }
 
 /* Only an image whose bytes arrived carries a control: the node view renders
-   one for every vault reference, and `blob:` in `src` is what the pane's
-   resolution pass writes when its read succeeded. A path the vault cannot
-   resolve therefore has none, not an invisible one. */
-.editor :global(.folio-image:not(:has(> img[src^='blob:'])) > .folio-image-control) {
+   one for every vault reference, and `data-resolved` is what the pane's
+   resolution pass sets when its read succeeded and clears when it releases the
+   bytes. A path the vault cannot resolve therefore has none, not an invisible
+   one, and a released off-screen image shows none while it is out of view. */
+.editor :global(.folio-image:not([data-resolved]) > .folio-image-control) {
   display: none;
 }
 

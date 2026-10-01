@@ -44,6 +44,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0025](0025-logseq-import-is-one-way-and-input-only.md) | The Logseq import is one-way and input-only | Accepted |
 | [0026](0026-folding-a-list-item-is-view-only.md) | Folding a list item is view-only | Superseded by [0027](0027-pages-are-heading-structured-documents.md) |
 | [0027](0027-pages-are-heading-structured-documents.md) | Pages are heading-structured documents, not outliners | Accepted |
+| [0028](0028-image-resolution-is-viewport-scoped.md) | Vault image resolution is scoped to the pane's viewport | Accepted |
 
 ## Adding a new ADR
 

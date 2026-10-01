@@ -171,11 +171,13 @@ export function EditorPane({
   highlightRef.current = highlight
   const readyRef = useRef(false)
 
-  // Vault images (render-vault-images): the document's image references point
-  // at vault paths the browser cannot fetch, so the rendered element is pointed
-  // at the file's bytes instead. Driven where the gutter is driven — a document
-  // change and the seed — and a no-op without a vault reader. Resolved paths
-  // cost one lookup, so a keystroke reads nothing (design D3).
+  // Vault images (render-vault-images, bound-image-render-cost): the document's
+  // image references point at vault paths the browser cannot fetch, so the
+  // rendered element is pointed at the file's bytes instead. This pass only
+  // registers images with the pane's viewport observer and re-applies bytes
+  // already read; the reads themselves happen as images enter view, so a
+  // keystroke reads nothing and an off-screen image holds no bytes (design
+  // D1-D3). A no-op without a vault reader.
   const updateImages = () => {
     const el = mountRef.current
     const read = readAssetRef.current
@@ -223,7 +225,10 @@ export function EditorPane({
     let cancelled = false
     const adapter = new MilkdownAdapter()
     adapterRef.current = adapter
-    const assets = createAssetImages()
+    // The pane is the scroll container whose viewport decides which images are
+    // needed (bound-image-render-cost, design D1): resolution follows what is
+    // on screen, not every reference the page happens to contain.
+    const assets = createAssetImages({ root: paneRef.current })
     assetsRef.current = assets
     // Placeholder bookkeeping rides the same edit stream that reaches App:
     // markdown empty ⇒ the doc is empty ⇒ show the hint.

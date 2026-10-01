@@ -4,6 +4,7 @@ import {
   releaseAssetImages,
   syncAssetImages,
   type AssetImages,
+  type ObserverFactory,
 } from './assetImages'
 
 // render-vault-images: the pass swaps a vault-relative image URL for the file's
@@ -28,6 +29,55 @@ function reader(bytes = 'png'): ((path: string) => Promise<Blob>) & { calls: str
 const settle = async (): Promise<void> => {
   await Promise.resolve()
   await Promise.resolve()
+  await Promise.resolve()
+}
+
+/** A visibility observer the test drives by hand (design D6). */
+type FakeObserver = {
+  factory: ObserverFactory
+  observed: Element[]
+  enter: (el: Element) => void
+  exit: (el: Element) => void
+}
+
+function fakeObserver(): FakeObserver {
+  let callback: ((target: Element, intersecting: boolean) => void) | null = null
+  const observed: Element[] = []
+  return {
+    observed,
+    factory: (cb) => {
+      callback = cb
+      return {
+        observe: (target) => observed.push(target),
+        unobserve: () => {},
+        disconnect: () => {},
+      }
+    },
+    enter: (el) => callback?.(el, true),
+    exit: (el) => callback?.(el, false),
+  }
+}
+
+/** A reader whose promises the test resolves on demand (concurrency tests). */
+function deferredReader(): {
+  calls: string[]
+  read: (path: string) => Promise<Blob>
+  resolve: (path: string) => void
+} {
+  const calls: string[] = []
+  const waiting = new Map<string, (blob: Blob) => void>()
+  return {
+    calls,
+    read: (path) => {
+      calls.push(path)
+      return new Promise<Blob>((resolve) => waiting.set(path, resolve))
+    },
+    resolve: (path) => {
+      const done = waiting.get(path)
+      waiting.delete(path)
+      done?.(new Blob(['png']))
+    },
+  }
 }
 
 afterEach(() => {
@@ -133,5 +183,117 @@ describe('syncAssetImages', () => {
     const read = reader()
     syncAssetImages(el, cache, read)
     expect(read.calls).toEqual([])
+  })
+})
+
+describe('syncAssetImages viewport lifecycle (bound-image-render-cost)', () => {
+  it('reads an image when it enters view, not when the pass runs', () => {
+    const el = host('<img src="assets/a.png" /><img src="assets/b.png" />')
+    const obs = fakeObserver()
+    const read = reader()
+    const cache = createAssetImages({ observer: obs.factory })
+    syncAssetImages(el, cache, read)
+    expect(read.calls).toEqual([])
+    const [a, b] = [...el.querySelectorAll('img')]
+    obs.enter(a)
+    expect(read.calls).toEqual(['assets/a.png'])
+    obs.enter(b)
+    expect(read.calls).toEqual(['assets/a.png', 'assets/b.png'])
+    releaseAssetImages(cache)
+  })
+
+  it('releases an image that leaves view and reads it again on return', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    const el = host('<img src="assets/photo.png" />')
+    const obs = fakeObserver()
+    const read = reader()
+    const cache = createAssetImages({ observer: obs.factory })
+    syncAssetImages(el, cache, read)
+    const img = el.querySelector('img') as HTMLImageElement
+    obs.enter(img)
+    await settle()
+    expect(img.getAttribute('src')).toMatch(/^blob:/)
+    const url = cache.urls.get('assets/photo.png')
+    obs.exit(img)
+    expect(revoke).toHaveBeenCalledWith(url)
+    expect(cache.urls.has('assets/photo.png')).toBe(false)
+    expect(img.getAttribute('src')).toBeNull()
+    obs.enter(img)
+    expect(read.calls).toEqual(['assets/photo.png', 'assets/photo.png'])
+    await settle()
+    expect(img.getAttribute('src')).toMatch(/^blob:/)
+    releaseAssetImages(cache)
+    revoke.mockRestore()
+  })
+
+  it('keeps a shared path live until its last viewer leaves', async () => {
+    const el = host('<img src="assets/photo.png" /><img src="assets/photo.png" />')
+    const obs = fakeObserver()
+    const cache = createAssetImages({ observer: obs.factory })
+    syncAssetImages(el, cache, reader())
+    const [a, b] = [...el.querySelectorAll('img')]
+    obs.enter(a)
+    obs.enter(b)
+    await settle()
+    expect(cache.urls.has('assets/photo.png')).toBe(true)
+    obs.exit(a)
+    expect(cache.urls.has('assets/photo.png')).toBe(true)
+    obs.exit(b)
+    expect(cache.urls.has('assets/photo.png')).toBe(false)
+    releaseAssetImages(cache)
+  })
+
+  it('caps how many reads are in flight at once', async () => {
+    const el = host(
+      '<img src="assets/a.png" /><img src="assets/b.png" /><img src="assets/c.png" />',
+    )
+    const obs = fakeObserver()
+    const reader = deferredReader()
+    const cache = createAssetImages({ observer: obs.factory, maxConcurrent: 2 })
+    syncAssetImages(el, cache, reader.read)
+    for (const img of el.querySelectorAll('img')) obs.enter(img)
+    expect(reader.calls).toEqual(['assets/a.png', 'assets/b.png'])
+    reader.resolve('assets/a.png')
+    await settle()
+    expect(reader.calls).toEqual(['assets/a.png', 'assets/b.png', 'assets/c.png'])
+    releaseAssetImages(cache)
+  })
+
+  it('creates no URL for a read that finishes after the image left view', async () => {
+    const create = vi.spyOn(URL, 'createObjectURL')
+    const el = host('<img src="assets/photo.png" />')
+    const obs = fakeObserver()
+    const read = reader()
+    const cache = createAssetImages({ observer: obs.factory })
+    syncAssetImages(el, cache, read)
+    const img = el.querySelector('img') as HTMLImageElement
+    obs.enter(img)
+    expect(read.calls).toEqual(['assets/photo.png'])
+    obs.exit(img)
+    await settle()
+    expect(create).not.toHaveBeenCalled()
+    expect(cache.urls.size).toBe(0)
+    releaseAssetImages(cache)
+    create.mockRestore()
+  })
+
+  it('does not retry a path the vault could not read', async () => {
+    const el = host('<img src="assets/missing.png" />')
+    const obs = fakeObserver()
+    const calls: string[] = []
+    const read = (path: string) => {
+      calls.push(path)
+      return Promise.reject(new Error('NotFoundError'))
+    }
+    const cache = createAssetImages({ observer: obs.factory })
+    syncAssetImages(el, cache, read)
+    const img = el.querySelector('img') as HTMLImageElement
+    obs.enter(img)
+    await settle()
+    obs.exit(img)
+    obs.enter(img)
+    await settle()
+    expect(calls).toEqual(['assets/missing.png'])
+    releaseAssetImages(cache)
   })
 })

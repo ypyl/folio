@@ -33,6 +33,8 @@ describe('vaultImageNodeView', () => {
     const img = view.dom.querySelector('img')
     expect(img?.getAttribute('src')).toBe('assets/photo.png')
     expect(img?.getAttribute('alt')).toBe('photo')
+    // Decoding is off the main thread (bound-image-render-cost, design D7).
+    expect(img?.getAttribute('decoding')).toBe('async')
     const control = view.dom.querySelector('button')
     expect(control?.getAttribute('aria-label')).toBe('Expand image')
     expect(control?.getAttribute('aria-expanded')).toBe('false')

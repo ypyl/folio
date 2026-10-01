@@ -99,6 +99,9 @@ export const vaultImageNodeView =
   (): NodeViewConstructor =>
   (node): NodeView => {
     const img = document.createElement('img')
+    // Decode off the main thread (bound-image-render-cost, design D7): a large
+    // screenshot must not block the editing surface while it is decoded.
+    img.setAttribute('decoding', 'async')
     const bound: Bound = { src: '', alt: '', title: '' }
     bind(node, img, bound)
 
