@@ -267,6 +267,12 @@ the document keeps the same margin at either edge. There is deliberately no
 control lane in the left margin: a page's structure is read from its headings,
 not from controls drawn beside nested list items (ADR-0027).
 
+A thematic break is ink, not a border: the rule a `---` draws is the palette's
+tertiary ink (`--stone`) rather than the `--border` hairline, because a
+warm-sand weight all but vanishes at 1px on parchment and a section break must
+stay visible. It remains subordinate to text — a divider, not a heading — at the
+same weight and margin it always had.
+
 ### Code
 
 Component-backed blocks: the code-block component (CodeMirror inside the

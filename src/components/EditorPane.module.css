@@ -414,9 +414,15 @@
   color: var(--olive);
 }
 
+/* A thematic break is ink, not a border (make-thematic-breaks-visible,
+   DESIGN.md — Editor document): the `--border` hairline is a warm-sand weight,
+   and at 1px on the parchment surface it all but vanishes, so a rule the
+   author wrote read as blank space. `--stone` is the palette's quietest ink
+   that is still unmistakably a line, and it stays subordinate to body text.
+   Weight and margin are unchanged from the border treatment. */
 .editor :global(hr) {
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--stone);
   margin: 24px 0;
 }
 
