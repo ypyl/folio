@@ -115,14 +115,30 @@
    around the block's whole extent, so what a search found stays findable while it
    is read. It does not fade, and it is replaced only by a later locate.
 
-   Drawn with inset shadows rather than a border: a border grows the line's box,
-   which would move the text and re-wrap a long line, and the mark may not reflow
-   the page. The sides sit on every line of the extent, and the two horizontal
-   edges come from the role classes, so a one-line block carries both roles and
-   gets all four edges. The radius is paint-only, so it costs no layout either. */
+   The frame is painted by an overlay rather than by the line's own box. An inset
+   shadow on the line sits under the line's content, so an opaque background on
+   top of it — a fenced block's fill, an image — hid the vertical edges wherever
+   the text was, and the frame read as a dashed outline with the sides broken on
+   every code line. The overlay is absolutely positioned, so it still adds no
+   layout, and it is inset a little past the line's box: the text is not flush
+   against the edge, and the sides of adjacent lines overlap into one continuous
+   edge. A border would grow the line's box and reflow the text, which the mark
+   may not do.
+
+   The sides sit on every line of the extent, and the two horizontal edges come
+   from the role classes, so a one-line block carries both roles and gets all
+   four edges. The radius is paint-only, so it costs no layout either. */
 .editor :global(.folio-search-hit) {
   --folio-frame-top: 0 0 0 transparent;
   --folio-frame-bottom: 0 0 0 transparent;
+  position: relative; /* the offset parent for the frame's overlay */
+}
+
+.editor :global(.folio-search-hit)::after {
+  content: '';
+  position: absolute;
+  inset: -3px -8px;
+  pointer-events: none;
   box-shadow:
     inset var(--folio-frame-top),
     inset var(--folio-frame-bottom),
@@ -132,12 +148,18 @@
 
 .editor :global(.folio-search-hit-first) {
   --folio-frame-top: 0 1px 0 var(--brand);
+}
+
+.editor :global(.folio-search-hit-first)::after {
   border-top-left-radius: 4px;
   border-top-right-radius: 4px;
 }
 
 .editor :global(.folio-search-hit-last) {
   --folio-frame-bottom: 0 -1px 0 var(--brand);
+}
+
+.editor :global(.folio-search-hit-last)::after {
   border-bottom-left-radius: 4px;
   border-bottom-right-radius: 4px;
 }
