@@ -168,6 +168,9 @@ const INLINE_MARKS: Record<string, string> = {
   InlineCode: 'CodeMark',
 }
 
+/** A document range: the shape every hidden marker and node range has here. */
+type Range = { from: number; to: number }
+
 /** A table's parsed shape: the cells the syntax tree found, and the column
  *  alignment the delimiter row asks for. */ type ParsedTable = {
   header: string[]
@@ -505,10 +508,40 @@ function render(view: EditorView): Rendered {
   const selection = state.selection.main
   const tree = syntaxTree(state)
 
+  /** The two ranges a link hides at rest, or null when it is not safe to hide
+   *  them: the opening mark, and everything from the closing mark on. The
+   *  closing mark is found by name, because in `[![alt](img.png)](dest)` the
+   *  node's second child is the image rather than the `]`. */
+  const linkMarks = (node: SyntaxNode): { open: Range; tail: Range } | null => {
+    const marks: SyntaxNode[] = []
+    for (let child = node.firstChild; child; child = child.nextSibling) {
+      if (child.name === 'LinkMark') marks.push(child)
+    }
+    const open = marks[0]
+    if (!open) return null
+    const closing =
+      marks.find((mark) => state.doc.sliceString(mark.from, mark.to).startsWith(']')) ??
+      // An autolink has no bracket pair: `<' then the URL then `>`.
+      (node.name === 'Autolink' ? marks[marks.length - 1] : undefined)
+    if (!closing || closing.from <= open.to) return null
+    // Nothing to show if the label is empty: an invisible link can be neither
+    // clicked nor found.
+    if (state.doc.sliceString(open.to, closing.from).trim() === '') return null
+    return { open, tail: { from: closing.from, to: node.to } }
+  }
+
+  /** Hide a range, if it is within one line: a view plugin's decorations may not
+   *  replace a line break. */
+  const hideRange = (range: Range): void => {
+    if (range.to <= range.from) return
+    if (state.doc.lineAt(range.from).number !== state.doc.lineAt(range.to).number) return
+    hideMarker(range)
+  }
+
   /** Drop a marker from the rendered text, and make it atomic so the caret
    *  steps over it instead of landing inside it. A marker spans no line break,
    *  which is what lets a view plugin hide it. */
-  const hideMarker = (marker: { from: number; to: number }): void => {
+  const hideMarker = (marker: Range): void => {
     if (marker.to <= marker.from) return
     const decoration = Decoration.replace({})
     marks.push({ from: marker.from, to: marker.to, decoration })
@@ -599,6 +632,25 @@ function render(view: EditorView): Rendered {
       const name = node.name
 
       const markName = INLINE_MARKS[name]
+      // A link reads as its own text: the opening mark and the tail from the
+      // closing mark on are hidden, which leaves the label in the link style the
+      // theme already gives it (DESIGN.md's one link behavior: brand ink, no
+      // underline). The reveal rule is the inline runs' rule.
+      //
+      // Only a link that carries a destination counts. Brackets alone parse as a
+      // shortcut reference link, so `[[Page]]` and Folio's own `#[[Page]]` would
+      // otherwise lose their brackets and read as links: the first is not a link
+      // at all (ADR-0012: unsupported conventions render as text) and the second
+      // is the reference chip's, which the scan above already claimed.
+      if ((name === 'Link' || name === 'Autolink') && node.node.getChild('URL')) {
+        if (selection.from <= node.to && selection.to >= node.from) return
+        const marks = linkMarks(node.node)
+        if (!marks) return
+        hideRange(marks.open)
+        hideRange(marks.tail)
+        return
+      }
+
       if (markName) {
         const first = node.node.firstChild
         const lastChild = node.node.lastChild

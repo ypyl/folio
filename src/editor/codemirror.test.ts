@@ -603,3 +603,89 @@ describe('a fenced block is highlighted in the language its info string names', 
     expect(styled.some((span) => span.className.includes('folio-cm-fence'))).toBe(true)
   })
 })
+
+describe('a markdown link reads as its text', () => {
+  it('hides the brackets and the destination, and keeps the label', async () => {
+    const el = await open('see [Example](https://example.com) end\n')
+    expect(el.textContent).toBe('see Example end')
+    expect(el.textContent).not.toContain('https://example.com')
+  })
+
+  it('keeps the whole construct in the document', async () => {
+    await open('see [Example](https://example.com) end\n')
+    const changes: string[] = []
+    adapter?.onChange((markdown) => changes.push(markdown))
+    adapter?.insertMarkdown('x')
+    expect(changes[0]).toContain('[Example](https://example.com)')
+  })
+
+  it('shows the construct while the caret is inside it, and hides it again after', async () => {
+    const el = await open('lead\n\nsee [Example](https://example.com) end\n')
+    const view = (adapter as unknown as { view: EditorView }).view
+    expect(el.textContent).not.toContain('https://example.com')
+    // The caret at the link's first character counts as inside it.
+    view.dispatch({ selection: { anchor: 11 } })
+    expect(el.textContent).toContain('[Example](https://example.com)')
+    view.dispatch({ selection: { anchor: 0 } })
+    expect(el.textContent).toBe('leadsee Example end')
+  })
+
+  it('reads an autolink without its angle brackets', async () => {
+    const el = await open('see <https://example.com> end\n')
+    expect(el.textContent).toBe('see https://example.com end')
+  })
+
+  it('still opens the hidden destination on Ctrl+Click', async () => {
+    const el = await open('see [Example](https://example.com) end\n')
+    const opened = vi.fn()
+    vi.stubGlobal('open', opened)
+    try {
+      const view = (adapter as unknown as { view: EditorView }).view
+      ;(view as unknown as { posAtCoords: () => number }).posAtCoords = () => 7
+      el.querySelector('.cm-content')?.dispatchEvent(
+        new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, ctrlKey: true }),
+      )
+      expect(opened).toHaveBeenCalledWith('https://example.com/', '_blank', 'noopener,noreferrer')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('keeps an empty link visible', async () => {
+    const el = await open('lead\n\n[](https://example.com)\n')
+    // Nothing to show if the marks were hidden, so the source stays.
+    expect(el.textContent).toContain('[](https://example.com)')
+  })
+
+  it('leaves a link inside code literal', async () => {
+    const el = await open(
+      'lead `[x](https://example.com)` and\n\n```\n[y](https://example.com)\n```\n',
+    )
+    expect(el.textContent).toContain('[x](https://example.com)')
+    expect(el.textContent).toContain('[y](https://example.com)')
+  })
+
+  it('still renders an image inside a link label', async () => {
+    const el = await open('lead\n\n[![alt](assets/p.png)](https://example.com)\n')
+    expect(el.querySelector('.folio-image img')?.getAttribute('src')).toBe('assets/p.png')
+    expect(el.textContent).not.toContain('https://example.com')
+  })
+
+  it('renders a link inside a revealed table row', async () => {
+    // The caret on the table shows its source, and the link inside it follows
+    // the per-span rule, as a bold run there does: the pipes are text and the
+    // link reads as its own text.
+    const el = await open('| a |\n| --- |\n| [x](https://example.com) |\n')
+    expect(el.textContent).toContain('| a |')
+    expect(el.textContent).toContain('| x |')
+    expect(el.textContent).not.toContain('https://example.com')
+  })
+
+  it('leaves Folio references and plain wikilinks literal', async () => {
+    // Brackets alone parse as a shortcut reference link, so both of these would
+    // lose their brackets without the destination rule.
+    const el = await open('see #[[reading list]] and [[Page]] end\n')
+    expect(el.textContent).toContain('#[[reading list]]')
+    expect(el.textContent).toContain('[[Page]]')
+  })
+})
