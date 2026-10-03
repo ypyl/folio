@@ -11,7 +11,8 @@
 /**
  * 1-based line numbers of every block start in `text`, in order.
  *
- * - The first line is always an anchor.
+ * - A non-blank first line is an anchor; a blank one is not, exactly like a
+ *   blank line anywhere else.
  * - A non-blank line following a blank line is an anchor.
  * - A non-blank line following a non-blank, non-anchor line is a
  *   continuation (a wrapped paragraph or hard-break line) — not an anchor.
@@ -50,4 +51,26 @@ export function blockStartLines(text: string): number[] {
   }
 
   return anchors
+}
+
+/**
+ * The 1-based line range a block spans, inclusive: from its start line to the
+ * line before the next block's start, without the blank lines that separate it
+ * from that next block.
+ *
+ * A block is not one line. A tight list, a fence, and a paragraph broken by hard
+ * breaks are each one block over several lines, which is what a reader means by
+ * "this paragraph" and what a frame around a located block has to enclose.
+ *
+ * `null` when `block` names no block the text holds. A block followed only by
+ * blank lines ends at its last non-blank line, so a range never ends on one.
+ */
+export function blockLineRange(text: string, block: number): { from: number; to: number } | null {
+  const anchors = blockStartLines(text)
+  const from = anchors[block]
+  if (from === undefined) return null
+  const lines = text.split('\n')
+  let to = (anchors[block + 1] ?? lines.length + 1) - 1
+  while (to > from && lines[to - 1].trim() === '') to -= 1
+  return { from, to }
 }

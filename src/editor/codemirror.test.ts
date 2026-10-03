@@ -200,6 +200,8 @@ describe('the pane reads', () => {
   })
 
   it('marks a located block without touching the text', async () => {
+    // The mark's own behaviour lives in "the located block is framed" below;
+    // this keeps the seam's two calls honest: a block marks, a null clears.
     const el = await open('# One\n\ntwo\n\nthree')
     adapter?.highlightBlock(1)
     expect(el.querySelectorAll('.folio-search-hit').length).toBe(1)
@@ -687,5 +689,109 @@ describe('a markdown link reads as its text', () => {
     const el = await open('see #[[reading list]] and [[Page]] end\n')
     expect(el.textContent).toContain('#[[reading list]]')
     expect(el.textContent).toContain('[[Page]]')
+  })
+})
+
+describe('the located block is framed', () => {
+  const framed = (el: HTMLElement) => [...el.querySelectorAll('.folio-search-hit')]
+  const has = (el: HTMLElement, cls: string) =>
+    framed(el).some((line) => line.classList.contains(cls))
+
+  it('frames every line of a multi-line block, and no neighbour', async () => {
+    const el = await open('# Title\n\n- a\n- b\n- c\n\nTail\n')
+    adapter?.highlightBlock(1)
+    // The list is one block over three lines; the heading and the tail are not.
+    const lines = [...el.querySelectorAll('.cm-line')]
+    expect(lines.map((line) => line.classList.contains('folio-search-hit'))).toEqual([
+      false, // # Title
+      false, // the blank line
+      true, // - a
+      true, // - b
+      true, // - c
+      false, // the blank line
+      false, // Tail
+      false, // the line after the trailing newline
+    ])
+    expect(lines[2].classList.contains('folio-search-hit-first')).toBe(true)
+    expect(lines[3].classList.contains('folio-search-hit-first')).toBe(false)
+    expect(lines[3].classList.contains('folio-search-hit-last')).toBe(false)
+    expect(lines[4].classList.contains('folio-search-hit-last')).toBe(true)
+  })
+
+  it('gives a one-line block both edges', async () => {
+    const el = await open('# Title\n\nBody\n')
+    adapter?.highlightBlock(1)
+    expect(framed(el).length).toBe(1)
+    expect(has(el, 'folio-search-hit-first')).toBe(true)
+    expect(has(el, 'folio-search-hit-last')).toBe(true)
+  })
+
+  it('adds no character to the document', async () => {
+    const el = await open('# Title\n\nBody\n')
+    const changes: string[] = []
+    adapter?.onChange((markdown) => changes.push(markdown))
+    adapter?.highlightBlock(1)
+    expect(changes).toEqual([])
+    expect(el.textContent).toBe('# TitleBody')
+  })
+
+  it('keeps the frame when the page is edited', async () => {
+    const el = await open('# Title\n\nBody\n')
+    adapter?.highlightBlock(1)
+    adapter?.insertMarkdown('x')
+    // The old mark was cleared by the next document change; the frame is not.
+    expect(framed(el).length).toBe(1)
+  })
+
+  it('is still framed long after the interval that used to clear it', async () => {
+    vi.useFakeTimers()
+    try {
+      const el = await open('# Title\n\nBody\n')
+      adapter?.highlightBlock(1)
+      vi.advanceTimersByTime(60_000)
+      expect(framed(el).length).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('follows an edit that adds a line inside it', async () => {
+    const el = await open('# Title\n\n- a\n- b\n')
+    adapter?.highlightBlock(1)
+    expect(framed(el).length).toBe(2)
+    const view = (adapter as unknown as { view: EditorView }).view
+    // The caret at the end of the last item, then a new item: the block grows,
+    // and the frame has to cover the line that did not exist when it was drawn.
+    view.dispatch({ selection: { anchor: view.state.doc.length - 1 } })
+    adapter?.insertMarkdown('\n- c')
+    expect(framed(el).length).toBe(3)
+    expect(has(el, 'folio-search-hit-last')).toBe(true)
+  })
+
+  it('replaces the frame on a later request and clears on a null one', async () => {
+    const el = await open('# Title\n\nOne\n\nTwo\n')
+    adapter?.highlightBlock(1)
+    expect(el.textContent).toBe('# TitleOneTwo')
+    expect(framed(el).length).toBe(1)
+    adapter?.highlightBlock(2)
+    expect(framed(el).length).toBe(1)
+    expect(framed(el)[0].textContent).toBe('Two')
+    adapter?.highlightBlock(null)
+    expect(framed(el).length).toBe(0)
+  })
+
+  it('leaves the caret and the selection where they were', async () => {
+    await open('# Title\n\nBody\n')
+    const view = (adapter as unknown as { view: EditorView }).view
+    view.dispatch({ selection: { anchor: 2 } })
+    adapter?.highlightBlock(1)
+    expect(view.state.selection.main.anchor).toBe(2)
+    expect(view.state.selection.main.head).toBe(2)
+  })
+
+  it('ignores an index the document does not hold', async () => {
+    const el = await open('# Title\n\nBody\n')
+    adapter?.highlightBlock(9)
+    expect(framed(el).length).toBe(0)
   })
 })

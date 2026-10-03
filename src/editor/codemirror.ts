@@ -25,7 +25,14 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { EditorState, StateEffect, StateField, type Extension } from '@codemirror/state'
+import {
+  EditorState,
+  StateEffect,
+  StateField,
+  type Extension,
+  type Range,
+  type Text,
+} from '@codemirror/state'
 import {
   Decoration,
   EditorView,
@@ -40,7 +47,7 @@ import {
 } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 import { tags } from '@lezer/highlight'
-import { blockStartLines } from '../lineAnchors'
+import { blockLineRange, blockStartLines } from '../lineAnchors'
 import {
   isBoardTarget,
   isVaultRelative,
@@ -61,9 +68,13 @@ import { chordToKeyEventInit } from './chord'
 import { codeHighlightStyles } from './codeHighlight'
 import type { DropPoint, EditorAdapter, SuggestionSources, StaticBlock } from './editor'
 
-/** The mark's class and lifetime; the stylesheet's fade duration is the same
- *  interval (EditorPane.module.css `.folio-search-hit`). */
-const HIGHLIGHT_MS = 2000
+/** The located block's frame: the class every line of it carries, and the two
+ *  roles that put the top and the bottom edge on its ends. The stylesheet draws
+ *  the sides on the base class and the horizontal edges from the role classes,
+ *  so a one-line block carries both roles and gets all four edges. */
+const HIGHLIGHT_CLASS = 'folio-search-hit'
+const HIGHLIGHT_FIRST_CLASS = 'folio-search-hit-first'
+const HIGHLIGHT_LAST_CLASS = 'folio-search-hit-last'
 
 /** The wrapper and control classes the pane's stylesheet already targets, so a
  *  vault image keeps its fit, its expand control, and its viewport-scoped
@@ -85,24 +96,73 @@ const FENCE_CLASS = 'folio-cm-fence'
 const QUOTE_CLASS = 'folio-cm-quote'
 const MARKER_CLASS = 'folio-cm-marker'
 
-/** The effect that sets a located block's mark, and the field that holds it. */
-const setHighlight = StateEffect.define<number | null>()
+/** The effect that sets a located block's mark, and the field that holds it. The
+ *  effect names the block's line range, which is what `blockLineRange` answers. */
+const setHighlight = StateEffect.define<{ from: number; to: number } | null>()
 
-const highlightField = StateField.define<DecorationSet>({
-  create: () => Decoration.none,
+/** A frame's line range in document positions, or null when nothing is located. */
+type Framed = { from: number; to: number } | null
+
+/** The field's value: the range the frame covers, and the decorations it drew.
+ *  The range is carried so an edit can move it, rather than the decorations
+ *  being mapped on their own: a line decoration moves with its line but is not
+ *  created for a line an edit inserts, so mapping them alone would leave a gap
+ *  in the sides wherever the user pressed Enter. */
+type HighlightState = { range: Framed; decorations: DecorationSet }
+
+/** The decorations for a frame: one line decoration per line of the range, the
+ *  ends carrying the role that draws their horizontal edge. */
+function frameDecorations(doc: Text, range: Framed): DecorationSet {
+  if (range === null) return Decoration.none
+  const first = doc.lineAt(range.from).number
+  const last = doc.lineAt(Math.max(range.to, range.from)).number
+  const ranges: Range<Decoration>[] = []
+  for (let number = first; number <= last; number += 1) {
+    const classes = [HIGHLIGHT_CLASS]
+    if (number === first) classes.push(HIGHLIGHT_FIRST_CLASS)
+    if (number === last) classes.push(HIGHLIGHT_LAST_CLASS)
+    ranges.push(Decoration.line({ class: classes.join(' ') }).range(doc.line(number).from))
+  }
+  return Decoration.set(ranges, true)
+}
+
+/** The document positions a block's line range covers. */
+function rangeOfLines(doc: Text, lines: { from: number; to: number }): Framed {
+  const first = Math.min(Math.max(lines.from, 1), doc.lines)
+  const last = Math.min(Math.max(lines.to, first), doc.lines)
+  return { from: doc.line(first).from, to: doc.line(last).to }
+}
+
+const highlightField = StateField.define<HighlightState>({
+  create: () => ({ range: null, decorations: Decoration.none }),
+
   update(value, tr) {
+    let range = value.range
+    let set = false
     for (const effect of tr.effects) {
       if (!effect.is(setHighlight)) continue
-      if (effect.value === null) return Decoration.none
-      const line = tr.state.doc.lineAt(Math.min(effect.value, tr.state.doc.length))
-      return Decoration.set([Decoration.line({ class: 'folio-search-hit' }).range(line.from)])
+      set = true
+      range = effect.value === null ? null : rangeOfLines(tr.state.doc, effect.value)
     }
-    // An edit clears the mark (page-editing: the mark is cleared by the next
-    // document change).
-    if (tr.docChanged) return Decoration.none
-    return value
+    if (tr.docChanged && range !== null) {
+      // The frame stays with the text it marks, so the block an edit splits or
+      // extends is still the block it framed (page-editing: the mark is not
+      // cleared by a document change). Mapping two positions is O(1); the
+      // decorations are then redrawn for the range, which is bounded by the
+      // framed block and not by the document.
+      range = {
+        from: tr.changes.mapPos(range.from, -1),
+        to: tr.changes.mapPos(range.to, 1),
+      }
+    }
+    // Nothing relevant moved: keep the value's identity, so a selection change
+    // or a transaction that touches neither the frame nor the text rebuilds
+    // nothing (AGENTS.md: hooks short-circuit on reference equality).
+    if (!set && (!tr.docChanged || range === null)) return value
+    return { range, decorations: frameDecorations(tr.state.doc, range) }
   },
-  provide: (field) => EditorView.decorations.from(field),
+
+  provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 })
 
 /** A vault image reference: the wrapper and control the pane's stylesheet and
@@ -168,8 +228,8 @@ const INLINE_MARKS: Record<string, string> = {
   InlineCode: 'CodeMark',
 }
 
-/** A document range: the shape every hidden marker and node range has here. */
-type Range = { from: number; to: number }
+/** A document range, as this module's own helpers pass it around. */
+type DocRange = { from: number; to: number }
 
 /** A table's parsed shape: the cells the syntax tree found, and the column
  *  alignment the delimiter row asks for. */ type ParsedTable = {
@@ -512,7 +572,7 @@ function render(view: EditorView): Rendered {
    *  them: the opening mark, and everything from the closing mark on. The
    *  closing mark is found by name, because in `[![alt](img.png)](dest)` the
    *  node's second child is the image rather than the `]`. */
-  const linkMarks = (node: SyntaxNode): { open: Range; tail: Range } | null => {
+  const linkMarks = (node: SyntaxNode): { open: DocRange; tail: DocRange } | null => {
     const marks: SyntaxNode[] = []
     for (let child = node.firstChild; child; child = child.nextSibling) {
       if (child.name === 'LinkMark') marks.push(child)
@@ -532,7 +592,7 @@ function render(view: EditorView): Rendered {
 
   /** Hide a range, if it is within one line: a view plugin's decorations may not
    *  replace a line break. */
-  const hideRange = (range: Range): void => {
+  const hideRange = (range: DocRange): void => {
     if (range.to <= range.from) return
     if (state.doc.lineAt(range.from).number !== state.doc.lineAt(range.to).number) return
     hideMarker(range)
@@ -541,7 +601,7 @@ function render(view: EditorView): Rendered {
   /** Drop a marker from the rendered text, and make it atomic so the caret
    *  steps over it instead of landing inside it. A marker spans no line break,
    *  which is what lets a view plugin hide it. */
-  const hideMarker = (marker: Range): void => {
+  const hideMarker = (marker: DocRange): void => {
     if (marker.to <= marker.from) return
     const decoration = Decoration.replace({})
     marks.push({ from: marker.from, to: marker.to, decoration })
@@ -831,7 +891,6 @@ export class CodeMirrorAdapter implements EditorAdapter {
   private sources: SuggestionSources = { pages: () => [], files: () => [] }
   /** The text a `setContent` seeded, so its echo is not reported as an edit. */
   private seed: string | null = null
-  private highlightTimer: number | null = null
 
   async mount(el: HTMLElement): Promise<void> {
     const extensions: Extension[] = [
@@ -879,8 +938,6 @@ export class CodeMirrorAdapter implements EditorAdapter {
   }
 
   async destroy(): Promise<void> {
-    if (this.highlightTimer !== null) window.clearTimeout(this.highlightTimer)
-    this.highlightTimer = null
     this.view?.destroy()
     this.view = null
   }
@@ -910,23 +967,20 @@ export class CodeMirrorAdapter implements EditorAdapter {
     })
   }
 
+  /** Frame the `index`-th top-level block and scroll its first line into view,
+   *  or clear the frame when `index` names no block. The frame covers the whole
+   *  block, not its first line, and it stays until a later request replaces it:
+   *  no timer, and no clearing on an edit (page-editing: the mark is not cleared
+   *  by a document change). */
   highlightBlock(index: number | null): void {
     const view = this.view
     if (!view) return
-    if (this.highlightTimer !== null) {
-      window.clearTimeout(this.highlightTimer)
-      this.highlightTimer = null
-    }
     const text = view.state.doc.toString()
-    const lines = index === null ? null : blockStartLines(text)[index]
-    view.dispatch({ effects: setHighlight.of(lines === null ? null : lineOffset(text, lines)) })
+    const lines = index === null ? null : blockLineRange(text, index)
+    view.dispatch({ effects: setHighlight.of(lines) })
     if (lines === null) return
-    const line = view.state.doc.line(lines)
+    const line = view.state.doc.line(Math.min(lines.from, view.state.doc.lines))
     view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
-    this.highlightTimer = window.setTimeout(() => {
-      this.highlightTimer = null
-      this.view?.dispatch({ effects: setHighlight.of(null) })
-    }, HIGHLIGHT_MS)
   }
 
   staticBlocks(): StaticBlock[] {
@@ -1054,14 +1108,6 @@ export class CodeMirrorAdapter implements EditorAdapter {
     if (!reader) return
     void openVaultTarget(href, reader)
   }
-}
-
-/** The document offset of a 1-based line number. */
-function lineOffset(text: string, line: number): number {
-  const lines = text.split('\n')
-  let offset = 0
-  for (let i = 0; i < Math.min(line - 1, lines.length); i++) offset += lines[i].length + 1
-  return offset
 }
 
 /** The block's node type name, as the presentation renderer reads it. */

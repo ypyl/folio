@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockStartLines } from './lineAnchors'
+import { blockLineRange, blockStartLines } from './lineAnchors'
 
 // The numbering rule contract (line-numbers, design D1): one shared pure
 // function for the editor gutter and search. These cases pin the observable
@@ -59,5 +59,51 @@ describe('consistency across file and canonical forms (design D1/D2)', () => {
     expect(canonicalAnchors).toEqual([1, 3, 5])
     // Same number of blocks either way; only the numeric addresses drift.
     expect(fileAnchors.length).toBe(canonicalAnchors.length)
+  })
+})
+
+// The block's extent (frame-the-located-block): a block is not one line, and a
+// frame around a located block encloses all of it. Same rule as the anchors, so
+// the two cannot disagree about where a block ends.
+describe('blockLineRange', () => {
+  it('gives a single-line block the line it is on', () => {
+    expect(blockLineRange('# Title\n\nBody\n', 1)).toEqual({ from: 3, to: 3 })
+  })
+
+  it('spans every line of a wrapped paragraph', () => {
+    const text = '# Title\n\nThis is a wrapped\nparagraph line two\n\nBody\n'
+    expect(blockLineRange(text, 1)).toEqual({ from: 3, to: 4 })
+  })
+
+  it('spans a tight list as one block', () => {
+    const text = '# Title\n\n- a\n- b\n- c\n\nBody\n'
+    expect(blockLineRange(text, 1)).toEqual({ from: 3, to: 5 })
+  })
+
+  it('spans a fence, interior lines included', () => {
+    const text = 'Body\n\n```js\nconst x = 1\n# not a block\n```\n\nTail\n'
+    expect(blockLineRange(text, 1)).toEqual({ from: 3, to: 6 })
+  })
+
+  it('stops at the last non-blank line before the next block', () => {
+    const text = 'One\n\nTwo\n\n\n\nThree\n'
+    expect(blockLineRange(text, 1)).toEqual({ from: 3, to: 3 })
+    expect(blockLineRange(text, 2)).toEqual({ from: 7, to: 7 })
+  })
+
+  it('ends the last block at the document, not at a trailing newline', () => {
+    expect(blockLineRange('One\n\nTwo\n', 1)).toEqual({ from: 3, to: 3 })
+    expect(blockLineRange('One\n\nTwo', 1)).toEqual({ from: 3, to: 3 })
+  })
+
+  it('has no block on a blank first line', () => {
+    // The rule anchors a non-blank first line, not the first line as such.
+    expect(blockLineRange('\n# Title\n', 0)).toEqual({ from: 2, to: 2 })
+    expect(blockLineRange('\n# Title\n', 1)).toBeNull()
+  })
+
+  it('returns null for an index the text does not hold', () => {
+    expect(blockLineRange('One\n', 1)).toBeNull()
+    expect(blockLineRange('', 0)).toBeNull()
   })
 })

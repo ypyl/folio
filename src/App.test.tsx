@@ -1008,6 +1008,36 @@ describe('content search over the real index (search spec)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('keeps the located block framed after leaving the page and coming back', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    fireEvent.change(searchInput(), { target: { value: 'backlinks' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(2))
+    fireEvent.click(screen.getByRole('option', { name: /^Ideas/ }))
+    await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
+    const located = editor().highlights[editor().highlights.length - 1]
+    expect(located).toEqual(expect.any(Number))
+
+    // Leave the located page: a navigation naming no block clears nothing, so
+    // the page it lands on is handed no frame.
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().content).toContain('This is Folio'))
+    expect(editor().highlights[editor().highlights.length - 1]).toBeNull()
+
+    // Come back, with no search: the frame belongs to the page, so it is there.
+    fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
+    await waitFor(() => expect(editor().highlights).toContain(located))
+
+    // And it comes back through page history too, which navigates by path and
+    // names no block.
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    await waitFor(() => expect(editor().content).toContain('This is Folio'))
+    fireEvent.click(screen.getByRole('button', { name: 'Forward' }))
+    await waitFor(() => expect(editor().highlights).toContain(located))
+    vi.unstubAllGlobals()
+  })
+
   it('opens a journal day from a search result like the calendar would', async () => {
     render(<App />)
     await openFixture()

@@ -138,13 +138,17 @@ function App() {
   // this feeds the results pane and stays current for the see-all handoff.
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  // The block a search result asked to locate on the open page
-  // (mark-search-matches-on-the-page), with a nonce so opening the same match
-  // twice re-triggers the mark. Null unless the last navigation came from a
-  // result whose match is in the page's text.
-  const [matchHighlight, setMatchHighlight] = useState<{ block: number; nonce: number } | null>(
-    null,
-  )
+  // The block a search result asked to locate (mark-search-matches-on-the-page,
+  // frame-the-located-block), with the page it belongs to and a nonce so
+  // locating the same block twice re-triggers the frame. The page is carried
+  // because the frame belongs to it rather than to the visit: leaving the page
+  // and coming back finds it still framed, and a page that was never located is
+  // never framed. Null until something is located.
+  const [matchHighlight, setMatchHighlight] = useState<{
+    path: string
+    block: number
+    nonce: number
+  } | null>(null)
   // The search spotlight (replace-header-with-spotlight): a modal overlay App
   // owns. The chord listener and the rail's search trigger both set it; a
   // selection, Escape, or a scrim click clears it.
@@ -262,22 +266,27 @@ function App() {
       // existing draft (unsaved edits from earlier in the session) wins.
       drafts.open(path, graph?.pages.get(path)?.content ?? '')
       setDraftVersion((v) => v + 1)
-      // Only a search result names a block to mark; every other navigation
-      // clears the mark (mark-search-matches-on-the-page).
-      setMatchHighlight((prev) =>
-        block === null ? null : { block, nonce: (prev?.nonce ?? 0) + 1 },
-      )
+      // A search result names the block to frame. A navigation that names no
+      // block leaves any frame alone (frame-the-located-block): the frame is
+      // replaced by a later locate, not by leaving the page it belongs to.
+      if (block !== null) {
+        setMatchHighlight((prev) => ({ path, block, nonce: (prev?.nonce ?? 0) + 1 }))
+      }
     },
     [graph, drafts],
   )
 
   // Locating a heading from the Contents section (add-page-contents): set the
-  // same highlight state a search result uses, so the editor scrolls and marks
-  // the block. It never re-opens the page, so the draft and caret are
-  // untouched and nothing is written.
-  const handleLocate = useCallback((block: number) => {
-    setMatchHighlight((prev) => ({ block, nonce: (prev?.nonce ?? 0) + 1 }))
-  }, [])
+  // same state a search result sets, so the editor scrolls and frames the block.
+  // It never re-opens the page, so the draft and caret are untouched and nothing
+  // is written.
+  const handleLocate = useCallback(
+    (block: number) => {
+      if (activePath === null) return
+      setMatchHighlight((prev) => ({ path: activePath, block, nonce: (prev?.nonce ?? 0) + 1 }))
+    },
+    [activePath],
+  )
 
   // Opening a board (add-whiteboards, design D5): the main pane switches to the
   // board editor and the board's text is read once into `boardScene`. The path
@@ -985,7 +994,9 @@ function App() {
             initialContent={initialContent}
             onChange={handleEdit}
             onReady={handleEditorReady}
-            highlight={matchHighlight}
+            // The frame belongs to the page it was located on, so a pane
+            // showing any other page is handed no mark.
+            highlight={matchHighlight?.path === activePath ? matchHighlight : null}
             onOpenReference={handleOpenReference}
             onBoardLink={handleOpenBoard}
             suggest={suggest}

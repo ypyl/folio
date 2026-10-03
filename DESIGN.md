@@ -287,11 +287,17 @@ must not drift); a fence with no language stays monochrome.
 ### Search match
 
 Opening a search result locates the match: the block is scrolled into view and
-washed with a `--brand-tint` background that fades out over about two seconds
-(`.folio-search-hit`; the duration matches `HIGHLIGHT_MS` in
-`src/editor/searchHighlight.ts`). The wash is presentational — it never enters
-the page or the file — and it is cleared at once by the next keystroke. A
-result whose match is only in the page title opens with no mark.
+framed with a 1px `--brand` border around its **whole extent** — every line of
+the block, from its start line through its last non-blank line — and the frame
+stays until a later locate replaces it (`.folio-search-hit`, with
+`.folio-search-hit-first` and `.folio-search-hit-last` carrying the horizontal
+edges). It does not fade, and an edit does not clear it: it belongs to the block
+it found, so it stays with that text.
+
+The frame is drawn with inset `box-shadow`, never a border or a fill: a border
+grows the line's box, which would move the text and re-wrap a long line, and the
+mark may not reflow the page. It is presentational — it never enters the page or
+the file. A result whose match is only in the page title opens with no mark.
 
 ### Pin star (row icon + status-bar toggle)
 
