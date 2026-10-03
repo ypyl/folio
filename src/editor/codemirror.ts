@@ -97,70 +97,72 @@ const FENCE_CLASS = 'folio-cm-fence'
 const QUOTE_CLASS = 'folio-cm-quote'
 const MARKER_CLASS = 'folio-cm-marker'
 
-/** The effect that sets a located block's mark, and the field that holds it. The
- *  effect names the block's line range, which is what `blockLineRange` answers. */
-const setHighlight = StateEffect.define<{ from: number; to: number } | null>()
+/** A document range, as this module's own helpers pass it around. */
+type DocRange = { from: number; to: number }
 
-/** A frame's line range in document positions, or null when nothing is located. */
-type Framed = { from: number; to: number } | null
+/** The effect that sets the located blocks' mark, and the field that holds it.
+ *  The effect names one line range per located block, which is what
+ *  `blockLineRange` answers; an empty list clears the mark. */
+const setHighlight = StateEffect.define<{ from: number; to: number }[] | null>()
 
-/** The field's value: the range the frame covers, and the decorations it drew.
- *  The range is carried so an edit can move it, rather than the decorations
- *  being mapped on their own: a line decoration moves with its line but is not
- *  created for a line an edit inserts, so mapping them alone would leave a gap
- *  in the sides wherever the user pressed Enter. */
-type HighlightState = { range: Framed; decorations: DecorationSet }
+/** The field's value: the ranges the frames cover, and the decorations they
+ *  drew. The ranges are carried so an edit can move them, rather than the
+ *  decorations being mapped on their own: a line decoration moves with its line
+ *  but is not created for a line an edit inserts, so mapping them alone would
+ *  leave a gap in the sides wherever the user pressed Enter. */
+type HighlightState = { ranges: DocRange[]; decorations: DecorationSet }
 
-/** The decorations for a frame: one line decoration per line of the range, the
- *  ends carrying the role that draws their horizontal edge. */
-function frameDecorations(doc: Text, range: Framed): DecorationSet {
-  if (range === null) return Decoration.none
-  const first = doc.lineAt(range.from).number
-  const last = doc.lineAt(Math.max(range.to, range.from)).number
-  const ranges: Range<Decoration>[] = []
-  for (let number = first; number <= last; number += 1) {
-    const classes = [HIGHLIGHT_CLASS]
-    if (number === first) classes.push(HIGHLIGHT_FIRST_CLASS)
-    if (number === last) classes.push(HIGHLIGHT_LAST_CLASS)
-    ranges.push(Decoration.line({ class: classes.join(' ') }).range(doc.line(number).from))
+/** The decorations for the frames: one line decoration per line of each range,
+ *  the ends carrying the role that draws their horizontal edge. */
+function frameDecorations(doc: Text, ranges: DocRange[]): DecorationSet {
+  const decorations: Range<Decoration>[] = []
+  for (const range of ranges) {
+    const first = doc.lineAt(range.from).number
+    const last = doc.lineAt(Math.max(range.to, range.from)).number
+    for (let number = first; number <= last; number += 1) {
+      const classes = [HIGHLIGHT_CLASS]
+      if (number === first) classes.push(HIGHLIGHT_FIRST_CLASS)
+      if (number === last) classes.push(HIGHLIGHT_LAST_CLASS)
+      decorations.push(Decoration.line({ class: classes.join(' ') }).range(doc.line(number).from))
+    }
   }
-  return Decoration.set(ranges, true)
+  return Decoration.set(decorations, true)
 }
 
 /** The document positions a block's line range covers. */
-function rangeOfLines(doc: Text, lines: { from: number; to: number }): Framed {
+function rangeOfLines(doc: Text, lines: { from: number; to: number }): DocRange {
   const first = Math.min(Math.max(lines.from, 1), doc.lines)
   const last = Math.min(Math.max(lines.to, first), doc.lines)
   return { from: doc.line(first).from, to: doc.line(last).to }
 }
 
 const highlightField = StateField.define<HighlightState>({
-  create: () => ({ range: null, decorations: Decoration.none }),
+  create: () => ({ ranges: [], decorations: Decoration.none }),
 
   update(value, tr) {
-    let range = value.range
+    let ranges = value.ranges
     let set = false
     for (const effect of tr.effects) {
       if (!effect.is(setHighlight)) continue
       set = true
-      range = effect.value === null ? null : rangeOfLines(tr.state.doc, effect.value)
+      ranges = (effect.value ?? []).map((lines) => rangeOfLines(tr.state.doc, lines))
     }
-    if (tr.docChanged && range !== null) {
-      // The frame stays with the text it marks, so the block an edit splits or
+    if (tr.docChanged && ranges.length > 0) {
+      // Each frame stays with the text it marks, so the block an edit splits or
       // extends is still the block it framed (page-editing: the mark is not
-      // cleared by a document change). Mapping two positions is O(1); the
-      // decorations are then redrawn for the range, which is bounded by the
-      // framed block and not by the document.
-      range = {
+      // cleared by a document change). Mapping two positions per frame is
+      // O(blocks located), which is bounded by the matches of the open page and
+      // not by the document; the decorations are then redrawn for the ranges.
+      ranges = ranges.map((range) => ({
         from: tr.changes.mapPos(range.from, -1),
         to: tr.changes.mapPos(range.to, 1),
-      }
+      }))
     }
     // Nothing relevant moved: keep the value's identity, so a selection change
-    // or a transaction that touches neither the frame nor the text rebuilds
+    // or a transaction that touches neither the frames nor the text rebuilds
     // nothing (AGENTS.md: hooks short-circuit on reference equality).
-    if (!set && (!tr.docChanged || range === null)) return value
-    return { range, decorations: frameDecorations(tr.state.doc, range) }
+    if (!set && (!tr.docChanged || ranges.length === 0)) return value
+    return { ranges, decorations: frameDecorations(tr.state.doc, ranges) }
   },
 
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
@@ -228,9 +230,6 @@ const INLINE_MARKS: Record<string, string> = {
   Strikethrough: 'StrikethroughMark',
   InlineCode: 'CodeMark',
 }
-
-/** A document range, as this module's own helpers pass it around. */
-type DocRange = { from: number; to: number }
 
 /** A table's parsed shape: the cells the syntax tree found, and the column
  *  alignment the delimiter row asks for. */ type ParsedTable = {
@@ -440,24 +439,22 @@ function tableRanges(state: EditorState, entries: TableEntry[]): ReturnType<Deco
  *  `highlightField`, so this reads that field's previous value and applies the
  *  same mapping: a table's frame stays in step with the text frame by
  *  construction, rather than by two fields agreeing about where a block is. */
-function locatedRange(tr: Transaction): Framed {
-  const previous = tr.startState.field(highlightField).range
-  if (previous === null) return null
-  return {
-    from: tr.changes.mapPos(previous.from, -1),
-    to: tr.changes.mapPos(previous.to, 1),
-  }
+function locatedRange(tr: Transaction): DocRange[] {
+  return tr.startState.field(highlightField).ranges.map((range) => ({
+    from: tr.changes.mapPos(range.from, -1),
+    to: tr.changes.mapPos(range.to, 1),
+  }))
 }
 
 /** The entries with their frame flag recomputed, and whether any flag moved
  *  (which is what makes a widget need redrawing). */
 function withFrames(
   entries: TableEntry[],
-  located: Framed,
+  located: DocRange[],
 ): { entries: TableEntry[]; changed: TableEntry[] } {
   const changed: TableEntry[] = []
   const next = entries.map((entry) => {
-    const framed = located !== null && overlaps(entry, located)
+    const framed = located.some((range) => overlaps(entry, range))
     if (framed === entry.framed) return entry
     const updated = { ...entry, framed }
     changed.push(updated)
@@ -470,7 +467,7 @@ const tableField = StateField.define<TableState>({
   // Created before anything is located: the frame arrives with a highlight
   // effect, which the update below answers.
   create: (state) => {
-    const entries = tablesIn(state, 0, state.doc.length, state.selection.main.head, null)
+    const entries = tablesIn(state, 0, state.doc.length, state.selection.main.head, [])
     return { entries, decorations: Decoration.set(tableRanges(state, entries), true) }
   },
 
@@ -478,9 +475,7 @@ const tableField = StateField.define<TableState>({
     const caret = tr.state.selection.main.head
     const effect = tr.effects.find((candidate) => candidate.is(setHighlight))
     const located = effect
-      ? effect.value === null
-        ? null
-        : rangeOfLines(tr.state.doc, effect.value)
+      ? (effect.value ?? []).map((lines) => rangeOfLines(tr.state.doc, lines))
       : locatedRange(tr)
 
     if (!tr.docChanged) {
@@ -559,7 +554,7 @@ function tablesIn(
   from: number,
   to: number,
   caret: number,
-  located: Framed,
+  located: DocRange[],
 ): TableEntry[] {
   const entries: TableEntry[] = []
   syntaxTree(state).iterate({
@@ -571,7 +566,7 @@ function tablesIn(
         from: node.from,
         to: node.to,
         shown: caret >= node.from && caret <= node.to,
-        framed: located !== null && overlaps(node, located),
+        framed: located.some((range) => overlaps(node, range)),
       })
     },
   })
@@ -1022,19 +1017,24 @@ export class CodeMirrorAdapter implements EditorAdapter {
     })
   }
 
-  /** Frame the `index`-th top-level block and scroll its first line into view,
-   *  or clear the frame when `index` names no block. The frame covers the whole
-   *  block, not its first line, and it stays until a later request replaces it:
-   *  no timer, and no clearing on an edit (page-editing: the mark is not cleared
-   *  by a document change). */
-  highlightBlock(index: number | null): void {
+  /** Frame each of `blocks` and scroll the first one's first line into view; an
+   *  empty list clears the frames. A frame covers the whole block, not its first
+   *  line, and it stays until a later request replaces it: no timer, and no
+   *  clearing on an edit (page-editing: the mark is not cleared by a document
+   *  change). An index the document does not hold contributes no frame. */
+  highlightBlocks(blocks: number[]): void {
     const view = this.view
     if (!view) return
     const text = view.state.doc.toString()
-    const lines = index === null ? null : blockLineRange(text, index)
+    const lines: { from: number; to: number }[] = []
+    for (const block of blocks) {
+      const range = blockLineRange(text, block)
+      if (range !== null) lines.push(range)
+    }
     view.dispatch({ effects: setHighlight.of(lines) })
-    if (lines === null) return
-    const line = view.state.doc.line(Math.min(lines.from, view.state.doc.lines))
+    const first = lines[0]
+    if (!first) return
+    const line = view.state.doc.line(Math.min(first.from, view.state.doc.lines))
     view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: 'center' }) })
   }
 

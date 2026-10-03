@@ -22,7 +22,7 @@ export function SearchResultsView({
 }: {
   query: string
   results: SearchResult[]
-  onOpen: (path: string, block: number | null) => void
+  onOpen: (path: string, blocks: number[]) => void
   /** Activating an asset result: open the file and stay on the results
    *  (search-assets-by-name, design D3) — nothing navigated, so there is no
    *  page to return to and closing would strand the query. */
@@ -79,7 +79,7 @@ export function SearchResultsView({
   const activate = (result: SearchResult) => {
     if (result.kind === 'asset') onOpenAsset(result.path)
     else if (result.kind === 'board') onOpenBoard?.(result.path)
-    else onOpen(result.path, result.block)
+    else onOpen(result.path, result.blocks)
   }
 
   const onKeyDown = listKeyDown({

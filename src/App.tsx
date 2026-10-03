@@ -138,15 +138,16 @@ function App() {
   // this feeds the results pane and stays current for the see-all handoff.
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  // The block a search result asked to locate (mark-search-matches-on-the-page,
-  // frame-the-located-block), with the page it belongs to and a nonce so
-  // locating the same block twice re-triggers the frame. The page is carried
-  // because the frame belongs to it rather than to the visit: leaving the page
-  // and coming back finds it still framed, and a page that was never located is
-  // never framed. Null until something is located.
+  // The blocks something asked to locate (mark-search-matches-on-the-page,
+  // frame-every-matching-block), with the page they belong to and a nonce so
+  // locating the same blocks twice re-triggers the frames. The page is carried
+  // because the frames belong to it rather than to the visit: leaving the page
+  // and coming back finds them still framed, and a page that was never located
+  // is never framed. A search result names every block holding a match; a
+  // Contents row names one. Null until something is located.
   const [matchHighlight, setMatchHighlight] = useState<{
     path: string
-    block: number
+    blocks: number[]
     nonce: number
   } | null>(null)
   // The search spotlight (replace-header-with-spotlight): a modal overlay App
@@ -256,7 +257,7 @@ function App() {
   // (which changes on save/refresh) and the draft store (session state) - and
   // never on the open page, which it does not read.
   const handleSelect = useCallback(
-    (path: string, block: number | null = null) => {
+    (path: string, blocks: number[] = []) => {
       // Opening anything leaves the results view (search-results-view); the
       // spotlight keeps the query, so its see-all row returns to it later.
       setMode('page')
@@ -266,11 +267,11 @@ function App() {
       // existing draft (unsaved edits from earlier in the session) wins.
       drafts.open(path, graph?.pages.get(path)?.content ?? '')
       setDraftVersion((v) => v + 1)
-      // A search result names the block to frame. A navigation that names no
-      // block leaves any frame alone (frame-the-located-block): the frame is
-      // replaced by a later locate, not by leaving the page it belongs to.
-      if (block !== null) {
-        setMatchHighlight((prev) => ({ path, block, nonce: (prev?.nonce ?? 0) + 1 }))
+      // A search result names the blocks to frame. A navigation that names none
+      // leaves any frame alone (frame-the-located-block): the frames are
+      // replaced by a later locate, not by leaving the page they belong to.
+      if (blocks.length > 0) {
+        setMatchHighlight((prev) => ({ path, blocks, nonce: (prev?.nonce ?? 0) + 1 }))
       }
     },
     [graph, drafts],
@@ -278,12 +279,16 @@ function App() {
 
   // Locating a heading from the Contents section (add-page-contents): set the
   // same state a search result sets, so the editor scrolls and frames the block.
-  // It never re-opens the page, so the draft and caret are untouched and nothing
-  // is written.
+  // A heading is one block, so this caller passes one. It never re-opens the
+  // page, so the draft and caret are untouched and nothing is written.
   const handleLocate = useCallback(
     (block: number) => {
       if (activePath === null) return
-      setMatchHighlight((prev) => ({ path: activePath, block, nonce: (prev?.nonce ?? 0) + 1 }))
+      setMatchHighlight((prev) => ({
+        path: activePath,
+        blocks: [block],
+        nonce: (prev?.nonce ?? 0) + 1,
+      }))
     },
     [activePath],
   )

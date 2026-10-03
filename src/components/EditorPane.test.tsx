@@ -39,7 +39,7 @@ type FakeEditorView = EditorAdapter & {
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string) => void
   blocks: StaticBlock[]
-  highlights: (number | null)[]
+  highlights: number[][]
   destructed: boolean
   mounted: boolean
   suggest: (query: string) => Suggestion[]
@@ -220,11 +220,11 @@ describe('EditorPane', () => {
         page={page}
         initialContent={'Body'}
         onChange={() => {}}
-        highlight={{ block: 1, nonce: 1 }}
+        highlight={{ blocks: [1], nonce: 1 }}
       />,
     )
     await act(async () => {})
-    expect(fake().highlights).toEqual([1])
+    expect(fake().highlights).toEqual([[1]])
   })
 
   it('re-marks when the highlight changes on a page already open', async () => {
@@ -233,7 +233,7 @@ describe('EditorPane', () => {
         page={page}
         initialContent={'Body'}
         onChange={() => {}}
-        highlight={{ block: 0, nonce: 1 }}
+        highlight={{ blocks: [0], nonce: 1 }}
       />,
     )
     await act(async () => {})
@@ -243,11 +243,11 @@ describe('EditorPane', () => {
           page={page}
           initialContent={'Body'}
           onChange={() => {}}
-          highlight={{ block: 2, nonce: 2 }}
+          highlight={{ blocks: [2], nonce: 2 }}
         />,
       )
     })
-    expect(fake().highlights).toEqual([0, 2])
+    expect(fake().highlights).toEqual([[0], [2]])
   })
 
   it('points a vault image reference at the file bytes through the reader', async () => {

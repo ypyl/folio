@@ -128,7 +128,7 @@ type FakeView = EditorAdapter & {
   setContents: string[]
   insertions: string[]
   chords: string[]
-  highlights: (number | null)[]
+  highlights: number[][]
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string, kind?: 'page' | 'board') => void
   suggest: (query: string) => import('./vault/suggest').Suggestion[]
@@ -1004,7 +1004,7 @@ describe('content search over the real index (search spec)', () => {
     // The match carries a block; the pane hands it to the editor to locate
     // (mark-search-matches-on-the-page).
     await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
-    expect(editor().highlights[editor().highlights.length - 1]).toEqual(expect.any(Number))
+    expect(editor().highlights[editor().highlights.length - 1]).toEqual([expect.any(Number)])
     vi.unstubAllGlobals()
   })
 
@@ -1017,24 +1017,38 @@ describe('content search over the real index (search spec)', () => {
     fireEvent.click(screen.getByRole('option', { name: /^Ideas/ }))
     await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
     const located = editor().highlights[editor().highlights.length - 1]
-    expect(located).toEqual(expect.any(Number))
+    expect(located).toEqual([expect.any(Number)])
 
     // Leave the located page: a navigation naming no block clears nothing, so
     // the page it lands on is handed no frame.
     fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(editor().content).toContain('This is Folio'))
-    expect(editor().highlights[editor().highlights.length - 1]).toBeNull()
+    expect(editor().highlights[editor().highlights.length - 1]).toEqual([])
 
     // Come back, with no search: the frame belongs to the page, so it is there.
     fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
-    await waitFor(() => expect(editor().highlights).toContain(located))
+    await waitFor(() => expect(editor().highlights).toContainEqual(located))
 
     // And it comes back through page history too, which navigates by path and
     // names no block.
     fireEvent.click(screen.getByRole('button', { name: 'Back' }))
     await waitFor(() => expect(editor().content).toContain('This is Folio'))
     fireEvent.click(screen.getByRole('button', { name: 'Forward' }))
-    await waitFor(() => expect(editor().highlights).toContain(located))
+    await waitFor(() => expect(editor().highlights).toContainEqual(located))
+    vi.unstubAllGlobals()
+  })
+
+  it('frames every block holding the match when a result opens', async () => {
+    render(<App />)
+    await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n\nMore dog\n' } }))
+    await screen.findByRole('button', { name: 'Notes' })
+    fireEvent.change(searchInput(), { target: { value: 'dog' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
+    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    // The search already knows every occurrence; the pane is handed each block
+    // it falls in, not only the first (frame-every-matching-block).
+    await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
+    expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1, 2])
     vi.unstubAllGlobals()
   })
 
@@ -2035,7 +2049,7 @@ describe('page contents (add-page-contents)', () => {
       expect(contents.getByRole('button', { name: 'Alpha' })).toBeTruthy()
       // `## Beta` is the third top-level block (heading, paragraph, heading).
       fireEvent.click(contents.getByRole('button', { name: 'Beta' }))
-      await waitFor(() => expect(editor().highlights).toContain(2))
+      await waitFor(() => expect(editor().highlights).toContainEqual([2]))
 
       // Locating is view-only: the page is the same and nothing is written.
       expect(editor().content).toContain('Alpha')

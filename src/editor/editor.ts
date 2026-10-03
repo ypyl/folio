@@ -43,12 +43,11 @@ export interface EditorAdapter {
    *  inserts there instead, and falls back to the selection when the point
    *  names no position the document can hold it at (ADR-0023). */
   insertMarkdown(markdown: string, point?: DropPoint): void
-  /** Scroll the `index`-th top-level block into view and mark it for a
-   *  moment; null clears the mark (mark-search-matches-on-the-page). A view
-   *  operation: it never changes the document, so it is not an undo step and
-   *  never reaches serialization. An index the document does not hold is
-   *  ignored. */
-  highlightBlock(index: number | null): void
+  /** Frame each of `blocks` and scroll the first into view; an empty list
+   *  clears the frames (frame-every-matching-block). A view operation: it never
+   *  changes the document, so it is not an undo step and never reaches
+   *  serialization. An index the document does not hold is ignored. */
+  highlightBlocks(blocks: number[]): void
   /** The open document's top-level blocks, each as its node type name and its
    *  node serialized to HTML (add-presentations). Read-only and side-effect
    *  free: it reads the live document without changing it, so the caller can

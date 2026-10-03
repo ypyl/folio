@@ -286,18 +286,24 @@ must not drift); a fence with no language stays monochrome.
 
 ### Search match
 
-Opening a search result locates the match: the block is scrolled into view and
-framed with a 1px `--brand` border around its **whole extent** — every line of
-the block, from its start line through its last non-blank line — and the frame
-stays until a later locate replaces it (`.folio-search-hit`, with
-`.folio-search-hit-first` and `.folio-search-hit-last` carrying the horizontal
-edges). It does not fade, and an edit does not clear it: it belongs to the block
-it found, so it stays with that text.
+Opening a search result locates the match: **every block holding one is framed**
+with a 1px `--brand` edge around its whole extent — every line of the block,
+from its start line through its last non-blank line — and the first match's
+block is the one scrolled into view. The frames are identical; nothing marks the
+scrolled-to one apart from the scroll. They stay until a later locate replaces
+them (`.folio-search-hit`, with `.folio-search-hit-first` and
+`.folio-search-hit-last` carrying the horizontal edges). They do not fade, and an
+edit does not clear them: each belongs to the block it found, so it stays with
+that text.
 
-The frame is drawn with inset `box-shadow`, never a border or a fill: a border
-grows the line's box, which would move the text and re-wrap a long line, and the
-mark may not reflow the page. It is presentational — it never enters the page or
-the file. A result whose match is only in the page title opens with no mark.
+The frame is drawn with inset `box-shadow` on a positioned overlay, never a
+border or a fill: a border grows the line's box, which would move the text and
+re-wrap a long line, and the mark may not reflow the page. The overlay is what
+keeps the edges whole over a fenced block's fill, and it is inset a little past
+the line so the text has room. A table's frame is an `outline` on the table
+widget itself (`.folio-table-framed`), because a replaced table has no line to
+carry it. Both are presentational — they never enter the page or the file. A
+result whose match is only in the page title opens with no mark.
 
 ### Pin star (row icon + status-bar toggle)
 

@@ -81,9 +81,10 @@ export function EditorPane({
   page: Page | null
   initialContent: string
   onChange: (markdown: string) => void
-  /** A block to locate and mark on open (mark-search-matches-on-the-page),
-   *  with a nonce so the same match can be re-located. Null clears the mark. */
-  highlight?: { block: number; nonce: number } | null
+  /** The blocks to frame on open (frame-every-matching-block), with a nonce so
+   *  the same blocks can be located again. Null, or an empty list, clears the
+   *  frames. */
+  highlight?: { blocks: number[]; nonce: number } | null
   /** Which copy the brand screen shows when no page is open: the notes hint,
    *  the open-a-folder instruction, or — where the browser has no local-folder
    *  picker — the browser requirement instead of an instruction that cannot be
@@ -258,7 +259,7 @@ export function EditorPane({
         if (cancelled) return
         return adapter.setContent(initialContent).then(() => {
           readyRef.current = true
-          adapter.highlightBlock(highlightRef.current?.block ?? null)
+          adapter.highlightBlocks(highlightRef.current?.blocks ?? [])
           updateImages()
           onReady?.()
         })
@@ -282,7 +283,7 @@ export function EditorPane({
   // new request re-marks here, and a cleared highlight clears the mark.
   useEffect(() => {
     if (!readyRef.current) return
-    adapterRef.current?.highlightBlock(highlight?.block ?? null)
+    adapterRef.current?.highlightBlocks(highlight?.blocks ?? [])
   }, [highlight])
 
   // File and reference intake (D5): something is always prevented so the

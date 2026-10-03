@@ -22,8 +22,8 @@ export class FakeEditor implements EditorAdapter {
   /** Every applyChord call, in order — lets tests assert which key
    *  combination a click sent to the editor (apply-shortcuts-on-click). */
   readonly chords: string[] = []
-  /** Every highlightBlock call, in order (mark-search-matches-on-the-page). */
-  readonly highlights: (number | null)[] = []
+  /** Every highlightBlocks call, in order (frame-every-matching-block). */
+  readonly highlights: number[][] = []
   /** Static blocks the seam returns (add-presentations); tests set them and
    *  `staticBlocks()` hands them back unchanged. */
   blocks: StaticBlock[] = []
@@ -88,8 +88,8 @@ export class FakeEditor implements EditorAdapter {
     return blockStartLines(this.content)
   }
 
-  highlightBlock(index: number | null): void {
-    this.highlights.push(index)
+  highlightBlocks(blocks: number[]): void {
+    this.highlights.push(blocks)
   }
 
   staticBlocks(): StaticBlock[] {

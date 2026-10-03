@@ -68,10 +68,11 @@ export type SearchResult = {
   /** [start, end) offsets into `text` to highlight. */
   ranges: SearchRange[]
   text: string
-  /** The top-level block holding the first text match, as the editor's document
-   *  children are indexed (mark-search-matches-on-the-page); null when the match
-   *  is only in the title or there is no content. */
-  block: number | null
+  /** Every top-level block holding a text match, in document order, as the
+   *  editor indexes them (frame-every-matching-block); empty when the match is
+   *  only in the title or there is no content. The first is the one the editor
+   *  scrolls to. */
+  blocks: number[]
 }
 
 /** Rank fields tracked while accumulating a result (design D1): whether every
@@ -134,7 +135,7 @@ function hasExact(text: string, term: string): boolean {
 export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[] {
   const terms = termsOf(query)
   if (!terms.length) return []
-  const acc = new Map<string, Omit<SearchResult, 'block'> & AccFlags>()
+  const acc = new Map<string, Omit<SearchResult, 'blocks'> & AccFlags>()
   for (const term of terms) {
     const hits = fuse.search(term)
     for (const hit of hits) {
@@ -174,7 +175,7 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
   return results.map(
     ({ _terms: _a, _titleExact: _b, _bodyExact: _c, _titleFuzzy: _d, _tier: _e, ...rest }) => ({
       ...rest,
-      block: firstMatchBlock(rest.text, rest.ranges),
+      blocks: matchBlocks(rest.text, rest.ranges),
     }),
   )
 }
@@ -237,15 +238,22 @@ export function snippetSegments(text: string, ranges: SearchRange[]): Segment[] 
  *  first range, counted in document order, or null when there is no text match
  *  (a title-only result). The index survives Canonicalization, which can move a
  *  block's line but not which block it is. */
-export function firstMatchBlock(text: string, ranges: SearchRange[]): number | null {
-  if (!ranges.length) return null
-  const first = [...ranges].sort((a, b) => a[0] - b[0])[0]
-  const matchLine = text.slice(0, first[0]).split('\n').length // 1-based
+export function matchBlocks(text: string, ranges: SearchRange[]): number[] {
+  if (!ranges.length) return []
   const anchors = blockStartLines(text)
-  let block: number | null = null
-  for (let i = 0; i < anchors.length; i++) {
-    if (anchors[i] > matchLine) break
-    block = i
+  const blocks: number[] = []
+  for (const [start] of [...ranges].sort((a, b) => a[0] - b[0])) {
+    // 1-based, and one past the last line when the offset sits on a newline:
+    // either way the anchor search below finds the block the match is in.
+    const matchLine = text.slice(0, start).split('\n').length
+    let block = 0
+    for (let i = 0; i < anchors.length; i++) {
+      if (anchors[i] > matchLine) break
+      block = i
+    }
+    // Two matches in one block are one frame, and the ranges are sorted, so a
+    // repeat can only be the previous entry.
+    if (blocks[blocks.length - 1] !== block) blocks.push(block)
   }
-  return block
+  return blocks
 }

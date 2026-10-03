@@ -6,7 +6,7 @@ import {
   assetSearchDoc,
   boardSearchDoc,
   exactRanges,
-  firstMatchBlock,
+  matchBlocks,
   searchDocs,
   snippetSegments,
   termsOf,
@@ -191,42 +191,52 @@ describe('snippetSegments', () => {
   })
 })
 
-describe('firstMatchBlock', () => {
-  it('reports the block holding the first text match', () => {
+describe('matchBlocks', () => {
+  it('reports the block holding a text match', () => {
     const text = '# Title\n\nBody dog here\n\n## More\n'
     const ranges = exactRanges(text, 'dog') // third line, second block
-    expect(firstMatchBlock(text, ranges)).toBe(1)
+    expect(matchBlocks(text, ranges)).toEqual([1])
   })
 
-  it('uses the earliest range when matches span blocks', () => {
+  it('reports every block a term appears in, in document order', () => {
+    const text = '# dog\n\nBody dog\n\n## More dog\n'
+    expect(matchBlocks(text, exactRanges(text, 'dog'))).toEqual([0, 1, 2])
+  })
+
+  it('reports a block once when the term appears in it twice', () => {
+    const text = '# Title\n\nBody dog and dog again\n'
+    expect(matchBlocks(text, exactRanges(text, 'dog'))).toEqual([1])
+  })
+
+  it('sorts unordered ranges before mapping them', () => {
     const text = '# Title\n\nBody dog\n\n## More dog\n'
     const late: SearchRange = [100, 103]
     const ranges = [...exactRanges(text, 'dog'), late] // unsorted, late entry
-    expect(firstMatchBlock(text, ranges)).toBe(1)
+    expect(matchBlocks(text, ranges)).toEqual([1, 2])
   })
 
-  it('returns null for a title-only result (no text ranges)', () => {
-    expect(firstMatchBlock('some body text', [])).toBeNull()
+  it('returns nothing for a title-only result (no text ranges)', () => {
+    expect(matchBlocks('some body text', [])).toEqual([])
   })
 
   it('anchors a match in a list to the list block', () => {
     const text = '# Title\n\nBody\n\n- a\n- b dog\n'
     // 'dog' is in the list, which is the third top-level block.
     const ranges = exactRanges(text, 'dog')
-    expect(firstMatchBlock(text, ranges)).toBe(2)
+    expect(matchBlocks(text, ranges)).toEqual([2])
   })
 })
 
-describe('searchDocs carries the matched block', () => {
-  it('reports the block holding the match on a page result', () => {
-    const text = '# Title\n\nfirst\n\nsecond dog\n'
+describe('searchDocs carries the matched blocks', () => {
+  it('reports every block holding the match on a page result', () => {
+    const text = '# dog\n\nfirst\n\nsecond dog\n'
     const [hit] = searchDocs(fuse([doc('a.md', 'A', text)]), 'dog')
-    expect(hit.block).toBe(2)
+    expect(hit.blocks).toEqual([0, 2])
   })
 
-  it('reports null for a title-only match', () => {
+  it('reports nothing for a title-only match', () => {
     const [hit] = searchDocs(fuse([doc('a.md', 'Docker notes', 'body without the term')]), 'docker')
-    expect(hit.block).toBeNull()
+    expect(hit.blocks).toEqual([])
   })
 })
 
@@ -258,7 +268,7 @@ describe('asset search documents', () => {
   it('reports no ranges, so it has no snippet anchor and no block', () => {
     const [hit] = searchDocs(fuse([assetSearchDoc('assets/q3-report.pdf')]), 'q3-report')
     expect(hit.ranges).toEqual([])
-    expect(hit.block).toBeNull()
+    expect(hit.blocks).toEqual([])
     expect(snippetSegments(hit.text, hit.ranges)).toEqual([{ text: '', hit: false }])
   })
 

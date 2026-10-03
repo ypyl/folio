@@ -203,9 +203,9 @@ describe('the pane reads', () => {
     // The mark's own behaviour lives in "the located block is framed" below;
     // this keeps the seam's two calls honest: a block marks, a null clears.
     const el = await open('# One\n\ntwo\n\nthree')
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(el.querySelectorAll('.folio-search-hit').length).toBe(1)
-    adapter?.highlightBlock(null)
+    adapter?.highlightBlocks([])
     expect(el.querySelectorAll('.folio-search-hit').length).toBe(0)
   })
 })
@@ -699,7 +699,7 @@ describe('the located block is framed', () => {
 
   it('frames every line of a multi-line block, and no neighbour', async () => {
     const el = await open('# Title\n\n- a\n- b\n- c\n\nTail\n')
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     // The list is one block over three lines; the heading and the tail are not.
     const lines = [...el.querySelectorAll('.cm-line')]
     expect(lines.map((line) => line.classList.contains('folio-search-hit'))).toEqual([
@@ -720,7 +720,7 @@ describe('the located block is framed', () => {
 
   it('gives a one-line block both edges', async () => {
     const el = await open('# Title\n\nBody\n')
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(framed(el).length).toBe(1)
     expect(has(el, 'folio-search-hit-first')).toBe(true)
     expect(has(el, 'folio-search-hit-last')).toBe(true)
@@ -730,14 +730,14 @@ describe('the located block is framed', () => {
     const el = await open('# Title\n\nBody\n')
     const changes: string[] = []
     adapter?.onChange((markdown) => changes.push(markdown))
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(changes).toEqual([])
     expect(el.textContent).toBe('# TitleBody')
   })
 
   it('keeps the frame when the page is edited', async () => {
     const el = await open('# Title\n\nBody\n')
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     adapter?.insertMarkdown('x')
     // The old mark was cleared by the next document change; the frame is not.
     expect(framed(el).length).toBe(1)
@@ -747,7 +747,7 @@ describe('the located block is framed', () => {
     vi.useFakeTimers()
     try {
       const el = await open('# Title\n\nBody\n')
-      adapter?.highlightBlock(1)
+      adapter?.highlightBlocks([1])
       vi.advanceTimersByTime(60_000)
       expect(framed(el).length).toBe(1)
     } finally {
@@ -757,7 +757,7 @@ describe('the located block is framed', () => {
 
   it('follows an edit that adds a line inside it', async () => {
     const el = await open('# Title\n\n- a\n- b\n')
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(framed(el).length).toBe(2)
     const view = (adapter as unknown as { view: EditorView }).view
     // The caret at the end of the last item, then a new item: the block grows,
@@ -770,13 +770,13 @@ describe('the located block is framed', () => {
 
   it('replaces the frame on a later request and clears on a null one', async () => {
     const el = await open('# Title\n\nOne\n\nTwo\n')
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(el.textContent).toBe('# TitleOneTwo')
     expect(framed(el).length).toBe(1)
-    adapter?.highlightBlock(2)
+    adapter?.highlightBlocks([2])
     expect(framed(el).length).toBe(1)
     expect(framed(el)[0].textContent).toBe('Two')
-    adapter?.highlightBlock(null)
+    adapter?.highlightBlocks([])
     expect(framed(el).length).toBe(0)
   })
 
@@ -784,14 +784,14 @@ describe('the located block is framed', () => {
     await open('# Title\n\nBody\n')
     const view = (adapter as unknown as { view: EditorView }).view
     view.dispatch({ selection: { anchor: 2 } })
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(view.state.selection.main.anchor).toBe(2)
     expect(view.state.selection.main.head).toBe(2)
   })
 
   it('ignores an index the document does not hold', async () => {
     const el = await open('# Title\n\nBody\n')
-    adapter?.highlightBlock(9)
+    adapter?.highlightBlocks([9])
     expect(framed(el).length).toBe(0)
   })
 })
@@ -805,13 +805,13 @@ describe('a located table is framed too', () => {
     // so the line frame has nothing to attach to.
     expect(el.querySelector('.folio-search-hit')).toBeNull()
     expect(el.querySelector('.folio-table-framed')).toBeNull()
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(el.querySelector('.folio-table-framed')?.tagName).toBe('TABLE')
   })
 
   it('frames the table source instead while the caret is on it', async () => {
     const el = await open(DOC)
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     const view = (adapter as unknown as { view: EditorView }).view
     // The caret on the table shows its source, so the frame's line decorations
     // land on the lines the widget had replaced.
@@ -822,15 +822,15 @@ describe('a located table is framed too', () => {
 
   it('unframes the table when the locate is cleared', async () => {
     const el = await open(DOC)
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     expect(el.querySelector('.folio-table-framed')).not.toBeNull()
-    adapter?.highlightBlock(null)
+    adapter?.highlightBlocks([])
     expect(el.querySelector('.folio-table-framed')).toBeNull()
   })
 
   it('keeps the table framed across an edit elsewhere', async () => {
     const el = await open(DOC)
-    adapter?.highlightBlock(1)
+    adapter?.highlightBlocks([1])
     const view = (adapter as unknown as { view: EditorView }).view
     view.dispatch({ selection: { anchor: view.state.doc.length } })
     adapter?.insertMarkdown('more\n')
@@ -840,8 +840,81 @@ describe('a located table is framed too', () => {
   it('does not frame the table next to the located block', async () => {
     const el = await open(DOC)
     // Block 2 is the paragraph after the table, not the table itself.
-    adapter?.highlightBlock(2)
+    adapter?.highlightBlocks([2])
     expect(el.querySelector('.folio-table-framed')).toBeNull()
     expect(el.querySelectorAll('.folio-search-hit').length).toBe(1)
+  })
+})
+
+describe('every located block is framed', () => {
+  const framed = (el: HTMLElement) => [...el.querySelectorAll('.folio-search-hit')]
+  const framedLines = (el: HTMLElement) =>
+    [...el.querySelectorAll('.cm-line')]
+      .filter((line) => line.classList.contains('folio-search-hit'))
+      .map((line) => line.textContent)
+
+  it('frames each block it is given, and only those', async () => {
+    const el = await open('# dog\n\nBody\n\nMore dog\n\nTail\n')
+    // Blocks: the heading, the paragraph, the second paragraph, the tail.
+    adapter?.highlightBlocks([0, 2])
+    expect(framedLines(el)).toEqual(['# dog', 'More dog'])
+  })
+
+  it('scrolls to the first block it is given, not the last', async () => {
+    await open('# dog\n\nBody\n\nMore dog\n\nTail\n')
+    const view = (adapter as unknown as { view: EditorView }).view
+    const dispatch = vi.spyOn(view, 'dispatch')
+    adapter?.highlightBlocks([2, 0])
+    // The second dispatch is the scroll, and it names the first block's line.
+    const scroll = dispatch.mock.calls[1]?.[0] as {
+      effects: { value: { range: { head: number } } }
+    }
+    const secondParagraph = view.state.doc.toString().indexOf('More dog')
+    expect(scroll.effects.value.range.head).toBe(secondParagraph)
+    dispatch.mockRestore()
+  })
+
+  it('keeps every frame across an edit, each with its own text', async () => {
+    const el = await open('# dog\n\nBody\n\nMore dog\n\nTail\n')
+    adapter?.highlightBlocks([0, 2])
+    const view = (adapter as unknown as { view: EditorView }).view
+    view.dispatch({ selection: { anchor: view.state.doc.length } })
+    adapter?.insertMarkdown('added\n')
+    expect(framedLines(el)).toEqual(['# dog', 'More dog'])
+  })
+
+  it('replaces every frame on a later request, and clears them all', async () => {
+    const el = await open('# dog\n\nBody\n\nMore dog\n\nTail\n')
+    adapter?.highlightBlocks([0, 2])
+    expect(framed(el).length).toBe(2)
+    adapter?.highlightBlocks([3])
+    expect(framedLines(el)).toEqual(['Tail'])
+    adapter?.highlightBlocks([])
+    expect(framed(el).length).toBe(0)
+  })
+
+  it('frames a table holding a match alongside the text blocks', async () => {
+    const el = await open('# dog\n\n| a | b |\n| --- | --- |\n| dog | 2 |\n\nTail dog\n')
+    adapter?.highlightBlocks([0, 1, 2])
+    expect(el.querySelector('.folio-table-framed')?.tagName).toBe('TABLE')
+    expect(framedLines(el)).toEqual(['# dog', 'Tail dog'])
+  })
+
+  it('leaves the caret, the selection, and the file alone', async () => {
+    const el = await open('# dog\n\nBody\n\nMore dog\n')
+    const view = (adapter as unknown as { view: EditorView }).view
+    const changes: string[] = []
+    adapter?.onChange((markdown) => changes.push(markdown))
+    view.dispatch({ selection: { anchor: 1 } })
+    adapter?.highlightBlocks([0, 2])
+    expect(view.state.selection.main.anchor).toBe(1)
+    expect(changes).toEqual([])
+    expect(el.textContent).toBe('# dogBodyMore dog')
+  })
+
+  it('ignores an index the document does not hold', async () => {
+    const el = await open('# dog\n\nBody\n')
+    adapter?.highlightBlocks([0, 9])
+    expect(framedLines(el)).toEqual(['# dog'])
   })
 })

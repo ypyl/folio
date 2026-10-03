@@ -17,7 +17,7 @@ const result = (path: string, over: Partial<SearchResult> = {}): SearchResult =>
   score: 0,
   ranges: [],
   text: '',
-  block: null,
+  blocks: [],
   ...over,
 })
 
@@ -116,9 +116,9 @@ describe('SearchResultsView interaction (search-results-view spec: keyboard)', (
       onOpen,
     })
     fireEvent.click(within(main()).getByRole('button', { name: /^p0/ }))
-    expect(onOpen).toHaveBeenCalledWith('p0.md', null)
+    expect(onOpen).toHaveBeenCalledWith('p0.md', [])
     fireEvent.click(within(main()).getByRole('button', { name: /September 2, 2026/ }))
-    expect(onOpen).toHaveBeenCalledWith('journals/2026-09-02.md', null)
+    expect(onOpen).toHaveBeenCalledWith('journals/2026-09-02.md', [])
   })
 
   it('arrows move the active row; Enter opens it', () => {
@@ -131,7 +131,7 @@ describe('SearchResultsView interaction (search-results-view spec: keyboard)', (
     fireEvent.keyDown(main(), { key: 'ArrowUp' })
     expect(rows()[0].classList.contains(styles.active)).toBe(true)
     fireEvent.keyDown(main(), { key: 'Enter' })
-    expect(onOpen).toHaveBeenCalledWith('p0.md', null)
+    expect(onOpen).toHaveBeenCalledWith('p0.md', [])
   })
 
   it('hovering a row moves the active row to it', () => {
@@ -192,7 +192,7 @@ describe('SearchResultsView asset rows (search-assets-by-name)', () => {
     const onOpenAsset = vi.fn()
     renderView({ results: [page(1)], onOpen, onOpenAsset })
     fireEvent.click(rows()[0])
-    expect(onOpen).toHaveBeenCalledWith('p1.md', null)
+    expect(onOpen).toHaveBeenCalledWith('p1.md', [])
     expect(onOpenAsset).not.toHaveBeenCalled()
   })
 })
