@@ -1,5 +1,6 @@
 // The editor seam (design D1, ADR-0010): the pane and the draft/save logic
-// depend on this interface; ProseMirror lives behind MilkdownAdapter. Mirrors
+// depend on this interface; the editor library lives behind CodeMirrorAdapter.
+// Mirrors
 // the VaultStorage/fakeHandle asymmetry: logic is tested against a fake, the
 // real transport gets a thin smoke test.
 
@@ -25,7 +26,7 @@ export type SuggestionSources = {
 export type DropPoint = { left: number; top: number }
 
 /** One top-level block of the open document as static HTML, with its
- *  ProseMirror node type name (add-presentations). Serialized from the
+ *  block's node type name (add-presentations). Serialized from the
  *  already-parsed document, so a presentation reuses the editor's grammar
  *  rather than introducing a second one (ADR-0008). */
 export type StaticBlock = { type: string; html: string }

@@ -297,3 +297,64 @@ describe('syncAssetImages viewport lifecycle (bound-image-render-cost)', () => {
     releaseAssetImages(cache)
   })
 })
+
+describe('a path whose markdown destination is escaped', () => {
+  // A destination writes `%20` where the file's name has a space, so the path as
+  // written names no file. Registration, reading, and release key on the decoded
+  // path, which is the rule the index and the open gesture already use, so a file
+  // the index lists as an asset is a file that renders.
+
+  it('reads the decoded path, and applies the bytes to the element', async () => {
+    const el = host(
+      '<span class="folio-image"><img src="assets/chart%202026%20(final).png" /></span>',
+    )
+    const cache = createAssetImages()
+    const read = reader()
+    syncAssetImages(el, cache, read)
+    expect(read.calls).toEqual(['assets/chart 2026 (final).png'])
+    await settle()
+    const img = el.querySelector('img') as HTMLImageElement
+    expect(img.getAttribute('src')).toMatch(/^blob:/)
+    expect(el.querySelector('.folio-image')?.hasAttribute('data-resolved')).toBe(true)
+    releaseAssetImages(cache)
+  })
+
+  it('recognises the element on the next pass and reads it once', async () => {
+    const el = host('<span class="folio-image"><img src="assets/chart%20one.png" /></span>')
+    const cache = createAssetImages()
+    const read = reader()
+    syncAssetImages(el, cache, read)
+    await settle()
+    syncAssetImages(el, cache, read)
+    await settle()
+    // The element still shows the encoded path in the document but the decoded
+    // path in the cache, so a second pass must not read it again or drop it.
+    expect(read.calls).toEqual(['assets/chart one.png'])
+    expect(cache.urls.size).toBe(1)
+    expect(cache.paths.get(el.querySelector('img') as HTMLImageElement)).toBe(
+      'assets/chart one.png',
+    )
+    releaseAssetImages(cache)
+  })
+
+  it('keeps a path whose escape cannot be decoded as its literal name', async () => {
+    // A file really named with a `%` is written `%25` by the writer, but a hand
+    // written destination can carry an undecodable escape; it is then its own
+    // literal name, exactly as the index reads it.
+    const el = host('<img src="assets/%E0%A4%A.pdf" />')
+    const cache = createAssetImages()
+    const read = reader()
+    syncAssetImages(el, cache, read)
+    expect(read.calls).toEqual(['assets/%E0%A4%A.pdf'])
+    releaseAssetImages(cache)
+  })
+
+  it('still leaves a remote image alone', async () => {
+    const el = host('<img src="https://example.com/a.png" />')
+    const cache = createAssetImages()
+    const read = reader()
+    syncAssetImages(el, cache, read)
+    expect(read.calls).toEqual([])
+    releaseAssetImages(cache)
+  })
+})

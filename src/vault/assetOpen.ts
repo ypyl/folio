@@ -65,6 +65,56 @@ const UNKNOWN_TYPE = 'application/octet-stream'
  *  kill a slow load. */
 const REVOKE_AFTER_MS = 60_000
 
+/** Percent-decoding, with the literal path as the fallback for a destination
+ *  that carries a `%` the browser cannot decode. The one rule for reading a
+ *  destination back as a vault path: the index (`assetPath`), the open gesture
+ *  (`vaultTarget`), and the image pass all use it, so a path any one of them
+ *  resolves is a path they all resolve. A markdown destination carries `%20`
+ *  where the file's name has a space, so a path used as written would name no
+ *  file. */
+export function decodeVaultPath(path: string): string {
+  try {
+    return decodeURIComponent(path)
+  } catch {
+    return path
+  }
+}
+
+/** Schemes the browser can open; anything else (a vault path, a fragment) is
+ *  not a target this app can open. */
+const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
+
+/**
+ * Open `href` in the browser: a new tab, or the system browser when the app runs
+ * installed. `noopener` keeps the opened page out of this window. Only a URL
+ * that already carries a scheme the browser can open is ever opened — a vault
+ * path or a fragment would otherwise resolve against the app's own origin and
+ * open a tab showing a 404. The `www.` form a writer types counts as https.
+ *
+ * It lives here, with the rest of "what counts as a target", because both
+ * editors ask the same question (ADR-0010).
+ */
+export function openExternal(href: string | null | undefined): boolean {
+  if (!href) return false
+  const candidate = /^www\./i.test(href) ? `https://${href}` : href
+  let url: URL
+  try {
+    // No base: a relative href throws here rather than resolving to the app's
+    // own origin, which is what makes it recognisable as not-external.
+    url = new URL(candidate)
+  } catch {
+    return false
+  }
+  if (!EXTERNAL_SCHEMES.has(url.protocol)) return false
+  window.open(url.href, '_blank', 'noopener,noreferrer')
+  return true
+}
+
+/** A bare URL in the `www.` form a writer types. It is a link target, never a
+ *  vault path: without this it would be claimed as a relative path and never
+ *  reach `openExternal`, which is the rule that opens it as https. */
+const BARE_WWW = /^www\./i
+
 /** The vault path a link targets, or null when the target is not one: an
  *  external URL, a fragment, an absolute path, an empty href, or an escape the
  *  browser cannot decode. The path is decoded, so the `%20` a Markdown
@@ -74,9 +124,17 @@ const REVOKE_AFTER_MS = 60_000
 export function vaultTarget(href: string | null | undefined): string | null {
   // A fragment is not a path — `#section` names a place in this document, and
   // nothing is served at it (spec: non-external targets do not open).
-  if (!href || href.startsWith('#') || !isVaultRelative(href)) return null
+  if (!href || href.startsWith('#') || BARE_WWW.test(href) || !isVaultRelative(href)) return null
   try {
-    return decodeURIComponent(href)
+    try {
+      // Strict, unlike `decodeVaultPath`: a destination the browser cannot
+      // decode names no file this vault holds, so the open gesture refuses it.
+      // The index and the image pass keep the literal instead, so a file whose
+      // name really does carry a `%` still lists and still renders.
+      return decodeURIComponent(href)
+    } catch {
+      return null
+    }
   } catch {
     return null
   }

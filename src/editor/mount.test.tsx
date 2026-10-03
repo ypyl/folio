@@ -4,9 +4,9 @@ import { expect, it } from 'vitest'
 import { EditorPane } from '../components/EditorPane'
 import type { Page } from '../page'
 
-// Regression tests for the StrictMode mount race (design D3, fix-editor-mount-race):
-// MilkdownAdapter.mount awaits Editor.create(), so a destroy() issued while create()
-// is in flight must tear the pending editor down, never leak a second .milkdown root.
+// Regression tests for the StrictMode mount race (design D3,
+// fix-editor-mount-race): a destroy() issued while the editor's mount is in
+// flight must tear the pending editor down, never leak a second surface.
 
 const pageA: Page = { path: 'a.md', title: 'A', kind: 'page', content: 'first page' }
 const pageB: Page = { path: 'b.md', title: 'B', kind: 'page', content: 'second page' }
@@ -16,8 +16,8 @@ const settle = () =>
     await new Promise((r) => setTimeout(r, 100))
   })
 
-const roots = () => document.querySelectorAll('.milkdown').length
-const proseMirror = () => document.querySelector('.ProseMirror')?.textContent ?? ''
+const roots = () => document.querySelectorAll('.cm-editor').length
+const surface = () => document.querySelector('.cm-content')?.textContent ?? ''
 
 it('StrictMode double-mount leaves exactly one seeded editor', async () => {
   render(
@@ -27,7 +27,7 @@ it('StrictMode double-mount leaves exactly one seeded editor', async () => {
   )
   await settle()
   expect(roots()).toBe(1)
-  expect(proseMirror()).toContain('first page')
+  expect(surface()).toContain('first page')
 })
 
 it('an immediate page switch while the first mount is initializing leaves one editor', async () => {
@@ -39,7 +39,7 @@ it('an immediate page switch while the first mount is initializing leaves one ed
   rerender(<EditorPane key="b" page={pageB} initialContent="second page" onChange={() => {}} />)
   await settle()
   expect(roots()).toBe(1)
-  expect(proseMirror()).toContain('second page')
+  expect(surface()).toContain('second page')
 })
 
 it('unmounting while the first mount is initializing leaves no editor behind', async () => {
@@ -51,8 +51,8 @@ it('unmounting while the first mount is initializing leaves no editor behind', a
   expect(roots()).toBe(0)
 })
 
-// fit-vault-images-to-pane: the node view is registered by the real adapter, and
-// the pane's resolution pass still finds the element inside it. This is the one
+// fit-vault-images-to-pane: the image widget is rendered by the real adapter,
+// and the pane's resolution pass finds the element inside it. This is the one
 // place both run for real; the pane's own tests drive the fake seam.
 it('renders a vault image in the fit wrapper with its control, resolved to the bytes', async () => {
   const readAsset = async () => new Blob(['bytes'], { type: 'image/png' })

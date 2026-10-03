@@ -1,6 +1,6 @@
 # ADR-0017: Adopt the GFM table slice and the component table block
 
-- Status: Accepted
+- Status: Superseded by ADR-0029
 - Date: 2026-09-13
 
 ## Context

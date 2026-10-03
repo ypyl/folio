@@ -1,6 +1,6 @@
 # ADR-0018: Folio owns the image node's DOM through a node view
 
-- Status: Accepted
+- Status: Superseded by ADR-0029
 - Date: 2026-09-15
 
 ## Context

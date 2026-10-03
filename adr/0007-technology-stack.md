@@ -22,4 +22,4 @@ Folio is a local-first PWA (ADR-0001, ADR-0002) with a deliberately small scope 
 - Purely static frontend: can be hosted anywhere or run as a PWA; no deployment surface.
 - File System Access API usage (Chromium-only) is consistent with ADR-0002.
 - Library choices are replaceable; the parsing/indexing logic behind them is owned by Folio.
-- Editor/rendering choice updated by ADR-0008: Milkdown replaces `react-markdown` + `remark-gfm` as the primary editing/rendering surface.
+- Editor/rendering choice updated by ADR-0008: Milkdown replaces `react-markdown` + `remark-gfm` as the primary editing/rendering surface. Updated again by ADR-0029, which supersedes ADR-0008: the page surface is the Markdown text itself, in CodeMirror 6, with `react-markdown` still not used.

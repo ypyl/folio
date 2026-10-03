@@ -7,7 +7,7 @@
 
 import type { StaticBlock } from '../editor/editor'
 
-/** The ProseMirror node type a thematic break serializes as. */
+/** The block type a thematic break is read as. */
 const THEMATIC_BREAK = 'hr'
 
 /**

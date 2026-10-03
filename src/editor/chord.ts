@@ -1,5 +1,5 @@
 // The chord parser: the inverse of displayKeys (src/components/shortcuts.ts).
-// Turns a Milkdown-style chord ("Mod-b", "Shift-Mod-z", "Mod-]", "Shift-Tab")
+// Turns a chord ("Mod-b", "Shift-Mod-z", "Mod-]", "Shift-Tab")
 // into the KeyboardEvent init that replays it. It lives in the editor layer
 // because the adapter is its primary consumer and App already imports editor
 // modules; displayKeys stays with the display data it renders.
@@ -21,7 +21,7 @@ export const isMac = (): boolean => /Mac/i.test(navigator.platform)
  *
  * The event carries an explicit `key` and no `keyCode`, so a replayed chord is
  * layout-independent: it resolves on any keyboard layout, where a real
- * keypress on a non-Latin layout relies on ProseMirror's keyCode fallback.
+ * keypress on a non-Latin layout would rely on a keyCode fallback.
  */
 export function chordToKeyEventInit(chord: string): KeyboardEventInit {
   const parts = chord.split('-')

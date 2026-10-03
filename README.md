@@ -23,7 +23,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 
 - React 19 + TypeScript, built with Vite 8
 - File System Access API (Chromium-first: Chrome, Edge, Brave)
-- [Milkdown](https://milkdown.dev/) (ProseMirror) for editing, CodeMirror for code blocks
+- [CodeMirror 6](https://codemirror.net/) for the page surface: the Markdown text, with inline images, tables, and references rendered as view-only decorations (ADR-0029)
 - [Excalidraw](https://excalidraw.com/) for whiteboards
 - [Fuse.js](https://www.fusejs.io/) for search
 - `vite-plugin-pwa` for offline and install

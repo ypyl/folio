@@ -104,9 +104,9 @@ export default defineConfig({
         // the board's dynamic import.
         //
         // `keep-board-chunk-lazy`: the board graph and the app's own static graph
-        // share libraries (`react`/`react-dom`, a peer of Excalidraw; `dompurify`
-        // via mermaid and @milkdown/components; `lodash-es`, `clsx`, `nanoid`,
-        // `@floating-ui` via @milkdown/components) and Vite's preload helper.
+        // share libraries (`react`/`react-dom`, a peer of Excalidraw; `dompurify`,
+        // `lodash-es`, `clsx`, `nanoid`, and `@floating-ui` by way of Excalidraw
+        // and mermaid) and Vite's preload helper.
         // Capturing those into the board chunk made the entry import it, so the
         // app module-preloaded ~2.3 MB of board editor on every startup. A
         // higher-priority group lifts the shared modules into their own `vendor`

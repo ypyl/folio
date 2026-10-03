@@ -1,7 +1,7 @@
 // Test-support fake of the editor seam (design D1), same role as
 // vault/fakeHandle: implements exactly the contract EditorPane depends on,
 // with a test hook to simulate user edits. Tests inject it by mocking the
-// MilkdownAdapter module.
+// adapter module.
 
 import type { DropPoint, EditorAdapter, StaticBlock, SuggestionSources } from './editor'
 import { blockStartLines } from '../lineAnchors'
@@ -37,15 +37,15 @@ export class FakeEditor implements EditorAdapter {
   private host: HTMLElement | null = null
 
   /** Mirror the editor's top-level block DOM so pane tests can measure the
-   *  gutter binding (real ProseMirror is replaced by this fake). A block whose
+   *  gutter binding (the real editor is replaced by this fake). A block whose
    *  markdown carries an image reference renders an `<img>` for the first one,
    *  as the real adapter does — that is what vault-image resolution operates
    *  on. */
   private syncDoc(): void {
     if (!this.host) return
-    this.host.querySelector('.ProseMirror')?.remove()
+    this.host.querySelector('.fake-editor-surface')?.remove()
     const pm = document.createElement('div')
-    pm.className = 'ProseMirror'
+    pm.className = 'fake-editor-surface'
     const lines = this.content.split('\n')
     for (const line of this.blockLines()) {
       const block = document.createElement('div')

@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { CSSProperties, ClipboardEvent, DragEvent, ReactNode, Ref } from 'react'
 import { FolioMark } from '../FolioMark'
 import type { EditorAdapter, StaticBlock } from '../editor/editor'
-import { MilkdownAdapter } from '../editor/milkdown'
+import { CodeMirrorAdapter } from '../editor/codemirror'
 import type { Page } from '../page'
 import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
@@ -19,10 +19,10 @@ import { noVaultReader } from '../vault/assetOpen'
 import styles from './EditorPane.module.css'
 
 // The editor surface for an open page (design D1/D2). The pane owns the DOM
-// element and the lifecycle; the MilkdownAdapter owns the editor. App keys
-// this component by page path, so each page gets a fresh editor seeded with
-// its initial content (draft-or-index), and switching pages remounts rather
-// than mutating a live ProseMirror doc.
+// element and the lifecycle; the adapter behind `EditorAdapter` owns the editor
+// (ADR-0010). App keys this component by page path, so each page gets a fresh
+// editor seeded with its initial content (draft-or-index), and switching pages
+// remounts rather than mutating a live document.
 
 // The hint shown at the document start while a page has no content
 // (journal-home, page-editing spec); it lives only in the pane, never in the
@@ -223,7 +223,10 @@ export function EditorPane({
     const el = mountRef.current
     if (!el) return
     let cancelled = false
-    const adapter = new MilkdownAdapter()
+    // One editor, behind the seam (ADR-0010): the pane knows only
+    // `EditorAdapter`, so the surface can change again without the pane
+    // learning about it.
+    const adapter: EditorAdapter = new CodeMirrorAdapter()
     adapterRef.current = adapter
     // The pane is the scroll container whose viewport decides which images are
     // needed (bound-image-render-cost, design D1): resolution follows what is
@@ -327,8 +330,8 @@ export function EditorPane({
   // is a screenshot or a copied file, and is attached exactly as a drop would
   // be. A clipboard with text belongs to the editor's markdown-aware paste,
   // whether or not files ride along, so this returns before touching it — a
-  // decision made from the clipboard's content rather than from whether
-  // ProseMirror already called preventDefault (design D2).
+  // decision made from the clipboard's content rather than from whether the
+  // editor already handled the paste (design D2).
   const handlePaste = (e: ClipboardEvent<HTMLElement>): void => {
     if (page === null || !onAttachFiles) return
     if (e.clipboardData.getData('text/plain') !== '') return
@@ -387,10 +390,9 @@ export function EditorPane({
         <div
           ref={mountRef}
           className={styles.editor}
-          // Empty pages get an inline hint (journal-home): the CSS ::before on
-          // the empty paragraph reads it through the inheriting
-          // --placeholder variable. Plain attr() would look on the <p> itself,
-          // which Milkdown owns — it never reads ancestor attributes.
+          // Empty pages get an inline hint (journal-home): the surface's
+          // CSS ::before reads it through the inheriting `--placeholder`
+          // variable set here.
           data-empty={isEmpty || undefined}
           style={{ '--placeholder': `'${PLACEHOLDER}'` } as CSSProperties}
         />

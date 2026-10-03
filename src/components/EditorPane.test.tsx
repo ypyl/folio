@@ -7,14 +7,14 @@ import { EditorPane, type EditorPaneHandle } from './EditorPane'
 import { collectFiles, withPastedName } from './dropAssets'
 import { linkForAsset } from '../vault/link'
 
-// Replace the real ProseMirror transport with FakeEditor for component tests
+// Replace the real editor transport with FakeEditor for component tests
 // (design D1): the pane is tested against the seam contract. Instances are
 // registered so tests can drive changes and assert what was loaded.
 const instances = vi.hoisted(() => ({ list: [] as EditorAdapter[] }))
-vi.mock('../editor/milkdown', async () => {
+vi.mock('../editor/codemirror', async () => {
   const { FakeEditor } = await import('../editor/fakeEditor')
   return {
-    MilkdownAdapter: class extends FakeEditor {
+    CodeMirrorAdapter: class extends FakeEditor {
       constructor() {
         super()
         instances.list.push(this)
@@ -493,7 +493,7 @@ describe('EditorPane', () => {
   describe('empty-page placeholder (journal-home)', () => {
     // The pane gates the hint with data-empty; the copy rides the inheriting
     // --placeholder variable so the CSS ::before on the empty paragraph can
-    // read it (attr() would look on the <p> itself, which Milkdown owns).
+    // read it (attr() would look on the surface's own element, not here).
     const editorEl = () =>
       (screen.getByRole('main') as HTMLElement).querySelector<HTMLElement>('[data-empty]')
 

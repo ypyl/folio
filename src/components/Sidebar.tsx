@@ -88,6 +88,16 @@ function sameView(a: ListView, b: ListView): boolean {
 //   activePath, hasVault, loading, todayTick, collapsed - primitives
 // A new prop that is rebuilt on every render silently disables this, so
 // re-run the change's measurement when this list changes.
+/**
+ * Whether a page row offers Presenting. Off for now
+ * (swap-editor-to-codemirror-live-preview): the deck derives from the page's
+ * Markdown, and the reading view's rendering of that text is not yet at parity,
+ * so the row would open a deck that reads worse than the page it presents. The
+ * `onPresent` seam and the view behind it are kept, so re-enabling Presenting is
+ * flipping this.
+ */
+const PRESENT_ENABLED = false
+
 export const Sidebar = memo(
   forwardRef(function Sidebar(
     {
@@ -446,7 +456,9 @@ export const Sidebar = memo(
                 label: menuRow?.pinned ? 'Unfavorite' : 'Favorite',
                 onSelect: () => onFavorite?.(menu.path),
               },
-              { label: 'Present', onSelect: () => onPresent?.(menu.path) },
+              ...(PRESENT_ENABLED
+                ? [{ label: 'Present', onSelect: () => onPresent?.(menu.path) }]
+                : []),
             ]}
           />
         ) : null}

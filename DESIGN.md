@@ -275,14 +275,14 @@ same weight and margin it always had.
 
 ### Code
 
-Component-backed blocks: the code-block component (CodeMirror inside the
-block). A quiet ivory panel — fill only, no border, 8px radius — with a slim
-header row (language label + copy button) and the editor below. Syntax
-highlighting uses existing tokens only: keyword `--brand`, comment `--stone`,
-string `--olive`, number `--dark-warm`, function/class `--near-black`. The
-mapping lives in `src/editor/codeBlockSetup.ts` (hex values mirror the tokens
-above, so the two must not drift); blocks without a language stay monochrome
-and show the `Text` label.
+A fenced block is highlighted in place (ADR-0029): the fence and its language
+are the Markdown text, and the block's content is coloured by the grammar the
+opening fence names. A quiet ivory fill — no border, 8px radius — marks the
+block out from the prose. Syntax highlighting uses existing tokens only: keyword
+`--brand`, comment `--stone`, string `--olive`, number `--dark-warm`,
+function/class `--near-black`. The mapping lives in
+`src/editor/codeHighlight.ts` (hex values mirror the tokens above, so the two
+must not drift); a fence with no language stays monochrome.
 
 ### Search match
 

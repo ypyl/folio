@@ -24,17 +24,17 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0005](0005-keep-ui-small-three-pane-layout.md) | Keep the UI small: three-pane layout, no graph visualization | Accepted |
 | [0006](0006-scope-guardrails-not-logseq.md) | Scope guardrails: do not rebuild Logseq | Accepted |
 | [0007](0007-technology-stack.md) | Technology stack: Vite, React, TypeScript, no backend | Accepted |
-| [0008](0008-use-milkdown-as-markdown-editor.md) | Use Milkdown as the Markdown editor component | Accepted |
+| [0008](0008-use-milkdown-as-markdown-editor.md) | Use Milkdown as the Markdown editor component | Superseded by 0029 |
 | [0009](0009-reject-block-based-document-model.md) | Keep Markdown canonical — reject block-based editing | Accepted |
 | [0010](0010-editor-vault-separation.md) | Keep the editor separate from the knowledge-management layer | Accepted |
 | [0011](0011-kami-design-language.md) | Adopt the Kami design language for Folio's visual identity | Accepted |
 | [0012](0012-unified-page-references.md) | Unified page references: tags and wikilinks are the same thing | Accepted |
 | [0013](0013-vault-storage-path-and-io-contract.md) | VaultStorage path and I/O contract | Accepted |
-| [0014](0014-adopt-milkdown-code-block-component.md) | Adopt the Milkdown component code block (CodeMirror) | Accepted |
+| [0014](0014-adopt-milkdown-code-block-component.md) | Adopt the Milkdown component code block (CodeMirror) | Superseded by 0029 |
 | [0015](0015-in-vault-app-meta.md) | The `.folio/` directory is app-owned state inside the vault | Accepted |
 | [0016](0016-apply-commands-by-key-chord.md) | Apply editor commands by replaying their key chord | Accepted |
-| [0017](0017-adopt-gfm-table-slice-and-table-block.md) | Adopt the GFM table slice and the component table block | Accepted |
-| [0018](0018-image-node-view.md) | Folio owns the image node's DOM through a node view | Accepted |
+| [0017](0017-adopt-gfm-table-slice-and-table-block.md) | Adopt the GFM table slice and the component table block | Superseded by 0029 |
+| [0018](0018-image-node-view.md) | Folio owns the image node's DOM through a node view | Superseded by 0029 |
 | [0019](0019-date-names-are-journal-days.md) | Date-shaped names are journal days | Accepted |
 | [0020](0020-list-markers-stay-put.md) | List markers stay where the browser places them | Accepted |
 | [0021](0021-vault-files-open-as-derived-copies.md) | A vault file opens as a derived copy, never in place | Accepted |
@@ -45,6 +45,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0026](0026-folding-a-list-item-is-view-only.md) | Folding a list item is view-only | Superseded by [0027](0027-pages-are-heading-structured-documents.md) |
 | [0027](0027-pages-are-heading-structured-documents.md) | Pages are heading-structured documents, not outliners | Accepted |
 | [0028](0028-image-resolution-is-viewport-scoped.md) | Vault image resolution is scoped to the pane's viewport | Accepted |
+| [0029](0029-the-markdown-text-is-the-page-surface.md) | The page surface is the Markdown text, edited in CodeMirror | Accepted |
 
 ## Adding a new ADR
 

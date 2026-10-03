@@ -41,18 +41,19 @@ describe('ShortcutsList', () => {
     // One chip per listed key, and the tokens render through displayKeys.
     const chips = container.querySelectorAll('kbd')
     expect(chips).toHaveLength(allKeys(items))
-    expect(container.textContent).toContain(displayKeys('Mod-b'))
+    expect(container.textContent).toContain(displayKeys('Mod-z'))
+    expect(container.textContent).toContain(displayKeys('Mod-Enter'))
     expect(container.textContent).toContain(displayKeys('Mod-k'))
   })
 
-  it('lists one row per heading level', () => {
+  it('lists a row for each remaining action and nothing else', () => {
     renderList()
-    for (let level = 1; level <= 6; level += 1) {
-      const row = rowOf(`Heading ${level}`)
-      expect(row.querySelectorAll('kbd')).toHaveLength(1)
-      expect(within(row).getByText(displayKeys(`Mod-Alt-${level}`))).toBeTruthy()
+    for (const label of ['Undo', 'Redo', 'Open reference', 'Search notes']) {
+      expect(rowOf(label)).toBeTruthy()
     }
-    expect(screen.queryByText('Heading 1-6')).toBeNull()
+    // The formatting rows are gone with the WYSIWYG surface.
+    expect(screen.queryByText('Bold')).toBeNull()
+    expect(screen.queryByText('Heading 1')).toBeNull()
   })
 
   it('makes one control per bound key combination', () => {
@@ -63,10 +64,11 @@ describe('ShortcutsList', () => {
 
   it('names each control by its action and its keys', () => {
     renderList()
-    expect(screen.getByRole('button', { name: 'Bold Ctrl+B' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Undo Ctrl+Z' })).toBeTruthy()
     // A two-chord row yields two distinctly named controls.
     expect(screen.getByRole('button', { name: 'Redo Ctrl+Y' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Redo Shift+Ctrl+Z' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open reference Ctrl+Enter' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Search notes Ctrl+K' })).toBeTruthy()
   })
 
@@ -89,18 +91,21 @@ describe('ShortcutsList', () => {
     }
   })
 
-  it('leaves a row whose chord is not a keydown binding as a plain label', () => {
+  it('renders every remaining row as a control', () => {
     renderList()
-    expect(plainItems).toHaveLength(1)
-    const row = rowOf('Paste as plain text')
-    expect(within(row).queryByRole('button')).toBeNull()
-    expect(row.querySelectorAll('kbd')).toHaveLength(1)
+    // The paste modifier used to be the one documented-but-unreplayable row.
+    // Paste is literal now, so every row is something a click can apply.
+    expect(plainItems).toHaveLength(0)
+    for (const item of interactiveItems) {
+      const row = rowOf(item.label)
+      expect(within(row).getAllByRole('button')).toHaveLength(item.keys.length)
+    }
   })
 
   it('applies the chord and its surface when a control is activated', () => {
     const onApply = renderList()
-    fireEvent.click(screen.getByRole('button', { name: 'Bold Ctrl+B' }))
-    expect(onApply).toHaveBeenCalledWith('Mod-b', 'editor')
+    fireEvent.click(screen.getByRole('button', { name: 'Undo Ctrl+Z' }))
+    expect(onApply).toHaveBeenCalledWith('Mod-z', 'editor')
     fireEvent.click(screen.getByRole('button', { name: 'Search notes Ctrl+K' }))
     expect(onApply).toHaveBeenCalledWith('Mod-k', 'app')
   })
@@ -108,7 +113,7 @@ describe('ShortcutsList', () => {
   it('disables the rows whose surface is unavailable and leaves the others live', () => {
     renderList({ editor: false, app: true })
     expect(
-      (screen.getByRole('button', { name: 'Bold Ctrl+B' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Undo Ctrl+Z' }) as HTMLButtonElement).disabled,
     ).toBe(true)
     expect(
       (screen.getByRole('button', { name: 'Search notes Ctrl+K' }) as HTMLButtonElement).disabled,

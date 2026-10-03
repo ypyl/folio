@@ -3,7 +3,7 @@
 // D6), and the inline-link scanner lives here so the index reads a page's asset
 // destinations by the same syntax the editor writes them with.
 
-import { isVaultRelative } from './assetOpen'
+import { decodeVaultPath, isVaultRelative } from './assetOpen'
 
 export type Link = {
   target: string // page name, exactly as referenced (trimmed)
@@ -368,16 +368,6 @@ function assetPath(body: string): string | null {
   // alone: it is indistinguishable from a filename ending in ` (something)`.
   const titled = /^(.*?)\s+("[^"]*"|'[^']*')$/.exec(path)
   if (titled) path = titled[1]
-  const decoded = decodePath(path)
+  const decoded = decodeVaultPath(path)
   return isVaultRelative(decoded) ? decoded : null
-}
-
-/** Percent-decoding, with the literal path as the fallback for a destination
- *  that carries a `%` the browser cannot decode. */
-function decodePath(path: string): string {
-  try {
-    return decodeURIComponent(path)
-  } catch {
-    return path
-  }
 }

@@ -610,14 +610,12 @@ describe('page-row context menu (add-row-context-menu)', () => {
   const rightClick = (name: string) =>
     fireEvent.contextMenu(screen.getByRole('button', { name }), { clientX: 40, clientY: 40 })
 
-  it('opens on a page row with Favorite and Present, in order', () => {
+  it('opens on a page row with Favorite, and no Present row', () => {
     list()
     rightClick('Alpha')
     expect(screen.getByRole('menu')).toBeTruthy()
-    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
-      'Favorite',
-      'Present',
-    ])
+    // Presenting is disabled for now (swap-editor-to-codemirror-live-preview).
+    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['Favorite'])
   })
 
   it('advertises the menu only on page rows', () => {
@@ -656,10 +654,6 @@ describe('page-row context menu (add-row-context-menu)', () => {
     rightClick('Alpha')
     fireEvent.click(screen.getByRole('menuitem', { name: 'Favorite' }))
     expect(onFavorite).toHaveBeenCalledWith('a.md')
-
-    rightClick('Alpha')
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
-    expect(onPresent).toHaveBeenCalledWith('a.md')
 
     // A replacement rows array carrying the favorited flag flips the label.
     rerender(

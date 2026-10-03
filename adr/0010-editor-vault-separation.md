@@ -5,7 +5,7 @@
 
 ## Context
 
-Milkdown is the editor layer (ADR-0008), and filesystem access is already behind `VaultStorage` (ADR-0003). The integration between editor and vault must not blur those boundaries, or the knowledge-management logic ends up coupled to the editor and the project stops being small and maintainable.
+The editor is a component behind `EditorAdapter` (ADR-0008, and now ADR-0029), and filesystem access is already behind `VaultStorage` (ADR-0003). The integration between editor and vault must not blur those boundaries, or the knowledge-management logic ends up coupled to the editor and the project stops being small and maintainable.
 
 ## Decision
 
@@ -14,7 +14,7 @@ Keep the editor separate from the vault logic. The boundary is Markdown serializ
 ```text
 React PWA
    │
-Milkdown Editor
+Editor (ADAPTER)
    │
 Markdown serialization
    │
@@ -30,7 +30,7 @@ Markdown files
 
 Responsibilities:
 
-- **Milkdown owns:** editing experience, Markdown parsing, Markdown serialization, formatting.
+- **The editor adapter owns:** the editing surface — cursor, selection, undo, and the rendering of the Markdown it is handed.
 - **The application owns:** file storage, vault indexing, page resolution, backlinks, tags, journals, search.
 
 Custom editor nodes (e.g., wikilinks) communicate through the same Markdown representation; the underlying file stays normal Markdown (ADR-0009).

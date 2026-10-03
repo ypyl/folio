@@ -1,6 +1,6 @@
 # ADR-0008: Use Milkdown as the Markdown editor component
 
-- Status: Accepted
+- Status: Superseded by ADR-0029
 - Date: 2026-09-03
 
 ## Context

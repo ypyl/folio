@@ -154,6 +154,23 @@
   color: var(--stone);
 }
 
+/* The same hint on the Markdown-source surface (swap-editor-to-codemirror-live-
+   preview): an empty document is one empty line, so the hint renders before it
+   through the same inherited variable, and the surface grows to the pane's
+   bottom edge so a click below the last line still lands in the document. */
+.editor[data-empty] :global(.cm-content)::before {
+  content: var(--placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--stone);
+}
+
+.editor :global(.cm-editor) {
+  flex: 1;
+  min-height: 8em;
+}
+
 /* Milkdown wraps the editable surface in its own div, so the height has to be
    passed through it: it is the surface's parent and the last link before
    ProseMirror, and an ordinary block here would stop the page at its content

@@ -4,7 +4,7 @@
 
 ## Stack
 
-Vite + React + TypeScript, Chromium-first PWA (File System Access API), Milkdown editor, Fuse.js search, oxlint.
+Vite + React + TypeScript, Chromium-first PWA (File System Access API), CodeMirror 6 editor, Fuse.js search, oxlint.
 
 ## Architecture
 

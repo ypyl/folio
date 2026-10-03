@@ -12,12 +12,12 @@
 // is never retried (D5), and the wrapper carries `data-resolved` so the
 // stylesheet needs no `:has()` (D4).
 //
-// A plain function over a DOM subtree: no React, no Milkdown. The pane owns the
+// A plain function over a DOM subtree: no React, no editor. The pane owns the
 // cache's lifetime and drives the pass where it already drives the gutter. The
 // one vault import is the shared "what counts as a vault path" predicate, which
 // the index's asset extraction reads too.
 
-import { isVaultRelative } from '../vault/assetOpen'
+import { decodeVaultPath, isVaultRelative } from '../vault/assetOpen'
 
 /** How far outside the pane's viewport an image still counts as needed. One
  *  viewport of lead keeps fast scrolling from showing empty boxes, at the cost
@@ -257,10 +257,15 @@ export function syncAssetImages(
   for (const img of host.querySelectorAll('img')) {
     const known = cache.paths.get(img)
     const src = img.getAttribute('src')
-    // An element we already own shows either its vault path, our `blob:` URL,
-    // or nothing (released). Only a re-point at a *different* vault path makes
-    // it a new image.
-    if (known !== undefined && (src === null || !isVaultRelative(src) || src === known)) {
+    // The path the element names, decoded: a markdown destination writes `%20`
+    // where the file's name has a space, so the path as written names no file.
+    // Registration, reading, and release all key on this, never on the raw
+    // attribute — the same rule the index and the open gesture use (ADR-0010).
+    const named = src !== null && isVaultRelative(src) ? decodeVaultPath(src) : null
+    // An element we already own shows either those same characters, our `blob:`
+    // URL, or nothing (released). Only a re-point at a *different* path makes it
+    // a new image.
+    if (known !== undefined && (src === null || named === null || named === known)) {
       seen.add(img)
       if (cache.urls.has(known)) applyUrl(cache, img, known)
       continue
@@ -274,9 +279,9 @@ export function syncAssetImages(
       cache.observer.unobserve(img)
       if (!hasVisible(cache, known)) releasePath(cache, known)
     }
-    if (src === null || !isVaultRelative(src)) continue
+    if (named === null) continue
     seen.add(img)
-    cache.paths.set(img, src)
+    cache.paths.set(img, named)
     cache.elements.add(img)
     cache.observer.observe(img)
   }

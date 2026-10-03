@@ -30,14 +30,14 @@ Object.defineProperty(HTMLDialogElement.prototype, 'close', {
   },
 })
 
-// Replace the real ProseMirror transport with FakeEditor for App-level tests
+// Replace the real editor transport with FakeEditor for App-level tests
 // (design D1). Instances are registered so tests can drive edits and assert
 // what each page's editor was seeded with.
 const editorInstances = vi.hoisted(() => ({ list: [] as EditorAdapter[] }))
-vi.mock('./editor/milkdown', async () => {
+vi.mock('./editor/codemirror', async () => {
   const { FakeEditor } = await import('./editor/fakeEditor')
   return {
-    MilkdownAdapter: class extends FakeEditor {
+    CodeMirrorAdapter: class extends FakeEditor {
       constructor() {
         super()
         editorInstances.list.push(this)
@@ -277,7 +277,7 @@ describe('application shell', () => {
     expect(section.open).toBe(false)
     fireEvent.click(summary)
     expect(section.open).toBe(true)
-    expect(screen.getByText('Bold')).toBeTruthy()
+    expect(screen.getByText('Undo')).toBeTruthy()
   })
 
   it('renders an Accordion without defaultOpen closed by default', () => {
@@ -1298,21 +1298,22 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     render(<App />)
     await openReference()
     // No vault: no editor is mounted and search is disabled, so no row acts.
-    for (const name of ['Bold Ctrl+B', 'Indent list item Tab', 'Search notes Ctrl+K']) {
+    for (const name of ['Undo Ctrl+Z', 'Open reference Ctrl+Enter', 'Search notes Ctrl+K']) {
       expect(control(name).disabled).toBe(true)
     }
-    // The row whose chord is not a keydown binding is never a control.
-    expect(screen.queryByRole('button', { name: /Paste as plain text/ })).toBeNull()
+    // The formatting rows are gone, so nothing offers a chord the editor cannot
+    // claim (swap-editor-to-codemirror-live-preview).
+    expect(screen.queryByRole('button', { name: /^Bold/ })).toBeNull()
   })
 
   it('enables the editor rows once a page is open and sends the chord to the editor', async () => {
     render(<App />)
     await openFixture()
     await openReference()
-    expect(control('Bold Ctrl+B').disabled).toBe(false)
+    expect(control('Undo Ctrl+Z').disabled).toBe(false)
     expect(control('Search notes Ctrl+K').disabled).toBe(false)
-    fireEvent.click(control('Bold Ctrl+B'))
-    expect(editor().chords).toEqual(['Mod-b'])
+    fireEvent.click(control('Undo Ctrl+Z'))
+    expect(editor().chords).toEqual(['Mod-z'])
     vi.unstubAllGlobals()
   })
 
@@ -1981,67 +1982,12 @@ describe('logseq import', () => {
   })
 })
 
-// Presentations (add-presentations; entered from the row menu by
-// add-row-context-menu): a page becomes a full-viewport deck, entered
-// explicitly and left without changing the page or writing the vault.
-describe('presentations (add-presentations)', () => {
-  it('presents the open page from its row menu, closes back to the editor, and writes nothing', async () => {
-    const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
-    try {
-      render(<App />)
-      await openFixture()
-      fireEvent.click(await filesSection().findByRole('button', { name: 'Welcome' }))
-      await waitFor(() => expect(editor().content).toContain('This is Folio'))
-
-      // The deck is derived from the live editor's blocks.
-      editor().blocks = [
-        { type: 'heading', html: '<h1>Intro</h1>' },
-        { type: 'hr', html: '<hr>' },
-        { type: 'paragraph', html: '<p>Talk</p>' },
-      ]
-      fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
-        clientX: 40,
-        clientY: 40,
-      })
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
-      const dialog = await screen.findByRole('dialog', { name: 'Presentation' })
-      expect(within(dialog).getByRole('heading', { name: 'Intro' })).toBeTruthy()
-
-      // Navigation stays inside the deck.
-      fireEvent.click(within(dialog).getByRole('button', { name: 'Next slide' }))
-      expect(within(dialog).getByText('2 / 2')).toBeTruthy()
-
-      // Escape (the dialog's cancel) returns to the same page, unchanged.
-      fireEvent(dialog, new Event('cancel', { bubbles: true, cancelable: true }))
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Presentation' })).toBeNull())
-      expect(editor().content).toContain('This is Folio')
-      // Presenting and closing wrote nothing to the vault.
-      expect(write).not.toHaveBeenCalled()
-    } finally {
-      write.mockRestore()
-      vi.unstubAllGlobals()
-    }
-  })
-
-  it('presents a page that is not open by opening it first', async () => {
-    render(<App />)
-    await openFixture()
-    // Land on a file-backed page so the presented row is a different one.
-    fireEvent.click(await filesSection().findByRole('button', { name: 'Inbox' }))
-    await waitFor(() => expect(editor().setContents[0]).toContain('A place to drop thoughts'))
-
-    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
-      clientX: 40,
-      clientY: 40,
-    })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
-
-    // The clicked page opens, and the deck is shown for it.
-    await screen.findByRole('dialog', { name: 'Presentation' })
-    expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy()
-    vi.unstubAllGlobals()
-  })
-})
+// Presentations (add-presentations) are disabled for now
+// (swap-editor-to-codemirror-live-preview): the row menu's Present entry is
+// gone, because a deck derived from the Markdown source does not yet render at
+// parity with the reading view. The view, its derivation, and their own tests
+// are kept, so re-enabling it is the menu row again plus the two App-level tests
+// this block used to hold.
 
 // The Contents section (add-page-contents): the open page's headings, and a row
 // that locates its heading without changing anything.

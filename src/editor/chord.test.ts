@@ -1,5 +1,5 @@
 // The chord parser (apply-shortcuts-on-click, design D8). Pure data mapping:
-// a Milkdown-style chord in, the KeyboardEvent init that replays it out. The
+// a chord in, the KeyboardEvent init that replays it out. The
 // platform branch is covered for both platforms because `Mod` must resolve to
 // the same modifier a real keypress would produce.
 

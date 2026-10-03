@@ -59,7 +59,7 @@ describe('parseLinks', () => {
   })
 
   it('reads editor-serialized bracketed references (commonmark escape)', () => {
-    // Milkdown's serializer escapes `[[` on save, so an editor-authored
+    // An editor writes the commonmark escape for `[[`, so an editor-authored
     // `#[[Reading Log]]` lies on disk as `#\[[Reading Log]]`. The index must
     // tokenize exactly what the editor wrote (design D6).
     expect(parseLinks('moved items into #\\[\\[Reading Log]].')).toEqual([

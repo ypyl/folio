@@ -1,28 +1,5 @@
-// Keyboard-shortcuts data (keyboard-shortcuts-help, move-help-to-right-panel,
-// apply-shortcuts-on-click). Pure-data concerns: how a shortcut renders, and
-// whether the sheet still matches what the editor actually binds. Since the
-// sheet became the dispatch surface for the chords it lists — a click replays
-// them — this guard protects behaviour rather than documentation. The list's
-// rendering lives in ShortcutsList.test.tsx.
-
-import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest'
-import { historyKeymap } from '@milkdown/plugin-history'
-import {
-  blockquoteKeymap,
-  bulletListKeymap,
-  codeBlockKeymap,
-  emphasisKeymap,
-  hardbreakKeymap,
-  headingKeymap,
-  inlineCodeKeymap,
-  listItemKeymap,
-  orderedListKeymap,
-  paragraphKeymap,
-  strongKeymap,
-} from '@milkdown/preset-commonmark'
-import { MilkdownAdapter } from '../editor/milkdown'
-import { tableKeymap } from '@milkdown/preset-gfm'
-import { tableChords } from '../editor/tableSetup'
+import { afterEach, describe, expect, it } from 'vitest'
+import { CodeMirrorAdapter } from '../editor/codemirror'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
 
 describe('displayKeys', () => {
@@ -34,209 +11,116 @@ describe('displayKeys', () => {
   it('renders Mod as Ctrl on non-mac platforms', () => {
     Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
     expect(displayKeys('Mod-b')).toBe('Ctrl+B')
-    expect(displayKeys('Shift-Mod-z')).toBe('Shift+Ctrl+Z')
     expect(displayKeys('Mod-Alt-1')).toBe('Ctrl+Alt+1')
-    expect(displayKeys('Tab')).toBe('Tab')
+    expect(displayKeys('Shift-Mod-z')).toBe('Shift+Ctrl+Z')
   })
 
   it('renders Mod as Cmd on mac platforms', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     expect(displayKeys('Mod-b')).toBe('Cmd+B')
-    expect(displayKeys('Mod-k')).toBe('Cmd+K')
+    expect(displayKeys('Mod-Alt-1')).toBe('Cmd+Alt+1')
   })
 })
 
 const sheetItems = SHORTCUT_GROUPS.flatMap((group) => group.items)
 const sheetItem = (label: string) => sheetItems.find((item) => item.label === label)
 
-// Chords the app binds outside ProseMirror's keymaps: the code block's own
-// CodeMirror surface owns Mod-Enter and Backspace, the adapter's capture-phase
-// key handler owns Mod-Shift-f (the JSON format chord, which no keymap can own —
-// see format-json-code-block), the reference badge plugin owns its own chord,
-// and the app's search listener owns Mod-k. They are listed explicitly rather
-// than omitted, so a chord moved out of a ProseMirror keymap fails the union
-// check below instead of silently drifting.
-const CHORDS_BOUND_ELSEWHERE = new Set<string>([
-  'Mod-Enter',
-  'Backspace',
-  'Mod-Shift-f',
-  'Mod-k',
-  'Mod-p',
-])
-
-// Drift guard (keyboard-shortcuts-help design; extended by
-// move-help-to-right-panel and apply-shortcuts-on-click): every row the sheet
-// makes clickable must name a chord the app really binds, or a click would
-// dispatch something nothing can claim. The bindings are read from the running
-// editor's ctx, so a preset remap fails these tests rather than silently
-// leaving the sheet — and the sheet's chords decide what a click runs.
+// The sheet lists only what the app binds (keyboard-shortcuts-help, and the
+// ADR-0008 supersession that took the formatting chords with the WYSIWYG
+// surface). The chords are pinned as data here, so a formatting row reappearing
+// fails rather than quietly advertising a chord nothing claims.
 describe('sheet vs editor bindings', () => {
-  const el = document.createElement('div')
-  const adapter = new MilkdownAdapter()
-
-  const ctxGet = <T>(key: unknown): T =>
-    (
-      adapter as unknown as {
-        editor: { action: (f: (ctx: unknown) => unknown) => unknown }
-      }
-    ).editor.action((ctx) => (ctx as { get: (k: unknown) => unknown }).get(key)) as T
-
-  /** Every keymap the editor registers, as (ctx key, label) pairs. */
-  const keymaps: [unknown, string][] = [
-    [strongKeymap.key, 'strong'],
-    [emphasisKeymap.key, 'emphasis'],
-    [inlineCodeKeymap.key, 'inlineCode'],
-    [headingKeymap.key, 'heading'],
-    [paragraphKeymap.key, 'paragraph'],
-    [bulletListKeymap.key, 'bulletList'],
-    [orderedListKeymap.key, 'orderedList'],
-    [listItemKeymap.key, 'listItem'],
-    [blockquoteKeymap.key, 'blockquote'],
-    [codeBlockKeymap.key, 'codeBlock'],
-    [hardbreakKeymap.key, 'hardbreak'],
-    [historyKeymap.key, 'history'],
-    // The table slice's two keymaps (add-table-editing): the preset's own for
-    // navigation and the exit, and Folio's for the structural edits.
-    [tableKeymap.key, 'table'],
-    [tableChords.key, 'tableChords'],
-  ]
-
-  beforeAll(async () => {
-    document.body.appendChild(el)
-    await adapter.mount(el)
+  it('lists exactly the chords the app still binds', () => {
+    expect(sheetItems.map((item) => [item.label, item.keys])).toEqual([
+      ['Undo', ['Mod-z']],
+      ['Redo', ['Mod-y', 'Shift-Mod-z']],
+      ['Open reference', ['Mod-Enter']],
+      ['Search notes', ['Mod-k', 'Mod-p']],
+    ])
+    expect(SHORTCUT_GROUPS.map((group) => group.heading)).toEqual(['Editing', 'App'])
   })
 
-  afterAll(async () => {
-    await adapter.destroy()
-    el.remove()
-  })
-
-  it('the sheet Bold shortcut matches the editor binding', () => {
-    const binding = ctxGet<{ ToggleBold: { shortcuts: string[] } }>(strongKeymap.key)
-    expect(binding.ToggleBold.shortcuts).toContain('Mod-b')
-    expect(sheetItem('Bold')?.keys).toContain('Mod-b')
-    expect(displayKeys('Mod-b')).toMatch(/^(Ctrl|Cmd)\+B$/)
-  })
-
-  it('the sheet Open reference row matches the badge binding', () => {
-    // The decoration plugin binds this chord (inlineDecorations); the sheet must list
-    // the same one so the reference stays discoverable.
-    expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
-    expect(displayKeys('Mod-Enter')).toMatch(/^(Ctrl|Cmd)\+Enter$/)
-  })
-
-  it('the sheet lists the code-block exit and convert shortcuts', () => {
-    // The code-block component owns these: Mod-Enter runs exitCode, and a
-    // Backspace at offset 0 of a one-line block converts it to a paragraph
-    // (verified in the running app, not in the ProseMirror keymap ctx).
-    expect(sheetItem('Exit code block')?.keys).toEqual(['Mod-Enter'])
-    expect(sheetItem('Cancel code block')?.keys).toEqual(['Backspace'])
-    expect(displayKeys('Mod-Enter')).toMatch(/^(Ctrl|Cmd)\+Enter$/)
-    // Mod-Enter is context-dependent: it is listed under each action it serves.
-    expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
-  })
-
-  it('the sheet lists the JSON format shortcut', () => {
-    // The adapter's capture-phase key handler owns the chord
-    // (format-json-code-block); it is listed so it stays discoverable and
-    // replayable like the other editor rows.
-    expect(sheetItem('Format JSON block')?.keys).toEqual(['Mod-Shift-f'])
-    expect(displayKeys('Mod-Shift-f')).toMatch(/^(Ctrl|Cmd)\+Shift\+F$/)
-    expect(sheetItem('Format JSON block')?.replayable).not.toBe(false)
-  })
-
-  it('every heading level row matches the live heading binding', () => {
-    const binding = ctxGet<Record<string, { shortcuts: string }>>(headingKeymap.key)
-
-    // One row per level (no range entry): the sheet names each level's own
-    // chord, and the editor really binds each of those chords.
-    for (let level = 1; level <= 6; level += 1) {
-      expect(sheetItem(`Heading ${level}`)?.keys).toEqual([`Mod-Alt-${level}`])
-      expect(binding[`TurnIntoH${level}`]?.shortcuts).toBe(`Mod-Alt-${level}`)
-    }
-    expect(sheetItem('Heading 1-6')).toBeUndefined()
-  })
-
-  it('the sheet lists the table rows, and the editor binds each of them', () => {
-    // The table rows are controls like any other: every one of their chords is
-    // dispatched by a keymap the editor registers (the union check below covers
-    // that too; this pins the rows themselves).
-    const table = ctxGet<Record<string, { shortcuts: string | string[] }>>(tableKeymap.key)
-    const folio = ctxGet<Record<string, { shortcuts: string | string[] }>>(tableChords.key)
-    expect([table.NextCell.shortcuts].flat()).toContain('Tab')
-    expect([table.PrevCell.shortcuts].flat()).toContain('Shift-Tab')
-    expect([table.ExitTable.shortcuts].flat()).toContain('Enter')
-    expect(folio.InsertTable.shortcuts).toBe('Mod-Alt-t')
-    expect(folio.AddRow.shortcuts).toBe('Mod-Alt-Enter')
-    expect(folio.AddCol.shortcuts).toBe('Mod-Alt-Shift-Enter')
-    // The align and delete controls, which the handles alone used to provide.
-    expect(folio.AlignLeft.shortcuts).toBe('Mod-Alt-l')
-    expect(folio.AlignCenter.shortcuts).toBe('Mod-Alt-m')
-    expect(folio.AlignRight.shortcuts).toBe('Mod-Alt-r')
-    expect(folio.DeleteRow.shortcuts).toBe('Mod-Alt-d')
-    expect(folio.DeleteColumn.shortcuts).toBe('Mod-Alt-Shift-d')
-
-    expect(sheetItem('Insert table')?.keys).toEqual(['Mod-Alt-t'])
-    expect(sheetItem('Add row')?.keys).toEqual(['Mod-Alt-Enter'])
-    expect(sheetItem('Add column')?.keys).toEqual(['Mod-Alt-Shift-Enter'])
-    expect(sheetItem('Align column left')?.keys).toEqual(['Mod-Alt-l'])
-    expect(sheetItem('Align column center')?.keys).toEqual(['Mod-Alt-m'])
-    expect(sheetItem('Align column right')?.keys).toEqual(['Mod-Alt-r'])
-    expect(sheetItem('Delete row')?.keys).toEqual(['Mod-Alt-d'])
-    expect(sheetItem('Delete column')?.keys).toEqual(['Mod-Alt-Shift-d'])
-    expect(sheetItem('Next table cell')?.keys).toEqual(['Tab'])
-    expect(sheetItem('Previous table cell')?.keys).toEqual(['Shift-Tab'])
-    expect(sheetItem('Exit table')?.keys).toEqual(['Enter'])
-
-    // Every one is a control, not a documented gesture: a click applies it.
-    for (const label of [
+  it('lists no formatting or table chord', () => {
+    for (const gone of [
+      'Bold',
+      'Italic',
+      'Inline code',
+      'Heading 1',
+      'Heading 6',
+      'Normal paragraph',
+      'Ordered list',
+      'Bullet list',
+      'Blockquote',
+      'Code block',
+      'Exit code block',
+      'Cancel code block',
+      'Format JSON block',
       'Insert table',
       'Add row',
       'Add column',
-      'Next table cell',
-      'Previous table cell',
-      'Exit table',
       'Align column left',
-      'Align column center',
       'Align column right',
       'Delete row',
       'Delete column',
+      'Next table cell',
+      'Previous table cell',
+      'Exit table',
+      'Indent list item',
+      'Outdent list item',
+      'Line break',
+      'Paste as plain text',
     ]) {
-      expect(sheetItem(label)?.replayable).not.toBe(false)
-    }
-
-    // Tab, Shift-Tab, and Enter are context-dependent, so they stay listed
-    // under their text actions as well.
-    expect(sheetItem('Indent list item')?.keys).toContain('Tab')
-    expect(sheetItem('Outdent list item')?.keys).toContain('Shift-Tab')
-    expect(sheetItem('Exit code block')?.keys).toContain('Mod-Enter')
-    expect(displayKeys('Mod-Alt-Shift-Enter')).toMatch(/^(Ctrl|Cmd)\+Alt\+Shift\+Enter$/)
-  })
-
-  it('every clickable row names a chord the app actually binds', () => {
-    const bound = new Set<string>()
-    for (const [key] of keymaps) {
-      const entries = ctxGet<Record<string, { shortcuts: string | string[] }>>(key) ?? {}
-      for (const entry of Object.values(entries)) {
-        for (const chord of [entry.shortcuts].flat()) bound.add(chord)
-      }
-    }
-
-    const clickable = sheetItems.filter((item) => item.replayable !== false)
-    expect(clickable.length).toBeGreaterThan(0)
-    for (const item of clickable) {
-      for (const chord of item.keys) {
-        const known = bound.has(chord) || CHORDS_BOUND_ELSEWHERE.has(chord)
-        expect(known, `${item.label} lists ${chord}, which nothing binds`).toBe(true)
-      }
+      expect(sheetItem(gone), `${gone} should no longer be listed`).toBeUndefined()
     }
   })
 
-  it('the one non-clickable row documents a chord that is not a keydown binding', () => {
-    const plain = sheetItems.filter((item) => item.replayable === false)
-    expect(plain.map((item) => item.label)).toEqual(['Paste as plain text'])
-    // It is a paste modifier, not a keymap entry — which is exactly why a click
-    // cannot perform it (design D4).
-    expect(plain[0].keys).toEqual(['Shift-Mod-v'])
+  it('has no non-clickable row left', () => {
+    // The one documented-but-unreplayable row was the paste modifier. Every row
+    // that remains is a control, so a click on it applies its chord.
+    expect(sheetItems.filter((item) => item.replayable === false)).toEqual([])
+  })
+
+  it('the editor claims the history chords the sheet lists', async () => {
+    // `applyChord` (ADR-0016) replays the chord at the editor surface, so a
+    // sheet row that no keymap resolves would report itself as not applied.
+    // History is the one editor row whose chord is context-free, so it is the
+    // one that can be checked with no caret in a reference.
+    const host = document.createElement('div')
+    document.body.append(host)
+    const adapter = new CodeMirrorAdapter()
+    await adapter.mount(host)
+    try {
+      await adapter.setContent('first')
+      adapter.insertMarkdown(' second')
+      expect(adapter.applyChord('Mod-z')).toBe(true)
+      expect(adapter.applyChord('Mod-y')).toBe(true)
+    } finally {
+      await adapter.destroy()
+      host.remove()
+    }
+  })
+
+  it('the Open reference row matches the chord the editor claims in a reference', async () => {
+    expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
+    expect(displayKeys('Mod-Enter')).toMatch(/^(Ctrl|Cmd)\+Enter$/)
+
+    const host = document.createElement('div')
+    document.body.append(host)
+    const adapter = new CodeMirrorAdapter()
+    await adapter.mount(host)
+    try {
+      await adapter.setContent('see #Inbox end\n')
+      const opened: string[] = []
+      adapter.onReferenceClick((target) => opened.push(target))
+      // The seed leaves the caret at the document start, outside the reference.
+      // The chord is still claimed, so the editor's own binding for Mod-Enter
+      // (inserting a blank line, which the sheet does not document) cannot act.
+      expect(adapter.applyChord('Mod-Enter')).toBe(true)
+      expect(opened).toEqual([])
+      expect(adapter.staticBlocks().length).toBe(1)
+    } finally {
+      await adapter.destroy()
+      host.remove()
+    }
   })
 })

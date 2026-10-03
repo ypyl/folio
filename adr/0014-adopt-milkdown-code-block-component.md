@@ -1,6 +1,6 @@
 # ADR-0014: Adopt the Milkdown component code block (CodeMirror)
 
-- Status: Accepted
+- Status: Superseded by ADR-0029
 - Date: 2026-09-07
 
 ## Context
