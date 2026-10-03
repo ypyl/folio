@@ -851,11 +851,11 @@ A link whose link text is empty SHALL show its source, because hiding its marks 
 
 ### Requirement: The editor frames the located block
 
-When the app opens a page to a specific block — today, opening a search result or activating a Contents row — the editor SHALL scroll that top-level block into view and mark it with a frame around the block's whole extent: from the block's start line through its last non-blank line, with the frame's sides on every line of the extent and its top and bottom on the first and last. The block SHALL be located by the same block-start rule the search and the Contents panel share (`src/lineAnchors.ts`), so a match's anchor and the editor's mark agree.
+When the app opens a page to one or more top-level blocks — today, opening a search result, which names every block holding a match, or activating a Contents row, which names one heading — the editor SHALL frame each of them around its whole extent: from the block's start line through its last non-blank line, with the frame's sides on every line of the extent and its top and bottom on the first and last. Every block SHALL be located by the same block-start rule the search and the Contents panel share (`src/lineAnchors.ts`), so a match's anchor and the editor's mark agree. When more than one block is located, the editor SHALL scroll the first of them into view.
 
-The frame SHALL be drawn without changing layout: the mark SHALL NOT move or reflow the page's text, which a border on a line would do by narrowing that line's content box and re-wrapping a long line. The mark SHALL be presentational: it SHALL NOT enter the page's Markdown, SHALL NOT change the serialized content or the file, and SHALL NOT be written.
+The frames SHALL be identical to one another: nothing SHALL mark the scrolled-to block apart from the scroll itself. The frame SHALL be drawn without changing layout: the mark SHALL NOT move or reflow the page's text, which a border on a line would do by narrowing that line's content box and re-wrapping a long line. The mark SHALL be presentational: it SHALL NOT enter the page's Markdown, SHALL NOT change the serialized content or the file, and SHALL NOT be written.
 
-The mark SHALL NOT fade. It SHALL remain until a later location request replaces it. A document change SHALL NOT clear it, and the frame SHALL stay with the text it marks as the document changes, so the block an edit splits or extends is still the block it framed. Leaving the located page and returning to it SHALL NOT clear it either, including through Back and Forward: the mark belongs to the page that was located, not to the visit.
+The mark SHALL NOT fade. It SHALL remain until a later location request replaces it. A document change SHALL NOT clear it, and each frame SHALL stay with the text it marks as the document changes, so the block an edit splits or extends is still the block it framed. Leaving the located page and returning to it SHALL NOT clear it either, including through Back and Forward: the mark belongs to the page that was located, not to the visit.
 
 A request that names no block, and a page opened without one, SHALL be left unmarked. Locating SHALL be a view operation: it SHALL NOT create an undoable document edit, and it SHALL NOT move the caret or change the text selection.
 
@@ -870,6 +870,18 @@ A request that names no block, and a page opened without one, SHALL be left unma
 - **GIVEN** a page opened to a block of several lines, such as a list of items or a paragraph that wraps
 - **WHEN** the page renders
 - **THEN** the frame encloses every line of that block, and neither the block above it nor the block below it is enclosed
+
+#### Scenario: Every block holding a match is framed
+
+- **GIVEN** a page whose text holds the same term in three different blocks, two of them below the first screen
+- **WHEN** the user opens that page from the result
+- **THEN** all three blocks carry a frame, the first match's block is the one scrolled into view, and the blocks without a match are not framed
+
+#### Scenario: A block with two matches is framed once
+
+- **GIVEN** a page whose term appears twice inside one block
+- **WHEN** the user opens that page from the result
+- **THEN** that block carries one frame, not two
 
 #### Scenario: The frame moves nothing
 
