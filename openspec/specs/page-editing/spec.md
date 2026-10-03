@@ -7,82 +7,28 @@ Makes an opened page editable: an editor is the sole surface for open pages, edi
 ## Requirements
 
 ### Requirement: The open page is edited in place
-Opening a page SHALL put its content in an editable, WYSIWYG Markdown surface inside the editor pane; a page SHALL NOT be shown through a read-only preview. The page title (its filename stem) SHALL appear as a heading above the surface and SHALL NOT be editable inside it (renaming is out of scope). Standard Markdown constructs — headings, paragraphs, emphasis, lists, links, code, blockquotes, tables — SHALL be editable and SHALL serialize back to Markdown for saving.
+Opening a page SHALL put its content in an editable Markdown surface inside the editor pane; a page SHALL NOT be shown through a read-only preview. The surface's document SHALL be the page's Markdown text itself: what an edit changes, and what the file receives, is the Markdown, character for character, with no serialization step between the two. Constructs the surface renders in place (inline formatting, images, tables, reference styling) SHALL be presentational only: they SHALL NOT alter the text, and putting the caret in one SHALL show its Markdown source. The page title (its filename stem) SHALL appear as a heading above the surface and SHALL NOT be editable inside it (renaming is out of scope). Standard Markdown constructs — headings, paragraphs, emphasis, lists, links, code, blockquotes, tables — SHALL be editable as their Markdown source. Editing SHALL NOT reformat text the user did not touch: whitespace, marker style, and line breaks SHALL be preserved as typed.
 
 #### Scenario: A page opens editable
 - **WHEN** the user opens a page
-- **THEN** its content appears in the editor as editable WYSIWYG text, with the page title shown as a heading
+- **THEN** its content appears in the editor as editable Markdown text, with the page title shown as a heading
 
 #### Scenario: Formatting round-trips to Markdown
 - **WHEN** the user edits headings, emphasis, lists, links, code, blockquotes, or tables in the editor
-- **THEN** the serialized content is Markdown that preserves those edits
+- **THEN** the content is Markdown that preserves those edits
 
-### Requirement: Copy and cut carry the selection as canonical Markdown
+#### Scenario: The surface is the file
+- **GIVEN** a page holding constructs the surface renders in place
+- **WHEN** the user edits the page, the save completes, and the page is reopened
+- **THEN** the Markdown the surface holds is the Markdown written to the file, with every construct's own characters intact, and text the user did not touch is unchanged
 
-Copying or cutting a non-empty selection in the editor SHALL additionally place the selection's canonical Markdown on the clipboard under a private flavor. The selection SHALL be serialized with the editor's Markdown serializer, so headings, emphasis, lists, blockquotes, links, and code fences appear as their Markdown forms. The clipboard's plain-text and HTML flavors SHALL be unchanged, so copying into other applications and rich-text targets behaves exactly as before. A copy or cut with an empty selection SHALL place nothing on the private flavor.
-
-#### Scenario: Copying a formatted section carries its Markdown
-- **WHEN** the user selects a section containing a heading, bold text, a bullet list, and a fenced code block and copies it
-- **THEN** the clipboard's private flavor contains the same structure as canonical Markdown (`## …`, `**…**`, `- …`, a fence), while the clipboard's plain-text flavor is unchanged
-
-#### Scenario: Cutting carries the selection before it is removed
-- **WHEN** the user cuts a formatted selection
-- **THEN** the private flavor holds that selection's canonical Markdown, so it can be pasted back with its structure intact
-
-#### Scenario: Copying into another application is unchanged
-- **WHEN** the user copies a selection and pastes it into an application that does not understand the private flavor
-- **THEN** that application receives the same plain text and HTML it receives today
-
-#### Scenario: An empty selection carries nothing
-- **WHEN** the user copies or cuts with no selection
-- **THEN** the private flavor is empty and the document is unchanged
-
-### Requirement: Paste inserts only the plain text of the clipboard
-
-Pasting into the editor SHALL prefer the clipboard's private Folio Markdown flavor when it is present: the text under that flavor SHALL be interpreted as Markdown unconditionally, without applying the markdown-likeness rule, so a selection copied or cut in the editor is restored with its structure whatever its size or shape (a multi-block section, a single list, a lone heading, or an inline run such as `**bold**`). When the private flavor is absent or empty, pasting SHALL read the clipboard's plain text and SHALL ignore any rich-text or HTML fragment the clipboard carries. When that plain text resembles a Markdown document — any line that opens a fenced code block, or at least two non-blank lines starting with block-level Markdown markers (ATX heading, blockquote, unordered or ordered list item, table row, thematic break) making up at least half of the non-blank lines — the editor SHALL interpret the plain text as Markdown: headings, lists, blockquotes, code fences, emphasis, links, and other Markdown constructs SHALL appear as the corresponding blocks and formatting. Otherwise, plain text SHALL be inserted literally: text that merely contains inline Markdown markers without block structure (such as `**bold**`, `*italic*`, `` `code` ``, or bare URLs) SHALL appear as the literal characters pasted and SHALL remain literal after the page is saved and reopened. Line breaks in pasted text SHALL be preserved. Pressing the paste shortcut with the shift modifier (Mod+Shift+V / Ctrl+Shift+V) SHALL insert the literal text verbatim, bypassing Markdown interpretation. Pasting a clipboard that carries no text (for example, copied files) SHALL leave the document unchanged.
-
-#### Scenario: A selection copied in the editor pastes back as structure
-- **WHEN** the user copies a section containing a heading, bold text, a bullet list, and a fenced code block, opens another page, and pastes
-- **THEN** the pasted content appears with the same heading, bold run, list, and code block, and the saved Markdown contains that structure
-
-#### Scenario: A small selection round-trips without the markdown-likeness rule
-- **WHEN** the user copies a single heading, or a single inline run such as `**bold**`, or a lone bullet item, and pastes it into another page
-- **THEN** it is restored as a real heading, a real bold run, or a real list item rather than as literal text with markers
-
-#### Scenario: Pasting formatted web text stays plain
-- **WHEN** the user copies formatted text from a web page (rich HTML with bold, italic, and code runs) and pastes it into an open page
-- **THEN** the pasted text appears as plain text with no bold, italic, code, or link formatting, and the saved Markdown contains no formatting markers for that text
-
-#### Scenario: A Markdown document pastes as structure
-- **WHEN** the user pastes a multi-block Markdown document (a heading, a bullet list, and a fenced code block) from outside the editor
-- **THEN** the editor shows a real heading, a real list, and a real code block, and the saved Markdown contains that structure with no escape backslashes; reopening the page shows the same structure
-
-#### Scenario: Markdown-looking text stays literal
-- **WHEN** the user pastes the external text `**wow**` into the editor
-- **THEN** the editor shows the literal characters `**wow**`, the text is not bold, and after the page is saved and reopened the text still appears as the literal characters `**wow**`
-
-#### Scenario: A lone heading line stays literal
-- **WHEN** the user pastes only the single external line `# Title` into the editor
-- **THEN** the line is not converted into a heading; it appears as the literal text `# Title` and remains non-heading text after the page is saved and reopened
-
-#### Scenario: A shift-modifier paste forces literal text
-- **WHEN** the user pastes a Markdown document while holding the shift modifier (Mod+Shift+V / Ctrl+Shift+V)
-- **THEN** the text is inserted literally with no Markdown interpretation, and it round-trips like any other literal text (escaped in the saved Markdown, identical after reopen)
-
-#### Scenario: Multi-line paste keeps its line breaks
-- **WHEN** the user pastes text containing multiple lines
-- **THEN** the line breaks are preserved both in the editor and in the saved Markdown
-
-#### Scenario: A clipboard with no text changes nothing
-- **WHEN** the user pastes a clipboard that carries no text, such as copied files
-- **THEN** the document is unchanged
-
-#### Scenario: Typing Markdown syntax still formats
-- **WHEN** the user types `**wow**` into the editor rather than pasting it
-- **THEN** the text becomes bold as today; typing behavior is unaffected by this change
+#### Scenario: Untouched formatting is not rewritten
+- **GIVEN** a page whose source uses `_emphasis_`, setext headings, or `*` for list markers
+- **WHEN** the user edits an unrelated paragraph and saves
+- **THEN** those constructs are written back exactly as they were
 
 ### Requirement: References render as clickable badges
-In the editor, references in Folio's two forms — `#word` and `#[[Page]]` — SHALL render as visible badges: a chip-styled inline mark (chip background, brand-colored text, pointer cursor) covering the reference's literal text, visually distinct from surrounding prose. The text SHALL remain ordinary editable text: the badge is presentational, introduces no node of its own, and editing it edits the underlying Markdown directly. The badge's appearance SHALL NOT depend on the caret or focus — a reference SHALL look the same whether or not its block is being edited, and moving the caret SHALL NOT repaint it. No badge SHALL render for a reference token inside an inline code span or a fenced code block. Plain `[[Page]]` wikilinks SHALL render as literal editable text with no badge. Badge work SHALL be scoped to the edit: the badge set SHALL be carried forward across a document change and recomputed only for the blocks that change touches, so a keystroke's badge cost grows with the edited blocks and SHALL NOT grow with the number of blocks in the page.
+In the editor, references in Folio's two forms — `#word` and `#[[Page]]` — SHALL render as visible badges: a chip-styled inline mark (chip background, brand-colored text, pointer cursor) covering the reference's literal text, visually distinct from surrounding prose. The reference SHALL keep its Markdown source text visible and editable: the badge is presentational, introduces no node of its own, and editing it edits the underlying Markdown directly. The badge's appearance SHALL NOT depend on the caret or focus — a reference SHALL look the same whether or not its block is being edited, and moving the caret SHALL NOT repaint it. No badge SHALL render for a reference token inside an inline code span or a fenced code block. Plain `[[Page]]` wikilinks SHALL render as literal editable text with no badge. Badge work SHALL be scoped to the rendered region: the badge set SHALL be recomputed only for the ranges the surface renders and the edit touched, so a keystroke's badge cost SHALL NOT grow with the number of blocks in the page.
 
 #### Scenario: A reference renders as a visible badge
 - **WHEN** the editor body contains `#Inbox` or `#[[reading list]]`
@@ -115,6 +61,14 @@ In the editor, references in Folio's two forms — `#word` and `#[[Page]]` — S
 #### Scenario: Badge cost follows the edit, not the page
 - **WHEN** a page holds many blocks and the user types inside one of them
 - **THEN** the badge work per keystroke is bounded by the blocks that edit touched and does not scale with the page's block count, as measured by the instrumentation in the change's design
+
+#### Scenario: The badge does not hide its source
+- **WHEN** the editor body contains `#Inbox`
+- **THEN** the characters `#Inbox` are visible and editable inside the badge
+
+#### Scenario: Badge cost follows the rendered range, not the page
+- **WHEN** a page holds many blocks and the user types inside one of them
+- **THEN** the badge work per keystroke is bounded by the rendered range and the blocks that edit touched, and does not scale with the page's block count
 
 ### Requirement: Opening a reference from the editor
 The editor SHALL open a reference's target page when the user plain-clicks the reference's badge, or presses Mod+Enter (Cmd/Ctrl+Enter) with the caret inside a reference. Opening SHALL resolve the reference's name to a page exactly as the links panel does: the existing page when one matches, otherwise a blank page that materializes on first save. Activating a reference to the page already open SHALL NOT navigate. The keyboard shortcut SHALL be listed in the app's keyboard-shortcuts reference.
@@ -251,10 +205,10 @@ When the clipboard a paste carries from contains one or more files and no plain 
 - **THEN** only the first file lands in the vault and only its link is inserted
 
 ### Requirement: Vault image references render in the editor
-When an open page's markdown references an image whose path points into the vault — a root-relative path carrying no URL scheme — the editor SHALL display that file's bytes in place of the reference, reading them through the storage seam's binary read. The page's markdown SHALL NOT change: the document keeps the path it had, so the file stays canonical and reload-stable (ADR-0001). A reference the vault cannot resolve — no such file, or a path the storage rejects — SHALL be left as it renders now, and that path SHALL NOT be read again for the rest of the page's time open. A reference carrying a scheme (`http:`, `https:`, `data:`, `blob:`) SHALL be left untouched: the editor reads no vault file for it and rewrites nothing. A vault path SHALL be read when its image is needed for display rather than for every image the page references at once, and the bytes the open page holds for images SHALL NOT grow with the number of images its markdown references: an image whose bytes are no longer needed for display SHALL release them and be read again if it is needed again. The editor SHALL NOT read the vault as part of handling a keystroke.
+When an open page's markdown references an image whose path points into the vault — a root-relative path carrying no URL scheme — the editor SHALL display that file's bytes in place of the reference while the caret is outside the reference, and SHALL show the reference's source text while the caret is inside it so the destination stays editable. The page's markdown SHALL NOT change: the document keeps the path it had, so the file stays canonical and reload-stable (ADR-0001). A reference the vault cannot resolve — no such file, or a path the storage rejects — SHALL be left as its source text, and that path SHALL NOT be read again for the rest of the page's time open. A reference carrying a scheme (`http:`, `https:`, `data:`, `blob:`) SHALL be left untouched: the editor reads no vault file for it and rewrites nothing. A vault path SHALL be read when its image is needed for display rather than for every image the page references at once, and the bytes the open page holds for images SHALL NOT grow with the number of images its markdown references: an image whose bytes are no longer needed for display SHALL release them and be read again if it is needed again. The editor SHALL NOT read the vault as part of handling a keystroke.
 
 #### Scenario: A vault image reference shows the file's bytes
-- **GIVEN** an open page whose markdown reads `![photo](assets/photo.png)` and a vault holding that file
+- **GIVEN** an open page whose markdown reads `![photo](assets/photo.png)` and a vault holding that file, with the caret elsewhere
 - **WHEN** the page renders
 - **THEN** the reference displays the vault file's bytes, and the page's markdown still reads `![photo](assets/photo.png)`
 
@@ -282,6 +236,11 @@ When an open page's markdown references an image whose path points into the vaul
 - **GIVEN** an open page displaying a vault image
 - **WHEN** the user edits the page
 - **THEN** the vault file is not read again and the displayed bytes do not change
+
+#### Scenario: Putting the caret in the reference reveals its source
+- **GIVEN** a rendered vault image reference
+- **WHEN** the user places the caret inside the reference's text
+- **THEN** the reference shows its Markdown source so the destination can be edited, and the file is not read again
 
 ### Requirement: Vault images fit the pane and expand to their original size
 
@@ -440,7 +399,7 @@ A target the vault cannot resolve — no such file, or a path the storage reject
 - **THEN** the external URL opens in a tab and the fragment opens nothing, as before
 
 ### Requirement: Struck text renders crossed
-When a page's text contains a struck run — two tildes, then at least one character with no tilde and no leading or trailing space, then two tildes — the editor SHALL display it with a line through it, in every block a page can hold. Where runs share text, the pair that closes first wins, so `~~a~~b~~` strikes `a` and leaves the tail alone. The run SHALL be a presentational decoration over the literal text: the document, the saved Markdown, the clipboard, and the index SHALL keep the tildes exactly as the user wrote them, and no formatting mark SHALL be created, so nothing toggles a struck run and it behaves as ordinary text for editing, copying, and saving. Text inside inline code or a fenced code block SHALL NOT be decorated, and neither SHALL a lone tilde, an empty pair, a pair whose content starts or ends with a space, or a run containing a tilde inside it. The decoration SHALL be derived from the text in the same pass as the editor's reference badges, so it adds no work proportional to the document on a keystroke.
+When a page's text contains a struck run — two tildes, then at least one character with no tilde and no leading or trailing space, then two tildes — the editor SHALL display it with a line through it and SHALL NOT display its tildes while the selection is outside the run; the run's tildes SHALL be shown again when the selection touches it, so the run is edited as Markdown. This SHALL hold in every block a page can hold. Where runs share text, the pair that closes first wins, so `~~a~~b~~` strikes `a` and leaves the tail alone. The decoration SHALL be presentational: the document, the saved Markdown, the clipboard, and the index SHALL keep the tildes exactly as the user wrote them, and no formatting mark SHALL be created, so nothing toggles a struck run and it behaves as ordinary text for editing, copying, and saving. Text inside inline code or a fenced code block SHALL NOT be decorated, and neither SHALL a lone tilde, an empty pair, a pair whose content starts or ends with a space, or a run containing a tilde inside it. The decoration SHALL be derived from the text in the same pass as the editor's reference badges, over the ranges the surface renders, so it adds no work proportional to the document on a keystroke.
 
 #### Scenario: A struck run shows a line, and the file keeps its tildes
 - **GIVEN** an open page containing `~~Responsible AI, Safety & Risk for Architects~~`
@@ -450,7 +409,7 @@ When a page's text contains a struck run — two tildes, then at least one chara
 #### Scenario: A run survives save and reopen as literal text
 - **GIVEN** a page whose saved Markdown contains a struck run
 - **WHEN** the page is closed and opened again
-- **THEN** the run is still decorated with its tildes intact, with no formatting mark added to the document
+- **THEN** the run is still decorated with its tildes intact in the document, with no formatting mark added
 
 #### Scenario: Near misses stay plain
 - **GIVEN** a page containing a lone `~`, an empty `~~~~` pair, a pair padded as `~~ spaced ~~` and as `~~ ~~`, and a run with a tilde inside as `~~a b ~c~~`
@@ -470,426 +429,7 @@ When a page's text contains a struck run — two tildes, then at least one chara
 #### Scenario: Editing elsewhere in the page does not disturb it
 - **GIVEN** a page with a struck run, and the caret in another block
 - **WHEN** the user types
-- **THEN** the struck run keeps its decoration, and the editor rescan is limited to the block the edit touched
-
-### Requirement: A Markdown table is a table in the editor
-
-A GFM pipe table in a page SHALL render as a table in the editor: a header row, body rows, and cells edited in place as ordinary text. Every cell SHALL carry a visible border, so the table draws a grid and a frame, and the header row SHALL read apart from the body rows, so a table is distinguishable from the surrounding prose at a glance. A reference written in a cell SHALL render as a badge and SHALL activate like any other reference. The column alignment written in the table's delimiter row SHALL be preserved as the page is edited and SHALL be settable from the editor. The saved Markdown SHALL remain a pipe table, so a table in the file is a table on screen and a table again after the page is reloaded. Table cells SHALL be written in the app's canonical form — padded, with the delimiter row in its short form — so a hand-written table adopts that form the first time the page is saved. A cell the table model holds no text in SHALL be written as `<br />`, and a table that arrives with a header row and no body rows SHALL be given one empty body row, because the editor's table has no cell-less row to hold it. Tables SHALL be created by typing `|column-count x row-count|` followed by a space, by a keyboard chord, and by pasting Markdown table text; rows and columns SHALL be added and removed from the editor; and the caret SHALL move between cells with `Tab` and `Shift-Tab`, while `Enter` SHALL leave the table. No other Markdown construct SHALL change: a bare URL, a struck run, a task-list marker, and footnote syntax SHALL parse and serialize exactly as they do without tables, and no autolink, task-list, footnote, or strikethrough markup SHALL be created. Rendering a table SHALL NOT add work to the keystroke path that grows with the document: a cell is an ordinary block, the editor's decoration, draft, and line-number work SHALL keep its existing bound, and a table's own controls SHALL re-render only for the table they belong to.
-
-#### Scenario: A pipe table opens as a table
-
-- **GIVEN** a page whose Markdown holds a pipe table with a header row and body rows
-- **WHEN** the page opens
-- **THEN** the editor shows a table with a header row and those body rows, and no cell shows its pipe characters
-
-#### Scenario: A table renders with visible borders
-
-- **GIVEN** a page holding a table between two paragraphs
-- **WHEN** the page renders
-- **THEN** every cell carries a visible border drawing a grid and a frame around the table, the header row reads apart from the body rows, and the table is distinguishable from the surrounding prose
-
-#### Scenario: A table survives save and reopen
-
-- **GIVEN** an open page holding a table
-- **WHEN** the user edits a cell, the save completes, and the page is closed and opened again
-- **THEN** the saved Markdown is still a pipe table with the same rows, columns, and cell text, and the reopened page shows that table
-
-#### Scenario: A cell is edited in place, and a reference in it still opens
-
-- **GIVEN** an open page whose table holds `#Inbox` in a cell
-- **WHEN** the user edits the cell's text and clicks the `#Inbox` badge
-- **THEN** the edit is written to the page's Markdown and the `Inbox` page opens
-
-#### Scenario: Column alignment is kept and can be set
-
-- **GIVEN** a page whose table writes a centered and a right-aligned column in its delimiter row
-- **WHEN** the page renders, and the user sets another column's alignment from the editor
-- **THEN** each column keeps the alignment it had, and the saved Markdown carries the new alignment for the changed column
-
-#### Scenario: A hand-written table adopts the canonical form on save
-
-- **GIVEN** a page whose file holds a table with short cells and long delimiter dashes
-- **WHEN** the user edits the page and the save completes
-- **THEN** the saved table has padded cells and a short delimiter row, and still holds the same rows, columns, and text
-
-#### Scenario: An empty cell is written as a break
-
-- **GIVEN** an open page with a table whose body row has an empty cell
-- **WHEN** the page saves
-- **THEN** that cell is written as `<br />`, and the same cell with text written into it holds that text instead
-
-#### Scenario: A header-only table gains an empty body row
-
-- **GIVEN** a file whose table has a header row and no body rows
-- **WHEN** the page is opened and saved
-- **THEN** the saved table has one empty body row, and reopening the page shows the header row and that empty row
-
-#### Scenario: Tables are created by typing, by chord, and by paste
-
-- **WHEN** the user types `|4x3|` followed by a space, or activates the insert-table control in the keyboard-shortcuts reference, or pastes Markdown table text into a page
-- **THEN** each produces a table in the open page: the typed and chord gestures a table with the columns and rows they ask for, the paste a table with the pasted rows and columns, and no pipe characters are shown in any cell
-
-#### Scenario: Rows and columns are added and removed
-
-- **GIVEN** an open page holding a table with the caret inside it
-- **WHEN** the user adds a row, adds a column, and deletes a row through the editor's table controls or the bound chords
-- **THEN** the table gains and loses exactly those rows and columns, and the saved Markdown matches the table on screen
-
-#### Scenario: Tab moves between cells and Enter leaves the table
-
-- **GIVEN** an open page with the caret in a table cell
-- **WHEN** the user presses `Tab`, then `Shift-Tab`, then `Enter`
-- **THEN** the caret moves to the next cell, back to the previous cell, and finally out of the table to the block that follows it
-
-#### Scenario: Only tables come in
-
-- **GIVEN** a page holding a bare `https://example.com`, a `~~struck~~` run, a `- [x] done` line, and footnote syntax
-- **WHEN** the page is opened, edited, and saved
-- **THEN** the URL keeps its characters with no link mark created, the struck run keeps its tildes and its decoration, the `[x]` line keeps its characters with no checkbox, and the footnote syntax is not turned into a footnote
-
-#### Scenario: A table is one block to the gutter and to search
-
-- **GIVEN** an open page with a table between two paragraphs
-- **WHEN** the gutter numbers the page's blocks, and a search result falls on the table's first line
-- **THEN** the table is numbered as a single block starting on its first line, and a result on that line anchors to that block
-
-#### Scenario: Typing in a table stays bounded by the table
-
-- **GIVEN** an open page with a table near a long document
-- **WHEN** the user types inside a table cell
-- **THEN** the work per keystroke does not grow with the document's size: the cell, the block it belongs to, and that table are what is touched, and the editor's existing per-keystroke bounds are unchanged
-
-### Requirement: A click in a table cell places the caret
-
-A pointer press on a table cell SHALL place the caret in that cell, at the text position nearest the pointer, on the first click. It SHALL NOT select the cell, and text typed after that click SHALL be inserted at the caret rather than replacing the cell's contents, so a click can never destroy text the cell already holds. A press on the cell the caret is already in SHALL behave as a press in ordinary text. Selecting a row or a column SHALL remain the work of its handle: pressing a row or a column handle SHALL still select that row or column, and the alignment and delete controls SHALL still act on that selection. Every other table gesture SHALL stay as it is: `Tab` and `Shift-Tab` move between cells, `Enter` leaves the table, and the structural chords add rows and columns.
-
-#### Scenario: A click in a filled cell puts the caret where it was clicked
-
-- **GIVEN** an open page with a table cell whose text reads `ada`
-- **WHEN** the user clicks between the `a` and the `d` and types `X`
-- **THEN** the cell reads `aXd`, the click having neither selected the cell nor replaced its text
-
-#### Scenario: A click on an empty cell takes typing
-
-- **GIVEN** an open page holding a table with empty cells
-- **WHEN** the user clicks the second cell once and types `role`
-- **THEN** that cell holds `role`, the other cells are unchanged, and the saved Markdown holds the table with that cell's text
-
-#### Scenario: A click never replaces what a cell holds
-
-- **GIVEN** an open page with a table cell whose text reads `Grace Hopper`
-- **WHEN** the user clicks anywhere in that cell once and then types a single character
-- **THEN** the cell's original text is still there with that character inserted at the caret
-
-#### Scenario: The handles still select a row or a column
-
-- **GIVEN** an open page holding a table
-- **WHEN** the user presses the handle of one column and activates the reference's align-right control for it
-- **THEN** that column is selected, the control applies to it, and the saved Markdown carries the alignment for that column
-
-#### Scenario: The keyboard path through a table is unchanged
-
-- **GIVEN** an open page with the caret in a table cell
-- **WHEN** the user presses `Tab`, then `Shift-Tab`, then `Enter`
-- **THEN** the caret moves to the next cell, back to the previous cell, and finally out of the table
-
-### Requirement: An empty table cell shows a boundary
-
-A table cell that holds no text SHALL show a hairline on its trailing edge, so a table whose cells are empty shows which cells it has and where a click will land. The hairline SHALL be presentation only: it SHALL NOT appear in the page's Markdown, SHALL NOT change any cell's text, SHALL NOT move a cell's text or change a column's width, and SHALL be gone from a cell as soon as that cell holds text. A table whose cells all hold text SHALL render as it does today, with row rules and no vertical rules, and the boundary SHALL cost nothing on the keystroke path.
-
-#### Scenario: A table with empty cells shows where its cells are
-
-- **GIVEN** the caret in an empty paragraph
-- **WHEN** the user types `|2x3|` and a space
-- **THEN** the page holds a table of that size whose cells are separated by a visible hairline, and the caret sits in the first cell
-
-#### Scenario: The boundary goes away as a cell fills
-
-- **GIVEN** an open page holding a table with empty cells
-- **WHEN** the user types into one of them
-- **THEN** that cell no longer shows the hairline, its empty neighbours still show theirs, and no cell moved
-
-#### Scenario: A filled table keeps its resting look
-
-- **GIVEN** a page whose table has text in every cell
-- **WHEN** the page renders
-- **THEN** the table shows row rules and no vertical rules, exactly as it does today
-
-#### Scenario: The boundary never reaches the file
-
-- **GIVEN** a page holding a table with empty cells
-- **WHEN** the page is saved
-- **THEN** the Markdown holds the table in its canonical form with `<br />` for the empty cells and no character representing the hairline, and reopening the page shows the same table
-
-### Requirement: A table that begins a page keeps room for its controls
-
-A page whose first block is a table SHALL give that table room above its first row, so that the table's column handle — which the editor places above the first row — is drawn inside the pane and can be pressed. The handle SHALL then select its column and open the column's alignment and delete controls, as it does anywhere else. The room SHALL be the table block's own top margin, it SHALL NOT be page content (the Markdown SHALL NOT change, and the file SHALL gain nothing), it SHALL apply only to a table that is the page's first block, and the rest of the page's geometry SHALL be unchanged: the pane's padding, the shared start line of every other first block, and the document's width. A page whose first block is a table SHALL still number that table once, at its first line.
-
-#### Scenario: A table at the top of a page can be controlled
-
-- **GIVEN** a page whose content begins with a table
-- **WHEN** the page renders and the user points at one of its columns
-- **THEN** the column handle is drawn inside the editor pane rather than above its edge, and pressing it selects that column and opens its controls
-
-#### Scenario: The room is space, not content
-
-- **GIVEN** a page whose content begins with a table
-- **WHEN** the page is saved
-- **THEN** the Markdown holds the table exactly as it did, with no character representing the room, and the page is not written at all if nothing was edited
-
-#### Scenario: Only a leading table gains the room
-
-- **GIVEN** one page whose first block is a paragraph or a heading, and another whose first block is a table followed by text
-- **WHEN** both render
-- **THEN** the first block of the first page starts at the pane's top padding, the table of the second starts where it did before this change, and the pane's padding is unchanged for both
-
-#### Scenario: The gutter still numbers the table at its first line
-
-- **GIVEN** a page whose content begins with a table
-- **WHEN** the page renders
-- **THEN** the table's line number sits on the table's first line, not on the space above it
-
-### Requirement: A table's handles stay inside the pane
-
-The row and column handles the editor draws for a table SHALL be brought inside the pane's visible box whenever the editor places them and whenever the pane scrolls, so that a handle can be pressed wherever the table sits — including a table scrolled until its first row is at the pane's top edge. A handle that already fits inside the pane SHALL NOT be moved. A handle that has to be brought inside SHALL keep its meaning: pressing it SHALL still select that table's row or column and SHALL still open that row's or column's controls. A handle's position SHALL NOT be page content: the page's Markdown SHALL NOT change and SHALL NOT be written for it. The line handles that appear while a row or column is being dragged SHALL be left where the editor places them, and a table whose handles already fit SHALL render exactly as it does today.
-
-#### Scenario: A table at the pane's top edge can still be controlled
-
-- **GIVEN** a page holding a table, scrolled so the table's first row sits at the pane's top edge
-- **WHEN** the user points at one of its columns
-- **THEN** the column's handle is drawn inside the pane rather than above its edge, and pressing it selects that column and opens its controls
-
-#### Scenario: A handle that fits is not moved
-
-- **GIVEN** a page holding a table with room above it in the pane
-- **WHEN** the user points at one of its columns
-- **THEN** the handle sits where the editor placed it, above the first row and clear of the pane's edges
-
-#### Scenario: Scrolling keeps a shown handle inside the pane
-
-- **GIVEN** a page holding a table whose column handle is being shown
-- **WHEN** the user scrolls the pane
-- **THEN** the handle is still inside the pane's visible box, and the page's Markdown is unchanged
-
-#### Scenario: The nudge is a position, not content
-
-- **GIVEN** a page holding a table at the pane's top edge
-- **WHEN** the page is saved
-- **THEN** the Markdown holds the table exactly as it did, and the page is not written at all if nothing was edited
-
-### Requirement: Aligning and deleting a table row or column works from the caret
-
-With the caret in a table cell, the app SHALL provide a keyboard path for the operations that otherwise exist only on a table's row and column handles: aligning the caret's column to the left, to the center, and to the right, deleting the caret's row, and deleting the caret's column. Aligning SHALL apply to every cell of the caret's column, not only to the cell the caret is in, and SHALL be the same change the column handle's alignment control makes. Deleting SHALL remove that row or that column and nothing else. Every one of these SHALL leave a caret in the table rather than a selection, so that the next keystroke types instead of replacing what the chord just changed. A chord pressed with the caret outside a table SHALL do nothing and SHALL leave the document unchanged. Applying an alignment a column already has SHALL report that nothing was applied rather than claiming a change. The row and column handles and their controls SHALL keep working as they do now, and each of these chords SHALL be listed in the keyboard-shortcuts reference.
-
-#### Scenario: A column is aligned from the caret
-
-- **GIVEN** an open page with the caret in a table cell
-- **WHEN** the user activates the align-center chord
-- **THEN** every cell of that column is centered, the saved Markdown shows the column's alignment in its delimiter row, and no other column changes
-
-#### Scenario: The caret is left in the cell
-
-- **GIVEN** a table whose column was just aligned by chord
-- **WHEN** the user types a character
-- **THEN** it is inserted into the cell the caret was in, and the column's cells are not replaced
-
-#### Scenario: A row and a column are deleted from the caret
-
-- **GIVEN** an open page with the caret in a table cell
-- **WHEN** the user activates the delete-row chord, and later the delete-column chord with the caret in a cell
-- **THEN** the caret's row is gone, then the caret's column is gone, and the saved Markdown holds exactly the table that remains
-
-#### Scenario: Outside a table nothing happens
-
-- **GIVEN** an open page with the caret in a paragraph outside every table
-- **WHEN** the user activates any of these chords
-- **THEN** the document is unchanged and the page is not marked as edited by it
-
-#### Scenario: The handles still do the same things
-
-- **GIVEN** an open page holding a table
-- **WHEN** the user presses a column handle and its alignment and delete controls
-- **THEN** the column is selected and the controls act on it exactly as they did before
-
-### Requirement: The space below the last block belongs to the page
-The editor's editable surface SHALL fill the pane's height, so that the empty space below a page's last block is part of the document rather than dead background. A click in that space SHALL place the caret at the end of the document, and the next keystroke SHALL continue the page there. The click SHALL NOT create a block, SHALL NOT change the document's Markdown, and SHALL NOT open a reference or any other target. On a page whose content is taller than the pane, the surface SHALL grow with the content as it does now, so nothing about scrolling changes. The surface SHALL NOT grow upward: the first block's start line, the document's readable column width, and an empty page's placeholder SHALL be unaffected, except that a table which begins the page SHALL carry the margin its column handle needs to stay inside the pane ("A table that begins a page keeps room for its controls"). A page whose last block is a table SHALL keep a continuation paragraph after it, exactly as a page ending in a code block does, so a click below the table places the caret in that paragraph rather than inside a cell; that paragraph SHALL NOT be written to the page's file.
-
-#### Scenario: Clicking under the last block continues the page
-- **GIVEN** an open page whose content ends well above the pane's bottom
-- **WHEN** the user clicks in the empty space below the last block and types
-- **THEN** the typed text lands at the end of the page, and the page's Markdown gains only that text
-
-#### Scenario: Clicking beside a short last line continues the page
-- **GIVEN** a page whose last block is short — a heading, a list item, or a lone reference
-- **WHEN** the user clicks the empty space to the right of that line
-- **THEN** the caret is placed in that block at the end of its text, and no reference or other target is activated
-
-#### Scenario: The document's start line and width do not move
-- **GIVEN** a page open before and after this surface grows
-- **WHEN** the page renders
-- **THEN** the first block starts on the same line at the same x, the gutter numbers are unchanged, and the prose column keeps its width
-
-#### Scenario: Content taller than the pane scrolls as before
-- **GIVEN** a page whose content exceeds the pane's height
-- **WHEN** the user scrolls the pane
-- **THEN** the page scrolls exactly as it did, with the surface extending to the content's end and no extra empty area inserted above the document
-
-#### Scenario: Clicking under a table continues the page and not a cell
-- **GIVEN** an open page whose last block is a table
-- **WHEN** the user clicks in the empty space below the table and types
-- **THEN** the typed text lands after the table as a new block at the end of the page, no table cell changes, and the page's Markdown holds the table and that new block
-
-### Requirement: Code blocks are a CodeMirror editing surface
-
-A code block in the editor SHALL render as a dedicated multi-line code editing surface, visually distinct from surrounding prose, backed by an embedded code editor (CodeMirror). The surface SHALL offer a language picker, syntax highlighting, line numbers, and code editing conveniences (auto-completion, folding, search and replace). The block's content and its language SHALL round-trip through the Markdown fence: the canonical file form is unchanged (` ``` ` … ` ``` `, with the chosen language on the opening fence), and reloading a page restores the same content and language. A code block with no language SHALL render monochrome without a language marker.
-
-#### Scenario: Inserting a code block opens the code surface
-
-- **WHEN** the user starts a line with three backticks (typing ` ``` ` followed by space or Enter) or presses `Mod-Alt-c`
-- **THEN** the line becomes a code block rendered as the multi-line code editing surface with the caret inside it
-
-#### Scenario: Multiline content stays inside the block
-
-- **WHEN** the user types several lines inside a code block, pressing Enter between lines
-- **THEN** every new line remains inside the same code block, and the saved Markdown contains those lines between the fence marks
-
-#### Scenario: Language selection round-trips through the fence
-
-- **WHEN** the user chooses a language (for example JavaScript) from the code block's language picker
-- **THEN** the block's tokens are highlighted for that language, and after save the opening fence is written with the language (` ```js `); reopening the page shows the same language already selected
-
-#### Scenario: Existing fenced blocks load into the surface
-
-- **WHEN** the user opens a page whose Markdown contains a fenced code block that carries a language
-- **THEN** the block renders in the code editing surface with that language's highlighting
-
-#### Scenario: A language-less fence renders monochrome
-
-- **WHEN** the user opens a page whose Markdown contains a fenced code block with no language on its opening fence
-- **THEN** the block renders in the code editing surface with monochrome text and no language marker
-
-#### Scenario: Pasting inside a code block is handled by the code surface
-
-- **WHEN** the user pastes multi-line text with indentation while the caret is inside a code block
-- **THEN** the pasted text lands inside the code block with its lines and indentation preserved
-
-#### Scenario: Pasting outside a code block stays plain text
-
-- **WHEN** the user pastes formatted text while the caret is outside any code block
-- **THEN** only the clipboard's plain text is used and rich formatting is ignored; whether that text is interpreted as Markdown is decided by the paste rule (markdown-aware paste), never by the code surface
-
-### Requirement: A JSON code block can be reformatted on demand
-
-A code block whose language is JSON SHALL be reformattable on demand from its code surface. With the caret inside such a block, pressing the format chord SHALL replace the block's text with the same JSON reindented to a two-space indent, preserving every key, every value, and their order — only the whitespace between tokens changes. The formatted text SHALL become the block's content and SHALL round-trip through the same fence, so the saved Markdown holds the formatted form and reopening the page shows it. The block SHALL keep its JSON language and its place in the page, and the change SHALL be a single undoable edit. In a block whose language is not JSON, and in text that is not valid JSON, pressing the chord SHALL leave the document unchanged. With the caret outside any code block the chord SHALL NOT be claimed by the code surface. Formatting SHALL never happen on paste, on save, or on opening a page — only when the user presses the chord. The chord SHALL be listed in the app's keyboard-shortcuts reference.
-
-#### Scenario: Formatting a one-line JSON block makes it readable
-
-- **GIVEN** an open page with a code block whose language is JSON and whose content is `{"a":1,"b":[2,3]}`
-- **WHEN** the user presses the format chord with the caret inside the block
-- **THEN** the block shows the same JSON spread across lines with a two-space indent, and the page's saved Markdown holds that indented text between the ` ```json ` fence
-
-#### Scenario: Formatting preserves keys, values, and their order
-
-- **GIVEN** a JSON code block whose content carries keys in a chosen order and values of every JSON kind (string, number, boolean, null, object, array)
-- **WHEN** the user formats it
-- **THEN** every key appears in the same order and every value is unchanged, and only the indentation and line breaks differ
-
-#### Scenario: Formatting works whatever the fence's spelling of the language
-
-- **GIVEN** one page whose fence reads ` ```json ` and another where the language picker selected JSON
-- **WHEN** the user formats the block on each page
-- **THEN** both blocks are reformatted the same way
-
-#### Scenario: A block that is not JSON is left alone
-
-- **GIVEN** a code block whose language is JavaScript, or a code block with no language, containing text that would be valid JSON
-- **WHEN** the user presses the format chord with the caret inside the block
-- **THEN** the block's text is unchanged and no edit is recorded
-
-#### Scenario: Invalid JSON is left alone
-
-- **GIVEN** a code block whose language is JSON and whose content is not valid JSON (for example `{a: 1}`)
-- **WHEN** the user presses the format chord
-- **THEN** the block's text is unchanged and no edit is recorded
-
-#### Scenario: The chord is not the code surface's outside a code block
-
-- **GIVEN** an open page with the caret in an ordinary paragraph
-- **WHEN** the user presses the format chord
-- **THEN** the paragraph is unchanged, and the chord is left to whatever else the app binds it to
-
-#### Scenario: Pasting, saving, and opening never format
-
-- **GIVEN** a page whose JSON code block holds a single-line JSON value
-- **WHEN** the user pastes that value into the block, saves the page, and reopens it
-- **THEN** the block still holds the single-line text, unchanged until the user presses the format chord
-
-#### Scenario: Formatting is one undoable edit
-
-- **GIVEN** a JSON code block that was formatted from a single line
-- **WHEN** the user undoes the edit
-- **THEN** the block returns to the single line it held before
-
-### Requirement: A page always keeps an empty block at its end
-An open page SHALL always hold an empty paragraph after its last top-level block, whatever that block is (a paragraph, list, quote, heading, code block, or table), so a blank line to continue on is always visible at the end. The paragraph SHALL be maintained by the editor rather than authored: it is there whether the page was typed, pasted, or opened from a file, and it never accumulates — at most one is present, and it is appended only when the last block is not already an empty paragraph. Moving into it SHALL work the ways a user tries: `ArrowDown` from the block above it, and a click below that block. `Enter` inside a code block SHALL continue to add a code line, and `Mod-Enter` SHALL continue to exit the block.
-
-#### Scenario: The empty block at the end of a page exists
-- **GIVEN** an open page whose last block is not an empty paragraph
-- **WHEN** the page renders
-- **THEN** the document holds an empty paragraph after that block
-
-#### Scenario: The end block follows any last block type
-- **GIVEN** pages whose last block is, in turn, a paragraph, a list, a quote, and a heading
-- **WHEN** each page renders
-- **THEN** each shows an empty line after its last block
-
-#### Scenario: Arrow down and click reach the end block
-- **GIVEN** a page whose last block holds text, with the caret at the end of it
-- **WHEN** the user presses `ArrowDown`, or clicks below the block, and types
-- **THEN** the caret is in the empty paragraph after it and the typed text lands there, not in the block above
-
-#### Scenario: Arrow down leaves a trailing code block
-- **GIVEN** an open page whose last block is a code block, with the caret on the code block's last line
-- **WHEN** the user presses `ArrowDown` and types
-- **THEN** the caret is in the paragraph after the code block and the typed text lands there, not in the code
-
-#### Scenario: Enter still adds a code line
-- **GIVEN** the caret inside a code block that ends the page
-- **WHEN** the user presses `Enter`
-- **THEN** a new line is added inside the code block and no paragraph is inserted
-
-#### Scenario: No empty paragraph accumulates
-- **GIVEN** a page whose last block is already an empty paragraph
-- **WHEN** the document changes
-- **THEN** no second empty paragraph is appended
-
-#### Scenario: An empty page shows one empty line
-- **GIVEN** an open page with no content
-- **WHEN** the page renders
-- **THEN** the document holds exactly one empty paragraph and no second one is appended
-
-### Requirement: Serialization never writes a trailing blank line
-The Markdown a document serializes to SHALL end with a single newline and SHALL NOT end with blank lines, so the empty paragraph the editor maintains at the end of every page never reaches the vault: opening a page writes nothing, and editing it writes only the user's own text. Trimming SHALL be a property of every serialization the app performs — the change stream that drives autosave, the content the app reads for a draft, and the copy-as-markdown flavor — so no path disagrees about what the page holds.
-
-#### Scenario: Opening a page that ends with a code block writes nothing
-- **GIVEN** a vault file ending with a fenced code block
-- **WHEN** the page is opened and left alone
-- **THEN** the maintained paragraph does not mark the page dirty and the file is not rewritten
-
-#### Scenario: Editing after the code block writes only the new text
-- **GIVEN** the same page, with the caret moved into the paragraph after the code block
-- **WHEN** the user types and the page saves
-- **THEN** the file ends with the code fence, a blank line, and the typed paragraph, and carries no trailing blank line
-
-#### Scenario: A hand-made trailing empty paragraph is not persisted
-- **GIVEN** a page whose document ends with an empty paragraph
-- **WHEN** the page saves
-- **THEN** the file ends with the last non-empty block and a single newline
-
-#### Scenario: Editing at the end of a page writes only the new text
-- **GIVEN** an open page whose last block holds text, with the caret moved into the empty paragraph after it
-- **WHEN** the user types and the page saves
-- **THEN** the file ends with the last non-empty block and a single newline, and carries no trailing blank line
+- **THEN** the struck run keeps its decoration, and the editor's re-render is bounded by the ranges the surface renders and the lines the edit touched, never by the document's size
 
 ### Requirement: The status bar shows the open page's file path
 An open page SHALL have its file path displayed in the status bar, rendered as a breadcrumb of non-interactive segments — `notes / Deep / 2026.md` — with the `.md` extension kept on the final segment. The breadcrumb SHALL be purely informational: its segments SHALL NOT be links, SHALL NOT navigate, and SHALL NOT copy anything. It SHALL display the page's path regardless of whether the file exists yet (a not-yet-created page shows the path its first save will create), and SHALL NOT indicate the file's existence, save state, or staleness. An empty page SHALL show the same breadcrumb. The breadcrumb SHALL appear only when a page is open; without a page — on empty, indexing, or search-results surfaces — the path group SHALL be empty.
@@ -1104,203 +644,33 @@ The gesture SHALL write nothing to the vault: no file is copied, created, rename
 - **WHEN** a drag is released whose payload names nothing the app can write
 - **THEN** the page's text and the caret's position are unchanged
 
-### Requirement: An empty list item holding a child block round-trips
-
-When an empty paragraph inside a list item is followed by another block in the same item,
-the editor SHALL write a blank line between the two, so the empty line does not start an
-HTML block that swallows the block after it. On reading Markdown, the editor SHALL apply
-the same normalization before parsing, so a file already written without that blank line
-is read back with the child block intact rather than as one inline `html` atom. The
-normalization SHALL NOT alter an item whose next line is a sibling item, a blank line, or
-anywhere inside a fenced code block.
-
-#### Scenario: A code block under an empty bullet survives a save and open
-
-- **GIVEN** a list item whose text line is empty and which holds a fenced code block
-- **WHEN** the page is saved and reopened
-- **THEN** the code block is still a code block with its content, not raw `html` text
-
-#### Scenario: A nested list under an empty bullet survives a save and open
-
-- **GIVEN** an empty list item holding a nested list
-- **WHEN** the page is saved and reopened
-- **THEN** the nested list is still a list
-
-#### Scenario: An already-broken file is read back correctly
-
-- **GIVEN** a file whose empty bullet and following code block were written without a separating blank line
-- **WHEN** the page is opened
-- **THEN** the code block is a code block again, and saving writes the separating blank line
-
-#### Scenario: Sibling items and blank lines are left alone
-
-- **GIVEN** a list where an empty item's next line is another item at the same indent, or a blank line
-- **WHEN** the page is saved
-- **THEN** no blank line is inserted and the list is unchanged
-
-### Requirement: Backspace and Delete act on the caret's list item
-
-When the caret is in a list item, Backspace and Delete SHALL act on that item rather than
-on the raw document position alone.
-
-- Delete at the start of a list item's first text block SHALL delete the character after
-  the caret when one exists. When that block is empty and the item's list is followed by
-  a non-empty paragraph, Delete SHALL move that paragraph into the item, filling the
-  empty bullet and removing the original paragraph. When neither applies, Delete SHALL
-  leave the editor's default behavior.
-- Backspace at the start of an empty list item's first text block SHALL remove that empty
-  line. The item's remaining children SHALL be promoted to the parent level rather than
-  deleted, so a code block or nested list the item holds SHALL survive one level up; the
-  empty item SHALL be removed, and its list SHALL be removed with it when it was the
-  list's only item. The caret SHALL land at the end of the parent's text, or the nearest
-  text position when the parent has none.
-- Backspace on a non-empty list item SHALL keep the editor's existing lift behavior.
-
-The gestures SHALL NOT run inside a fenced code block or when a modifier key is held.
-
-#### Scenario: Delete deletes the following character in a non-empty item
-
-- **GIVEN** a list item whose text is not empty with the caret at its start
-- **WHEN** the user presses Delete
-- **THEN** the character after the caret is deleted and the item stays a list item
-
-#### Scenario: Delete fills an empty bullet from the paragraph below
-
-- **GIVEN** a list whose last item is empty, followed by a non-empty paragraph
-- **WHEN** the user presses Delete
-- **THEN** the paragraph's content moves into the empty item, the original paragraph is gone, and the list has one fewer empty item
-
-#### Scenario: Backspace removes an empty bullet and keeps its code block
-
-- **GIVEN** a list item whose first block is empty and which also holds a fenced code block
-- **WHEN** the user presses Backspace at the start of the empty block
-- **THEN** the empty item is removed, the code block is promoted to the parent level, and the caret sits at the end of the parent's text
-
-#### Scenario: Backspace deletes a genuinely empty bullet
-
-- **GIVEN** a list item whose only content is an empty text block
-- **WHEN** the user presses Backspace at the start of that block
-- **THEN** the item is removed, and the list is removed too when it held no other item
-
-#### Scenario: Backspace still lifts a non-empty item
-
-- **GIVEN** a list item whose text is not empty with the caret at its start
-- **WHEN** the user presses Backspace
-- **THEN** the item is lifted out of the list, as it was before
-
 ### Requirement: The editor locates and marks a block
-
-When the app opens a page to a specific block — today, opening a search result — the editor SHALL scroll that top-level block into view and mark it with a highlight visually distinct from the prose that SHALL NOT move or reflow the page's text. The mark SHALL be presentational: it SHALL NOT enter the page's Markdown, SHALL NOT change the serialized content or the file, and SHALL NOT be written. It SHALL fade after a short time (about two seconds) and SHALL be cleared at once by the next document change or by a later location request. A request that names no block, or a page opened without one, SHALL be left unmarked. Locating SHALL be a view operation: it SHALL NOT create an undoable document edit.
+When the app opens a page to a specific block — today, opening a search result — the editor SHALL scroll that top-level block into view and mark it with a highlight visually distinct from the prose that SHALL NOT move or reflow the page's text. The block SHALL be located by the same block-start rule the line-number gutter and search share (`src/lineAnchors.ts`), so a match's anchor and the editor's mark agree. The mark SHALL be presentational: it SHALL NOT enter the page's Markdown, SHALL NOT change the serialized content or the file, and SHALL NOT be written. It SHALL fade after a short time (about two seconds) and SHALL be cleared at once by the next document change or by a later location request. A request that names no block, or a page opened without one, SHALL be left unmarked. Locating SHALL be a view operation: it SHALL NOT create an undoable document edit.
 
 #### Scenario: A requested block is scrolled to and marked
-
 - **GIVEN** a page with several blocks, opened to one of its later blocks
 - **WHEN** the page renders
 - **THEN** that block is scrolled into view and carries a visible mark
 
 #### Scenario: The mark fades
-
 - **GIVEN** a page opened to a marked block
 - **WHEN** the mark's short time passes with no further action
 - **THEN** the mark is gone and the page's text is unchanged
 
 #### Scenario: An edit clears the mark
-
 - **GIVEN** a page with a marked block
 - **WHEN** the user types anywhere in the page
 - **THEN** the mark is cleared immediately
 
 #### Scenario: A later request replaces the mark
-
 - **GIVEN** a page with a marked block
 - **WHEN** the app asks to locate a different block
 - **THEN** only the new block is marked
 
 #### Scenario: The mark never reaches the file
-
 - **GIVEN** a page opened to a marked block
 - **WHEN** the page is saved or left untouched
 - **THEN** the Markdown and the file hold no character representing the mark, and the mark alone neither marks the page dirty nor writes it
-
-### Requirement: Deleting a table row or column is reachable without a handle
-
-While the caret is inside a table, the editor SHALL show a control strip attached to that table holding a control that deletes the caret's row and a control that deletes the caret's column. Each control SHALL carry a name that states its action, SHALL be visible without the user first finding or hovering a row or column handle, and activating it SHALL remove exactly the caret's row or column and leave a caret rather than a selection, so the next keystroke types. The strip SHALL be hidden whenever the caret is not in a table, SHALL be presentation only — it SHALL NOT appear in the page's Markdown and SHALL NOT change the table's rows, columns, or cell text until one of its controls is activated — and SHALL NOT change what a table's row and column handles do, which SHALL keep selecting a row or column and opening the alignment and delete controls as they do today. The keyboard path SHALL remain the bound chords `Mod-Alt-d` and `Mod-Alt-Shift-d`, unchanged. Showing or hiding the strip SHALL be driven only by a change to the table the caret is in, so work per keystroke SHALL NOT grow with the document or the table and a keystroke inside the same table SHALL NOT rebuild the strip.
-
-#### Scenario: The strip appears while editing a table
-
-- **GIVEN** an open page with a table
-- **WHEN** the user places the caret in one of its cells
-- **THEN** the table shows a control that deletes the caret's row and a control that deletes the caret's column, without the user hovering a handle
-
-#### Scenario: Activating Delete row removes that row
-
-- **GIVEN** an open page holding a table with the caret in a body row
-- **WHEN** the user activates the delete-row control
-- **THEN** that row is gone, the other rows keep their order and text, and the saved Markdown matches the table on screen
-
-#### Scenario: Activating Delete column removes that column
-
-- **GIVEN** an open page holding a table with the caret in a column
-- **WHEN** the user activates the delete-column control
-- **THEN** that column is gone from every row, the other columns keep their order and text, and the saved Markdown matches the table on screen
-
-#### Scenario: Deleting a row or column leaves a caret
-
-- **GIVEN** an open page holding a table with the caret in a body cell
-- **WHEN** the user activates the delete-row control and then types a character
-- **THEN** the character is inserted at a caret in the table rather than replacing a selected cell
-
-#### Scenario: The strip is gone outside a table
-
-- **GIVEN** an open page holding a table and a paragraph
-- **WHEN** the caret moves from the table to the paragraph
-- **THEN** the table shows no delete controls
-
-#### Scenario: The strip is presentation only
-
-- **GIVEN** an open page holding a table with the caret in a cell
-- **WHEN** the page saves with no control activated
-- **THEN** the saved Markdown holds the same table as before and no trace of the controls
-
-#### Scenario: The handles and chords are unchanged
-
-- **GIVEN** an open page holding a table with the caret in a cell
-- **WHEN** the user presses the handle of one column, and separately presses `Mod-Alt-d` and `Mod-Alt-Shift-d`
-- **THEN** the handle still selects that column and opens its controls, and each chord still deletes the caret's row or column
-
-#### Scenario: Showing the strip stays off the keystroke path
-
-- **GIVEN** an open page with a table near a long document
-- **WHEN** the user types inside a cell
-- **THEN** showing the strip adds no work that grows with the document or the table, and the editor's existing per-keystroke bounds are unchanged
-
-### Requirement: A thematic break renders as a visible rule
-
-A `---` line that a page's Markdown parses as a thematic break SHALL render in the editor as a horizontal rule that is clearly visible against the page surface. The rule SHALL be drawn in the palette's tertiary ink (`--stone`), in the app's canonical form — a `1px` line spanning the block, with the standard block margin above and below it — and SHALL use no token other than an existing one. The rule SHALL stay subordinate to body text: it is a divider, not a heading, and it SHALL NOT carry a weight, a fill, or a second edge beyond the line itself. Drawing it SHALL be presentational: the page's Markdown SHALL keep the `---` exactly as the user wrote it, the break SHALL stay one block for the gutter, the search, and the caret, and drawing it SHALL add no work to the keystroke path. A thematic break nested inside another block — a blockquote or a list item — SHALL be drawn the same way.
-
-#### Scenario: A rule is visible on the page
-
-- **GIVEN** an open page with `---` between two paragraphs
-- **WHEN** the page renders
-- **THEN** a horizontal rule is drawn in `--stone`, spanning the block, clearly visible against the parchment surface, with space above and below it
-
-#### Scenario: The file keeps its dashes
-
-- **GIVEN** a page whose file holds `---` between two paragraphs
-- **WHEN** the page renders and the page saves
-- **THEN** the rule is shown on screen and the saved Markdown still holds the `---` line, with no other characters written
-
-#### Scenario: A rule is one block and typing stays bounded
-
-- **GIVEN** an open page with a thematic break among many other blocks
-- **WHEN** the gutter numbers the page's blocks and the user types elsewhere in the page
-- **THEN** the break is numbered as a single block, and the work per keystroke does not grow with the document's size
-
-#### Scenario: A nested break is drawn the same
-
-- **GIVEN** a page containing `---` inside a blockquote
-- **WHEN** the page renders
-- **THEN** the rule is drawn inside the blockquote with the same visible ink as a top-level rule
 
 ### Requirement: An image-heavy page stays responsive
 When an open page references many images, the page SHALL remain responsive: opening it and typing in it SHALL NOT block for an amount of time that grows with the number of images referenced or the size of their files. The page SHALL limit the number of vault reads it has in flight at once, so a page whose markdown references many images does not issue one binary read per image simultaneously. An image that is displayed SHALL be decoded without blocking the editing surface, so the document stays editable while its images arrive.
@@ -1319,3 +689,134 @@ When an open page references many images, the page SHALL remain responsive: open
 - **GIVEN** an open page whose vault image reference has resolved
 - **WHEN** the image is displayed
 - **THEN** the image element asks the browser to decode it asynchronously, so the editing surface is not blocked by decoding
+
+### Requirement: Fenced code is highlighted source
+A fenced code block SHALL render as its Markdown source, visually distinct from surrounding prose, with its content syntax-highlighted for the language named on the opening fence. The block SHALL NOT offer a separate editing surface or a language control: the fence and its language token are edited as text, and the canonical file form is unchanged (` ``` ` … ` ``` `, with the language on the opening fence). Highlighting SHALL be scoped to the rendered region and SHALL NOT add work to the keystroke path that grows with the document. Language grammars SHALL load only for the languages a page actually fences, and a block with no language SHALL render monochrome.
+
+#### Scenario: A fenced block is highlighted in place
+- **GIVEN** a page whose Markdown contains a fence opened with a language
+- **WHEN** the page renders
+- **THEN** the block's content is syntax-highlighted for that language, and the fence lines remain visible and editable
+
+#### Scenario: Editing the language token follows through
+- **WHEN** the user edits the language token on an opening fence (for example to `js`)
+- **THEN** the block's highlighting follows, and after save and reopen the opening fence still reads ` ```js `
+
+#### Scenario: A language-less fence renders monochrome
+- **WHEN** the user opens a page whose Markdown contains a fenced code block with no language on its opening fence
+- **THEN** the block renders monochrome
+
+#### Scenario: Unused grammars are not loaded
+- **GIVEN** a page fencing only one language
+- **WHEN** the page renders
+- **THEN** no other language grammar is fetched
+
+### Requirement: Paste inserts literal text
+Pasting into the editor SHALL insert the clipboard's plain text verbatim. Because the surface is Markdown, pasted Markdown is inserted as Markdown with no interpretation step and no markdown-likeness rule, and text that merely contains inline markers SHALL stay the literal characters pasted. Rich-text and HTML clipboard flavors SHALL be ignored. Line breaks in pasted text SHALL be preserved. Pressing the paste shortcut with the shift modifier (Mod+Shift+V / Ctrl+Shift+V) SHALL also insert the literal text. Pasting a clipboard that carries no text (for example, copied files) SHALL leave the document unchanged.
+
+#### Scenario: Pasted Markdown lands as written
+- **WHEN** the user pastes a multi-block Markdown document (a heading, a bullet list, and a fenced code block) from outside the editor
+- **THEN** the text is inserted exactly as the clipboard held it, the saved Markdown contains that structure, and reopening the page shows the same text
+
+#### Scenario: Pasting formatted web text stays plain
+- **WHEN** the user copies formatted text from a web page (rich HTML with bold, italic, and code runs) and pastes it into an open page
+- **THEN** the pasted text appears as plain text with no bold, italic, code, or link formatting
+
+#### Scenario: Inline markers stay literal
+- **WHEN** the user pastes text such as `**bold**` or a bare URL
+- **THEN** those characters are inserted as typed and remain so after save and reopen
+
+#### Scenario: Multi-line paste keeps its line breaks
+- **WHEN** the user pastes text spanning several lines
+- **THEN** every line break is preserved in the document and in the saved Markdown
+
+#### Scenario: A clipboard with no text changes nothing
+- **WHEN** the user pastes a clipboard carrying files but no text
+- **THEN** the document is unchanged
+
+### Requirement: A GFM table renders as a table at rest
+A GFM pipe table SHALL render as a table in the editor while the caret is off it: a header row, body rows, and every cell carrying a visible border so the table draws a grid and a frame, with the header row reading apart from the body rows. The column alignment written in the delimiter row SHALL be applied per column. A cell's inline Markdown — emphasis, strong, strikethrough, code spans, and links — SHALL render, and a reference written in a cell SHALL render as a badge and activate like any other reference.
+
+Rendering SHALL be presentational: the file SHALL keep its pipe table, character for character, and the table's source SHALL be what an edit changes. Putting the caret on the table SHALL show its source, so the table is edited as Markdown; moving the caret off it SHALL render the table again. A press on the rendered table SHALL put the caret on it, so the source is reachable by clicking the table.
+
+Rendering a table SHALL NOT add work to the keystroke path that grows with the document: only the tables on the lines an edit touched, and the tables the caret moved on or off, SHALL be re-read, and a keystroke that touches no table SHALL re-read none of them.
+
+#### Scenario: A pipe table opens as a table
+- **GIVEN** a page whose Markdown holds a pipe table with a header row and body rows, and the caret elsewhere
+- **WHEN** the page renders
+- **THEN** the editor shows a table with a header row and those body rows, and no cell shows its pipe characters
+
+#### Scenario: A table renders with visible borders
+- **GIVEN** a page holding a table between two paragraphs, with the caret elsewhere
+- **WHEN** the page renders
+- **THEN** every cell carries a visible border drawing a grid and a frame around the table, and the header row reads apart from the body rows
+
+#### Scenario: Alignment follows the delimiter row
+- **GIVEN** a table whose delimiter row marks one column left, one centre, and one right
+- **WHEN** the table renders
+- **THEN** each column's cells are aligned as its delimiter asks
+
+#### Scenario: Cell markup and references render
+- **GIVEN** a table whose cells hold emphasis, a code span, a link, and `#Inbox`
+- **WHEN** the table renders
+- **THEN** each renders as its formatted content, and the reference renders as a badge that opens the page when activated
+
+#### Scenario: The source comes back for editing
+- **GIVEN** a rendered table
+- **WHEN** the user puts the caret on the table
+- **THEN** the table shows its Markdown source, with its pipes and delimiter row intact, and every cell is editable as text
+
+#### Scenario: Putting the caret back re-renders the table
+- **GIVEN** a table showing its source
+- **WHEN** the user moves the caret off the table
+- **THEN** the table renders as a table again, and the source it held is unchanged
+
+#### Scenario: The file keeps a pipe table
+- **GIVEN** a rendered table
+- **WHEN** the page is saved and reopened
+- **THEN** the saved Markdown is still a pipe table with the same rows, columns, and cell text
+
+#### Scenario: Table rendering cost follows the edit, not the page
+- **GIVEN** a page holding many tables and the user types in a paragraph that holds none
+- **WHEN** the edit is applied
+- **THEN** no table is re-read
+
+### Requirement: Inline formatting renders at rest
+Bold, italic, strikethrough, and inline code SHALL render as their formatted result while the selection is outside the construct: `**bold**`, `__bold__`, `*italic*`, `_italic_`, `~~struck~~`, and `` `code` `` SHALL show their content with weight, slant, a struck line, or the code style, and SHALL NOT show their markers. When the selection touches the construct — the caret inside it or a selection overlapping it — its markers SHALL be shown again, so the construct is edited as Markdown. Hiding SHALL be a view operation: the document SHALL keep every character, and a save SHALL write the constructs exactly as they were.
+
+A hidden marker SHALL be atomic: the caret SHALL step over it rather than land inside it. Hiding SHALL NOT apply inside a fenced code block or an inline code span's content, where the characters are literal. Rendered runs SHALL nest: a run inside another SHALL hide its own markers, and revealing the outer run SHALL NOT change the inner one.
+
+#### Scenario: Formatted runs read at rest
+- **GIVEN** a paragraph containing `**bold**`, `*italic*`, and `~~struck~~`, with the caret elsewhere
+- **WHEN** the page renders
+- **THEN** the words read as bold, italic, and struck text, and no `*` or `~` marker is shown
+
+#### Scenario: The markers come back for editing
+- **GIVEN** a rendered bold run
+- **WHEN** the user puts the caret inside it, or selects across it
+- **THEN** its `**` markers are shown, and it is editable as Markdown
+
+#### Scenario: Leaving the run renders it again
+- **GIVEN** a run showing its markers
+- **WHEN** the user moves the caret out of it
+- **THEN** the run renders as its formatted result again, and the text is unchanged
+
+#### Scenario: The file keeps the markers
+- **GIVEN** a page whose paragraph holds `**bold**`
+- **WHEN** the user edits an unrelated part of the page and the save completes
+- **THEN** the saved Markdown still holds `**bold**`
+
+#### Scenario: The caret steps over a hidden marker
+- **GIVEN** a rendered bold run with the caret after it
+- **WHEN** the user moves the caret backwards with the arrow keys
+- **THEN** the caret lands on the run's last content character and never inside a hidden marker
+
+#### Scenario: Code stays literal
+- **GIVEN** a fenced block containing `**not bold**` and an inline code span holding `*not italic*`
+- **WHEN** the page renders
+- **THEN** both show their characters literally, with no marker hidden and no formatting applied inside them
+
+#### Scenario: A nested run keeps its own markers
+- **GIVEN** a paragraph holding `**bold *nested* bold**`, with the caret elsewhere
+- **WHEN** the page renders
+- **THEN** both runs read as formatted text with none of their markers shown

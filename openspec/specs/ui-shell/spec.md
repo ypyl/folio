@@ -178,128 +178,6 @@ When a page is open, each section SHALL list its rows instead of placeholder cop
 - **WHEN** the user looks at the Links section
 - **THEN** the rows read `in Log`, `out Roadmap`, `a shot.png`, and `b migration.excalidraw`, in that order
 
-### Requirement: The right panel's last section is a keyboard-shortcuts reference
-
-The right meta panel SHALL hold the keyboard-shortcuts reference as its last collapsible section, after the page-metadata sections. The section SHALL be collapsed by default and its summary SHALL read "Keyboard shortcuts". While collapsed, the section's summary SHALL sit at the panel's bottom edge, below the page-metadata sections, whatever their open/closed state. Opening it SHALL expand the reference in place, growing upward from the panel's bottom edge: the reference SHALL NOT introduce a scrolling area or a height cap of its own, and the panel SHALL gain no scroll region beyond the fallback the meta-panel requirement specifies. Opening it SHALL list the app's keyboard shortcuts: the editor's formatting and editing shortcuts (bold, italic, inline code, undo, redo, heading levels one through six, paragraph, ordered and bullet lists, blockquote, code block, indent and outdent, line break) and the app's search shortcuts, one row per bound combination. The section SHALL list only shortcuts the app actually provides, and SHALL show each as a readable label with its key combination rendered as key tokens; heading levels one through six SHALL each be listed with their own entry showing that level's own key combination rather than a single key-range entry. The section SHALL be present and openable in every app state — with a vault open, while the index builds, on search-results surfaces, and on the brand empty state. The panel SHALL carry an accessible name that describes the whole panel, not only its link section. Opening or closing the reference SHALL NOT change the open page, the search spotlight, or the open/closed state of the Contents and Links sections. Because the reference is a disclosure rather than a modal surface, opening it SHALL NOT move keyboard focus, trap focus, or require a dismissal gesture; its summary SHALL be reachable and toggleable by keyboard like any other disclosure.
-
-#### Scenario: The panel ends with the reference
-
-- **WHEN** the shell renders with a vault open
-- **THEN** the right panel's sections are Contents, then Links, then the collapsed "Keyboard shortcuts" row, and no section follows it
-
-#### Scenario: The collapsed reference sits at the panel's bottom
-
-- **WHEN** the reference is collapsed and the Links section is shorter than the panel
-- **THEN** the reference row sits at the panel's bottom edge rather than directly beneath the Links section
-
-#### Scenario: The collapsed reference stays at the panel's bottom while the panel scrolls
-
-- **GIVEN** the Links section is long enough to fill the panel, and the panel is short enough that even its floor does not fit
-- **WHEN** the user scrolls the panel
-- **THEN** the collapsed reference row remains at the panel's bottom edge
-
-#### Scenario: The open reference grows upward from the panel's bottom
-
-- **WHEN** the user opens the reference while its row sits at the panel's bottom edge
-- **THEN** the list expands upward from that edge, no scrolling area or height cap appears inside the reference, and the reference is the only part of the panel that grows
-
-#### Scenario: The open reference stays fully reachable on a short window
-
-- **GIVEN** the open reference is taller than the panel
-- **WHEN** the user scrolls the panel
-- **THEN** the whole list is reachable, the panel's own scrollbar is the fallback that carries it, and no part of it is clipped or hidden behind the row
-
-#### Scenario: The reference is collapsed by default
-
-- **WHEN** the shell renders
-- **THEN** the keyboard-shortcuts section is collapsed and the panel shows only its summary row
-
-#### Scenario: The reference lists only real shortcuts
-
-- **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** it lists the editor's formatting and editing shortcuts and the app's search shortcuts, and lists no shortcut for capabilities that provide none (such as links)
-
-#### Scenario: Heading levels are covered as a single range
-
-- **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** heading levels one through six are covered as one contiguous range of key combinations, listed with one entry per level and each entry showing that level's own combination
-
-#### Scenario: The reference is reachable in every app state
-
-- **GIVEN** the app on the brand empty state with no vault open
-- **WHEN** the shell renders
-- **THEN** the right panel's keyboard-shortcuts section is present and opens
-
-#### Scenario: Opening the reference disturbs nothing
-
-- **GIVEN** a page is open and the Links section is open
-- **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** the open page is unchanged, the search spotlight is unchanged, and the Contents and Links sections keep their open/closed state
-
-#### Scenario: The reference is a disclosure, not a modal surface
-
-- **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** keyboard focus stays wherever the user left it, focus is not trapped, and no dismissal gesture is required to keep working
-
-#### Scenario: The reference toggles by keyboard
-
-- **WHEN** the user reaches the keyboard-shortcuts summary with the keyboard and activates it
-- **THEN** the summary shows visible keyboard focus and the section opens and closes
-
-### Requirement: The keyboard-shortcuts reference covers leaving a code block
-The keyboard-shortcuts reference SHALL cover leaving and removing a code block in addition to creating one: `Mod-Enter` (Cmd/Ctrl+Enter) to exit the block, and `Backspace` at the start of a one-line code block to turn it back into a paragraph. Each SHALL be listed as a readable label plus its key combination rendered as key tokens, matching the existing rows. Each label SHALL name the action, and a row's label and its key combination SHALL sit on one line at the panel's default width. The reference SHALL list each row only when the app actually provides that behavior. When the same chord means different things in different contexts, the reference SHALL list the chord under each action rather than hiding one.
-
-#### Scenario: The reference lists how to leave a code block
-- **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** it shows an "Exit code block" row with the `Mod-Enter` chord
-
-#### Scenario: The reference lists how to turn a code block back into a paragraph
-- **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** it shows a "Cancel code block" row with the `Backspace` key
-
-#### Scenario: A context-dependent chord is listed under each action
-- **WHEN** two different actions use the same chord in different contexts
-- **THEN** the reference lists that chord under both actions
-
-#### Scenario: Each row fits on one line
-- **WHEN** the reference is open at the panel's default width
-- **THEN** every row shows its label and its key tokens on a single line
-
-### Requirement: The keyboard-shortcuts reference covers formatting a JSON code block
-
-The keyboard-shortcuts reference SHALL list the JSON code block's format action: `Mod-Shift-F` (Cmd/Ctrl+Shift+F) to reindent the JSON code block the caret is in. It SHALL be listed as a readable label plus its key combination rendered as key tokens, matching the existing rows, with the label and its key combination on one line at the panel's default width. The row SHALL be a control that applies its combination, as the reference's other editor rows are. The row SHALL be listed only because the app provides that behavior.
-
-#### Scenario: The reference lists how to format a JSON code block
-
-- **WHEN** the user opens the keyboard-shortcuts section
-- **THEN** it shows a "Format JSON block" row with the `Mod-Shift-F` chord rendered as key tokens, on one line
-
-#### Scenario: Applying the format control reformats the block
-
-- **GIVEN** an open page with a JSON code block holding single-line JSON and the caret inside it
-- **WHEN** the user activates the format row's key control
-- **THEN** the block is reformatted exactly as pressing the combination would reformat it, and the page's saved Markdown holds the indented text
-
-### Requirement: The keyboard-shortcuts reference covers table editing
-
-The keyboard-shortcuts reference SHALL cover editing a table: `Mod-Alt-t` (Cmd/Ctrl+Alt+T) to insert a table, `Mod-Alt-Enter` (Cmd/Ctrl+Alt+Enter) to add a row below the caret's row, `Mod-Alt-Shift-Enter` (Cmd/Ctrl+Alt+Shift+Enter) to add a column to the right of the caret's column, `Tab` and `Shift-Tab` to move to the next and previous cell, and `Enter` to leave the table. It SHALL also cover the operations that exist on a table's row and column handles: `Mod-Alt-l`, `Mod-Alt-m`, and `Mod-Alt-r` (Cmd/Ctrl+Alt+L, M, R) to align the caret's column to the left, the center, and the right, `Mod-Alt-d` (Cmd/Ctrl+Alt+D) to delete the caret's row, and `Mod-Alt-Shift-d` (Cmd/Ctrl+Alt+Shift+D) to delete the caret's column. Each SHALL be listed as a readable label plus its key combination rendered as key tokens, matching the existing rows, and each label SHALL name the action. Every one of these rows SHALL be a control that applies its combination, as the reference's other editor rows are, and activating it SHALL do to the open page exactly what pressing the combination does, including acting on the caret's row or column. Where a chord means different things in different contexts, the reference SHALL list the chord under each action rather than hiding one, so `Tab`, `Shift-Tab`, and `Enter` appear both for their text behavior and for their behavior inside a table. A row SHALL be listed only because the app provides that behavior.
-
-#### Scenario: The reference lists how to create and extend a table
-
-- **WHEN** the user opens the keyboard-shortcuts section of a vault with a page open
-- **THEN** it lists inserting a table, adding a table row, adding a table column, aligning a column to the left, the center, and the right, deleting a row, deleting a column, moving to the next cell, moving to the previous cell, and leaving a table, each with its key combination rendered as key tokens and each row on one line
-
-#### Scenario: A chord with two meanings is listed twice
-
-- **WHEN** the user reads the reference's list
-- **THEN** `Tab` and `Shift-Tab` appear both as moving between list-item levels and as moving between table cells, and `Enter` appears as leaving a table
-
-#### Scenario: Applying the insert-table control creates a table
-
-- **GIVEN** an open page with the caret in the editor
-- **WHEN** the user activates the insert-table row's key combination
-- **THEN** the page gains a table at the caret, exactly as pressing the combination would produce, and the page's saved Markdown holds a pipe table
-
 ### Requirement: Empty state is a transient brand screen
 When no folder is active, the center pane SHALL show a brand screen: the FolioMark as a purely decorative element (`aria-hidden`) with a short tagline. Where the browser provides no local-folder picker, the screen SHALL state the browser requirement in place of the open-folder tagline — naming a Chromium-based browser (Chrome, Edge, or Brave) — because the open-folder instruction cannot be carried out there. This empty state SHALL be reachable at startup when no folder is stored, by activating the brand while folders are listed, and by closing the active folder. The screen SHALL contain no control that promises an action the app cannot perform; returning to an existing folder is done from the rail. Where the browser provides the local-folder picker, the screen SHALL additionally offer the one-time Logseq import action (see the logseq-import capability), and SHALL host that import's progress and result states in place of the tagline while it runs and after it finishes.
 
@@ -524,52 +402,6 @@ The shell SHALL render a thin status bar as a full-width row below the workspace
 
 - **WHEN** the user scrolls a pane beneath the status bar
 - **THEN** the bar and its content remain fixed at the shell's bottom
-
-### Requirement: Activating a shortcut row applies its key combination
-Every entry in the keyboard-shortcuts reference whose key combination the app binds as a keyboard shortcut SHALL be a control that applies that combination when activated. A row's label SHALL remain text; each key combination SHALL be its own control, so a row listing more than one combination offers one control per combination. Activating an editor row SHALL produce the same result as pressing that combination in the editor, including its toggling behaviour: applying a formatting combination to text that already carries that formatting SHALL remove it, and applying it again SHALL restore it. Activating a search row SHALL open the search spotlight with its input focused and its text selected. An entry whose key combination is not bound as a keyboard shortcut — the paste shortcut's shift modifier, which is read from the paste gesture rather than bound on keydown — SHALL remain a plain, non-interactive row rather than a control. A control SHALL carry an accessible name that states both the action and the key combination. A row SHALL be disabled — visibly dimmed and not activatable — when the surface it acts on is unavailable: rows that act on the editor while no editor is open, and the search row while no vault folder is open or the active folder's index is still building. Rows SHALL remain listed in every app state whether or not they are disabled. Activating an editor row SHALL leave keyboard focus in the editor, and activating a search row SHALL leave focus in the spotlight's search input, so the user can continue typing or searching without a further gesture. A combination the current context does not claim SHALL leave the document unchanged, silently. Activating a row SHALL be distinct from opening the reference: opening and closing the section itself SHALL continue to change nothing.
-
-#### Scenario: Clicking a formatting key removes the formatting
-- **GIVEN** a run of bold text in the open page, selected
-- **WHEN** the user activates the bold row's key control
-- **THEN** the selection is no longer bold, and the page's saved Markdown no longer carries the emphasis markers for that run
-
-#### Scenario: Applying the same key again restores the formatting
-- **GIVEN** a run of text made plain by activating the bold row's key control
-- **WHEN** the user activates that control again
-- **THEN** the run is bold again and the saved Markdown carries the emphasis markers again
-
-#### Scenario: Each key combination is its own control
-- **WHEN** the user opens the reference
-- **THEN** a row listing two combinations offers two separate controls, each applying its own combination
-
-#### Scenario: A non-bound shortcut stays a plain row
-- **WHEN** the user opens the reference
-- **THEN** the paste-as-plain-text row shows its label and key tokens but offers no control
-
-#### Scenario: Rows are dimmed when their surface is unavailable
-- **GIVEN** no editor is open, or no vault folder is open
-- **WHEN** the user opens the reference
-- **THEN** the rows for the unavailable surface are shown dimmed and do not react to activation, while every row remains listed
-
-#### Scenario: Activating a search row opens the spotlight
-- **GIVEN** a vault folder is open and its index has resolved
-- **WHEN** the user activates the search row's key control
-- **THEN** the search spotlight opens and focus is in its search input
-
-#### Scenario: Focus returns to the editor
-- **GIVEN** a page is open with the caret in it
-- **WHEN** the user activates an editor row's key control
-- **THEN** the combination is applied and keyboard focus is in the editor
-
-#### Scenario: A combination the context does not claim changes nothing
-- **GIVEN** a page is open with the caret in an ordinary paragraph
-- **WHEN** the user activates the indent row's key control
-- **THEN** the document is unchanged and no error is reported
-
-#### Scenario: Activating a row is not opening the reference
-- **GIVEN** a page is open and the reference is closed
-- **WHEN** the user opens the reference
-- **THEN** the open page and the search spotlight are unchanged, and only activating a control changes anything
 
 ### Requirement: A scroll region reserves its scrollbar's gutter
 
@@ -803,3 +635,96 @@ When the open item is a page that has a row in the sidebar's Files listing, the 
 - **GIVEN** a page with a Files row is open
 - **WHEN** the user reaches the status bar with the keyboard and focuses the page name
 - **THEN** the page name shows visible keyboard focus and reveals the row when activated
+
+### Requirement: The right panel's last section lists the shortcuts the app binds
+
+The right meta panel SHALL hold the keyboard-shortcuts reference as its last collapsible section, after the page-metadata sections. The section SHALL be collapsed by default and its summary SHALL read "Keyboard shortcuts". While collapsed, the section's summary SHALL sit at the panel's bottom edge, below the page-metadata sections, whatever their open/closed state. Opening it SHALL expand the reference in place, growing upward from the panel's bottom edge: the reference SHALL NOT introduce a scrolling area or a height cap of its own, and the panel SHALL gain no scroll region beyond the fallback the meta-panel requirement specifies.
+
+Opening it SHALL list the shortcuts the app actually binds: undo and redo in the editor, the chord that opens the reference at the caret, and the app's search shortcuts, one row per bound combination. It SHALL list no formatting chord and no table chord — not bold, italic, inline code, a heading level, a paragraph, a list, a blockquote, a code block, indent or outdent, a line break, an inserted table, a table row or column, a column alignment, a cell move, or a table exit — because the page surface shows its Markdown and is edited as text, so no such action exists for a chord to apply. Each row SHALL show a readable label with its key combination rendered as key tokens.
+
+The section SHALL be present and openable in every app state — with a vault open, while the index builds, on search-results surfaces, and on the brand empty state. The panel SHALL carry an accessible name that describes the whole panel, not only its link section. Opening or closing the reference SHALL NOT change the open page, the search spotlight, or the open/closed state of the Contents and Links sections. Because the reference is a disclosure rather than a modal surface, opening it SHALL NOT move keyboard focus, trap focus, or require a dismissal gesture; its summary SHALL be reachable and toggleable by keyboard like any other disclosure.
+
+#### Scenario: The panel ends with the reference
+- **WHEN** the shell renders with a vault open
+- **THEN** the right panel's sections are Contents, then Links, then the collapsed "Keyboard shortcuts" row, and no section follows it
+
+#### Scenario: The collapsed reference sits at the panel's bottom
+- **WHEN** the reference is collapsed and the Links section is shorter than the panel
+- **THEN** the reference row sits at the panel's bottom edge rather than directly beneath the Links section
+
+#### Scenario: The collapsed reference stays at the panel's bottom while the panel scrolls
+- **GIVEN** the Links section is long enough to fill the panel, and the panel is short enough that even its floor does not fit
+- **WHEN** the user scrolls the panel
+- **THEN** the collapsed reference row remains at the panel's bottom edge
+
+#### Scenario: The open reference grows upward from the panel's bottom
+- **WHEN** the user opens the reference while its row sits at the panel's bottom edge
+- **THEN** the list expands upward from that edge, no scrolling area or height cap appears inside the reference, and the reference is the only part of the panel that grows
+
+#### Scenario: The open reference stays fully reachable on a short window
+- **GIVEN** the open reference is taller than the panel
+- **WHEN** the user scrolls the panel
+- **THEN** the whole list is reachable, the panel's own scrollbar is the fallback that carries it, and no part of it is clipped or hidden behind the row
+
+#### Scenario: The reference is collapsed by default
+- **WHEN** the shell renders
+- **THEN** the keyboard-shortcuts section is collapsed and the panel shows only its summary row
+
+#### Scenario: The reference is reachable in every app state
+- **GIVEN** the app on the brand empty state with no vault open
+- **WHEN** the shell renders
+- **THEN** the right panel's keyboard-shortcuts section is present and opens
+
+#### Scenario: Opening the reference disturbs nothing
+- **GIVEN** a page is open and the Links section is open
+- **WHEN** the user opens the keyboard-shortcuts section
+- **THEN** the open page is unchanged, the search spotlight is unchanged, and the Contents and Links sections keep their open/closed state
+
+#### Scenario: The reference is a disclosure, not a modal surface
+- **WHEN** the user opens the keyboard-shortcuts section
+- **THEN** keyboard focus stays wherever the user left it, focus is not trapped, and no dismissal gesture is required to keep working
+
+#### Scenario: The reference toggles by keyboard
+- **WHEN** the user reaches the keyboard-shortcuts summary with the keyboard and activates it
+- **THEN** the summary shows visible keyboard focus and the section opens and closes
+
+#### Scenario: The reference lists only real shortcuts
+- **WHEN** the user opens the keyboard-shortcuts section
+- **THEN** it lists undo, redo, the reference chord, and the app's search shortcuts, and lists no shortcut for an action the app does not provide
+
+#### Scenario: No formatting or table chord is listed
+- **WHEN** the user reads the reference
+- **THEN** no row names bold, italic, inline code, a heading level, a paragraph, a list, a blockquote, a code block, indent or outdent, a line break, or any table action, so the panel advertises no chord nothing claims
+
+### Requirement: A shortcut row applies its key combination when activated
+
+Every entry in the keyboard-shortcuts reference SHALL be a control that applies its key combination when activated, because every row the reference now holds is a combination the app binds. A row's label SHALL remain text; each key combination SHALL be its own control, so a row listing more than one combination offers one control per combination. Activating an editor row SHALL produce the same result as pressing that combination in the editor. Activating a search row SHALL open the search spotlight with its input focused and its text selected. A control SHALL carry an accessible name that states both the action and the key combination. A row SHALL be disabled — visibly dimmed and not activatable — when the surface it acts on is unavailable: rows that act on the editor while no editor is open, and the search row while no vault folder is open or the active folder's index is still building. Rows SHALL remain listed in every app state whether or not they are disabled. Activating an editor row SHALL leave keyboard focus in the editor, and activating a search row SHALL leave focus in the spotlight's search input, so the user can continue typing or searching without a further gesture. A combination the current context does not claim SHALL leave the document unchanged, silently. Activating a row SHALL be distinct from opening the reference: opening and closing the section itself SHALL continue to change nothing.
+
+#### Scenario: Each key combination is its own control
+- **WHEN** the user opens the reference
+- **THEN** a row listing two combinations offers two separate controls, each applying its own combination
+
+#### Scenario: Rows are dimmed when their surface is unavailable
+- **GIVEN** no editor is open, or no vault folder is open
+- **WHEN** the user opens the reference
+- **THEN** the rows for the unavailable surface are shown dimmed and do not react to activation, while every row remains listed
+
+#### Scenario: Activating a search row opens the spotlight
+- **GIVEN** a vault folder is open and its index has resolved
+- **WHEN** the user activates the search row's key control
+- **THEN** the search spotlight opens and focus is in its search input
+
+#### Scenario: Focus returns to the editor
+- **GIVEN** a page is open with the caret in it
+- **WHEN** the user activates an editor row's key control
+- **THEN** the combination is applied and keyboard focus is in the editor
+
+#### Scenario: A combination the context does not claim changes nothing
+- **GIVEN** a page is open with the caret in an ordinary paragraph
+- **WHEN** the user activates the indent row's key control
+- **THEN** the document is unchanged and no error is reported
+
+#### Scenario: Activating a row is not opening the reference
+- **GIVEN** a page is open and the reference is closed
+- **WHEN** the user opens the reference
+- **THEN** the open page and the search spotlight are unchanged, and only activating a control changes anything

@@ -51,13 +51,14 @@ not produce a slide.
 
 ### Requirement: Slides render read-only through the app's Markdown semantics
 
-Each slide's content SHALL render as read-only content using the app's existing Markdown
-semantics: the same headings, paragraphs, emphasis, lists, links, blockquotes, code blocks,
-and tables the editor renders, with the same meaning. A slide SHALL present no editing
-affordance: no caret, no text entry, and no editing or formatting control. A vault image a
-slide references SHALL display the file's bytes, read through the vault storage seam, the
-same way the editor displays it. Rendering a slide SHALL NOT introduce a Markdown grammar or
-a rendering path separate from the editor's.
+Each slide's content SHALL render as read-only content derived from the page's Markdown, using
+one Markdown grammar: a slide's text SHALL be split into slides by top-level thematic breaks, and
+within a slide, headings, paragraphs, emphasis, lists, links, blockquotes, code blocks, and tables
+SHALL be interpreted the same way everywhere in the app. A slide SHALL present no editing
+affordance: no caret, no text entry, and no editing or formatting control. A vault image a slide
+references SHALL display the file's bytes, read through the vault storage seam, the same way the
+editor displays it. Rendering a slide SHALL NOT introduce a Markdown grammar or a rendering path
+separate from the one the page's Markdown already has.
 
 #### Scenario: Common constructs render
 
@@ -75,34 +76,6 @@ a rendering path separate from the editor's.
 
 - **WHEN** the presentation shows a slide
 - **THEN** the content carries no caret and offers no control that changes the page
-
-### Requirement: A presentation is entered and left explicitly and changes nothing
-
-A presentation SHALL open only through an explicit user gesture on a page row, and SHALL close on `Escape` and through an on-screen close control. Closing SHALL return to the editor with the presented page open, its content unchanged, and no presentation state written to the vault or elsewhere. For as long as the presentation is open, the app SHALL write nothing to the vault, and the presented page's Markdown and file SHALL be unchanged. Presenting a page that is not already open SHALL open it first, with the same effect as selecting that page's row — including whatever page-history entry a selection makes. Presenting the page that is already open SHALL NOT navigate and SHALL NOT add a page-history entry. Closing a presentation SHALL NOT add a page-history entry of its own.
-
-#### Scenario: Escape returns to the editor unchanged
-
-- **GIVEN** a page being presented
-- **WHEN** the user presses `Escape`
-- **THEN** the workspace returns with the presented page open and its content and file unchanged
-
-#### Scenario: Closing writes nothing
-
-- **GIVEN** a page being presented
-- **WHEN** the user closes the presentation
-- **THEN** no vault file changed and no presentation state was stored
-
-#### Scenario: The open page does not change
-
-- **GIVEN** the open page being presented
-- **WHEN** the presentation closes
-- **THEN** the same page is still open, and the history trail has gained no entry
-
-#### Scenario: Presenting a non-open page opens it
-
-- **GIVEN** a page row that is not the open page
-- **WHEN** the user presents it
-- **THEN** that page opens as selecting its row would (including its page-history entry) and the deck is shown
 
 ### Requirement: Navigation moves one slide at a time and reports position
 
