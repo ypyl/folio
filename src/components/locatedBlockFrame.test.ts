@@ -86,6 +86,20 @@ describe('the located block frame', () => {
     }
   })
 
+  it('frames a table widget with an outline, which joins no layout', () => {
+    // A table's lines are replaced by the widget, so the frame rides on the
+    // table itself: an outline paints outside the box, so the table's grid and
+    // its column widths stay where they were.
+    const rule = rules.find((entry) => entry.selector.includes('.folio-table-framed'))
+    expect(rule).toBeDefined()
+    expect(rule?.body).toContain('outline: 1px solid var(--brand)')
+    // `border-radius` is paint-only, so it is allowed; a border, padding, or a
+    // margin would resize the table and re-wrap its cells.
+    for (const property of ['border:', 'border-width', 'padding', 'margin', 'width']) {
+      expect(rule?.body, `the table frame must not set ${property}`).not.toContain(property)
+    }
+  })
+
   it('is a frame, not a fill that fades', () => {
     const all = rulesFor('folio-search-hit').join('\n')
     expect(all).not.toContain('background')

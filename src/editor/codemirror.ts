@@ -32,6 +32,7 @@ import {
   type Extension,
   type Range,
   type Text,
+  type Transaction,
 } from '@codemirror/state'
 import {
   Decoration,
@@ -249,17 +250,20 @@ type DocRange = { from: number; to: number }
 class TableWidget extends WidgetType {
   private readonly source: string
   private readonly table: ParsedTable
+  private readonly framed: boolean
 
-  constructor(source: string, table: ParsedTable) {
+  constructor(source: string, table: ParsedTable, framed: boolean) {
     super()
     this.source = source
     this.table = table
+    this.framed = framed
   }
 
-  /** Compared by source, so a change elsewhere in the document reuses this
-   *  element instead of rebuilding the table (the keystroke budget). */
+  /** Compared by source and frame, so a change elsewhere in the document reuses
+   *  this element instead of rebuilding the table (the keystroke budget), while
+   *  a frame arriving or leaving still redraws it. */
   eq(other: TableWidget): boolean {
-    return other.source === this.source
+    return other.source === this.source && other.framed === this.framed
   }
 
   /** A table owns its lines, so it is a block widget: that is also what lets a
@@ -270,6 +274,10 @@ class TableWidget extends WidgetType {
 
   toDOM(): HTMLElement {
     const table = document.createElement('table')
+    // The located block's frame rides on the table itself: a table's lines are
+    // replaced by this widget, so there is no line element for the frame's line
+    // decorations to land on (frame-the-located-block).
+    if (this.framed) table.className = TABLE_FRAMED_CLASS
     const head = document.createElement('thead')
     head.append(tableRow('th', this.table.header, this.table.align))
     const body = document.createElement('tbody')
@@ -375,10 +383,14 @@ function chipHtml(text: string, target: string, kind: string): string {
   return `<span class="${REFERENCE_CLASS}" data-ref-target="${escapeAttr(target)}" data-ref-kind="${kind}">${escapeHtml(text)}</span>`
 }
 
-/** A table the field knows about: its document range and whether the caret is
- *  showing its source. Kept as plain data so an update can carry the untouched
- *  entries forward without rebuilding anything per table. */
-type TableEntry = { from: number; to: number; shown: boolean }
+/** A table the field knows about: its document range, whether the caret is
+ *  showing its source, and whether the located block's frame encloses it. Kept
+ *  as plain data so an update can carry the untouched entries forward without
+ *  rebuilding anything per table. */
+type TableEntry = { from: number; to: number; shown: boolean; framed: boolean }
+
+/** The class a framed table widget carries; the pane's stylesheet draws it. */
+const TABLE_FRAMED_CLASS = 'folio-table-framed'
 
 /** The `Table` node starting at `from`, or null when the position no longer
  *  holds one (a mapped entry whose table the edit removed). */
@@ -408,7 +420,7 @@ function tableRanges(state: EditorState, entries: TableEntry[]): ReturnType<Deco
     if (!parsed) continue
     ranges.push(
       Decoration.replace({
-        widget: new TableWidget(state.doc.sliceString(entry.from, entry.to), parsed),
+        widget: new TableWidget(state.doc.sliceString(entry.from, entry.to), parsed, entry.framed),
         block: true,
       }).range(entry.from, entry.to),
     )
@@ -424,30 +436,72 @@ function tableRanges(state: EditorState, entries: TableEntry[]): ReturnType<Deco
  *  change re-decides only the tables the caret moved between, and returns the
  *  same value when no table's reveal state flipped, so an ordinary keystroke
  *  rebuilds nothing. */
+/** The located block's range as a transaction leaves it. The frame is owned by
+ *  `highlightField`, so this reads that field's previous value and applies the
+ *  same mapping: a table's frame stays in step with the text frame by
+ *  construction, rather than by two fields agreeing about where a block is. */
+function locatedRange(tr: Transaction): Framed {
+  const previous = tr.startState.field(highlightField).range
+  if (previous === null) return null
+  return {
+    from: tr.changes.mapPos(previous.from, -1),
+    to: tr.changes.mapPos(previous.to, 1),
+  }
+}
+
+/** The entries with their frame flag recomputed, and whether any flag moved
+ *  (which is what makes a widget need redrawing). */
+function withFrames(
+  entries: TableEntry[],
+  located: Framed,
+): { entries: TableEntry[]; changed: TableEntry[] } {
+  const changed: TableEntry[] = []
+  const next = entries.map((entry) => {
+    const framed = located !== null && overlaps(entry, located)
+    if (framed === entry.framed) return entry
+    const updated = { ...entry, framed }
+    changed.push(updated)
+    return updated
+  })
+  return { entries: next, changed }
+}
+
 const tableField = StateField.define<TableState>({
+  // Created before anything is located: the frame arrives with a highlight
+  // effect, which the update below answers.
   create: (state) => {
-    const entries = tablesIn(state, 0, state.doc.length, state.selection.main.head)
+    const entries = tablesIn(state, 0, state.doc.length, state.selection.main.head, null)
     return { entries, decorations: Decoration.set(tableRanges(state, entries), true) }
   },
 
   update(value, tr) {
     const caret = tr.state.selection.main.head
+    const effect = tr.effects.find((candidate) => candidate.is(setHighlight))
+    const located = effect
+      ? effect.value === null
+        ? null
+        : rangeOfLines(tr.state.doc, effect.value)
+      : locatedRange(tr)
 
     if (!tr.docChanged) {
       const before = tr.startState.selection.main.head
       const flipped = value.entries.filter(
         (entry) => touches(entry, before) !== touches(entry, caret),
       )
-      if (flipped.length === 0) return value
+      const frames = withFrames(value.entries, located)
+      // Nothing the caret moved on or off, and no frame moved either: keep the
+      // value's identity so an ordinary selection change rebuilds nothing.
+      if (flipped.length === 0 && frames.changed.length === 0) return value
+      const redraw = [...flipped, ...frames.changed.filter((entry) => !flipped.includes(entry))]
       return {
-        entries: value.entries.map((entry) =>
+        entries: frames.entries.map((entry) =>
           flipped.includes(entry) ? { ...entry, shown: !touches(entry, caret) } : entry,
         ),
         decorations: value.decorations.update({
-          filter: (from) => !flipped.some((entry) => entry.from === from),
+          filter: (from) => !redraw.some((entry) => entry.from === from),
           add: tableRanges(
             tr.state,
-            flipped.filter((entry) => !touches(entry, caret)),
+            redraw.filter((entry) => !touches(entry, caret)),
           ),
           sort: true,
         }),
@@ -468,12 +522,15 @@ const tableField = StateField.define<TableState>({
         to: tr.changes.mapPos(entry.to, 1),
       }))
       .filter((entry) => entry.to <= region.from || entry.from >= region.to)
-    const rebuilt = tablesIn(tr.state, region.from, region.to, caret)
+    const rebuilt = tablesIn(tr.state, region.from, region.to, caret, located)
+    // A frame that moved on a table the edit did not touch still has to redraw.
+    const frames = withFrames(kept, located)
+    const redraw = frames.changed.filter((entry) => !entry.shown)
     return {
-      entries: [...kept, ...rebuilt].sort((a, b) => a.from - b.from),
+      entries: [...frames.entries, ...rebuilt].sort((a, b) => a.from - b.from),
       decorations: value.decorations.map(tr.changes).update({
         filter: (rangeFrom) => rangeFrom < region.from || rangeFrom >= region.to,
-        add: tableRanges(tr.state, rebuilt),
+        add: [...tableRanges(tr.state, rebuilt), ...tableRanges(tr.state, redraw)],
         sort: true,
       }),
     }
@@ -497,17 +554,34 @@ function widen(state: EditorState, from: number, to: number): { from: number; to
 }
 
 /** Every table in `[from, to]`, with its current reveal state. */
-function tablesIn(state: EditorState, from: number, to: number, caret: number): TableEntry[] {
+function tablesIn(
+  state: EditorState,
+  from: number,
+  to: number,
+  caret: number,
+  located: Framed,
+): TableEntry[] {
   const entries: TableEntry[] = []
   syntaxTree(state).iterate({
     from,
     to,
     enter: (node) => {
       if (node.name !== 'Table') return
-      entries.push({ from: node.from, to: node.to, shown: caret >= node.from && caret <= node.to })
+      entries.push({
+        from: node.from,
+        to: node.to,
+        shown: caret >= node.from && caret <= node.to,
+        framed: located !== null && overlaps(node, located),
+      })
     },
   })
   return entries
+}
+
+/** Whether two ranges touch. Adjacency is not overlap: a located block and the
+ *  table after it are neighbours, not the same block. */
+function overlaps(a: { from: number; to: number }, b: { from: number; to: number }): boolean {
+  return a.from < b.to && a.to > b.from
 }
 
 /** The decoration set for one document view, and the reference ranges it found
@@ -615,25 +689,6 @@ function render(view: EditorView): Rendered {
       from,
       to,
       enter: (node) => {
-        // A table renders as a table while the caret is off it; the caret at
-        // either edge counts as on it, so a press on the rendered table brings
-        // the pipes back and a cell can be edited.
-        if (node.name === 'Table') {
-          if (selection.head < node.from || selection.head > node.to) {
-            const parsed = readTable(state, node.node)
-            if (parsed) {
-              marks.push({
-                from: node.from,
-                to: node.to,
-                decoration: Decoration.replace({
-                  widget: new TableWidget(state.doc.sliceString(node.from, node.to), parsed),
-                }),
-              })
-              atomic.push({ from: node.from, to: node.to, decoration: Decoration.replace({}) })
-            }
-          }
-          return
-        }
         if (node.name !== 'Image') return
         const start = node.from
         const end = node.to

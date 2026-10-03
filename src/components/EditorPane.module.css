@@ -554,6 +554,17 @@
   height: 12px;
 }
 
+/* A located block whose lines are replaced by the table widget
+   (frame-the-located-block): the frame rides on the table itself, because a
+   replaced table has no line element for the frame's line decorations to land
+   on. An outline paints outside the box and joins no layout, so the table's own
+   grid and its column widths stay exactly where they were. */
+.editor :global(.folio-table-framed) {
+  outline: 1px solid var(--brand);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
 /* Tables (add-table-editing). A table is a real table now, wrapped by the
    component's block, so the block carries the rhythm the <table> used to and
    the absolutely positioned controls hang off it rather than inside a row. The

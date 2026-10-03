@@ -795,3 +795,53 @@ describe('the located block is framed', () => {
     expect(framed(el).length).toBe(0)
   })
 })
+
+describe('a located table is framed too', () => {
+  const DOC = '# Title\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\nTail\n'
+
+  it('frames the table widget, because the table has no line to frame', async () => {
+    const el = await open(DOC)
+    // A table's lines are replaced by a block widget rendered beside the lines,
+    // so the line frame has nothing to attach to.
+    expect(el.querySelector('.folio-search-hit')).toBeNull()
+    expect(el.querySelector('.folio-table-framed')).toBeNull()
+    adapter?.highlightBlock(1)
+    expect(el.querySelector('.folio-table-framed')?.tagName).toBe('TABLE')
+  })
+
+  it('frames the table source instead while the caret is on it', async () => {
+    const el = await open(DOC)
+    adapter?.highlightBlock(1)
+    const view = (adapter as unknown as { view: EditorView }).view
+    // The caret on the table shows its source, so the frame's line decorations
+    // land on the lines the widget had replaced.
+    view.dispatch({ selection: { anchor: 12 } })
+    expect(el.querySelector('.folio-table-framed')).toBeNull()
+    expect(el.querySelectorAll('.folio-search-hit').length).toBe(3)
+  })
+
+  it('unframes the table when the locate is cleared', async () => {
+    const el = await open(DOC)
+    adapter?.highlightBlock(1)
+    expect(el.querySelector('.folio-table-framed')).not.toBeNull()
+    adapter?.highlightBlock(null)
+    expect(el.querySelector('.folio-table-framed')).toBeNull()
+  })
+
+  it('keeps the table framed across an edit elsewhere', async () => {
+    const el = await open(DOC)
+    adapter?.highlightBlock(1)
+    const view = (adapter as unknown as { view: EditorView }).view
+    view.dispatch({ selection: { anchor: view.state.doc.length } })
+    adapter?.insertMarkdown('more\n')
+    expect(el.querySelector('.folio-table-framed')).not.toBeNull()
+  })
+
+  it('does not frame the table next to the located block', async () => {
+    const el = await open(DOC)
+    // Block 2 is the paragraph after the table, not the table itself.
+    adapter?.highlightBlock(2)
+    expect(el.querySelector('.folio-table-framed')).toBeNull()
+    expect(el.querySelectorAll('.folio-search-hit').length).toBe(1)
+  })
+})
