@@ -58,6 +58,10 @@ export type EditorPaneHandle = {
   /** The open document's top-level blocks for a presentation
    *  (add-presentations); reading them changes nothing. */
   staticBlocks: () => StaticBlock[]
+  /** Take focus back into the caret's surface (add-compact-mobile-shell): the
+   *  compact shell covers the editor with a view of its own, and the platform
+   *  drops focus when the control that held it is hidden. */
+  focus: () => void
 }
 
 export function EditorPane({
@@ -149,6 +153,7 @@ export function EditorPane({
     () => ({
       applyChord: (chord: string) => adapterRef.current?.applyChord(chord) ?? false,
       staticBlocks: () => adapterRef.current?.staticBlocks() ?? [],
+      focus: () => adapterRef.current?.focus(),
     }),
     [],
   )

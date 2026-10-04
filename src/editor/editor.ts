@@ -85,4 +85,10 @@ export interface EditorAdapter {
    *  claimed the chord, so a caller can tell “applied” from “not applicable
    *  here”. */
   applyChord(chord: string): boolean
+  /** Put the caret's surface in focus without touching the selection
+   *  (add-compact-mobile-shell): the compact shell covers the editor with a
+   *  view of its own, so the platform drops focus on the body, and returning
+   *  to the editor takes it back. A view operation that never changes the
+   *  document, so it is not an undo step and never reaches serialization. */
+  focus(): void
 }

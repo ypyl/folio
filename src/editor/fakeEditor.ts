@@ -27,6 +27,8 @@ export class FakeEditor implements EditorAdapter {
   /** Static blocks the seam returns (add-presentations); tests set them and
    *  `staticBlocks()` hands them back unchanged. */
   blocks: StaticBlock[] = []
+  /** How many times the shell took focus back (add-compact-mobile-shell). */
+  focuses = 0
   private listeners: ((markdown: string) => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
   private boardLinkListeners: ((path: string) => void)[] = []
@@ -94,6 +96,10 @@ export class FakeEditor implements EditorAdapter {
 
   staticBlocks(): StaticBlock[] {
     return this.blocks
+  }
+
+  focus(): void {
+    this.focuses += 1
   }
 
   insertMarkdown(markdown: string, point?: DropPoint): void {

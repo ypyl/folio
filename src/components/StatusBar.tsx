@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { version } from '../../package.json'
+import type { CompactView } from '../compact'
 import type { DraftStatus } from '../editor/drafts'
 import styles from './StatusBar.module.css'
 
@@ -36,6 +37,28 @@ function ChevronIcon({ direction }: { direction: 'back' | 'forward' }) {
   )
 }
 
+// A pane glyph: a frame with the divider on the side the view occupies, so the
+// navigation control and the meta control read as mirror images and each points
+// at where its view comes from. aria-hidden, like the chevron: the control's
+// name carries the meaning.
+function PanelsIcon({ side }: { side: 'nav' | 'meta' }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={styles.viewIcon}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d={side === 'nav' ? 'M9 4v16' : 'M15 4v16'} />
+    </svg>
+  )
+}
+
 // Save-state copy (moved from the pane's SaveIndicator, page-editing spec):
 // muted text, never a badge.
 const SAVE_LABELS: Record<Exclude<DraftStatus, 'clean'>, string> = {
@@ -61,6 +84,9 @@ export function StatusBar({
   canToday = false,
   onToday,
   onRevealPage,
+  compact = false,
+  view,
+  onShowView,
 }: {
   /** The open page's vault-relative path, or null when no page is open. */
   pagePath: string | null
@@ -86,6 +112,15 @@ export function StatusBar({
    *  (reveal-open-page-in-files). App supplies it only while the open item is a
    *  page that has a Files row; the page name is inert text without it. */
   onRevealPage?: () => void
+  /** The compact shell (add-compact-mobile-shell): the bar is its app bar, so
+   *  it carries the two view controls and drops what a phone-width row cannot
+   *  hold. Absent on a wide window, where the bar's controls are Back, Forward,
+   *  Today, and the page name. */
+  compact?: boolean
+  /** Which compact view is shown, for the controls' pressed state. */
+  view?: CompactView
+  /** Show a compact view, or return to the editor by activating the one shown. */
+  onShowView?: (view: 'nav' | 'meta') => void
 }) {
   const segments = pagePath?.split('/') ?? []
   const hasDirs = segments.length > 1
@@ -100,7 +135,21 @@ export function StatusBar({
   const statusText = indexing ? 'Indexing notes…' : saveLabel
 
   return (
-    <footer className={styles.bar}>
+    <footer className={compact ? `${styles.bar} ${styles.compactBar}` : styles.bar}>
+      {/* The compact shell's leading view control (add-compact-mobile-shell):
+          the navigation unit — rail and sidebar together — which is where a
+          first run lands, so this is the app bar's home control too. */}
+      {compact && (
+        <button
+          type="button"
+          className={styles.viewControl}
+          aria-label="Navigation"
+          aria-pressed={view === 'nav'}
+          onClick={() => onShowView?.('nav')}
+        >
+          <PanelsIcon side="nav" />
+        </button>
+      )}
       {/* Session navigation (move-nav-controls-to-status-bar): the trail's
           Back and Forward and the Today control lead the bar, so the sidebar
           can lead with its sections. */}
@@ -135,7 +184,9 @@ export function StatusBar({
         </div>
       )}
       <div className={styles.path} title={pagePath ?? undefined}>
-        {hasDirs && (
+        {/* The compact bar shows the open item's name alone: a 360px row has no
+            space for the directories, and the name is what identifies it. */}
+        {hasDirs && !compact && (
           <>
             <span className={styles.crumbDirs}>
               {segments.slice(0, -1).map((segment, i) => (
@@ -178,8 +229,23 @@ export function StatusBar({
           </span>
         ) : null}
       </div>
+      {/* The compact shell's trailing view control: the meta panel, which owns
+          the page's metadata. aria-pressed reports whether it is the view
+          shown, the same "toggle whose pressed state is the view" pattern the
+          leading control uses. */}
+      {compact && (
+        <button
+          type="button"
+          className={`${styles.viewControl} ${styles.viewControlTrailing}`}
+          aria-label="Page details"
+          aria-pressed={view === 'meta'}
+          onClick={() => onShowView?.('meta')}
+        >
+          <PanelsIcon side="meta" />
+        </button>
+      )}
       <div className={styles.vault}>
-        {vaultName !== undefined && fileCount !== undefined ? (
+        {!compact && vaultName !== undefined && fileCount !== undefined ? (
           <span className={styles.vaultStatus} title={`${vaultName} (${fileCount} files)`}>
             <span className={styles.vaultName}>{vaultName}</span>
             <span className={styles.vaultCount}>· {fileCount}</span>
@@ -190,7 +256,7 @@ export function StatusBar({
           bar's trailing edge, beside the vault's file count. A sibling of the
           vault group rather than a child, so the group stays empty when no
           folder is active. */}
-      <span className={styles.version}>{`v${version}`}</span>
+      {!compact && <span className={styles.version}>{`v${version}`}</span>}
     </footer>
   )
 }

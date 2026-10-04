@@ -180,3 +180,73 @@ leading column's edge (continue-rail-border-in-status-bar). */
   color: var(--stone);
   white-space: nowrap;
 }
+
+/* The compact app bar (add-compact-mobile-shell, DESIGN.md "Touch targets and
+   safe areas"): the same bar wearing the app bar's role below the breakpoint.
+   Its height is set by the 44px targets rather than by its 12px text, and its
+   padding clears the screen's insets so no control sits under a notch, a
+   rounded corner, or the home indicator. Declared after `.bar` so these
+   longhands win at equal specificity. */
+.compactBar {
+  gap: 8px;
+  min-height: 44px;
+  padding-top: 4px;
+  padding-bottom: calc(4px + env(safe-area-inset-bottom));
+  padding-left: calc(4px + env(safe-area-inset-left));
+  padding-right: calc(4px + env(safe-area-inset-right));
+}
+
+/* Back, Forward, and Today are pointer-sized on a wide window and are now the
+   phone's primary navigation, so the compact bar sizes every one of them for a
+   thumb. The labelled control keeps its own width. */
+.compactBar .control {
+  width: 44px;
+  height: 44px;
+}
+
+.compactBar .controlLabel {
+  width: auto;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+/* The two view controls. They are the compact shell's only new controls, the
+   only ones that must meet the touch minimum on their own, and the bar's own
+   height is measured from them. */
+.viewControl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--stone);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.viewControl:hover,
+.viewControl:focus-visible,
+.viewControl[aria-pressed='true'] {
+  color: var(--brand);
+}
+
+.viewControl:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -1px;
+}
+
+.viewIcon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+/* The meta control takes the trailing edge, which the vault group would hold on
+   a wide window and which the compact bar does not render. */
+.viewControlTrailing {
+  margin-left: auto;
+}

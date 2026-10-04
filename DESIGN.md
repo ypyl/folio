@@ -229,6 +229,26 @@ per-platform variant: it is a no-op on macOS and touch, and exactly the fix on
 Windows and Linux. Where the platform ignores `::-webkit-scrollbar` and floats
 its own bar, that bar is what scrolls the region and the app adds nothing.
 
+### Touch targets and safe areas
+
+The compact shell is the app's first touch-sized surface, so this rule is about
+the phone and only about the phone. Every control in the compact app bar — the
+status bar's two view controls, and the Back, Forward, and Today controls
+beside them, which are pointer-sized on a wide window — is at least 44 by 44 CSS
+pixels. The app bar keeps the 4px spacing base
+but its row is sized by those targets, not by its text, and its content never
+wraps or scrolls: the compact bar drops what does not fit rather than growing a
+second row.
+
+No control sits under a notch, a rounded corner, or the home indicator. The
+shell pads itself with `env(safe-area-inset-*)` at every edge the bar touches,
+which is why `viewport-fit=cover` is set: without it the insets report zero and
+the padding silently does nothing. The shell also sizes itself to the visible
+height (`100dvh` with `interactive-widget=resizes-content`), so the on-screen
+keyboard shrinks the editor instead of covering the line being typed. These
+rules belong to the compact composition as a whole; the desktop shell keeps its
+pointer-sized controls and its `100%` height.
+
 ### Links
 
 One link behavior across the whole app: brand color, no underline, hover

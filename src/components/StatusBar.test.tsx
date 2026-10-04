@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { StatusBar } from './StatusBar'
 import { version } from '../../package.json'
 import styles from './StatusBar.module.css'
@@ -249,6 +249,69 @@ describe('StatusBar', () => {
     it('renders no navigation controls without handlers', () => {
       const { container } = render(<StatusBar pagePath="a.md" />)
       expect(container.querySelector(`.${styles.nav}`)).toBeNull()
+    })
+  })
+
+  describe('the compact app bar (add-compact-mobile-shell spec)', () => {
+    const onShowView = vi.fn()
+
+    it('carries a view control at each end and no others', () => {
+      const { container } = render(
+        <StatusBar pagePath="a.md" compact view="editor" onShowView={onShowView} />,
+      )
+      const bar = container.querySelector('footer') as HTMLElement
+      const controls = [...bar.querySelectorAll('button')].map(
+        (b) => b.getAttribute('aria-label') ?? b.textContent,
+      )
+      // The two view controls lead and trail; the folder statistics and the
+      // version a wide window shows are gone.
+      expect(controls).toEqual(['Navigation', 'Page details'])
+      expect(bar.className).toContain(styles.compactBar)
+    })
+
+    it('reports each view\u2019s shown state', () => {
+      render(<StatusBar pagePath="a.md" compact view="nav" onShowView={onShowView} />)
+      expect(screen.getByRole('button', { name: 'Navigation' }).getAttribute('aria-pressed')).toBe(
+        'true',
+      )
+      expect(
+        screen.getByRole('button', { name: 'Page details' }).getAttribute('aria-pressed'),
+      ).toBe('false')
+    })
+
+    it('asks for a view when its control is activated', () => {
+      const show = vi.fn()
+      render(<StatusBar pagePath="a.md" compact view="editor" onShowView={show} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Page details' }))
+      expect(show.mock.calls).toEqual([['nav'], ['meta']])
+    })
+
+    it('shows the open item\u2019s name alone, with no directories', () => {
+      const { container } = render(<StatusBar pagePath="journals/2026-09-15.md" compact />)
+      const crumb = container.querySelector(`.${styles.path}`) as HTMLElement
+      expect(crumb.textContent).toBe('2026-09-15.md')
+      expect(crumb.querySelector(`.${styles.crumbDirs}`)).toBeNull()
+    })
+
+    it('drops the folder statistics and the version a wide bar shows', () => {
+      const { container } = render(
+        <StatusBar pagePath="a.md" vaultName="notes" fileCount={12} compact />,
+      )
+      expect(container.querySelector(`.${styles.vaultStatus}`)).toBeNull()
+      expect(container.querySelector(`.${styles.version}`)).toBeNull()
+      expect(
+        within(container.querySelector('footer') as HTMLElement).queryByText(`v${version}`),
+      ).toBeNull()
+      // The wide bar keeps both.
+      const wide = render(<StatusBar pagePath="a.md" vaultName="notes" fileCount={12} />)
+      expect(wide.container.querySelector(`.${styles.vaultStatus}`)).toBeTruthy()
+      expect(wide.container.querySelector(`.${styles.version}`)).toBeTruthy()
+    })
+
+    it('keeps the save-state label in the compact row', () => {
+      render(<StatusBar pagePath="a.md" saveState="dirty" compact />)
+      expect(screen.getByRole('status').textContent).toBe('Unsaved changes')
     })
   })
 })

@@ -3,7 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%folio-mark.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` so `env(safe-area-inset-*)` reports real insets on
+         a notched phone, and `interactive-widget=resizes-content` so the
+         on-screen keyboard shrinks the layout viewport instead of covering the
+         bottom of the editor (add-compact-mobile-shell, design D7). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="description" content="A lightweight, local-first alternative to Logseq." />
     <meta name="theme-color" content="#1B365D" />
     <title>Folio</title>

@@ -1019,6 +1019,10 @@ export class CodeMirrorAdapter implements EditorAdapter {
     this.view = null
   }
 
+  focus(): void {
+    this.view?.focus()
+  }
+
   async setContent(markdown: string): Promise<void> {
     const view = this.view
     if (!view) return

@@ -10,6 +10,7 @@ import { FileSystemVaultStorage } from './vault/fs'
 import { dayLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
+import { COMPACT_QUERY } from './compact'
 
 // jsdom 30 has no <dialog> modal API, so `showModal()` cannot open the
 // presentation dialog and role queries would treat it as hidden. Stub the two
@@ -140,6 +141,7 @@ type FakeView = EditorAdapter & {
   insertions: string[]
   chords: string[]
   highlights: number[][]
+  focuses: number
   emitChange: (markdown: string) => void
   emitReferenceClick: (target: string, kind?: 'page' | 'board') => void
   suggest: (query: string) => import('./vault/suggest').Suggestion[]
@@ -2024,5 +2026,199 @@ describe('page contents (add-page-contents)', () => {
       write.mockRestore()
       vi.unstubAllGlobals()
     }
+  })
+})
+
+// The compact shell (add-compact-mobile-shell spec): one view at a time, chosen
+// from the status bar's app-bar controls, with the Android Back step closing
+// the view instead of leaving the app. jsdom applies no stylesheets and has no
+// layout, so what these tests hold is the state that drives the composition —
+// the shell's view class, the controls' pressed state, and the history entries.
+// The layout those classes select is checked in a browser.
+describe('the compact shell (add-compact-mobile-shell spec)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** Answer the shell's breakpoint as a phone would. The listener is a no-op:
+   *  a test that crosses the breakpoint re-renders, which is what the real
+   *  `change` event does. */
+  function stubCompact(matches = true): void {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: matches && query === COMPACT_QUERY,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    )
+  }
+
+  const shell = () => document.querySelector('.app-shell') as HTMLElement
+  const shownView = () =>
+    (['nav', 'editor', 'meta'] as const).find((v) => shell().classList.contains(`view-${v}`))
+  const navLayer = () => document.querySelector('.layer-nav') as HTMLElement
+  /** A control that closes a view pops a history entry, which jsdom dispatches
+   *  asynchronously; stub the step so a test can assert it was asked for. */
+  const stubBack = () => vi.spyOn(window.history, 'back').mockImplementation(() => {})
+
+  it('settles on the navigation view when nothing is open', async () => {
+    stubCompact()
+    render(<App />)
+    // 'restoring' leads with the editor, because a stored vault is about to open
+    // a page and the navigation view must not flash in front of it. With nothing
+    // stored, the restore settles with nothing open and the navigation view —
+    // where the folder picker's control lives — takes over.
+    await waitFor(() => expect(shownView()).toBe('nav'))
+  })
+
+  it('leads with the editor view once a page is open', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    await waitFor(() => expect(shownView()).toBe('editor'))
+  })
+
+  it('shows one view at a time from the app bar, and its own control returns', async () => {
+    stubCompact()
+    const back = stubBack()
+    try {
+      render(<App />)
+      await openFixture()
+      expect(shownView()).toBe('editor')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+      expect(shownView()).toBe('nav')
+      expect(screen.getByRole('button', { name: 'Navigation' }).getAttribute('aria-pressed')).toBe(
+        'true',
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Page details' }))
+      expect(shownView()).toBe('meta')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Page details' }))
+      expect(shownView()).toBe('editor')
+      expect(
+        screen.getByRole('button', { name: 'Page details' }).getAttribute('aria-pressed'),
+      ).toBe('false')
+    } finally {
+      back.mockRestore()
+    }
+  })
+
+  it('opens a view with a history entry, and closing it pops that entry', async () => {
+    stubCompact()
+    const back = stubBack()
+    try {
+      render(<App />)
+      await openFixture()
+      const push = vi.spyOn(window.history, 'pushState')
+      try {
+        fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+        expect(push).toHaveBeenCalledTimes(1)
+        fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+        expect(back).toHaveBeenCalledTimes(1)
+        // Closing pushes nothing: the entry it opened with is the one it pops.
+        expect(push).toHaveBeenCalledTimes(1)
+      } finally {
+        push.mockRestore()
+      }
+    } finally {
+      back.mockRestore()
+    }
+  })
+
+  it('a landing view has no entry to pop and does not step back', async () => {
+    stubCompact()
+    const back = stubBack()
+    try {
+      render(<App />)
+      // Nothing is open, so the navigation view leads without having been
+      // chosen: activating its own control gives way to the editor and must
+      // not take the browser back out of the app.
+      await waitFor(() => expect(shownView()).toBe('nav'))
+      const push = vi.spyOn(window.history, 'pushState')
+      try {
+        fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+        expect(shownView()).toBe('editor')
+        expect(back).not.toHaveBeenCalled()
+        expect(push).not.toHaveBeenCalled()
+      } finally {
+        push.mockRestore()
+      }
+    } finally {
+      back.mockRestore()
+    }
+  })
+
+  it('closes the shown view on the browser back step', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    expect(shownView()).toBe('nav')
+
+    act(() => {
+      window.dispatchEvent(new Event('popstate'))
+    })
+    expect(shownView()).toBe('editor')
+  })
+
+  it('shows the editor after a row is selected from a view', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    expect(shownView()).toBe('nav')
+
+    fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(shownView()).toBe('editor'))
+    expect(editor().content).toContain('lightweight way')
+  })
+
+  it('takes focus back into the editor when a chosen view closes', async () => {
+    stubCompact()
+    const back = stubBack()
+    try {
+      render(<App />)
+      await openFixture()
+      const before = editor().focuses
+      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+      expect(editor().focuses).toBe(before + 1)
+    } finally {
+      back.mockRestore()
+    }
+  })
+
+  it('leaves the wide composition alone', async () => {
+    // No `matchMedia`: jsdom's absence is the wide composition, which is what
+    // every other test in this file renders.
+    render(<App />)
+    await openFixture()
+    expect(shownView()).toBeUndefined()
+    expect(screen.queryByRole('button', { name: 'Navigation' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Page details' })).toBeNull()
+    // Both collapse strips are still there, and both panes are expanded.
+    expect(document.querySelectorAll('[aria-controls="folder-rail sidebar-pane"]')).toHaveLength(1)
+    expect(document.querySelectorAll('[aria-controls="meta-panel"]')).toHaveLength(1)
+  })
+
+  it('ignores a fold left over from a wider window', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    // Nothing renders a strip on compact, so a fold can only arrive from a
+    // wider window; the panes must not carry it into the one-view shell.
+    const sidebar = document.getElementById('sidebar-pane') as HTMLElement
+    const rail = document.querySelector('.layer-nav > :first-child') as HTMLElement
+    expect(sidebar.className).not.toContain(sidebarStyles.collapsed)
+    expect(rail.className).not.toContain(railStyles.collapsed)
+    expect(shell().className).not.toContain('left-collapsed')
   })
 })

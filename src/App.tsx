@@ -19,6 +19,7 @@ import { copyDroppedFiles } from './vault/assets'
 import { isBoardTarget, openVaultPath } from './vault/assetOpen'
 import type { ReferenceKind } from './vault/parse'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
+import { useCompact, type CompactView } from './compact'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import {
@@ -159,6 +160,13 @@ function App() {
   // which only the workspace grid reads.
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
+  // The compact shell (add-compact-mobile-shell, design D3/D6): which of its
+  // three views is shown, one at a time. Session-only, like the fold state
+  // beside it, so a reload re-derives it and nothing is written anywhere. The
+  // choice is stored with the item it was made for; the landing rule below says
+  // why.
+  const [chosenView, setChosenView] = useState<{ view: CompactView; item: string } | null>(null)
+  const compact = useCompact()
   // The calendar's Today re-anchor tick (move-nav-controls-to-status-bar):
   // Today now lives in the status bar, but the calendar it re-anchors stays in
   // the sidebar. App owns the tick and passes it down; it changes only on a
@@ -598,29 +606,100 @@ function App() {
     [togglePin],
   )
 
+  // The compact landing rule (design D6): with nothing open the navigation view
+  // leads, so a first run lands where the folder picker's control lives; once
+  // an item is open the editor leads. While a vault is restoring a page is about
+  // to open, so the editor leads and the navigation view does not flash.
+  const mainPaneHasItem = activePath !== null || mode !== 'page' || importView !== null
+  const itemKey = JSON.stringify([activePath, mode, importView?.kind ?? null])
+  const landingView: CompactView = status === 'restoring' || mainPaneHasItem ? 'editor' : 'nav'
+  const compactView: CompactView = chosenView?.item === itemKey ? chosenView.view : landingView
+
+  // Folding belongs to the wide composition: the compact shell has no strips, so
+  // a fold left over from a wider window does not apply there.
+  const leftFolded = leftCollapsed && !compact
+  const rightFolded = rightCollapsed && !compact
+
+  // Showing a view pushes a history entry, so the device's Back button and Back
+  // gesture close the view instead of leaving the app (design D3). An entry is
+  // pushed only when a view is opened, so repeated taps cannot stack them.
+  const showCompactView = useCallback(
+    (view: CompactView) => {
+      setChosenView({ view, item: itemKey })
+      if (view !== 'editor') history.pushState({ folioView: view }, '')
+    },
+    [itemKey],
+  )
+
+  const toggleCompactView = useCallback(
+    (view: 'nav' | 'meta') => {
+      // The shown view's own control closes it. Only a view the user opened has
+      // an entry to pop: a landing view was never pushed, so it just gives way
+      // to the editor.
+      if (compactView === view && chosenView?.item === itemKey) {
+        setChosenView({ view: 'editor', item: itemKey })
+        history.back()
+        return
+      }
+      showCompactView(compactView === view ? 'editor' : view)
+    },
+    [compactView, chosenView, itemKey, showCompactView],
+  )
+
+  // Back closes the view. The listener never pushes, so the first Back with the
+  // editor shown is still the browser's to handle (design D3).
+  useEffect(() => {
+    const onPopState = () => setChosenView(null)
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  // Focus follows the view (design D1): a covered editor leaves the tab order,
+  // so the platform drops focus on the body when the row that held it is
+  // hidden. Returning to the editor restores it. Wide viewports never take this
+  // path, so the desktop focus behavior is unchanged.
+  const previousView = useRef(compactView)
+  useEffect(() => {
+    if (compact && previousView.current !== 'editor' && compactView === 'editor') {
+      editorRef.current?.focus()
+    }
+    previousView.current = compactView
+  }, [compact, compactView])
+
   // Reveal the open page's row in the Files listing (reveal-open-page-in-files,
   // ui-shell spec). The status bar offers this only while the open item is a
   // page with a Files row; the sidebar performs it. A folded left pane is
   // display: none, so nothing inside it can take focus: unfold first, then
   // reveal after the commit that expanded it. View-only — no navigation, no
-  // re-open, no vault write.
+  // re-open, no vault write. On the compact shell the listing is a view of its
+  // own rather than a folded pane, and the same two-step applies to it.
   const sidebarRef = useRef<SidebarHandle | null>(null)
   const pendingReveal = useRef(false)
 
   const handleRevealPage = useCallback(() => {
-    if (leftCollapsed) {
+    // The compact shell keeps the listing in a view of its own (design D6):
+    // show that view first, then reveal after the commit that made the row
+    // focusable — the same two-step a folded pane needs, for the same reason.
+    if (compact && compactView !== 'nav') {
+      pendingReveal.current = true
+      showCompactView('nav')
+      return
+    }
+    if (!compact && leftCollapsed) {
       pendingReveal.current = true
       setLeftCollapsed(false)
       return
     }
     sidebarRef.current?.revealActive()
-  }, [leftCollapsed])
+  }, [compact, compactView, leftCollapsed, showCompactView])
 
   useEffect(() => {
-    if (leftCollapsed || !pendingReveal.current) return
+    if (!pendingReveal.current) return
+    if (!compact && leftCollapsed) return
+    if (compact && compactView !== 'nav') return
     pendingReveal.current = false
     sidebarRef.current?.revealActive()
-  }, [leftCollapsed])
+  }, [compact, compactView, leftCollapsed])
 
   // A board's element change (add-whiteboards, design D7): schedule the scene
   // for the debounced board writer. Panning never reaches here (the board view
@@ -908,167 +987,182 @@ function App() {
     [boardPool],
   )
 
-  const shellClass = `app-shell${leftCollapsed ? ' left-collapsed' : ''}${
-    rightCollapsed ? ' right-collapsed' : ''
-  }`
+  const shellClass = `app-shell${leftFolded ? ' left-collapsed' : ''}${
+    rightFolded ? ' right-collapsed' : ''
+  }${compact ? ` view-${compactView}` : ''}`
 
   return (
     <div className={shellClass}>
       <div className="workspace">
-        <PaneCollapseToggle
-          side="left"
-          collapsed={leftCollapsed}
-          controls="folder-rail sidebar-pane"
-          onToggle={() => setLeftCollapsed((v) => !v)}
-        />
-        <FolderRail
-          status={status}
-          folders={folders}
-          activeId={activeId}
-          // The brand returns home (close-folders): no active folder, folders
-          // stay on the rail. The activeFolder?.id effect resets the page.
-          onHome={() => void goHome()}
-          // The rail's search trigger opens the spotlight; it is disabled while
-          // no vault is usable, matching search's scoped rule.
-          onSearch={() => setSearchOpen(true)}
-          searchDisabled={!canSearch}
-          // Closing a folder forgets it; closing the active one returns home
-          // (close-folders). The activeFolder?.id effect resets the page.
-          onClose={(id) => void closeFolder(id)}
-          onAdd={
-            canOpen
-              ? () => {
-                  resetOpenPage()
-                  void addFolder()
-                }
-              : undefined
-          }
-          onActivate={handleActivate}
-          collapsed={leftCollapsed}
-        />
-        <Sidebar
-          ref={sidebarRef}
-          collapsed={leftCollapsed}
-          rows={sidebarRows}
-          journalEntries={journalEntries}
-          activePath={activePath}
-          onSelect={handleSelect}
-          onOpenAsset={handleOpenAsset}
-          onOpenBoard={handleOpenBoard}
-          onFavorite={handleFavorite}
-          onPresent={handlePresent}
-          hasVault={graph !== null}
-          loading={indexing}
-          todayTick={todayTick}
-        />
-        {importView !== null ? (
-          <LogseqImportPanel view={importView} onContinue={() => setImportView(null)} />
-        ) : mode === 'results' ? (
-          <SearchResultsView
-            // Keyed on the query: editing the query while the view is open
-            // remounts it, resetting page and active row to the new set.
-            key={searchQuery}
-            query={searchQuery}
-            results={searchResults}
-            onOpen={handleSelect}
-            onOpenAsset={handleOpenAsset}
-            onOpenBoard={handleOpenBoard}
-            onClose={() => setMode('page')}
-          />
-        ) : mode === 'board' ? (
-          // A board opens in the main pane (add-whiteboards, design D5). The
-          // scene is read on open; until it lands, the pane shows an empty
-          // board-shaped placeholder rather than the editor's notes hint.
-          boardScene === null ? (
-            <div className="board-placeholder" aria-busy="true" />
-          ) : (
-            <BoardView
-              // Keyed by path: switching boards remounts rather than mutating.
-              key={activePath ?? 'board'}
-              initialScene={boardScene}
-              onChange={handleBoardEdit}
-            />
-          )
-        ) : (
-          <EditorPane
-            // Keyed by path: each page gets a fresh editor seeded with its
-            // draft-or-index content; switching pages remounts it.
-            key={page?.path}
-            ref={editorRef}
-            page={page}
-            initialContent={initialContent}
-            onChange={handleEdit}
-            onReady={handleEditorReady}
-            // The frame belongs to the page it was located on, so a pane
-            // showing any other page is handed no mark.
-            highlight={matchHighlight?.path === activePath ? matchHighlight : null}
-            onOpenReference={handleOpenReference}
-            onBoardLink={handleOpenBoard}
-            suggest={suggest}
-            suggestBoards={suggestBoardRows}
-            suggestFiles={suggestFileRows}
-            onAttachFiles={
-              activeFolder?.storage
-                ? (files) => copyDroppedFiles(activeFolder.storage!, files)
-                : undefined
-            }
-            // Vault images (render-vault-images): the pane resolves a page's
-            // asset references through the active folder's storage, and does
-            // nothing without one.
-            readAsset={
-              activeFolder?.storage ? (path) => activeFolder.storage!.readBinary(path) : undefined
-            }
-            // While restoring, avoid a one-frame "open a folder" flash; once
-            // settled, only an actually usable folder keeps the notes hint,
-            // and a browser with no folder picker gets the requirement instead
-            // of an instruction it cannot follow (warn-unsupported-browser).
-            emptyHint={
-              status === 'restoring' || activeFolder?.storage
-                ? 'notes'
-                : canOpen
-                  ? 'open-folder'
-                  : 'browser-unsupported'
-            }
-            brandAction={
-              canOpen && status === 'ready' && activeFolder?.storage === undefined ? (
-                <LogseqImportButton onClick={() => void handleImport()} />
-              ) : undefined
-            }
-            loading={indexing}
+        {/* The strips are the wide composition's: the compact shell shows one
+            view at a time and has nothing to fold (design D1). */}
+        {!compact && (
+          <PaneCollapseToggle
+            side="left"
+            collapsed={leftCollapsed}
+            controls="folder-rail sidebar-pane"
+            onToggle={() => setLeftCollapsed((v) => !v)}
           />
         )}
-        <MetaPanel
-          // The meta panel is page metadata in page mode; in board mode it
-          // shows the board's referrers instead (add-whiteboards). Both `page`
-          // reads below derive from the last-known ref (the same quirk the
-          // StatusBar props suppress).
-          /* oxlint-disable react/refs */
-          pageOpen={mode === 'page' && page !== null}
-          contents={mode === 'page' ? contentsRows : []}
-          links={linkRows}
-          activePath={mode === 'page' ? activePath : null}
-          boardOpen={mode === 'board'}
-          boardReferrers={boardReferrerRows}
-          onSelect={handleSelect}
-          onLocate={handleLocate}
-          onOpenAsset={handleOpenAsset}
-          loading={indexing}
-          shortcuts={<ShortcutsList onApply={applyShortcut} canApply={canApply} />}
-          /* oxlint-enable react/refs */
-          collapsed={rightCollapsed}
-        />
-        <PaneCollapseToggle
-          side="right"
-          collapsed={rightCollapsed}
-          controls="meta-panel"
-          onToggle={() => setRightCollapsed((v) => !v)}
-        />
+        <div className="view-layer layer-nav">
+          <FolderRail
+            status={status}
+            folders={folders}
+            activeId={activeId}
+            // The brand returns home (close-folders): no active folder, folders
+            // stay on the rail. The activeFolder?.id effect resets the page.
+            onHome={() => void goHome()}
+            // The rail's search trigger opens the spotlight; it is disabled while
+            // no vault is usable, matching search's scoped rule.
+            onSearch={() => setSearchOpen(true)}
+            searchDisabled={!canSearch}
+            // Closing a folder forgets it; closing the active one returns home
+            // (close-folders). The activeFolder?.id effect resets the page.
+            onClose={(id) => void closeFolder(id)}
+            onAdd={
+              canOpen
+                ? () => {
+                    resetOpenPage()
+                    void addFolder()
+                  }
+                : undefined
+            }
+            onActivate={handleActivate}
+            collapsed={leftFolded}
+          />
+          <Sidebar
+            ref={sidebarRef}
+            collapsed={leftFolded}
+            rows={sidebarRows}
+            journalEntries={journalEntries}
+            activePath={activePath}
+            onSelect={handleSelect}
+            onOpenAsset={handleOpenAsset}
+            onOpenBoard={handleOpenBoard}
+            onFavorite={handleFavorite}
+            onPresent={handlePresent}
+            hasVault={graph !== null}
+            loading={indexing}
+            todayTick={todayTick}
+          />
+        </div>
+        <div className="view-layer layer-main">
+          {importView !== null ? (
+            <LogseqImportPanel view={importView} onContinue={() => setImportView(null)} />
+          ) : mode === 'results' ? (
+            <SearchResultsView
+              // Keyed on the query: editing the query while the view is open
+              // remounts it, resetting page and active row to the new set.
+              key={searchQuery}
+              query={searchQuery}
+              results={searchResults}
+              onOpen={handleSelect}
+              onOpenAsset={handleOpenAsset}
+              onOpenBoard={handleOpenBoard}
+              onClose={() => setMode('page')}
+            />
+          ) : mode === 'board' ? (
+            // A board opens in the main pane (add-whiteboards, design D5). The
+            // scene is read on open; until it lands, the pane shows an empty
+            // board-shaped placeholder rather than the editor's notes hint.
+            boardScene === null ? (
+              <div className="board-placeholder" aria-busy="true" />
+            ) : (
+              <BoardView
+                // Keyed by path: switching boards remounts rather than mutating.
+                key={activePath ?? 'board'}
+                initialScene={boardScene}
+                onChange={handleBoardEdit}
+              />
+            )
+          ) : (
+            <EditorPane
+              // Keyed by path: each page gets a fresh editor seeded with its
+              // draft-or-index content; switching pages remounts it.
+              key={page?.path}
+              ref={editorRef}
+              page={page}
+              initialContent={initialContent}
+              onChange={handleEdit}
+              onReady={handleEditorReady}
+              // The frame belongs to the page it was located on, so a pane
+              // showing any other page is handed no mark.
+              highlight={matchHighlight?.path === activePath ? matchHighlight : null}
+              onOpenReference={handleOpenReference}
+              onBoardLink={handleOpenBoard}
+              suggest={suggest}
+              suggestBoards={suggestBoardRows}
+              suggestFiles={suggestFileRows}
+              onAttachFiles={
+                activeFolder?.storage
+                  ? (files) => copyDroppedFiles(activeFolder.storage!, files)
+                  : undefined
+              }
+              // Vault images (render-vault-images): the pane resolves a page's
+              // asset references through the active folder's storage, and does
+              // nothing without one.
+              readAsset={
+                activeFolder?.storage ? (path) => activeFolder.storage!.readBinary(path) : undefined
+              }
+              // While restoring, avoid a one-frame "open a folder" flash; once
+              // settled, only an actually usable folder keeps the notes hint,
+              // and a browser with no folder picker gets the requirement instead
+              // of an instruction it cannot follow (warn-unsupported-browser).
+              emptyHint={
+                status === 'restoring' || activeFolder?.storage
+                  ? 'notes'
+                  : canOpen
+                    ? 'open-folder'
+                    : 'browser-unsupported'
+              }
+              brandAction={
+                canOpen && status === 'ready' && activeFolder?.storage === undefined ? (
+                  <LogseqImportButton onClick={() => void handleImport()} />
+                ) : undefined
+              }
+              loading={indexing}
+            />
+          )}
+        </div>
+        <div className="view-layer layer-meta">
+          <MetaPanel
+            // The meta panel is page metadata in page mode; in board mode it
+            // shows the board's referrers instead (add-whiteboards). Both `page`
+            // reads below derive from the last-known ref (the same quirk the
+            // StatusBar props suppress).
+            /* oxlint-disable react/refs */
+            pageOpen={mode === 'page' && page !== null}
+            contents={mode === 'page' ? contentsRows : []}
+            links={linkRows}
+            activePath={mode === 'page' ? activePath : null}
+            boardOpen={mode === 'board'}
+            boardReferrers={boardReferrerRows}
+            onSelect={handleSelect}
+            onLocate={handleLocate}
+            onOpenAsset={handleOpenAsset}
+            loading={indexing}
+            shortcuts={<ShortcutsList onApply={applyShortcut} canApply={canApply} />}
+            /* oxlint-enable react/refs */
+            collapsed={rightFolded}
+          />
+        </div>
+        {!compact && (
+          <PaneCollapseToggle
+            side="right"
+            collapsed={rightCollapsed}
+            controls="meta-panel"
+            onToggle={() => setRightCollapsed((v) => !v)}
+          />
+        )}
       </div>
       <StatusBar
         pagePath={activePath}
         saveState={mode === 'board' ? boardSaveState : saveState}
         newPage={newPage}
         indexing={indexing}
+        compact={compact}
+        view={compactView}
+        onShowView={toggleCompactView}
         // The active vault's name and live index-based file count; falls
         // back to the open-time snapshot while the index builds (design D6).
         vaultName={activeFolder?.storage ? activeFolder.name : undefined}

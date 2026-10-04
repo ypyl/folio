@@ -58,7 +58,10 @@ body {
 }
 
 #root {
-  height: 100svh;
+  /* `dvh` rather than `svh` (add-compact-mobile-shell, design D7): the shell
+     tracks the height that is actually visible, so it follows the URL bar and
+     the on-screen keyboard. Identical on a desktop window. */
+  height: 100dvh;
 }
 
 :focus-visible {
@@ -98,6 +101,76 @@ body {
     var(--strip-w) var(--rail-cur) var(--sidebar-cur) minmax(0, 1fr) var(--panel-cur)
     var(--strip-w);
   min-height: 0;
+}
+
+/* The three view regions (add-compact-mobile-shell): the navigation unit (rail
+   + sidebar), the main pane (editor, results, board, or import), and the meta
+   panel. At wide viewports each is `display: contents`, so the grid above sees
+   exactly the children it saw before these wrappers existed. On compact they
+   become the three stacked layers the media query below describes. */
+.view-layer {
+  display: contents;
+}
+
+/* ---- The compact composition (add-compact-mobile-shell) ----
+
+   One view at a time, at the breakpoint `src/compact.ts` owns. The content area
+   keeps a single cell and the three regions are stacked over it, so the editor
+   never changes box: it is hidden with `visibility` — which keeps the layout
+   and only leaves the tab order — rather than removed or resized, which would
+   make CodeMirror re-measure on every return and lose its undo history (D1). */
+@media (max-width: 640px) {
+  .workspace {
+    position: relative;
+    display: block;
+  }
+
+  .view-layer {
+    position: absolute;
+    inset: 0;
+    /* Overrides the wide `display: contents`, which would otherwise leave a
+       layer with no box of its own and hoist its panes into the workspace. */
+    display: block;
+  }
+
+  /* The base layer, always shown and always full-size. A single-cell grid, so
+     whichever pane the main slot hosts — editor, results, board, import —
+     stretches to fill it exactly as it filled its wide grid column. */
+  .layer-main {
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  }
+
+  /* Covered, so it leaves the tab order; `visibility` rather than
+     `display: none` so its box, and CodeMirror's measurement, stay put. */
+  .app-shell.view-nav .layer-main,
+  .app-shell.view-meta .layer-main {
+    visibility: hidden;
+  }
+
+  /* The navigation view: the wide grid's rail-then-sidebar columns, at the
+     shell's full width, so no pane needs a compact layout of its own. */
+  .layer-nav {
+    display: none;
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  }
+
+  .layer-meta {
+    display: none;
+  }
+
+  .layer-meta > * {
+    width: 100%;
+    height: 100%;
+  }
+
+  .app-shell.view-nav .layer-nav {
+    display: grid;
+  }
+
+  .app-shell.view-meta .layer-meta {
+    display: block;
+  }
 }
 
 /* ---- Shared utilities ---- */
