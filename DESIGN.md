@@ -249,6 +249,12 @@ keyboard shrinks the editor instead of covering the line being typed. These
 rules belong to the compact composition as a whole; the desktop shell keeps its
 pointer-sized controls and its `100%` height.
 
+The compact app bar's two view controls mark the open view **by shape first**:
+the pane inside the frame is filled while that view is shown and empty while it
+is closed. The recede tint (`--brand-tint`) behind the open control is
+reinforcement, never the signal, so the state survives without colour. A control
+added to that bar follows the same pair rather than inventing a third treatment.
+
 ### Links
 
 One link behavior across the whole app: brand color, no underline, hover

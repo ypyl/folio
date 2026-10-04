@@ -412,7 +412,11 @@ panes' scroll regions, so its content never scrolls. The bar's display-only
 content SHALL perform no action; its only controls SHALL be Back, Forward,
 Today, the open page's name where it has a Files row, and — at or below the
 compact breakpoint — the navigation and meta view controls the compact shell
-adds.
+adds. At or below the compact breakpoint each view control SHALL show, by the
+shape it draws rather than by colour alone, whether its view is the one shown:
+the pane inside its frame SHALL be filled while that control's view is open and
+empty while it is closed, and the open control SHALL additionally carry the
+app's recede tint as its background.
 
 #### Scenario: The bar is present in every state
 
@@ -463,11 +467,19 @@ adds.
 - **THEN** the status bar carries a navigation view control at its leading edge
   and a meta view control at its trailing edge, alongside its other controls
 
+#### Scenario: A view control draws its view's state
+
+- **GIVEN** a viewport at or below the compact breakpoint
+- **WHEN** a view control's view is the one shown
+- **THEN** that control draws its pane filled and carries the recede tint as its
+  background, and the other control draws its pane empty with no background
+
 #### Scenario: A view control exposes whether its view is shown
 
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the shell renders
-- **THEN** each view control reports whether its view is the one shown
+- **THEN** each view control reports whether its view is the one shown, and the
+  state it draws agrees with what it reports
 
 ### Requirement: The status bar's page name reveals the open page in the Files listing
 

@@ -287,6 +287,55 @@ describe('StatusBar', () => {
       expect(show.mock.calls).toEqual([['nav'], ['meta']])
     })
 
+    /** The pane path inside a view control's glyph, or null when it is closed. */
+    const paneOf = (name: string) => {
+      const svg = screen.getByRole('button', { name }).querySelector('svg') as SVGElement
+      return svg.querySelector('path[fill="currentColor"]') as SVGPathElement | null
+    }
+
+    it('draws the open view\u2019s pane filled and the closed one empty', () => {
+      const { rerender } = render(<StatusBar pagePath="a.md" compact view="nav" />)
+      expect(paneOf('Navigation')).toBeTruthy()
+      expect(paneOf('Page details')).toBeNull()
+
+      rerender(<StatusBar pagePath="a.md" compact view="meta" />)
+      expect(paneOf('Navigation')).toBeNull()
+      expect(paneOf('Page details')).toBeTruthy()
+
+      // The editor view is neither control's, so both are closed.
+      rerender(<StatusBar pagePath="a.md" compact view="editor" />)
+      expect(paneOf('Navigation')).toBeNull()
+      expect(paneOf('Page details')).toBeNull()
+    })
+
+    it('fills the pane on the side its divider is drawn', () => {
+      const nav = render(<StatusBar pagePath="a.md" compact view="nav" />)
+      // Navigation's divider is at x=9 and its pane is to the left of it; the
+      // meta control mirrors that. The fill and the divider cannot disagree
+      // because both come from the same `side`.
+      expect(paneOf('Navigation')!.getAttribute('d')).toBe(
+        'M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4Z',
+      )
+      nav.unmount()
+
+      render(<StatusBar pagePath="a.md" compact view="meta" />)
+      expect(paneOf('Page details')!.getAttribute('d')).toBe(
+        'M15 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4Z',
+      )
+    })
+
+    it('draws the state it reports', () => {
+      for (const view of ['nav', 'editor', 'meta'] as const) {
+        const { unmount } = render(<StatusBar pagePath="a.md" compact view={view} />)
+        for (const name of ['Navigation', 'Page details'] as const) {
+          const button = screen.getByRole('button', { name })
+          const reported = button.getAttribute('aria-pressed') === 'true'
+          expect(Boolean(paneOf(name))).toBe(reported)
+        }
+        unmount()
+      }
+    })
+
     it('shows the open item\u2019s name alone, with no directories', () => {
       const { container } = render(<StatusBar pagePath="journals/2026-09-15.md" compact />)
       const crumb = container.querySelector(`.${styles.path}`) as HTMLElement

@@ -39,9 +39,19 @@ function ChevronIcon({ direction }: { direction: 'back' | 'forward' }) {
 
 // A pane glyph: a frame with the divider on the side the view occupies, so the
 // navigation control and the meta control read as mirror images and each points
-// at where its view comes from. aria-hidden, like the chevron: the control's
-// name carries the meaning.
-function PanelsIcon({ side }: { side: 'nav' | 'meta' }) {
+// at where its view comes from. The pane beside the divider is filled while that
+// control's view is open, which is how the bar shows which view you are looking
+// at by shape rather than by colour (mark-the-open-view-in-the-app-bar). The
+// pane's outer corners are rounded to match the frame and the corners meeting
+// the divider are square, so the fill reads as the pane rather than as a chip
+// floating inside the frame. aria-hidden, like the chevron: the control's name
+// carries the meaning and `aria-pressed` carries the state.
+const PANE = {
+  nav: { divider: 'M9 4v16', pane: 'M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4Z' },
+  meta: { divider: 'M15 4v16', pane: 'M15 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4Z' },
+} as const
+
+function PanelsIcon({ side, open }: { side: 'nav' | 'meta'; open: boolean }) {
   return (
     <svg
       aria-hidden="true"
@@ -54,7 +64,11 @@ function PanelsIcon({ side }: { side: 'nav' | 'meta' }) {
       strokeLinejoin="round"
     >
       <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d={side === 'nav' ? 'M9 4v16' : 'M15 4v16'} />
+      {/* The fill follows the stroke's colour, so the open pane and its frame
+          are one solid shape. Drawn before the divider so the divider's edge
+          stays clean. */}
+      {open && <path d={PANE[side].pane} fill="currentColor" stroke="none" />}
+      <path d={PANE[side].divider} />
     </svg>
   )
 }
@@ -147,7 +161,7 @@ export function StatusBar({
           aria-pressed={view === 'nav'}
           onClick={() => onShowView?.('nav')}
         >
-          <PanelsIcon side="nav" />
+          <PanelsIcon side="nav" open={view === 'nav'} />
         </button>
       )}
       {/* Session navigation (move-nav-controls-to-status-bar): the trail's
@@ -241,7 +255,7 @@ export function StatusBar({
           aria-pressed={view === 'meta'}
           onClick={() => onShowView?.('meta')}
         >
-          <PanelsIcon side="meta" />
+          <PanelsIcon side="meta" open={view === 'meta'} />
         </button>
       )}
       <div className={styles.vault}>

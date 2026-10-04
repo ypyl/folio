@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import { installVaultPicker, openVault, seedVault, todayJournalPath } from './helpers/vault'
 
 // add-compact-mobile-shell: the compact composition's layout is a media query
@@ -117,6 +117,45 @@ test.describe('the compact shell on a phone-sized window', () => {
     }))
     expect(row.scroll).toBeLessThanOrEqual(row.client + 1)
     expect(row.height).toBeLessThan(70)
+  })
+
+  test('the bar marks the open view by shape and tint', async ({ page }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    const bar = footer(page)
+    const nav = bar.getByRole('button', { name: 'Navigation', exact: true })
+    const meta = bar.getByRole('button', { name: 'Page details', exact: true })
+
+    // What the control draws and what it reports, read from the real stylesheet
+    // and the real SVG: jsdom applies neither.
+    const painted = (control: Locator) =>
+      control.evaluate((el) => ({
+        tint: getComputedStyle(el).backgroundColor,
+        panes: el.querySelectorAll('svg path[fill="currentColor"]').length,
+        pressed: el.getAttribute('aria-pressed'),
+      }))
+
+    // The editor view belongs to neither control, so both are closed: an empty
+    // pane on no tint.
+    expect(await painted(nav)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
+    expect(await painted(meta)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
+
+    await nav.click()
+    expect(await painted(nav)).toEqual({ tint: 'rgb(238, 242, 247)', panes: 1, pressed: 'true' })
+    expect(await painted(meta)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
+
+    // The tint is keyed to the state, not the pointer: hovering a closed control
+    // does not make it look open.
+    await meta.hover()
+    expect((await painted(meta)).tint).toBe('rgba(0, 0, 0, 0)')
+
+    await meta.click()
+    expect(await painted(meta)).toEqual({ tint: 'rgb(238, 242, 247)', panes: 1, pressed: 'true' })
+    expect(await painted(nav)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
   })
 })
 

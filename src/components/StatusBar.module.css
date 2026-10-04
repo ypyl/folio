@@ -229,8 +229,17 @@ leading column's edge (continue-rail-border-in-status-bar). */
 }
 
 .viewControl:hover,
-.viewControl:focus-visible,
+.viewControl:focus-visible {
+  color: var(--brand);
+}
+
+/* The open view's control (mark-the-open-view-in-the-app-bar): the recede tint
+   as its background, so it reads as the selected one and not only as a
+   differently drawn glyph. Keyed to the state the control already reports
+   rather than to a pointer, so the drawn state and the accessible one cannot
+   disagree; `:hover` and `:focus-visible` keep the treatment above. */
 .viewControl[aria-pressed='true'] {
+  background: var(--brand-tint);
   color: var(--brand);
 }
 
