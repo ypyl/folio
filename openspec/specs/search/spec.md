@@ -1,392 +1,352 @@
-# search Specification
+# Search
 
 ## Purpose
 
-Full-text search over the open vault's notes: open the spotlight with a keyboard shortcut or the folder rail's search trigger, type a query, get grouped matches across pages, journal days, boards, and assets, and open one with a click or the keyboard.
+Full-text search over the open vault: open the spotlight with a keyboard
+shortcut or the folder rail's search trigger, type a query, get grouped matches
+across pages, journal days, boards, and files, and open one with a click or the
+keyboard.
 
 ## Requirements
 
-### Requirement: Search input deploys a results dropdown
-Search SHALL be presented as a modal spotlight overlay that is not part of the shell layout, and its input SHALL deploy a results dropdown immediately below it, attached to its width. The spotlight SHALL be opened by `Ctrl/Cmd+P`, by `Ctrl/Cmd+K`, or by the folder rail's search trigger (the ui-shell capability), and it SHALL contain the search input as its first element. When a vault folder is open, typing a query of at least 3 characters into the input SHALL deploy the dropdown. An empty or shorter query SHALL NOT deploy the dropdown. Clicking outside the spotlight SHALL close it while keeping the query text, and reopening the spotlight (or typing again) SHALL re-deploy the dropdown from the kept query, so the query survives a close until it is cleared. Displayed results SHALL be derived from the open vault's live index. Opening or closing the spotlight SHALL NOT create, modify, or remove any vault file, and SHALL NOT change the open page, the history trail, or the sidebar's active marking.
+### Requirement: Search opens a spotlight and deploys its results
+
+Search SHALL be a modal spotlight, separate from the workspace layout, opened by
+`Ctrl/Cmd+P`, by `Ctrl/Cmd+K`, or by the folder rail's search trigger, with its
+search input focused and its text selected. Typing a query of at least three
+characters with a folder open SHALL deploy a results dropdown below the input;
+an empty or shorter query SHALL deploy nothing. Clicking outside the spotlight
+SHALL close it while keeping the query, and reopening it SHALL re-deploy the
+same results, so the query survives a close until cleared. Opening or closing
+the spotlight SHALL change nothing: no vault file, no open page, no history
+entry, no active marking.
 
 #### Scenario: Typing deploys the dropdown
-- **WHEN** the user types a query of 3 or more characters into the spotlight's search input with a vault open
-- **THEN** a results dropdown appears directly below the input, listing matches from the vault's index
 
-#### Scenario: Short queries do not deploy
-- **WHEN** the query is empty or shorter than 3 characters
+- **WHEN** the user types a query of three or more characters with a folder open
+- **THEN** a results dropdown appears below the input
+
+#### Scenario: Short queries deploy nothing
+
+- **WHEN** the query is empty or shorter than three characters
 - **THEN** no dropdown is shown
 
-#### Scenario: Outside click closes but keeps the query
+#### Scenario: An outside click closes but keeps the query
+
 - **WHEN** the dropdown is open and the user clicks outside the spotlight
-- **THEN** the spotlight closes and the query text is kept
+- **THEN** the spotlight closes and the query is kept, and reopening restores
+  the same results
 
-#### Scenario: Refocusing restores results
-- **WHEN** the spotlight was closed by an outside click and the user reopens it with the query still present
-- **THEN** the dropdown re-opens with the same results
+#### Scenario: The keyboard and the rail open the spotlight
 
-#### Scenario: The keyboard opens the spotlight
-- **WHEN** the user presses `Ctrl/Cmd+P` or `Ctrl/Cmd+K` anywhere in the app with a vault open
-- **THEN** the spotlight opens with its search input focused and its text selected
-
-#### Scenario: The rail trigger opens the spotlight
-- **WHEN** the user activates the folder rail's search trigger with a vault open
-- **THEN** the spotlight opens with its search input focused
+- **WHEN** the user presses `Ctrl/Cmd+P` or `Ctrl/Cmd+K`, or activates the rail's
+  search trigger, with a folder open
+- **THEN** the spotlight opens with its input focused and its text selected
 
 #### Scenario: Opening the spotlight changes nothing else
+
 - **GIVEN** a page is open with unsaved edits
-- **WHEN** the user opens the spotlight and then closes it without selecting a result
-- **THEN** the open page, the editor's content, the history trail, the sidebar's active marking, and every vault file are unchanged
+- **WHEN** the user opens and closes the spotlight without selecting a result
+- **THEN** the open page, its content, the history trail, the active marking, and
+  every vault file are unchanged
 
-### Requirement: Search matches titles and content across the vault
+### Requirement: Search matches titles, content, and names
 
-Search SHALL match every indexed page and journal day of the open vault. A page SHALL match when its title matches the query, and SHALL match when its content matches the query, with title matches ranking above content matches (title weighted higher). Search SHALL also match the open vault's assets: every file under `assets/` SHALL match when its label — its path inside `assets/` — matches the query, and an asset's file contents SHALL NOT be read, indexed, or matched. Search SHALL also match the open vault's boards: every board under `boards/` SHALL match when its label — its path inside `boards/` — matches the query, and a board's contents SHALL NOT be read, indexed, or matched. The query SHALL be split into terms; a page, journal day, asset, or board SHALL be returned only when every term of at least 3 characters matches it (AND semantics). Within each kind group, results SHALL be ordered by match tier before overall relevance: first results whose every query term appears in the title as a literal, case-insensitive substring (exact title); then results whose every term appears literally in the body, but not all in the title (exact body); then results whose title matched only fuzzily (fuzzy title); then results whose body matched only fuzzily (fuzzy body). Within a tier, results SHALL be ordered by overall relevance (best match first). Unmaterialized pages — references to pages not yet created — SHALL NOT be searchable.
+Search SHALL match every page and journal day of the open vault by title and by
+content, with title matches ranked above content matches, and SHALL match the
+vault's boards and files by their names. A board's drawing and a file's contents
+SHALL NOT be read or matched. A query SHALL be split into terms, and a result
+SHALL be returned only when every term of at least three characters matches it.
+Within a kind, results SHALL be ordered exact matches before fuzzy ones: first a
+title that contains every term literally, then a body that contains every term
+literally, then a title matched only fuzzily, then a body matched only fuzzily;
+within a tier, better matches lead, with the name breaking a tie. Pages that do
+not exist yet SHALL NOT be searchable.
 
-#### Scenario: A title query surfaces the page
+#### Scenario: A title match leads
 
-- **WHEN** the user searches for a term that appears in a page's title
-- **THEN** that page appears in the results, ranked above content-only matches
+- **WHEN** the user searches for a term in a page's title
+- **THEN** that page appears, ranked above content-only matches
 
-#### Scenario: A content query surfaces the page
+#### Scenario: A content match surfaces the page
 
 - **WHEN** the user searches for a term that appears only in a page's body
-- **THEN** that page appears in the results
+- **THEN** that page appears
 
 #### Scenario: Every term must match
 
 - **WHEN** the user searches a multi-term query
-- **THEN** only pages containing every term appear; pages containing just one term are excluded
+- **THEN** only results containing every term appear
 
-#### Scenario: Exact title matches lead
+#### Scenario: Exact matches outrank fuzzy ones
 
-- **GIVEN** a page titled `Docker`, a page titled `Docker notes` whose body contains `docker`, and a page whose body contains `docker` but whose title is unrelated
-- **WHEN** the user searches for `docker`
-- **THEN** the two pages whose titles contain `docker` rank above the body-only page, and among those the exact-title order follows overall relevance
-
-#### Scenario: An exact body match outranks a fuzzy title match
-
-- **GIVEN** a page titled `Dockr` (fuzzy title match for `docker`) and a page whose body contains `docker` literally
-- **WHEN** the user searches for `docker`
-- **THEN** the exact-body page ranks above the fuzzy-title page
-
-#### Scenario: Exact matches outrank fuzzy matches
-
-- **GIVEN** a page whose body contains `docker` literally and a page whose body contains a typo of `docker`, neither title matching
-- **WHEN** the user searches for `docker`
+- **GIVEN** one result containing the term literally and one containing a typo
+- **WHEN** the user searches for the term
 - **THEN** the literal match ranks above the typo match
 
-#### Scenario: A fuzzy title match outranks a fuzzy body match
+#### Scenario: A page that does not exist yet is not searchable
 
-- **GIVEN** a page whose title contains a typo of `docker` and a page whose body contains a typo of `docker`, neither matching exactly
-- **WHEN** the user searches for `docker`
-- **THEN** the fuzzy-title page ranks above the fuzzy-body page
-
-#### Scenario: Exact-first ordering applies inside each group
-
-- **GIVEN** a journal day whose body contains `docker` literally and a page whose body matches `docker` only fuzzily
-- **WHEN** the user searches for `docker`
-- **THEN** the exact journal match leads the Journal group and the fuzzy page trails the Pages group, the groups keeping their own kind order
-
-#### Scenario: Ties keep relevance order
-
-- **GIVEN** two results in the same tier
-- **WHEN** the user searches for a term they both match
-- **THEN** they keep their overall relevance order, with the path breaking a remaining tie
-
-#### Scenario: Unmaterialized pages are not searchable
-
-- **WHEN** the user searches for a name that has no file on disk
+- **WHEN** the user searches for a name with no note
 - **THEN** no result is shown for it
 
-#### Scenario: An asset is found by its name
+#### Scenario: A file is found by its name
 
-- **GIVEN** a vault holding `assets/2026/q3-report.pdf`
-- **WHEN** the user searches for `q3-report`
-- **THEN** the file appears in the results under the Assets group
+- **WHEN** the user searches for part of a file's name
+- **THEN** the file appears under the Files group
 
-#### Scenario: An asset is found by its subfolder
+#### Scenario: A file's contents are never matched
 
-- **GIVEN** a vault holding `assets/2026/q3-report.pdf`
-- **WHEN** the user searches for `2026`
-- **THEN** that file appears in the results
-
-#### Scenario: An asset's contents are never matched
-
-- **GIVEN** a vault holding `assets/report.pdf` whose bytes contain the word `revenue`, and no page or asset name containing `revenue`
-- **WHEN** the user searches for `revenue`
-- **THEN** no result is shown, because the app does not read a file's contents
-
-#### Scenario: A file outside the assets folder is not searchable
-
-- **GIVEN** a vault holding `pages/diagram.png`, which is not under `assets/`
-- **WHEN** the user searches for `diagram`
-- **THEN** no asset result is shown for it, matching the Files listing's asset rows, which list only files under `assets/`
+- **GIVEN** a vault holding a file whose contents hold a word no name holds
+- **WHEN** the user searches for that word
+- **THEN** no result is shown, because a file's contents are not read
 
 #### Scenario: A board is found by its name
 
-- **GIVEN** a vault holding `boards/migration.excalidraw`
-- **WHEN** the user searches for `migration`
-- **THEN** the board appears in the results under the Boards group
+- **WHEN** the user searches for part of a board's name
+- **THEN** the board appears under the Boards group
 
 #### Scenario: A board's contents are never matched
 
-- **GIVEN** a vault holding `boards/migration.excalidraw` whose scene contains the text `queue`, and no page or board name containing `queue`
-- **WHEN** the user searches for `queue`
-- **THEN** no result is shown for the board, because the app does not read a board's scene for search
+- **GIVEN** a vault holding a board whose drawing holds a word no name holds
+- **WHEN** the user searches for that word
+- **THEN** no result is shown for the board
 
-### Requirement: Results are grouped by kind with labels and match snippets
+### Requirement: Results are grouped, labelled, and show match snippets
 
-The dropdown SHALL render results in four groups — Pages, Journal, Boards, and Assets — each under a sticky group header, in that order. Each result row SHALL show a label: the page's title, the journal day's pretty date (e.g. "September 2, 2026"), the board's path inside `boards/`, or the asset's path inside `assets/`. A page or journal row SHALL show a snippet for **every place the query occurs in the page**, not only the first, with the matched spans highlighted: a run of nearby occurrences SHALL be shown as one snippet covering them, each snippet SHALL carry at most one line of context on each side of the occurrences it covers, and occurrences far apart SHALL be shown as separate snippets. A snippet after the first in a row SHALL be separated from the one above it by a divider, so two snippets do not read as one passage. The dropdown SHALL show at most two snippets per row, and when the page holds more places than that SHALL note the remainder as `+N more on this page`, where N is the number of occurrences not shown. A row's height SHALL NOT be bounded by a clamp that can hide an occurrence inside a shown snippet. A title-only match SHALL show the page's opening content as its snippet. A board row SHALL show its label and SHALL NOT show a snippet, because a board is not read for content. An asset row SHALL show its label and SHALL NOT show a snippet, because a file has no content to quote. Results in the dropdown SHALL be capped per group, with the see-all row (see "The dropdown offers a see-all handoff") indicating that further matches exist.
+The dropdown SHALL render results in four groups — Pages, Journal, Boards, and
+Files — each under its own header, in that order. Each row SHALL show a label:
+a page's title, a journal day's readable date, a board's name, or a file's name.
+A page or journal row SHALL show a snippet for every place the query occurs, not
+only the first, with the matched text highlighted: nearby occurrences SHALL
+share one snippet, each snippet SHALL carry a line of context on each side, and
+far-apart occurrences SHALL be separate snippets, divided from each other. The
+dropdown SHALL show at most two snippets per row, noting any remainder as how
+many more places the page holds, and SHALL NOT clamp a snippet in a way that can
+hide an occurrence it covers. A title-only match SHALL show the page's opening
+lines. A board row and a file row SHALL show no snippet. Results SHALL be capped
+per group, with a see-all row offering the full set.
 
 #### Scenario: Results are grouped by kind
 
-- **WHEN** a query matches pages, journal days, boards, and assets
-- **THEN** page matches render under the Pages header, journal matches under the Journal header, board matches under the Boards header, and asset matches under the Assets header, in that order, with the group headers pinned while the dropdown scrolls
+- **WHEN** a query matches pages, journal days, boards, and files
+- **THEN** each appears under its own header, in Pages, Journal, Boards, Files
+  order
 
 #### Scenario: Journal days are labelled with their date
 
 - **WHEN** a journal day matches
-- **THEN** its row is labelled with the pretty date of the day, not a raw filename
+- **THEN** its row shows the readable date, not a raw file name
 
-#### Scenario: Boards are labelled with their path inside the boards folder
+#### Scenario: A file row carries no snippet
 
-- **GIVEN** a vault holding `boards/2026/migration.excalidraw`
-- **WHEN** the board matches
-- **THEN** its row is labelled `2026/migration.excalidraw`
+- **WHEN** a file matches
+- **THEN** its row shows its name and no snippet
 
-#### Scenario: A board row carries no snippet and no line
+#### Scenario: Snippets highlight every occurrence
 
-- **WHEN** a board matches
-- **THEN** its row shows the label with no snippet and no `· line N`
-
-#### Scenario: Assets are labelled with their path inside the assets folder
-
-- **GIVEN** a vault holding `assets/2026/q3-report.pdf`
-- **WHEN** the file matches
-- **THEN** its row is labelled `2026/q3-report.pdf`, so two files with the same name in different folders read differently
-
-#### Scenario: An asset row carries no snippet and no line
-
-- **WHEN** an asset matches
-- **THEN** its row shows the label with no snippet and no `· line N`
-
-#### Scenario: Snippets highlight the match
-
-- **WHEN** a page matches on content
-- **THEN** its row shows a snippet of context around the match with the matched text visually highlighted
-
-#### Scenario: Groups are capped with a note
-
-- **WHEN** a group's matches exceed the per-group cap
-- **THEN** the dropdown shows at most the capped number of rows for that group and the see-all row is shown so all matches remain reachable
-
-#### Scenario: Every place the query occurs is shown
-
-- **GIVEN** a page whose content contains the query in three places, spread across the page
-- **WHEN** the page appears in the dropdown
-- **THEN** its row shows a snippet for each of the three places, each with the matched text highlighted, in document order
+- **GIVEN** a page whose content contains the query in three places
+- **WHEN** the page appears
+- **THEN** its row shows a snippet for each place, with the matched text
+  highlighted, in order
 
 #### Scenario: Nearby occurrences share one snippet
 
 - **GIVEN** a page whose content contains the query on two adjacent lines
-- **WHEN** the page appears in the dropdown
-- **THEN** its row shows one snippet covering both occurrences, with both highlighted, rather than two snippets repeating the same text
+- **WHEN** the page appears
+- **THEN** one snippet covers both, rather than two snippets repeating the text
 
 #### Scenario: A row past the snippet cap notes the remainder
 
-- **GIVEN** a page whose content contains the query in five places, no two of them near each other
-- **WHEN** the page appears in the dropdown
-- **THEN** its row shows the first two snippets and a `+3 more on this page` note, counting the occurrences not shown
+- **GIVEN** a page whose content contains the query in five far-apart places
+- **WHEN** the page appears
+- **THEN** its row shows two snippets and a note counting the places not shown
 
-#### Scenario: A snippet never hides an occurrence it covers
-
-- **GIVEN** a page whose query occurrences sit on consecutive lines
-- **WHEN** the page appears in the dropdown
-- **THEN** the snippet covering them shows every one of those occurrences highlighted, none cut off
-
-#### Scenario: A single-occurrence page shows one snippet
+#### Scenario: A single occurrence shows one snippet
 
 - **WHEN** a page's content contains the query exactly once
-- **THEN** its row shows that one occurrence's snippet with no `+N more on this page` note
+- **THEN** its row shows that one snippet and no remainder note
 
-#### Scenario: Separate snippets are visibly separated
+### Requirement: A see-all row offers the full results view
 
-- **GIVEN** a page whose content contains the query in two places, far enough apart to be separate snippets
-- **WHEN** the page appears in the dropdown
-- **THEN** its row shows the two snippets divided from each other, not run together as one passage
+The dropdown SHALL show a pinned row offering the search results view whenever
+the query has at least one match. Activating it SHALL open that view for the
+query, and it SHALL remain available after a result has been opened, so the user
+can return to the results without retyping.
 
-### Requirement: The dropdown offers a see-all handoff to a search results view
-The search dropdown SHALL show a pinned row offering to open a search results view whenever the active query has at least one match. Activating the row SHALL open the search results view for the query. The row SHALL remain available after a result has been opened (the query is kept), so returning to the results from the editor is possible without retyping. The previous passive "Showing up to 20 matches per section." note SHALL NOT be shown.
+#### Scenario: See-all is offered when a query matches
 
-#### Scenario: See-all row is offered when a query matches
-- **WHEN** the user runs a query that has matching pages or journal days
-- **THEN** the dropdown shows a pinned row stating the total match count and offering to open the search results view
+- **WHEN** the user runs a query with matches
+- **THEN** the dropdown shows a row stating the total match count and offering
+  the results view
 
-#### Scenario: See-all row returns to results after opening a result
-- **WHEN** the user opened a result, the dropdown is closed with the query kept, and the user re-deploys the dropdown and activates the see-all row
-- **THEN** the search results view reopens for the same query
+#### Scenario: See-all returns to the results
 
-### Requirement: Selecting a result opens the page
+- **WHEN** the user opened a result, then activates the see-all row again
+- **THEN** the results view reopens for the same query
 
-Clicking a page or journal-day result row, or pressing Enter on the active row, SHALL open that page in the editor pane exactly as selecting it in the sidebar would: the pane SHALL render the page's content and the opening SHALL close the dropdown while keeping the query text. When the result's first text match falls in a top-level block, the opening SHALL also scroll that block into view and frame it, together with every other top-level block of the page that holds a match, as page-editing's "The editor frames the located block" states; a result with no text match — a title-only match, an asset, or a board — SHALL open without a mark. Opening a journal day without a file SHALL behave like the calendar's day: a blank page whose file materializes on first write. Selecting a board result SHALL open the board in the main pane exactly as activating a Boards row would, and SHALL close the dropdown while keeping the query text. Selecting an asset result SHALL NOT navigate: it opens the file instead, as that requirement states.
+### Requirement: Selecting a result opens it
 
-#### Scenario: Clicking a result opens its page
+Choosing a page or journal-day result, or pressing Enter on the active row,
+SHALL open that page exactly as choosing it in the sidebar would, and SHALL
+close the dropdown while keeping the query. When the result's match falls in a
+block of the page, opening SHALL scroll that block into view and frame it,
+together with every other block of the page that holds a match; a result with no
+text match SHALL open without a mark. A journal day with no note SHALL open
+blank and create nothing until the first save. Choosing a board result SHALL
+open the board. Choosing a file result SHALL open the file instead of
+navigating.
 
-- **WHEN** the user clicks a result row
+#### Scenario: Choosing a result opens its page
+
+- **WHEN** the user chooses a page result
 - **THEN** the editor pane shows that page and the dropdown closes
 
 #### Scenario: A page result opens at its match
 
-- **GIVEN** a page whose match falls in a block below its opening lines
+- **GIVEN** a page whose match falls below its opening lines
 - **WHEN** the user opens that result
-- **THEN** the page opens with the matched block scrolled into view and framed
+- **THEN** the page opens with the matching block scrolled into view and framed
 
 #### Scenario: A title-only match opens unmarked
 
-- **WHEN** the user opens a result whose match is only in the page's title
+- **WHEN** the user opens a result whose match is only in the title
 - **THEN** the page opens at the top with no marked block
 
 #### Scenario: Opening keeps the query
 
 - **WHEN** the user opens a page from the results
-- **THEN** the dropdown closes and the query text remains in the input
+- **THEN** the dropdown closes and the query remains
 
-#### Scenario: An uncreated journal day opens blank
+#### Scenario: A journal day with no note opens blank
 
-- **WHEN** the user selects a journal-day result whose file does not exist yet
-- **THEN** the editor pane opens a blank page for that day, creating the file only on first save
+- **WHEN** the user chooses a journal-day result with no note
+- **THEN** a blank page opens and the file is created only on first save
 
 #### Scenario: A board result opens the board
 
-- **WHEN** the user selects a board result
-- **THEN** the board opens in the main pane, the dropdown closes, and the query text remains in the input
+- **WHEN** the user chooses a board result
+- **THEN** the board opens, the dropdown closes, and the query remains
 
-### Requirement: Search results view shows the full match set
+#### Scenario: A file result opens the file
 
-The search results view SHALL display the complete match set for the active query without a per-group cap: every matching page, journal day, board, and asset, in the same order and grouping as the dropdown (Pages group first, then Journal, then Boards, then Assets), with sticky group headers, page-title, pretty-date, board-path, or asset-path labels, and, for pages and journal days, the same per-place snippets with highlighted spans that the dropdown shows, ordered by relevance. Each snippet after the first in a row SHALL be separated from the one above it by a divider, as in the dropdown. The view SHALL show at most five snippets per row — more than the dropdown's two, because the view is the survey surface — and SHALL note any remainder as `+N more on this page` counting the occurrences not shown. The view SHALL be transient UI: opening, browsing, and closing it SHALL NOT create, modify, or remove vault files. Closing the view SHALL return the app to the previously open page.
+- **WHEN** the user chooses a file result
+- **THEN** the file opens, the spotlight closes, the query remains, and the same
+  page stays open behind it
 
-#### Scenario: The view lists all matches, uncapped
+### Requirement: The results view shows the full match set
 
-- **WHEN** a query matches more pages and journal days than the dropdown's per-group cap
-- **THEN** the results view lists every matching page, journal day, board, and asset without truncation, in that group order
+The search results view SHALL display the complete match set for the query
+without per-group caps: every matching page, journal day, board, and file, in
+the same order and grouping as the dropdown, with the same labels and, for pages
+and journal days, the same per-place snippets. It SHALL show at most five
+snippets per row and note any remainder, because it is the survey surface. The
+view SHALL be transient: opening, browsing, and closing it SHALL create, modify,
+and remove no vault file, and closing it SHALL return to the previously open
+page.
 
-#### Scenario: The view shows more places per row than the dropdown
+#### Scenario: The view lists all matches
 
-- **GIVEN** a page whose content contains the query in four places, no two of them near each other
+- **WHEN** a query matches more than the dropdown shows
+- **THEN** the results view lists every match, uncapped, in group order
+
+#### Scenario: The view shows more places per row
+
+- **GIVEN** a page whose content contains the query in four far-apart places
 - **WHEN** the page's row appears in the results view
-- **THEN** the row shows all four snippets, while the same page's dropdown row shows two and a `+2 more on this page` note
-
-#### Scenario: The view notes the remainder past its cap
-
-- **GIVEN** a page whose content contains the query in eight places, no two of them near each other
-- **WHEN** the page's row appears in the results view
-- **THEN** the row shows the first five snippets and a `+3 more on this page` note
+- **THEN** it shows all four snippets, where the dropdown row would show two and
+  a remainder note
 
 #### Scenario: Opening a result behaves like the dropdown
 
-- **WHEN** the user opens a page result from the results view
-- **THEN** the editor pane shows that page, the results view closes, and the spotlight keeps the query so reopening it restores the matches
+- **WHEN** the user opens a result from the results view
+- **THEN** the editor pane shows that page, the view closes, and the spotlight
+  keeps the query
 
-#### Scenario: An uncreated journal day result opens blank
+#### Scenario: The view is transient
 
-- **WHEN** the user opens a journal-day result from the results view whose file does not exist yet
-- **THEN** the editor pane opens a blank page for that day, creating the file only on first save
+- **WHEN** the user leaves the results view
+- **THEN** no vault file is created, modified, or removed, and the previously
+  open page is shown again
 
-#### Scenario: Results view is transient
+### Requirement: The results view paginates and responds to the keyboard
 
-- **WHEN** the user leaves the results view (opens a result or dismisses with Escape)
-- **THEN** no file is created, modified, or removed in the vault, and the previously open page is shown again
-
-#### Scenario: The view separates a row's snippets
-
-- **GIVEN** a page whose content contains the query in two places, far enough apart to be separate snippets
-- **WHEN** the page's row appears in the results view
-- **THEN** the row's two snippets are divided from each other, not run together as one passage
-
-### Requirement: Search results view paginates its match list
-The search results view SHALL paginate the match list when it exceeds the page size, showing at most one page of results at a time with controls to move to the previous and next pages. The view SHALL show the total match count and which portion of the list is currently displayed. Navigating to another page SHALL reset the view's scroll to the top.
+The results view SHALL paginate its list when it exceeds the page size, showing
+at most one page at a time with controls to move to the previous and next pages,
+the total match count, and which portion is shown. Moving to another page SHALL
+reset the view's scroll to the top. Arrow keys SHALL move the active row through
+the current page, Enter SHALL open it, and Escape SHALL close the view and
+return to the previously open page. Editing the query SHALL update both surfaces
+from the same search: the dropdown shows the top matches and the view shows the
+full set; a query with no matches SHALL close the view.
 
 #### Scenario: Matches beyond one page are reachable
-- **WHEN** the match set exceeds the page size and the user advances to the next page
-- **THEN** the view shows the next slice of matches, the displayed range updates, and the view scrolls to the top
+
+- **WHEN** the match set exceeds the page size and the user advances a page
+- **THEN** the next slice is shown, the displayed range updates, and the view
+  scrolls to the top
 
 #### Scenario: A short match set has no pager
-- **WHEN** the match set fits within the page size
+
+- **WHEN** the match set fits one page
 - **THEN** the view shows the full list with no pagination controls
 
-### Requirement: Search results view responds to the keyboard
-The keyboard SHALL control the search results view: Arrow Up and Arrow Down SHALL move the active row through the current page, Enter SHALL open the active row, and Escape SHALL close the results view and return to the previously open page. Editing the query in the spotlight's input SHALL update both surfaces from the same search run: the dropdown shows the top matches and the results view shows the full set.
+#### Scenario: Arrows and Enter navigate the view
 
-#### Scenario: Arrows and Enter navigate the results view
-- **WHEN** the results view is open and the user presses Arrow Down and Enter
-- **THEN** the active row moves to the next result and Enter opens that result in the editor pane
+- **WHEN** the view is open and the user presses the arrow keys and Enter
+- **THEN** the active row moves and Enter opens it
 
-#### Scenario: Escape closes the results view
-- **WHEN** the results view is open and the user presses Escape
-- **THEN** the results view closes and the previously open page is shown again
+#### Scenario: Escape closes the view
 
-#### Scenario: A query with no matches closes the results view
-- **WHEN** the user edits the query so that it has no matches while the results view is open
-- **THEN** the results view closes, the previously open page is shown, and the dropdown shows its empty state for the query
+- **WHEN** the view is open and the user presses Escape
+- **THEN** the view closes and the previously open page is shown
 
-### Requirement: Search responds to keyboard shortcuts
-The keyboard SHALL control search: `Ctrl/Cmd+P` and `Ctrl/Cmd+K` SHALL open the spotlight with its search input focused and its text selected; Arrow Up and Arrow Down SHALL move an active row through the results, with hovering a row moving the active row to it; Enter SHALL open the active row; Escape SHALL clear the query and close the spotlight.
+#### Scenario: A query with no matches closes the view
 
-#### Scenario: Cmd/Ctrl+K focuses search
-- **WHEN** the user presses `Ctrl/Cmd+K`, or `Ctrl/Cmd+P`, anywhere in the app with a vault open
-- **THEN** the spotlight opens and its search input gains focus with its text selected
+- **WHEN** the user edits the query to one with no matches
+- **THEN** the view closes, the previous page is shown, and the dropdown shows
+  its empty state
+
+### Requirement: Search responds to the keyboard
+
+`Ctrl/Cmd+P` and `Ctrl/Cmd+K` SHALL open the spotlight with its input focused
+and selected; the arrow keys SHALL move the active row, with hovering a row
+moving the active row to it; Enter SHALL open the active row; Escape SHALL clear
+the query and close the spotlight.
 
 #### Scenario: Arrows move the active row
-- **WHEN** the dropdown is open and the user presses Arrow Down then Arrow Up
-- **THEN** the active row moves down one result and back up, and hovering a row moves the active row to the hovered one
+
+- **WHEN** the dropdown is open and the user presses the arrow keys
+- **THEN** the active row moves, and hovering a row moves the active row to it
 
 #### Scenario: Enter opens the active row
-- **WHEN** the user presses Enter while a row is active
-- **THEN** that row's page opens in the editor pane
+
+- **WHEN** the user presses Enter with a row active
+- **THEN** that row opens in the editor pane
 
 #### Scenario: Escape clears the search
+
 - **WHEN** the user presses Escape in the spotlight
 - **THEN** the query is cleared and the spotlight closes
 
-### Requirement: Search is scoped to the active vault
-Search SHALL search only the open vault's index. Switching the active folder SHALL clear the query and close the spotlight. When no vault folder is open — or the active folder's index is still building — the folder rail's search trigger SHALL be disabled and the spotlight SHALL NOT open.
+### Requirement: Search is scoped to the active vault and shows an empty state
 
-#### Scenario: Folder switch clears the search
-- **WHEN** the user switches the active folder while a query is present
+Search SHALL search only the open vault. Switching folders SHALL clear the query
+and close the spotlight. With no folder open, or while the open folder is still
+loading, the rail's search trigger SHALL be disabled and the spotlight SHALL NOT
+open. A query of at least three characters that matches nothing SHALL show an
+empty state naming the query as unmatched.
+
+#### Scenario: A folder switch clears the search
+
+- **WHEN** the user switches folders with a query present
 - **THEN** the query is cleared and the spotlight closes
 
 #### Scenario: No vault disables search
-- **WHEN** no vault folder is open, or the active folder's index is still building
-- **THEN** the folder rail's search trigger is disabled and the spotlight does not open
 
-### Requirement: Search shows an empty state
-When a query of at least 3 characters matches nothing, the dropdown SHALL show an empty state stating that no matches were found for the query.
+- **WHEN** no folder is open, or the open folder is still loading
+- **THEN** the search trigger is disabled and the spotlight does not open
 
 #### Scenario: No matches
-- **WHEN** a query matches no page, journal day, or asset
-- **THEN** the dropdown shows an empty state naming the query as unmatched
 
-### Requirement: Selecting an asset result opens the file
-Selecting an asset result — clicking its row or pressing Enter on the active row, in the spotlight's dropdown or in the results view — SHALL open the file exactly as activating an asset row in the sidebar does (ADR-0021): a type the browser displays SHALL be shown in a new window, and every other type SHALL be downloaded for the operating system's registered application. The path SHALL be used as the file's literal name, without percent-decoding.
-
-The gesture SHALL leave the app otherwise unchanged: the open page SHALL stay open, the sidebar's active marking SHALL not move, the history trail SHALL gain no entry, and no vault file's bytes SHALL change. The spotlight SHALL close while keeping the query text, and the results view SHALL stay open, because nothing navigated and there is no page to return to. A file the vault can no longer read — deleted since the index was built — SHALL open nothing.
-
-#### Scenario: An asset result opens the file and does not navigate
-- **GIVEN** an open page, with a query matching `assets/q3-report.pdf`
-- **WHEN** the user selects that result in the spotlight
-- **THEN** the file opens, the spotlight closes, the query text remains, and the same page is still open behind it
-
-#### Scenario: An asset result selected from the full view keeps the view
-- **GIVEN** the search results view open on a query matching an asset
-- **WHEN** the user selects that asset's row
-- **THEN** the file opens and the results view stays open on the same query
-
-#### Scenario: Opening an asset result leaves the session alone
-- **GIVEN** an open page with unsaved edits, and a query matching a vault file
-- **WHEN** the user selects the file's result
-- **THEN** no entry is added to the history trail, the sidebar's active marking does not move, and Back and Forward step where they did before
-
-#### Scenario: An unreadable asset opens nothing
-- **GIVEN** a result for a file the index listed but that was since deleted from the folder
-- **WHEN** the user selects it
-- **THEN** nothing opens and the app remains as it was
+- **WHEN** a query matches nothing
+- **THEN** the dropdown shows an empty state naming the query

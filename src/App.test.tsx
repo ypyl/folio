@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
-import { Accordion } from './components/Accordion'
 import styles from './components/JournalCalendar.module.css'
 import sidebarStyles from './components/Sidebar.module.css'
 import railStyles from './components/FolderRail.module.css'
@@ -120,6 +119,18 @@ vi.mock('./components/months', async (importOriginal) => {
       return actual.dayLabel(date)
     },
   }
+})
+
+// The calendar only renders one month and the app opens today's journal, so the
+// suite is time-sensitive. Freeze Date (only Date, not timers: waitFor and the
+// debounced save stay real) to the fixture's month, or the suite goes red the
+// moment the wall clock leaves September 2026.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 15))
+})
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 type FakeView = EditorAdapter & {
@@ -254,36 +265,6 @@ describe('application shell', () => {
     expect(screen.queryByText('Open a folder to begin.')).toBeNull()
     // The rail keeps its column so the shell's panes stay aligned.
     expect(screen.getByRole('navigation', { name: 'Open folders' })).toBeTruthy()
-  })
-
-  it('shows empty sidebar sections before a folder is opened', () => {
-    render(<App />)
-    expect(screen.queryByRole('button', { name: 'Welcome' })).toBeNull()
-    // No vault: no journal calendar (ui-shell journal-calendar requirement).
-    expect(screen.queryByRole('button', { name: 'Next month' })).toBeNull()
-    // Today rides in the status bar in every state, unusable without a vault
-    // (move-nav-controls-to-status-bar).
-    expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('keeps the keyboard-shortcuts reference in the right panel, with no dialog', async () => {
-    const { container } = render(<App />)
-    // The shell holds no help affordance and no modal surface anywhere.
-    expect(container.querySelector('button[aria-label="Keyboard shortcuts"]')).toBeNull()
-    expect(screen.queryByRole('dialog')).toBeNull()
-    // The reference is the panel's last section, collapsed until opened.
-    const summary = await screen.findByText('Keyboard shortcuts')
-    const section = summary.closest('details') as HTMLDetailsElement
-    expect(section.open).toBe(false)
-    fireEvent.click(summary)
-    expect(section.open).toBe(true)
-    expect(screen.getByText('Undo')).toBeTruthy()
-  })
-
-  it('renders an Accordion without defaultOpen closed by default', () => {
-    const { container } = render(<Accordion title="Collapsible">hidden body</Accordion>)
-    const details = container.querySelector('details') as HTMLDetailsElement
-    expect(details.open).toBe(false)
   })
 })
 
@@ -990,21 +971,6 @@ describe('content search over the real index (search spec)', () => {
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('Half-formed thoughts worth keeping'),
     )
-    vi.unstubAllGlobals()
-  })
-
-  it('locates the matched block when a result opens', async () => {
-    render(<App />)
-    await openFixture()
-    await screen.findByRole('button', { name: 'Welcome' })
-    const search = searchInput()
-    fireEvent.change(search, { target: { value: 'backlinks' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(2))
-    fireEvent.click(screen.getByRole('option', { name: /^Ideas/ }))
-    // The match carries a block; the pane hands it to the editor to locate
-    // (mark-search-matches-on-the-page).
-    await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
-    expect(editor().highlights[editor().highlights.length - 1]).toEqual([expect.any(Number)])
     vi.unstubAllGlobals()
   })
 

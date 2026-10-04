@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { JournalCalendar } from './JournalCalendar'
 import styles from './JournalCalendar.module.css'
@@ -13,6 +13,17 @@ const entry = (path: string): Page => ({
 })
 
 const byDate = (name: string) => screen.getByRole('button', { name })
+
+// The grid shows one month and the fixture days sit in a fixed month, so freeze
+// Date (only Date, not timers) rather than letting the wall clock decide which
+// month is visible.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 15))
+})
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('localDayString (local-calendar guard, design D5)', () => {
   it('builds the day string from local parts near local midnight', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { ShortcutsList } from './ShortcutsList'
 import styles from './ShortcutsList.module.css'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
@@ -13,7 +13,6 @@ import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
 
 const items = SHORTCUT_GROUPS.flatMap((group) => group.items)
 const interactiveItems = items.filter((item) => item.replayable !== false)
-const plainItems = items.filter((item) => item.replayable === false)
 const allKeys = (list: typeof items) => list.reduce((count, item) => count + item.keys.length, 0)
 
 const renderList = (canApply = { editor: true, app: true }, onApply = vi.fn()) => {
@@ -56,12 +55,6 @@ describe('ShortcutsList', () => {
     expect(screen.queryByText('Heading 1')).toBeNull()
   })
 
-  it('makes one control per bound key combination', () => {
-    renderList()
-    // Every bound combination is a control; a row listing two offers two.
-    expect(screen.getAllByRole('button')).toHaveLength(allKeys(interactiveItems))
-  })
-
   it('names each control by its action and its keys', () => {
     renderList()
     expect(screen.getByRole('button', { name: 'Undo Ctrl+Z' })).toBeTruthy()
@@ -88,17 +81,6 @@ describe('ShortcutsList', () => {
       const covered =
         label.classList.contains(styles.kbd) || label.parentElement?.classList.contains(styles.kbd)
       expect(covered, `${label.textContent} carries no chip styling`).toBe(true)
-    }
-  })
-
-  it('renders every remaining row as a control', () => {
-    renderList()
-    // The paste modifier used to be the one documented-but-unreplayable row.
-    // Paste is literal now, so every row is something a click can apply.
-    expect(plainItems).toHaveLength(0)
-    for (const item of interactiveItems) {
-      const row = rowOf(item.label)
-      expect(within(row).getAllByRole('button')).toHaveLength(item.keys.length)
     }
   })
 

@@ -1,391 +1,360 @@
-# whiteboards Specification
+# Whiteboards
 
 ## Purpose
-Whiteboards: an Excalidraw board is a vault file the app creates, edits, and writes, referenced from a page or journal by a `#!` token and opened in the main pane.
+
+Whiteboards: a board is a drawing stored in the vault that the app creates,
+edits, and writes, referenced from a page or journal by a `#!` token and opened
+in the main pane.
 
 ## Requirements
 
-### Requirement: A board is a vault file under boards/, not a page and not an asset
+### Requirement: A board is a vault drawing, not a page and not a file
 
-A board SHALL be a `.excalidraw` file under the vault's `boards/` directory, at any depth within it, when no path segment begins with `.`. A board SHALL NOT produce a page record, page-search content, a backlink entry, a pin, or editor content, and it SHALL NOT be listed among the vault's assets. Unlike an asset, a board SHALL be parsed, edited, and written by the app: its file holds the board's scene, and a save SHALL write that scene back to the same path. The app SHALL NOT rename, move, or delete a board. A `.excalidraw` file outside `boards/` SHALL NOT be listed as a board.
+A board SHALL be a drawing stored in the vault's boards. A board SHALL NOT
+produce a page, page-search content, a backlink, a favorite, or editor content,
+and it SHALL NOT be listed among the vault's files. Unlike a file, a board SHALL
+be opened, edited, and saved by the app: the board holds the drawing, and a save
+SHALL write it back. The app SHALL NOT rename, move, or delete a board.
 
-#### Scenario: A board file is not a page
+#### Scenario: A board is not a page
 
-- **GIVEN** a vault containing `boards/migration.excalidraw`
-- **WHEN** the vault is indexed
-- **THEN** the file produces no page record, appears in no Files listing as a page, and is found by no page-content search
+- **WHEN** a vault holds a board
+- **THEN** it produces no page and is found by no page-content search
 
-#### Scenario: A board file is not an asset
+#### Scenario: A board is not a file
 
-- **GIVEN** a vault containing `boards/migration.excalidraw`
-- **WHEN** the Files section renders
-- **THEN** the board is not listed among the asset rows
+- **WHEN** the Files listing renders
+- **THEN** the board is not listed among the file rows
 
-#### Scenario: A board outside boards/ is not listed as a board
-
-- **GIVEN** a vault containing `notes/migration.excalidraw`
-- **WHEN** the vault is indexed
-- **THEN** no board is listed for it
-
-#### Scenario: A board is editable, unlike an asset
+#### Scenario: A board is editable
 
 - **GIVEN** an open board
 - **WHEN** the user draws an element and the save settles
-- **THEN** the board's file at its path holds the new scene, and no other file changed
+- **THEN** the board holds the new drawing and no other file changed
 
-### Requirement: A board is referenced by a #! token that resolves to its file
+### Requirement: A board is referenced by a `#!` token
 
-A board reference SHALL be written in exactly one of two lexical forms: `#!word`, where `word` is a single word of letters, digits, `_`, and `-`; or `#![[Many Words]]`, which may contain spaces. The referenced name SHALL resolve, ignoring letter case, to the board whose file is `boards/<name>.excalidraw`, and the name SHALL be the board's identity the way a page's stem is a page's identity. The token SHALL remain literally in the page's Markdown; the board file is derived from it (ADR-0001, ADR-0012). A `#!` not followed by a valid name SHALL NOT be a board reference and SHALL remain literal text, and a name that cannot be a filename SHALL NOT be a board reference. Plain `[[Page]]` and other tools' reference conventions SHALL NOT be board references.
+A board reference SHALL be written in exactly one of two forms: `#!word`, where
+`word` is a single word of letters, digits, `_`, or `-`, or `#![[Many Words]]`,
+which may contain spaces. The referenced name SHALL resolve to the board of that
+name, ignoring letter case, and the name SHALL be the board's identity. A `#!`
+with no valid name SHALL remain literal text, and other tools' conventions SHALL
+NOT be board references.
 
 #### Scenario: A single-word reference resolves to its board
 
-- **GIVEN** a vault holding `boards/Migration.excalidraw`
+- **GIVEN** a vault holding a board named Migration
 - **WHEN** a page's Markdown contains `#!Migration`
-- **THEN** the reference names the board `Migration` and resolves to `boards/Migration.excalidraw`
+- **THEN** the reference resolves to that board
 
 #### Scenario: A bracketed reference holds a spaced name
 
-- **GIVEN** a vault holding `boards/Migration topology.excalidraw`
+- **GIVEN** a vault holding a board named Migration topology
 - **WHEN** a page's Markdown contains `#![[Migration topology]]`
 - **THEN** the reference resolves to that board
 
 #### Scenario: Resolution ignores letter case
 
-- **GIVEN** a vault holding `boards/Migration.excalidraw`
+- **GIVEN** a vault holding a board named Migration
 - **WHEN** a page's Markdown contains `#!migration`
-- **THEN** the reference resolves to `boards/Migration.excalidraw`
+- **THEN** the reference resolves to that board
 
 #### Scenario: A bare sigil is literal text
 
-- **WHEN** a page's Markdown contains `#!` with no name, or `#!` followed by a character no name can hold
+- **WHEN** a page's Markdown contains `#!` with no name
 - **THEN** no board reference is produced and the text stays literal
 
-### Requirement: A board reference to a board that does not exist is valid and creates the file on first save
+### Requirement: A reference to a board with no file is valid and creates it on first save
 
-A board reference SHALL be valid even when no board file exists for its name. Activating such a reference SHALL open a blank board in the main pane, and merely opening SHALL NOT create a file. The file SHALL be created at `boards/<name>.excalidraw` only when the board's first change is saved, so typing or opening a board reference never leaves an orphan file in the vault. The name SHALL be used as the file's stem exactly as referenced, so the file's name matches the token that created it.
+A board reference SHALL be valid even when no board file exists for its name.
+Activating such a reference SHALL open a blank board, and merely opening SHALL
+create no file. The file SHALL be created only when the board's first change is
+saved, so referencing or opening a board never leaves an orphan file. The board
+SHALL take the name it was referenced by.
 
 #### Scenario: A new name opens a blank board
 
-- **GIVEN** a vault with no `boards/` directory
+- **GIVEN** a vault with no board of that name
 - **WHEN** the user writes `#![[Architecture]]` and activates it
-- **THEN** a blank board opens in the main pane, the vault folder contains no new file, and no board is listed
+- **THEN** a blank board opens and the vault holds no new file
 
-#### Scenario: The first save materializes the file
+#### Scenario: The first save creates the board
 
-- **GIVEN** a blank board opened from `#![[Architecture]]` that has never been saved
+- **GIVEN** a blank board opened from a reference and never saved
 - **WHEN** the user draws an element and the save settles
-- **THEN** `boards/Architecture.excalidraw` exists and holds the board's scene
+- **THEN** the board exists in the vault holding the drawing
 
 #### Scenario: A failed save creates no partial board
 
-- **GIVEN** a blank board opened from a reference whose write fails
+- **GIVEN** a blank board whose write fails
 - **WHEN** the save attempt fails
-- **THEN** no board file is created and the app reports the board's save state rather than discarding its content
+- **THEN** no board file is created and the app reports the board's save state
 
-### Requirement: A board reference renders as a badge distinct from a page reference and opens the board
+### Requirement: A board reference renders as a badge and opens the board
 
-While a page is open, a board reference in its content SHALL render as a badge over its literal text, visually distinct from a page-reference badge. Activating the badge SHALL open the board in the main pane. The token's literal text SHALL remain the page's canonical content; the badge is presentation over it, and moving the caret or editing elsewhere SHALL NOT change what is on disk. A board reference inside a code span or fenced code block SHALL be left alone.
+While a page is open, a board reference SHALL render as a badge over its literal
+text, visually distinct from a page reference. Activating the badge SHALL open
+the board in the main pane. The token's literal text SHALL remain the page's
+canonical content, so moving the caret or editing elsewhere changes nothing on
+disk. A board reference inside a code block SHALL be left alone.
 
-#### Scenario: The badge is visually distinct from a page reference
+#### Scenario: The badge is distinct from a page reference
 
-- **GIVEN** an open page whose content holds `#!Migration` and `#[[Roadmap]]`
+- **GIVEN** an open page holding a board reference and a page reference
 - **WHEN** the page renders
-- **THEN** the board reference and the page reference each show a badge, and the two badges are visually distinguishable
+- **THEN** each shows a badge, and the two badges are visually distinguishable
 
 #### Scenario: Activating the badge opens the board
 
 - **WHEN** the user activates a board reference's badge
-- **THEN** the board opens in the main pane and the token's Markdown is unchanged
+- **THEN** the board opens and the token's Markdown is unchanged
 
 #### Scenario: A reference in a code block is left alone
 
-- **GIVEN** a page whose fenced code block contains `#!Migration`
+- **GIVEN** a page whose code block contains `#!Migration`
 - **WHEN** the page renders
-- **THEN** the text stays literal with no badge and no board is opened by clicking it
+- **THEN** the text stays literal with no badge
 
 ### Requirement: Completion offers the vault's boards and writes a canonical token
 
-While the caret is inside a `#!` or `#![[` board-reference token, the app SHALL offer the vault's boards that match the typed text, ranked the way page references are ranked, and SHALL write the chosen board's canonical token when a candidate is accepted. The token SHALL be written in the form the trigger used (the word form stays word form; a spaced name escalates to the bracketed form), in the name's on-disk casing, as an ordinary edit that saves and undoes like typing. Accepting SHALL NOT open the board, navigate, or change any state other than the page's text. A trigger matching no board SHALL offer nothing.
+While the caret is inside a board reference, the app SHALL offer the vault's
+boards that match the typed text, ranked the way page references are, and SHALL
+write the chosen board's token in the form the trigger used and in the board's
+own name, as an ordinary edit that saves and undoes like typing. Accepting SHALL
+NOT open the board, navigate, or change anything but the page's text. A trigger
+matching no board SHALL offer nothing.
 
 #### Scenario: A typed prefix offers matching boards
 
-- **GIVEN** a vault holding `boards/Migration.excalidraw` and `boards/Roadmap.excalidraw`, with a page open
-- **WHEN** the user types `#!Mig`
-- **THEN** the picker offers `Migration` and no other board
+- **GIVEN** a vault holding two boards, with a page open
+- **WHEN** the user types a board reference beginning with one board's name
+- **THEN** the picker offers that board and no other
 
 #### Scenario: Accepting writes the canonical token
 
-- **GIVEN** the picker is offering the board `Migration` for the typed fragment `mig`
+- **GIVEN** the picker is offering a board
 - **WHEN** the user accepts that row
-- **THEN** the page's text holds the token `#!Migration` in the on-disk casing, and no board is opened
+- **THEN** the page's text holds the board's token in its own name and no board
+  is opened
 
-#### Scenario: The picker opens nothing
+#### Scenario: No matching board offers nothing
 
-- **GIVEN** the caret is inside `#!` and the typed fragment matches no board
+- **GIVEN** the caret is inside a board reference matching no board
 - **WHEN** the picker would offer candidates
-- **THEN** it offers nothing and the typed text stays as the user wrote it
+- **THEN** it offers nothing and the typed text stays as written
 
-### Requirement: The Files listing's board rows list the vault's boards and open them
+### Requirement: The Files listing lists boards and opens them
 
-The sidebar's Files listing SHALL hold the vault's board rows: the vault's board inventory (vault-index), ordered by path within the board group and labelled by each board's path inside `boards/`, each marked with a `b` badge before its label. Board rows SHALL follow the listing's page rows and precede its asset rows (static-navigation and vault-assets capabilities). When the vault holds no boards the listing SHALL show no board rows. While the index builds it SHALL show the shell's loading placeholders. Activating a board row SHALL open that board in the main pane, and the row for the open board SHALL carry the active marking and SHALL always be rendered while the board is open, even when it sits outside the listing's visible region. The listing SHALL render only the rows near the visible part of its own scroll region, so the number of rows in the document does not grow with the number of boards.
+The sidebar's Files listing SHALL hold the vault's board rows, ordered by name
+and marked with a `b` badge, after its page rows and before its file rows. When
+the vault holds no boards the listing SHALL show none. While the folder is
+loading the listing SHALL show the loading placeholder. Activating a board row
+SHALL open that board, and the open board's row SHALL carry the active marking
+and SHALL always be rendered while the board is open.
 
-#### Scenario: The section lists boards in path order
+#### Scenario: The listing lists boards in name order, badged
 
-- **GIVEN** a vault holding `boards/Migration.excalidraw` and `boards/Archive/old.excalidraw`
 - **WHEN** the Files listing renders
-- **THEN** it lists two board rows (each with a `b` badge) after the page rows and before the asset rows, ordered by path, labelled `Archive/old.excalidraw` and `Migration.excalidraw`
+- **THEN** board rows appear after the page rows and before the file rows, in
+  name order, each with a `b` badge
 
 #### Scenario: Activating a row opens the board
 
 - **WHEN** the user activates a board row
-- **THEN** the board opens in the main pane, the editor pane's page is replaced, and the row is marked active
+- **THEN** the board opens, the page leaves the main pane, and the row is marked
+  active
 
 #### Scenario: The open board's row is always rendered
 
-- **GIVEN** the open board sits far from the current scroll position in the Files listing
-- **WHEN** the Files section renders
-- **THEN** that board's row is in the document and marked as the active row, exactly as an open page's row is
+- **GIVEN** the open board sits far from the current scroll position
+- **WHEN** the Files listing renders
+- **THEN** that board's row is in the document and marked active
 
-#### Scenario: A large board inventory renders a bounded number of rows
+### Requirement: A board opens whenever its file is chosen
 
-- **GIVEN** a vault with thousands of boards
-- **WHEN** the Files section renders
-- **THEN** only a small number of rows near the visible part of its scroll region are in the document, and that number does not grow with the number of boards
-
-#### Scenario: An empty boards folder shows copy
-
-- **GIVEN** an open vault with no boards
-- **WHEN** the Files section renders
-- **THEN** it shows no board rows
-
-### Requirement: Any .excalidraw file opens in the board editor
-
-Activating a vault file whose path ends in `.excalidraw` SHALL open it in the board editor, whether reached by a board-reference badge, an ordinary Markdown link, the sidebar's Boards section, or a search result. The extension SHALL decide the view the way the app decides what a vault file's open gesture does; a link to a board's path is an ordinary Markdown link and does not itself feed the board's referring pages.
+Choosing a vault file that is a board SHALL open it in the board editor,
+whatever route it came by: a board badge, an ordinary Markdown link, the Files
+listing, or a search result.
 
 #### Scenario: A path link opens the board
 
-- **GIVEN** a page whose Markdown holds `[Arch](boards/Migration.excalidraw)`
+- **GIVEN** a page whose Markdown links a board's path
 - **WHEN** the user activates that link
-- **THEN** the board editor opens for `boards/Migration.excalidraw`
+- **THEN** the board editor opens for that board
 
 #### Scenario: Every route opens the same view
 
-- **WHEN** the user reaches a board from its badge, its sidebar row, a path link, and a search result in turn
+- **WHEN** the user reaches a board from its badge, its sidebar row, a path
+  link, and a search result in turn
 - **THEN** each opens the board editor for that board
 
 ### Requirement: The board editor saves board changes only
 
-While a board is open, the app SHALL save the board's scene to its file when the board's elements or text change, debounced so that a continuous edit writes once when it settles. Panning and zooming the canvas SHALL NOT be a document change and SHALL NOT write the file. The board's saved content SHALL be the scene the editor holds; the app SHALL NOT persist the canvas camera as document content. The status bar's save state SHALL reflect the board's save, and a failed save SHALL leave the file as it was rather than writing partially.
+While a board is open, the app SHALL save the board when its drawing or text
+changes, once the edit settles. Panning and zooming the canvas SHALL NOT be a
+change and SHALL NOT write the board. The saved board SHALL hold the drawing,
+not the current view. The status bar's save state SHALL reflect the board's
+save, and a failed save SHALL leave the board as it was rather than writing
+partially.
 
-#### Scenario: Drawing saves the scene
+#### Scenario: Drawing saves the board
 
 - **GIVEN** an open board
 - **WHEN** the user draws a rectangle and pauses
-- **THEN** the board's file is written once with the rectangle in its scene
+- **THEN** the board is written once with the rectangle
 
 #### Scenario: Panning does not save
 
-- **GIVEN** an open board whose scene has already been saved
+- **GIVEN** an open board already saved
 - **WHEN** the user pans or zooms the canvas and pauses
-- **THEN** the board's file is not written and its content is unchanged
+- **THEN** the board is not written
 
-#### Scenario: A failed save keeps the prior scene
+#### Scenario: A failed save keeps the prior board
 
-- **GIVEN** an open board whose file holds a saved scene
+- **GIVEN** an open board holding a saved drawing
 - **WHEN** a save attempt fails
-- **THEN** the file still holds its prior scene and the app reports the save as failed
+- **THEN** the board still holds its prior drawing and the app reports the save
+  as failed
 
-### Requirement: While a board is open the meta panel shows the pages that reference it
+### Requirement: While a board is open the right panel lists the pages that reference it
 
-While a board is open, the meta panel SHALL show a "Referenced by" section listing one row per page whose Markdown contains a board reference resolving to that board, ordered most recently edited first, with the path ascending as the tiebreak when two referencing pages share a last-edited time. Each row SHALL carry the `in` badge before its label, because it is a backlink to the board. Activating a row SHALL navigate to that page. When no page references the board, the section SHALL show empty-state copy, and while the index builds it SHALL show the shell's loading placeholders. The board's open/close state SHALL NOT otherwise change the panel's page-metadata sections.
+While a board is open, the right panel SHALL show a "Referenced by" section
+listing one row per page that references that board, ordered most recently
+edited first, each marked with an `in` badge. Activating a row SHALL open that
+page. When no page references the board the section SHALL show empty-state copy,
+and while the folder is loading it SHALL show the loading placeholder.
 
 #### Scenario: A board lists the pages that reference it
 
-- **GIVEN** `boards/Migration.excalidraw`, referenced from `Ideas.md` and `Log.md`, and `Log.md` was edited more recently than `Ideas.md`
+- **GIVEN** a board referenced by two pages, one edited more recently
 - **WHEN** the board is open
-- **THEN** the panel's Referenced by section lists the `Log` row above the `Ideas` row, most recently edited first, each badged `in`
+- **THEN** the panel lists both pages, most recently edited first, each badged
+  `in`
 
-#### Scenario: A row navigates to its page
+#### Scenario: A row opens its page
 
 - **WHEN** the user activates a row in Referenced by
-- **THEN** that page opens in the main pane
+- **THEN** that page opens
 
 #### Scenario: An unreferenced board shows copy
 
 - **GIVEN** a board no page references
 - **WHEN** the board is open
-- **THEN** the Referenced by section shows empty-state copy
+- **THEN** the section shows empty-state copy
 
-### Requirement: A board with no background of its own opens on the app's parchment
+### Requirement: A new board opens on the app's parchment
 
-While a board is open, the board editor's canvas background SHALL be the scene's own `viewBackgroundColor` when the board carries one. A board whose scene names no background — a board created from a reference and never saved, or a file that carries no background value — SHALL open with the canvas background set to the app's parchment token (`--parchment`, `#f5f4ed`) rather than the editor's own white default, so a new board is not the one pure-white surface in the app. The default SHALL apply only when the scene names none: a board saved with a background, or one whose background the user changed with the editor's background picker, SHALL reopen with that value unchanged. The background SHALL be part of the board's scene, so it saves and reopens like any other board property, and the app SHALL NOT write a background over one the board already holds.
+A board whose drawing names no background — one opened from a reference and
+never saved, or a file that carries no background — SHALL open on the app's
+parchment colour, not on a white default, so a new board is not the one pure
+white surface in the app. A board saved with its own background SHALL reopen
+with that background unchanged. The background SHALL be part of the board, so it
+saves and reopens like any other board property.
 
 #### Scenario: A new board opens on parchment
 
-- **GIVEN** a vault with no board file for `boards/Migration.excalidraw`
-- **WHEN** the user opens a `#!Migration` reference
-- **THEN** the board editor's canvas background is `#f5f4ed`, not the editor's white default
-
-#### Scenario: A board that names no background gets the default
-
-- **GIVEN** a board file whose scene carries no `viewBackgroundColor`
-- **WHEN** the board is opened
-- **THEN** the canvas background is `#f5f4ed`
+- **GIVEN** a vault with no board for a reference
+- **WHEN** the user opens the reference
+- **THEN** the board opens on the app's parchment background, not white
 
 #### Scenario: A board's own background is respected
 
-- **GIVEN** a board file whose scene carries `viewBackgroundColor` `#fffce8`
+- **GIVEN** a board saved with its own background colour
 - **WHEN** the board is opened
-- **THEN** the canvas background is `#fffce8`, unchanged by the default
+- **THEN** that background is used, unchanged
 
-#### Scenario: The background saves with the scene
+#### Scenario: The background saves with the board
 
 - **GIVEN** a new board opened on the parchment default
 - **WHEN** the user draws an element and the save settles
-- **THEN** the board's file holds the scene with `viewBackgroundColor` `#f5f4ed`
+- **THEN** the board holds the parchment background
 
-### Requirement: A page's board references are listed in the Links list
+### Requirement: A page's boards are listed in its Links list
 
-While a page is open, the Links list SHALL include one row per board the page's Markdown references with a `#!` token, after its page rows and its asset rows: it lists the page's page references first, then its assets in their order of appearance in the page, then its boards in theirs. A board row SHALL be marked with a `b` badge before its label and labelled by the board's path inside `boards/` — the label the sidebar's Files listing uses — and SHALL NOT appear among the Links page rows, which list page references only. A board the vault does not hold yet SHALL be rendered dimmed and remain activatable; a board the vault holds SHALL NOT be dimmed. Activating a board row SHALL open the board in the main pane, as activating a board row in the sidebar does: a navigation recorded in the session trail, never a file copy, and the vault file SHALL NOT be written by the activation. A `.excalidraw` file reached from the Links list SHALL open in the board editor whether the row came from a `#!` token or an ordinary path link, because the extension decides the view. When a page references a board and also links the same file by path, the list SHALL hold one row for it, not two.
+While a page is open, its Links list SHALL include one row per board the page
+references, after its page rows and its file rows, marked with a `b` badge and
+labelled with the board's name. A board the vault does not hold yet SHALL be
+rendered dimmed but remain activatable; a board the vault holds SHALL NOT be
+dimmed. Activating a board row SHALL open the board, recorded as a navigation
+and writing no file. When a page references a board and also links the same
+board by path, the list SHALL hold one row, not two.
 
-#### Scenario: A page's board appears in References
+#### Scenario: A page's board appears in its Links list
 
-- **GIVEN** an open page whose content is `See #!Migration` and a vault holding `boards/Migration.excalidraw`
+- **GIVEN** an open page referencing a board the vault holds
 - **WHEN** the user looks at the Links list
-- **THEN** it lists a `Migration.excalidraw` row marked with a `b` badge
+- **THEN** it lists the board, marked with a `b` badge
 
-#### Scenario: Board and asset rows share one alphabetical list
+#### Scenario: File rows come before board rows
 
-- **GIVEN** an open page whose content is `#!Migration and [report](assets/q3-report.pdf)`
+- **GIVEN** an open page that references a board and links a file
 - **WHEN** the user looks at the Links list
-- **THEN** it lists the `q3-report.pdf` row above the `Migration.excalidraw` row, the page's assets before its boards
+- **THEN** the file row appears above the board row
 
 #### Scenario: A board with no file is dimmed but opens
 
-- **GIVEN** an open page whose content is `#!Architecture` and no `boards/Architecture.excalidraw` in the vault
-- **WHEN** the user looks at the Links list and activates the row
-- **THEN** the row is rendered dimmed and opening it shows a blank board in the main pane
-
-#### Scenario: Activating a board row navigates to the board
-
-- **GIVEN** an open page whose Links list includes the board row `Migration.excalidraw`
-- **WHEN** the user activates that row
-- **THEN** the board opens in the main pane, the row is the active entry in the trail, and the board's file is unchanged by the activation
-
-#### Scenario: A board is not a Forwardlink
-
-- **GIVEN** an open page whose content is `#!Migration and #Roadmap`
-- **WHEN** the user looks at the Links page rows
-- **THEN** they list only the `Roadmap` row, badged `out`
+- **GIVEN** an open page referencing a board the vault does not hold
+- **WHEN** the user activates the row
+- **THEN** the row is dimmed and opening it shows a blank board
 
 #### Scenario: A token and a path link to one board yield one row
 
-- **GIVEN** an open page whose content is `#!Migration and [x](boards/Migration.excalidraw)`
+- **GIVEN** an open page referencing a board and also linking its path
 - **WHEN** the user looks at the Links list
-- **THEN** it holds a single `Migration.excalidraw` row
+- **THEN** it holds a single row for that board
 
-### Requirement: The board editor's chrome renders in the app's palette
+### Requirement: The board editor uses the app's design language
 
-While a board is open, the board editor's own chrome — its toolbar, islands, menus, dialogs, buttons, inputs, and popups — SHALL render in the app's design language rather than the editor library's stock light theme. The accent (selection, active tools, focus, links) SHALL be the app's ink-blue brand and no second chromatic colour SHALL appear in the chrome; island and panel surfaces SHALL be the app's warm ivory and parchment, never pure white; body and label text SHALL be the app's warm near-black and olive; borders SHALL be the app's warm hairline; floating surfaces SHALL carry the app's whisper shadow; and the interface font SHALL be the app's own, not the editor library's bundled font. The override SHALL be scoped to the board editor so no surface elsewhere in the app changes.
+While a board is open, the board editor's own chrome SHALL use the app's design
+language rather than the editor's stock light theme: the app's accent, warm
+surfaces, warm text, hairline borders, whisper shadow, and interface font. The
+override SHALL be scoped to the board editor, so no surface elsewhere changes,
+and the editor's layout, toolbar, tool icons, canvas rendering, and drawing
+fonts SHALL be unchanged. The canvas cursor for a drawing tool SHALL be the
+app's own crosshair, drawn in the app's colour so it reads against light and
+dark drawings, and only for the tools that would show a crosshair. The board
+editor's main menu SHALL offer the editor's editing and view actions and SHALL
+NOT list the editor library's own project links.
 
-The editor's layout, toolbar arrangement, tool icons, canvas rendering, and the hand-drawn drawing fonts SHALL be unchanged: this is the palette around the canvas, not a re-skin of the editor's structure.
+#### Scenario: The board editor uses the app's palette
 
-#### Scenario: The accent is the app's ink-blue
-
-- **GIVEN** an open board
-- **WHEN** the editor's active tool, selection, or a link renders
-- **THEN** its accent colour is the brand ink-blue, not the library's violet-blue
-
-#### Scenario: Islands are warm, never white
-
-- **GIVEN** an open board
-- **WHEN** the toolbar and any open menu or dialog render
-- **THEN** their backgrounds are the app's ivory or parchment, not `#ffffff` and not a cool gray
-
-#### Scenario: The interface font is the app's
-
-- **GIVEN** an open board
-- **WHEN** the editor's chrome text renders
-- **THEN** it uses the app's interface font stack, not the library's bundled font
-
-#### Scenario: The drawing surface is untouched
-
-- **GIVEN** an open board with drawn elements
-- **WHEN** the board renders
-- **THEN** the hand-drawn drawing font, the toolbar's layout and tool icons, and the canvas rendering are the editor's own, changed only in the palette around them
+- **WHEN** the board editor's toolbar, menus, and dialogs render
+- **THEN** they use the app's accent, surfaces, text, borders, shadow, and font
 
 #### Scenario: The override does not leak
 
 - **GIVEN** the app with a board open
 - **WHEN** the rest of the app's surfaces render
-- **THEN** their colours and fonts are unchanged by the board editor's chrome override
-
-### Requirement: The board's crosshair cursor is drawn in the app's palette
-
-While a board is open and the active tool is one that shows a crosshair over the canvas — every drawing tool: rectangle, diamond, ellipse, arrow, line, freedraw, text, and frame — the cursor over the canvas SHALL be the app's own crosshair, drawn in the brand ink-blue with a light halo so it reads against both light and dark drawings, rather than the operating system's crosshair cursor whose colour the app does not control. The crosshair SHALL be shown for exactly the tools that would show one, and for no others: the selection, hand, eraser, laser, image, and custom tools SHALL keep the cursor they had. The cursor is presentation only: it SHALL NOT change tool behaviour, drawing, or hit-testing.
+- **THEN** their colours and fonts are unchanged
 
 #### Scenario: A drawing tool shows the app's crosshair
 
 - **GIVEN** an open board
-- **WHEN** the user selects the rectangle tool and moves the pointer over the canvas
-- **THEN** the pointer shows the app's ink-blue crosshair, not the platform's cursor
-
-#### Scenario: Every drawing tool shows it
-
-- **WHEN** the user selects in turn the rectangle, diamond, ellipse, arrow, line, freedraw, text, and frame tools and moves over the canvas
-- **THEN** each shows the app's crosshair
-
-#### Scenario: Other tools keep their own cursor
-
-- **WHEN** the user selects the selection, hand, eraser, or laser tool and moves over the canvas
-- **THEN** each keeps the cursor it had, and no app crosshair is shown
-
-#### Scenario: The cursor changes with the tool
-
-- **GIVEN** the selection tool is active
-- **WHEN** the user selects a drawing tool and then returns to the selection tool
-- **THEN** the cursor becomes the app's crosshair and then reverts, without a reload
-
-### Requirement: The board editor's main menu offers the app's actions and no project links
-
-While a board is open, the board editor's main menu SHALL list the editor's own editing and view actions — open, save, export, save as image, find on canvas, help, clear canvas, theme, and canvas background — and SHALL NOT list the editor library's own project links: no GitHub link, no X (Twitter) link, no Discord link, and no group heading naming them. Each remaining menu item SHALL keep the place and behavior it had. This requirement covers the main menu only; the editor's Help dialog, its browser notices, and its library panel are not the menu and SHALL be unchanged.
-
-#### Scenario: The menu still offers the app's actions
-
-- **GIVEN** an open board
-- **WHEN** the user opens the editor's main menu
-- **THEN** it lists open, save, export, save as image, find on canvas, help, clear canvas, theme, and canvas background, each still working as before
+- **WHEN** the user selects a drawing tool and moves over the canvas
+- **THEN** the pointer shows the app's crosshair, and other tools keep the
+  cursor they had
 
 #### Scenario: The menu carries no project links
 
 - **GIVEN** an open board
 - **WHEN** the user opens the editor's main menu
-- **THEN** it shows no GitHub, X (Twitter), or Discord link and no heading that groups them
+- **THEN** it offers the editor's actions and no library project links
 
-#### Scenario: Other chrome is untouched
+### Requirement: The board editor loads only when a board opens
 
-- **GIVEN** an open board
-- **WHEN** the user opens the editor's Help dialog or the library panel
-- **THEN** their own outbound links and content are unchanged
+The board editor SHALL load only when a board is opened. Starting the app SHALL
+NOT fetch or preload the board editor, and the offline install SHALL NOT include
+it, so installing the app does not download a board editor the vault may never
+use. This SHALL NOT change any other board behavior.
 
-### Requirement: The board editor loads on demand
-
-The board editor SHALL load only when a board is opened. The app's initial load SHALL NOT include the board editor's code or styles: starting the app SHALL NOT fetch the board editor's bundle, statically import it from the entry, or preload it. The board editor's bundle SHALL be fetched when a board is first opened in the session. The offline install SHALL NOT include the board editor's bundle, so installing the app does not download a board editor the vault may never use. This SHALL NOT change any other board behavior: opening, editing, and saving a board SHALL be unaffected.
-
-#### Scenario: Starting the app fetches no board editor bytes
+#### Scenario: Starting the app fetches no board editor
 
 - **GIVEN** an app that has not opened a board
 - **WHEN** the app starts
-- **THEN** its startup does not fetch the board editor's bundle, statically import it from the entry, or preload it
+- **THEN** it does not fetch or preload the board editor
 
-#### Scenario: Opening a board fetches the board editor
+#### Scenario: Opening a board loads the board editor
 
 - **GIVEN** the app running with no board open
 - **WHEN** the user opens a board
-- **THEN** the board editor's bundle is fetched and the board renders in the main pane
-
-#### Scenario: The offline install excludes the board editor
-
-- **GIVEN** the app installed for offline use
-- **WHEN** the install completes
-- **THEN** the board editor's bundle is not part of the installed payload
+- **THEN** the board editor loads and the board renders in the main pane
