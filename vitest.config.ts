@@ -11,7 +11,9 @@ export default defineConfig({
       // deterministic classic provider.
       provider: 'istanbul',
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx'],
+      // Test doubles live under src/ but are not shipped code, so they do not
+      // belong in the denominator.
+      exclude: ['src/main.tsx', 'src/**/fake*.ts'],
       thresholds: {
         lines: 80,
         functions: 80,
