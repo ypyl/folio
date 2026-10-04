@@ -51,11 +51,12 @@ the log names), confirm the log says `ready in`, and sweep leftovers with
   full content size, and both `PaneCollapseToggle` strips are hidden. Verify with
   a browser check at 390x844 and 360x640 that only one view is visible, that the
   editor is never zero-sized, and that no horizontal scrollbar appears.
-- [x] 2.5 Mark the editor `inert` while a layer is shown and hand focus to the
-  shown layer and back to the editor on return. Verify with a test that the
-  editor's controls leave the tab order while a layer is shown, and with a
-  browser check that a round-trip through the navigation view leaves the caret
-  where the user left it and typing keeps the caret and its decorations aligned.
+- [x] 2.5 Hide the editor with `visibility: hidden` while a layer is shown — it
+  keeps its box, so CodeMirror never re-measures, and leaves the tab order — and
+  hand focus back to the editor when a view closes. Verify with a browser check
+  that the editor is hidden while a layer covers it and visible again after, that
+  the bar's controls all meet the touch minimum, and with a test that focus
+  returns to the editor on the close.
 - [x] 2.6 Amplify `adr/0005-keep-ui-small-three-pane-layout.md` with the compact
   composition and the alternatives the design rejects (true swap, zeroed track,
   scrimmed drawer, router view stack), and add the Chrome for Android 132+ line

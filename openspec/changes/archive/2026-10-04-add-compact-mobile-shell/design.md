@@ -69,11 +69,15 @@ Mechanics:
   desktop layout is untouched. On compact it is a real box.
 - On compact, that wrapper and the meta panel are absolutely positioned at the
   content area's inset. The inactive one is `display: none`.
-- The layer on top is opaque. The editor is marked `inert` while a layer is
-  shown, so its controls leave the tab order and the accessibility tree; showing
-  a view moves focus into it, and returning restores focus to the editor.
-- The two `PaneCollapseToggle` strips are `display: none` on compact. Folding
-  does not exist there and the strips' width would be 32px of a phone screen.
+- The layer on top is opaque. The editor is hidden with `visibility: hidden`
+  while a layer is shown, which takes its controls out of the tab order and the
+  accessibility tree while leaving its box, and therefore CodeMirror's
+  measurement, exactly where it was. (The `inert` attribute would remove it from
+  the tab order too, but it needs an attribute threaded through the pane; the
+  stylesheet can express this one.) Showing a view moves focus into it, and
+  returning restores focus to the editor.
+- The two `PaneCollapseToggle` strips are not rendered on compact. Folding does
+  not exist there and the strips' width would be 32px of a phone screen.
 
 ### D2: One breakpoint, declared once, with a test that keeps CSS and JS honest
 
@@ -129,8 +133,10 @@ than a spec change.
 
 The bar keeps its grid row below the workspace and its existing controls, and
 gains a navigation view control at its leading edge and a meta view control at
-its trailing edge. Both exist in both compositions; CSS hides them above the
-breakpoint, so there is one JSX tree and no conditional component.
+its trailing edge. The two are rendered only on compact, from the same
+`useCompact()` the rest of the shell's behavior reads: one component, one JSX
+tree, and no view control in the wide DOM at all, rather than two controls
+hidden by a stylesheet.
 
 On compact the bar shows the view controls, Back, Forward, Today, and the open
 item's name, and drops the breadcrumb path, the folder statistics and the
@@ -167,9 +173,11 @@ anywhere else would strand a new user one tap from the action they need.
   changes box: it keeps its grid slot and full content size at all times, and
   the layer is opaque rather than resizing it. Verify with a browser check that
   typing after a nav round-trip keeps the caret and the decorations aligned.
-- **`inert` on the editor suppresses its focus state.** → Returning to the
-  editor restores focus explicitly. Verify that a round-trip through the
-  navigation view leaves the caret where the user left it.
+- **The covered editor keeps focus it should have lost.** → `visibility: hidden`
+  takes it out of the tab order and the accessibility tree without changing its
+  box, and returning to the editor restores focus explicitly. Verified in a real
+  browser that a round-trip through the navigation view leaves the editor hidden
+  while a layer is shown and focused again when it closes.
 - **The breakpoint drifts between CSS and JS.** → The stylesheet-reading test in
   D2 fails if the two declarations disagree.
 - **`display: contents` on the navigation wrapper.** → The wrapper carries no
