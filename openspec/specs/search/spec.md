@@ -136,7 +136,7 @@ Search SHALL match every indexed page and journal day of the open vault. A page 
 
 ### Requirement: Results are grouped by kind with labels and match snippets
 
-The dropdown SHALL render results in four groups — Pages, Journal, Boards, and Assets — each under a sticky group header, in that order. Each result row SHALL show a label: the page's title, the journal day's pretty date (e.g. "September 2, 2026"), the board's path inside `boards/`, or the asset's path inside `assets/`. A page or journal row SHALL show a snippet for **every place the query occurs in the page**, not only the first, with the matched spans highlighted: a run of nearby occurrences SHALL be shown as one snippet covering them, each snippet SHALL carry at most one line of context on each side of the occurrences it covers, and occurrences far apart SHALL be shown as separate snippets. The dropdown SHALL show at most two snippets per row, and when the page holds more places than that SHALL note the remainder as `+N more on this page`, where N is the number of occurrences not shown. A row's height SHALL NOT be bounded by a clamp that can hide an occurrence inside a shown snippet. A title-only match SHALL show the page's opening content as its snippet. A board row SHALL show its label and SHALL NOT show a snippet, because a board is not read for content. An asset row SHALL show its label and SHALL NOT show a snippet, because a file has no content to quote. Results in the dropdown SHALL be capped per group, with the see-all row (see "The dropdown offers a see-all handoff") indicating that further matches exist.
+The dropdown SHALL render results in four groups — Pages, Journal, Boards, and Assets — each under a sticky group header, in that order. Each result row SHALL show a label: the page's title, the journal day's pretty date (e.g. "September 2, 2026"), the board's path inside `boards/`, or the asset's path inside `assets/`. A page or journal row SHALL show a snippet for **every place the query occurs in the page**, not only the first, with the matched spans highlighted: a run of nearby occurrences SHALL be shown as one snippet covering them, each snippet SHALL carry at most one line of context on each side of the occurrences it covers, and occurrences far apart SHALL be shown as separate snippets. A snippet after the first in a row SHALL be separated from the one above it by a divider, so two snippets do not read as one passage. The dropdown SHALL show at most two snippets per row, and when the page holds more places than that SHALL note the remainder as `+N more on this page`, where N is the number of occurrences not shown. A row's height SHALL NOT be bounded by a clamp that can hide an occurrence inside a shown snippet. A title-only match SHALL show the page's opening content as its snippet. A board row SHALL show its label and SHALL NOT show a snippet, because a board is not read for content. An asset row SHALL show its label and SHALL NOT show a snippet, because a file has no content to quote. Results in the dropdown SHALL be capped per group, with the see-all row (see "The dropdown offers a see-all handoff") indicating that further matches exist.
 
 #### Scenario: Results are grouped by kind
 
@@ -209,6 +209,12 @@ The dropdown SHALL render results in four groups — Pages, Journal, Boards, and
 - **WHEN** a page's content contains the query exactly once
 - **THEN** its row shows that one occurrence's snippet with no `+N more on this page` note
 
+#### Scenario: Separate snippets are visibly separated
+
+- **GIVEN** a page whose content contains the query in two places, far enough apart to be separate snippets
+- **WHEN** the page appears in the dropdown
+- **THEN** its row shows the two snippets divided from each other, not run together as one passage
+
 ### Requirement: The dropdown offers a see-all handoff to a search results view
 The search dropdown SHALL show a pinned row offering to open a search results view whenever the active query has at least one match. Activating the row SHALL open the search results view for the query. The row SHALL remain available after a result has been opened (the query is kept), so returning to the results from the editor is possible without retyping. The previous passive "Showing up to 20 matches per section." note SHALL NOT be shown.
 
@@ -257,7 +263,7 @@ Clicking a page or journal-day result row, or pressing Enter on the active row, 
 
 ### Requirement: Search results view shows the full match set
 
-The search results view SHALL display the complete match set for the active query without a per-group cap: every matching page, journal day, board, and asset, in the same order and grouping as the dropdown (Pages group first, then Journal, then Boards, then Assets), with sticky group headers, page-title, pretty-date, board-path, or asset-path labels, and, for pages and journal days, the same per-place snippets with highlighted spans that the dropdown shows, ordered by relevance. The view SHALL show at most five snippets per row — more than the dropdown's two, because the view is the survey surface — and SHALL note any remainder as `+N more on this page` counting the occurrences not shown. The view SHALL be transient UI: opening, browsing, and closing it SHALL NOT create, modify, or remove vault files. Closing the view SHALL return the app to the previously open page.
+The search results view SHALL display the complete match set for the active query without a per-group cap: every matching page, journal day, board, and asset, in the same order and grouping as the dropdown (Pages group first, then Journal, then Boards, then Assets), with sticky group headers, page-title, pretty-date, board-path, or asset-path labels, and, for pages and journal days, the same per-place snippets with highlighted spans that the dropdown shows, ordered by relevance. Each snippet after the first in a row SHALL be separated from the one above it by a divider, as in the dropdown. The view SHALL show at most five snippets per row — more than the dropdown's two, because the view is the survey surface — and SHALL note any remainder as `+N more on this page` counting the occurrences not shown. The view SHALL be transient UI: opening, browsing, and closing it SHALL NOT create, modify, or remove vault files. Closing the view SHALL return the app to the previously open page.
 
 #### Scenario: The view lists all matches, uncapped
 
@@ -290,6 +296,12 @@ The search results view SHALL display the complete match set for the active quer
 
 - **WHEN** the user leaves the results view (opens a result or dismisses with Escape)
 - **THEN** no file is created, modified, or removed in the vault, and the previously open page is shown again
+
+#### Scenario: The view separates a row's snippets
+
+- **GIVEN** a page whose content contains the query in two places, far enough apart to be separate snippets
+- **WHEN** the page's row appears in the results view
+- **THEN** the row's two snippets are divided from each other, not run together as one passage
 
 ### Requirement: Search results view paginates its match list
 The search results view SHALL paginate the match list when it exceeds the page size, showing at most one page of results at a time with controls to move to the previous and next pages. The view SHALL show the total match count and which portion of the list is currently displayed. Navigating to another page SHALL reset the view's scroll to the top.
