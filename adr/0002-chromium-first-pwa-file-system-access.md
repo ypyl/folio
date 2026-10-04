@@ -24,5 +24,18 @@ Supporting Firefox is not a reason to over-engineer the application.
   version. The earlier estimate that this support would arrive "when needed" was
   conservative; the shell's compact composition (ADR-0005) exists to use it, not
   to widen the target.
+- **On Android the readwrite grant is session-scoped, and opening a folder costs
+  three confirmations.** Verified on a Pixel 9a with Chrome 154: the picker is
+  the Storage Access Framework's, so after `Use this folder` Chrome asks twice
+  more — `Allow Chrome to access folder?`, then `Allow this site to edit files?`,
+  the second saying the grant lasts "until you close all tabs for this site".
+  The picker also opens at the folder last used rather than at the root.
+  `queryPermission` then reports `granted` for the life of the tab and `prompt`
+  after a reload, so a reload lists the folder without opening it and one tap on
+  its rail entry re-grants it with no picker. That is the reconnect path the
+  folder-rail requirement already specifies, so no behavior changed to support
+  it; it is recorded here because the desktop assumption that a stored handle
+  re-grants by itself does not hold on Android, and any future auto-restore would
+  have to prove otherwise.
 - Firefox and Safari users cannot open a vault (until they ship the API); a file-picker fallback may later mitigate this but at the cost of the persistent model.
 - When broader desktop support is needed, the same frontend can be packaged with Tauri rather than rearchitecting (see ADR-0003).
