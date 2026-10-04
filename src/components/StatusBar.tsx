@@ -258,14 +258,21 @@ export function StatusBar({
           <PanelsIcon side="meta" open={view === 'meta'} />
         </button>
       )}
-      <div className={styles.vault}>
-        {!compact && vaultName !== undefined && fileCount !== undefined ? (
-          <span className={styles.vaultStatus} title={`${vaultName} (${fileCount} files)`}>
-            <span className={styles.vaultName}>{vaultName}</span>
-            <span className={styles.vaultCount}>· {fileCount}</span>
-          </span>
-        ) : null}
-      </div>
+      {/* The vault group is the wide bar's, like the version below it: on
+          compact it renders nothing, and rendering an empty box that also
+          carried `margin-left: auto` split the free space with the meta
+          control's own auto margin, so half the gap landed between them and
+          the control sat short of the bar's trailing edge. */}
+      {!compact && (
+        <div className={styles.vault}>
+          {vaultName !== undefined && fileCount !== undefined ? (
+            <span className={styles.vaultStatus} title={`${vaultName} (${fileCount} files)`}>
+              <span className={styles.vaultName}>{vaultName}</span>
+              <span className={styles.vaultCount}>· {fileCount}</span>
+            </span>
+          ) : null}
+        </div>
+      )}
       {/* The running version (version-in-status-bar): build identity at the
           bar's trailing edge, beside the vault's file count. A sibling of the
           vault group rather than a child, so the group stays empty when no

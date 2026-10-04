@@ -157,6 +157,36 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(await painted(meta)).toEqual({ tint: 'rgb(238, 242, 247)', panes: 1, pressed: 'true' })
     expect(await painted(nav)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
   })
+
+  test('the two view controls sit at the bar\u2019s two edges', async ({ page }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    // Each control is flush with the bar's own content edge, and the two gaps
+    // match: nothing sits between the trailing control and the edge to absorb
+    // free space and leave it short of the border.
+    const edges = await page.evaluate(() => {
+      const bar = document.querySelector('.app-shell > footer') as HTMLElement
+      const style = getComputedStyle(bar)
+      const box = bar.getBoundingClientRect()
+      const leading = bar
+        .querySelector('button[aria-label="Navigation"]')!
+        .getBoundingClientRect()
+      const trailing = bar
+        .querySelector('button[aria-label="Page details"]')!
+        .getBoundingClientRect()
+      return {
+        leadingGap: leading.left - box.left - parseFloat(style.paddingLeft),
+        trailingGap: box.right - parseFloat(style.paddingRight) - trailing.right,
+      }
+    })
+    expect(edges.leadingGap).toBeLessThan(1)
+    expect(edges.trailingGap).toBeLessThan(1)
+    expect(Math.abs(edges.leadingGap - edges.trailingGap)).toBeLessThan(1)
+  })
 })
 
 test.describe('the wide composition is unchanged', () => {

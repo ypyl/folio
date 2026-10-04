@@ -347,6 +347,10 @@ describe('StatusBar', () => {
       const { container } = render(
         <StatusBar pagePath="a.md" vaultName="notes" fileCount={12} compact />,
       )
+      // The group is not rendered at all on compact, not merely emptied: an
+      // empty box would still carry the auto margin that pins it right and
+      // would split the free space with the trailing control's own.
+      expect(container.querySelector(`.${styles.vault}`)).toBeNull()
       expect(container.querySelector(`.${styles.vaultStatus}`)).toBeNull()
       expect(container.querySelector(`.${styles.version}`)).toBeNull()
       expect(
