@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import { EditorPane } from '../components/EditorPane'
 import type { Page } from '../page'
@@ -69,5 +69,13 @@ it('renders a vault image in the fit wrapper with its control, resolved to the b
   expect(wrapper).not.toBeNull()
   const img = wrapper?.querySelector('img')
   await waitFor(() => expect(img?.getAttribute('src') ?? '').toMatch(/^blob:/))
-  expect(wrapper?.querySelector('button')?.getAttribute('aria-label')).toBe('Expand image')
+  const control = wrapper?.querySelector('button')
+  expect(control?.getAttribute('aria-label')).toBe('Expand image')
+  // The control carries a visible glyph, and toggling swaps it: without the
+  // glyph the chip renders empty (regression after the CodeMirror swap).
+  const glyphPath = () => control?.querySelector('svg path')?.getAttribute('d')
+  expect(glyphPath()).toBe('M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7')
+  fireEvent.click(control as HTMLButtonElement)
+  expect(control?.getAttribute('aria-label')).toBe('Collapse image')
+  expect(glyphPath()).toBe('M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7')
 })

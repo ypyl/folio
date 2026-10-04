@@ -84,6 +84,30 @@ const IMAGE_WRAPPER_CLASS = 'folio-image'
 const IMAGE_CONTROL_CLASS = 'folio-image-control'
 const EXPANDED_ATTR = 'data-expanded'
 
+/** The control's glyph, one path each on a 24-unit viewBox: arrows out to
+ *  expand, arrows in to collapse. Drawn in this module because the control is
+ *  built here and has no React component; the pane's stylesheet sizes it. */
+const GLYPH_EXPAND = 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'
+const GLYPH_COLLAPSE = 'M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7'
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+/** The expand/collapse control's SVG glyph, stroked in the chip's
+ *  `currentColor` so the stylesheet's color (and its hover brand) apply. */
+function controlGlyph(): { svg: SVGSVGElement; path: SVGPathElement } {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '2')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  const path = document.createElementNS(SVG_NS, 'path')
+  path.setAttribute('d', GLYPH_EXPAND)
+  svg.append(path)
+  return { svg, path }
+}
+
 /** The class the pane's stylesheet gives a reference chip. */
 const REFERENCE_CLASS = 'ref'
 
@@ -198,6 +222,8 @@ class ImageWidget extends WidgetType {
     control.title = 'Expand image'
     control.setAttribute('aria-label', 'Expand image')
     control.setAttribute('aria-expanded', 'false')
+    const glyph = controlGlyph()
+    control.append(glyph.svg)
     const wrapper = document.createElement('span')
     wrapper.className = IMAGE_WRAPPER_CLASS
     wrapper.append(img, control)
@@ -210,6 +236,7 @@ class ImageWidget extends WidgetType {
       control.setAttribute('aria-expanded', String(expanded))
       control.title = expanded ? 'Collapse image' : 'Expand image'
       control.setAttribute('aria-label', control.title)
+      glyph.path.setAttribute('d', expanded ? GLYPH_COLLAPSE : GLYPH_EXPAND)
     })
     return wrapper
   }
