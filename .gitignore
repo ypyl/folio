@@ -40,5 +40,10 @@ Desktop.ini
 coverage
 .vitest
 
+# Playwright
+playwright-report
+test-results
+blob-report
+
 # Browser automation session artifacts
 .playwright-cli
