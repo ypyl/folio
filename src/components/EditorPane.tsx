@@ -373,6 +373,15 @@ export function EditorPane({
               {EMPTY_HINTS[emptyHint]}
             </p>
             {brandAction}
+            <a
+              className={styles.repoLink}
+              href="https://github.com/ypyl/folio"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Folio on GitHub"
+            >
+              GitHub
+            </a>
           </div>
         )}
       </main>

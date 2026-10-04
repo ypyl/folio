@@ -448,6 +448,13 @@ describe('EditorPane', () => {
     }
   })
 
+  it('links to the project repository on the brand screen (add-github-link)', () => {
+    render(<EditorPane page={null} emptyHint="open-folder" initialContent="" onChange={() => {}} />)
+    const link = screen.getByRole('link', { name: 'Folio on GitHub' })
+    expect(link.getAttribute('href')).toBe('https://github.com/ypyl/folio')
+    expect(link.getAttribute('target')).toBe('_blank')
+  })
+
   it('shows the loading state instead of the empty hint while the index builds', async () => {
     render(
       <EditorPane page={null} loading emptyHint="notes" initialContent="" onChange={() => {}} />,

@@ -490,6 +490,12 @@ control that promises an action the app cannot perform. Where it can, the screen
 SHALL additionally offer the one-time Logseq import and host that import's
 progress and result states.
 
+In every no-folder state, whether or not the browser can open local folders, the
+screen SHALL also show a link to the project's public repository, placed below
+the position the import action occupies. The link SHALL open the repository in a
+new browser tab, SHALL NOT navigate the app away from its screen, and SHALL
+carry an accessible name that identifies the repository.
+
 #### Scenario: The brand screen shows before a folder opens
 
 - **WHEN** the app starts with no folder open
@@ -514,6 +520,19 @@ progress and result states.
 - **WHEN** a Logseq import is running or finishes
 - **THEN** the center pane shows its progress or its result summary in place of
   the tagline until the user continues
+
+#### Scenario: The brand screen links to the repository
+
+- **GIVEN** no folder is open
+- **WHEN** the user looks at the brand screen
+- **THEN** it shows a link to the project's public repository, below the import
+  action when that action is present
+
+#### Scenario: The repository link opens in a new tab
+
+- **WHEN** the user activates the repository link
+- **THEN** the repository opens in a new browser tab and the app stays on the
+  brand screen
 
 ### Requirement: Panes show loading placeholders while the active folder loads
 

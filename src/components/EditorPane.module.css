@@ -60,6 +60,22 @@
   color: var(--dark-warm);
 }
 
+/* The project's public repository (add-github-link), shown on the brand screen
+   in every no-folder state, below the import action when it is present. The
+   app's one link style (DESIGN.md "Links"): brand ink, no underline, hover
+   lightens. */
+.repoLink {
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--brand);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.repoLink:hover {
+  background: var(--brand-tint);
+}
+
 /* Loading state (indexing-loading-state): replaces the empty hint while the
    active folder's index builds. Top-left, aligned with the real document
    surface (same padding as .document). The in-progress status is announced
