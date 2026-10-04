@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { RESULTS_PER_PAGE, SearchResultsView } from './SearchResultsView'
 import styles from './SearchResultsView.module.css'
 import matchStyles from './MatchBody.module.css'
-import type { SearchResult } from '../search/core'
+import { exactRanges, type SearchResult } from '../search/core'
 
 // The results view is prop-driven (components never import the vault): the
 // full match set arrives via props, opening reports through onOpen, Escape
@@ -43,6 +43,10 @@ const renderView = (props: Partial<Parameters<typeof SearchResultsView>[0]> = {}
 
 const main = () => screen.getByRole('main')
 const rows = () => main().querySelectorAll(`button.${styles.row}`)
+
+/** A page whose occurrences sit far enough apart to be separate snippets. */
+const spread = (n: number) =>
+  Array.from({ length: n * 8 }, (_, i) => (i % 8 === 0 ? `docker ${i}` : `line ${i}`)).join('\n')
 
 describe('SearchResultsView listing (search-results-view spec: full set, groups)', () => {
   it('lists every match uncapped, Pages before Journal, with snippets', () => {
@@ -194,5 +198,23 @@ describe('SearchResultsView asset rows (search-assets-by-name)', () => {
     fireEvent.click(rows()[0])
     expect(onOpen).toHaveBeenCalledWith('p1.md', [])
     expect(onOpenAsset).not.toHaveBeenCalled()
+  })
+})
+
+describe('SearchResultsView snippet budget (show-every-match-per-result)', () => {
+  it('shows every place the query occurs, up to five', () => {
+    const text = spread(4)
+    renderView({ results: [result('p0.md', { text, ranges: exactRanges(text, 'docker') })] })
+    const row = rows()[0] as HTMLElement
+    expect(within(row).getAllByText('docker')).toHaveLength(4)
+    expect(within(row).queryByText(/more on this page/)).toBeNull()
+  })
+
+  it('notes the occurrences past its cap of five', () => {
+    const text = spread(8)
+    renderView({ results: [result('p0.md', { text, ranges: exactRanges(text, 'docker') })] })
+    const row = rows()[0] as HTMLElement
+    expect(within(row).getAllByText('docker')).toHaveLength(5)
+    expect(within(row).getByText('+3 more on this page')).toBeTruthy()
   })
 })

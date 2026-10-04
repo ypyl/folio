@@ -164,30 +164,82 @@ describe('searchDocs (exact-first ranking)', () => {
 })
 
 describe('snippetSegments', () => {
+  /** The windows' hit spans, as the row would show them. */
+  const hits = (windows: ReturnType<typeof snippetSegments>) =>
+    windows.flatMap((w) => w.segments.filter((s) => s.hit).map((s) => s.text))
+
   it('windows around the first match line and marks the hit', () => {
     // 'the docker term here' is line 3; 'docker' sits at 22 (0-based).
     const text = ['line one', 'line two', 'the docker term here', 'line four', 'line five'].join(
       '\n',
     )
-    const segments = snippetSegments(text, [[22, 28]])
-    expect(segments.map((s) => s.text).join('')).toContain('docker')
-    const marked = segments.find((s) => s.hit)
-    expect(marked?.text).toBe('docker')
+    const [window] = snippetSegments(text, [[22, 28]])
+    expect(window.segments.map((s) => s.text).join('')).toContain('docker')
+    expect(window.segments.find((s) => s.hit)?.text).toBe('docker')
   })
 
   it('merges touching ranges into one hit segment', () => {
-    const segments = snippetSegments('docker kubernetes', [
+    const [window] = snippetSegments('docker kubernetes', [
       [0, 6],
       [6, 17],
     ])
-    expect(segments.filter((s) => s.hit)).toHaveLength(1)
-    expect(segments.find((s) => s.hit)?.text).toBe('docker kubernetes')
+    expect(window.segments.filter((s) => s.hit)).toHaveLength(1)
+    expect(window.segments.find((s) => s.hit)?.text).toBe('docker kubernetes')
   })
 
   it('uses the opening lines as the snippet when nothing matches in text', () => {
     const text = ['title-only match', 'second line', 'third line', 'fourth'].join('\n')
-    const segments = snippetSegments(text, [])
-    expect(segments).toEqual([{ text: 'title-only match\nsecond line\nthird line', hit: false }])
+    const [window] = snippetSegments(text, [])
+    expect(window).toEqual({
+      from: 1,
+      to: 3,
+      hits: 0,
+      segments: [{ text: 'title-only match\nsecond line\nthird line', hit: false }],
+    })
+  })
+
+  it('shows a window for every place the match occurs', () => {
+    const text = ['dog one', '', 'b', '', 'c', '', 'd', '', 'e', '', 'f', 'g dog'].join('\n')
+    const windows = snippetSegments(text, exactRanges(text, 'dog'))
+    expect(windows).toHaveLength(2)
+    expect(hits(windows)).toEqual(['dog', 'dog'])
+    expect(windows[0].from).toBe(1)
+    expect(windows[1].to).toBe(12)
+  })
+
+  it('shares one window between nearby occurrences', () => {
+    const text = ['# Ideas', '', 'a backlink', '', '- b backlink', '- c backlink'].join('\n')
+    const windows = snippetSegments(text, exactRanges(text, 'backlink'))
+    expect(windows).toHaveLength(1)
+    expect(windows[0].hits).toBe(3)
+    expect(hits(windows)).toEqual(['backlink', 'backlink', 'backlink'])
+  })
+
+  it('walks a dense page in bounded, non-overlapping windows', () => {
+    // A match on every line from 1 to 30.
+    const text = Array.from({ length: 30 }, (_, i) => `dog ${i}`).join('\n')
+    const windows = snippetSegments(text, exactRanges(text, 'dog'))
+    expect(windows.length).toBeGreaterThan(1)
+    for (const w of windows) expect(w.to - w.from + 1).toBeLessThanOrEqual(8)
+    for (let i = 1; i < windows.length; i += 1) {
+      expect(windows[i].from).toBeGreaterThan(windows[i - 1].to)
+    }
+  })
+
+  it('covers every occurrence exactly once', () => {
+    const text = Array.from({ length: 20 }, (_, i) =>
+      i % 3 === 0 ? `dog ${i}` : `line ${i}`,
+    ).join('\n')
+    const ranges = exactRanges(text, 'dog')
+    const windows = snippetSegments(text, ranges)
+    // The merged occurrences the windows report, and the text they actually quote.
+    const reported = windows.reduce((n, w) => n + w.hits, 0)
+    const quoted = windows
+      .flatMap((w) => w.segments.filter((s) => s.hit).map((s) => s.text))
+      .join('').length
+    expect(reported).toBe(ranges.length)
+    expect(hits(windows)).toEqual(Array.from({ length: ranges.length }, () => 'dog'))
+    expect(quoted).toBe(ranges.length * 3)
   })
 })
 
@@ -269,7 +321,7 @@ describe('asset search documents', () => {
     const [hit] = searchDocs(fuse([assetSearchDoc('assets/q3-report.pdf')]), 'q3-report')
     expect(hit.ranges).toEqual([])
     expect(hit.blocks).toEqual([])
-    expect(snippetSegments(hit.text, hit.ranges)).toEqual([{ text: '', hit: false }])
+    expect(snippetSegments(hit.text, hit.ranges)[0].segments).toEqual([{ text: '', hit: false }])
   })
 
   it('has no contents to match', () => {

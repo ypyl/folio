@@ -1,5 +1,11 @@
 /* Search-result row body (both search surfaces render it). The base scale is
-   the full results view's; `*Compact` is the dropdown's smaller one. */
+   the full results view's; `*Compact` is the dropdown's smaller one.
+
+   A row shows one snippet per place the query occurs (a `.window`), never a
+   clamp: a `-webkit-line-clamp` cuts from the top, and a window is anchored on
+   its matches, so a clamp would hide the second match of a window that holds
+   two. Height is bounded by how many windows the row is given, not by a clamp
+   (show-every-match-per-result; DESIGN.md - Search match). */
 
 .label {
   display: block;
@@ -15,10 +21,7 @@
 }
 
 .snip {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
   margin-top: 3px;
   font-size: 12.5px;
   color: var(--stone);
@@ -28,6 +31,19 @@
 
 .snipCompact {
   font-size: 12px;
+}
+
+.window {
+  display: block;
+}
+
+.window + .window {
+  margin-top: 6px;
+}
+
+.more {
+  display: block;
+  margin-top: 4px;
 }
 
 .hit {

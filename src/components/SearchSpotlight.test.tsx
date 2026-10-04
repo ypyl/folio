@@ -372,3 +372,16 @@ describe('SearchSpotlight asset results (search-assets-by-name)', () => {
     expect(heads).toEqual(['Pages', 'Journal', 'Assets'])
   })
 })
+
+describe('dropdown snippet budget (show-every-match-per-result)', () => {
+  const spread = (n: number) =>
+    Array.from({ length: n * 8 }, (_, i) => (i % 8 === 0 ? `docker ${i}` : `line ${i}`)).join('\n')
+
+  it('shows two snippets and notes the rest, counting occurrences', async () => {
+    renderSpotlight({ docs: [page('notes.md', spread(4))] })
+    await type('docker')
+    const row = options()[0]
+    expect(within(row).getAllByText('docker')).toHaveLength(2)
+    expect(within(row).getByText('+2 more on this page')).toBeTruthy()
+  })
+})

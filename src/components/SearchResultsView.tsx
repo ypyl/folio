@@ -129,7 +129,7 @@ export function SearchResultsView({
             onClick={() => activate(item)}
             onMouseEnter={() => setActive(i)}
           >
-            <MatchBody result={item} />
+            <MatchBody result={item} limit={5} />
           </button>
         </div>
       ))}

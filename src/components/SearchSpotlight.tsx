@@ -244,7 +244,7 @@ export function SearchSpotlight({
                         onClick={() => activate(r)}
                         onMouseEnter={() => setActive(index)}
                       >
-                        <MatchBody result={r} compact />
+                        <MatchBody result={r} compact limit={2} />
                       </button>
                     )
                   })}

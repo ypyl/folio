@@ -194,16 +194,36 @@ export function topPerGroup(results: SearchResult[]): SearchResult[] {
   return out
 }
 
-type Segment = { text: string; hit: boolean }
+export type Segment = { text: string; hit: boolean }
 
-/** A window (±2 lines) around the first match line, split into hit/non-hit
- *  segments. With no ranges (a title-only match) the page's first three lines
- *  serve as the snippet. Overlapping/adjacent ranges merge first. */
-export function snippetSegments(text: string, ranges: SearchRange[]): Segment[] {
-  const lines = text.split('\n')
-  if (!ranges.length) {
-    return [{ text: lines.slice(0, Math.min(3, lines.length)).join('\n'), hit: false }]
+/** One snippet: the 1-based inclusive line span it covers, how many occurrences
+ *  it holds, and its hit/non-hit segments. A row renders one of these per run of
+ *  nearby matches (show-every-match-per-result). */
+export type SnippetWindow = { from: number; to: number; hits: number; segments: Segment[] }
+
+/** How close two matches must be to share a window: a match whose first line is
+ *  within this many lines of the current window's last line joins it. */
+const MERGE_GAP = 4
+/** The most lines one window may cover, so a dense page walks forward in
+ *  bounded windows instead of collapsing into one enormous excerpt. */
+const WINDOW_MAX = 8
+/** Lines of context shown on each side of the matches a window covers. */
+const CONTEXT = 1
+
+/** The 1-based line holding `offset` (binary search over the line starts). */
+function lineAt(starts: number[], offset: number): number {
+  let lo = 0
+  let hi = starts.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (starts[mid] <= offset) lo = mid
+    else hi = mid - 1
   }
+  return lo + 1
+}
+
+/** Sorted, non-overlapping ranges: a term that occurs twice in a row is one hit. */
+function mergeRanges(ranges: SearchRange[]): SearchRange[] {
   const merged: SearchRange[] = []
   for (const [a, b] of [...ranges].sort((x, y) => x[0] - y[0] || x[1] - y[1])) {
     if (b <= a) continue
@@ -211,26 +231,89 @@ export function snippetSegments(text: string, ranges: SearchRange[]): Segment[] 
     if (last && a <= last[1]) last[1] = Math.max(last[1], b)
     else merged.push([a, b])
   }
-  if (!merged.length) return []
-  const line = text.slice(0, merged[0][0]).split('\n').length - 1
-  const winStartLine = Math.max(0, line - 2)
-  const winEndLine = Math.min(lines.length - 1, line + 2)
-  const winStart = lines.slice(0, winStartLine).reduce((n, l) => n + l.length + 1, 0)
-  const winText = lines.slice(winStartLine, winEndLine + 1).join('\n')
-  const winRanges = merged
-    .map(([a, b]): SearchRange => [a - winStart, b - winStart])
-    .filter(([a, b]) => b > 0 && a < winText.length)
-    .map(([a, b]): SearchRange => [Math.max(0, a), Math.min(winText.length, b)])
+  return merged
+}
+
+/** The segments of one window: its ranges mapped into its own text, then split
+ *  into hit and non-hit runs. */
+function windowOf(
+  lines: string[],
+  starts: number[],
+  window: { from: number; to: number; ranges: SearchRange[] },
+): SnippetWindow {
+  const text = lines.slice(window.from - 1, window.to).join('\n')
+  const start = starts[window.from - 1]
   const segments: Segment[] = []
   let pos = 0
-  for (const [a, b] of winRanges) {
-    if (b <= a) continue
-    if (a > pos) segments.push({ text: winText.slice(pos, a), hit: false })
-    segments.push({ text: winText.slice(a, b), hit: true })
-    pos = b
+  for (const [a, b] of window.ranges) {
+    const from = Math.max(0, Math.min(text.length, a - start))
+    const to = Math.max(0, Math.min(text.length, b - start))
+    if (to <= from) continue
+    if (from > pos) segments.push({ text: text.slice(pos, from), hit: false })
+    segments.push({ text: text.slice(from, to), hit: true })
+    pos = to
   }
-  if (pos < winText.length) segments.push({ text: winText.slice(pos), hit: false })
-  return segments
+  if (pos < text.length) segments.push({ text: text.slice(pos), hit: false })
+  return { from: window.from, to: window.to, hits: window.ranges.length, segments }
+}
+
+/** One snippet per place the query occurs (show-every-match-per-result): matches
+ *  within `MERGE_GAP` lines share a window, a window covers at most `WINDOW_MAX`
+ *  lines with `CONTEXT` lines either side of its matches, and a fresh window
+ *  starts past the last one so no two overlap. Every occurrence lands in exactly
+ *  one window. With no ranges (a title-only match) the page's first three lines
+ *  serve as the single snippet. */
+export function snippetSegments(text: string, ranges: SearchRange[]): SnippetWindow[] {
+  const lines = text.split('\n')
+  // Each line's start offset, computed once: a window is then a slice of `lines`
+  // and an offset, rather than a fresh scan of the whole text per window.
+  const starts: number[] = new Array(lines.length)
+  for (let i = 0, at = 0; i < lines.length; i += 1) {
+    starts[i] = at
+    at += lines[i].length + 1
+  }
+  if (!ranges.length) {
+    const to = Math.min(3, lines.length)
+    return [
+      { from: 1, to, hits: 0, segments: [{ text: lines.slice(0, to).join('\n'), hit: false }] },
+    ]
+  }
+  const merged = mergeRanges(ranges)
+  if (!merged.length) return []
+  // The lines each range starts and ends on: a match can span a newline, so
+  // both ends matter for whether a window already covers it.
+  const spans = merged.map((range) => ({
+    range,
+    from: lineAt(starts, range[0]),
+    to: lineAt(starts, Math.max(range[0], range[1] - 1)),
+  }))
+  const windows: { from: number; to: number; ranges: SearchRange[] }[] = []
+  for (const span of spans) {
+    const current = windows[windows.length - 1]
+    const from = Math.max(1, span.from - CONTEXT)
+    const to = Math.min(lines.length, span.to + CONTEXT)
+    if (current) {
+      // Already inside the window: shown, so it is only highlighted, not grown.
+      if (span.from >= current.from && span.to <= current.to) {
+        current.ranges.push(span.range)
+        continue
+      }
+      const grown = Math.max(current.to, to)
+      if (from - current.to <= MERGE_GAP && grown - current.from + 1 <= WINDOW_MAX) {
+        current.to = grown
+        current.ranges.push(span.range)
+        continue
+      }
+    }
+    // A fresh window starts past the last one, so no two overlap, and never
+    // past its own match, which is always covered.
+    windows.push({
+      from: current ? Math.max(current.to + 1, from) : from,
+      to,
+      ranges: [span.range],
+    })
+  }
+  return windows.map((window) => windowOf(lines, starts, window))
 }
 
 /** The index of the top-level block holding the first text match

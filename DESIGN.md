@@ -305,6 +305,28 @@ widget itself (`.folio-table-framed`), because a replaced table has no line to
 carry it. Both are presentational — they never enter the page or the file. A
 result whose match is only in the page title opens with no mark.
 
+### Search result rows
+
+A result row shows a snippet for **every place** the query occurs in the page,
+not only the first. A run of nearby matches is one snippet covering them, each
+snippet carrying one line of context on each side of the matches it covers, and
+matches far apart are separate snippets. The row is never clamped: a
+`-webkit-line-clamp` cuts from the top, and a snippet is anchored on its
+matches, so a clamp would hide the second match of a two-match snippet. Height
+is bounded by how many snippets the row shows, not by a clamp.
+
+How many it shows is the surface's budget: the dropdown shows two, the results
+view five, because the dropdown is a launcher and the view is the survey
+surface. Past the budget the row ends with a plain `+N more on this page` line,
+where N counts the occurrences not shown (not the snippets), because that is the
+number the row is being read for. It is plain text, never a control: the row is
+already a button. A page with one match shows one snippet and no note.
+
+The row still stands for the **page**: it appears once however many times it
+matches, and the counts around it — the see-all total, the results view's match
+count — count pages, not occurrences. The snippets are the row's view of the
+matches; the frames above are the page's. They are allowed to differ in number.
+
 ### Pin star (row icon + status-bar toggle)
 
 The pin toggle lives in the **status bar's leading corner**, before the
