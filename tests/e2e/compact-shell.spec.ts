@@ -218,3 +218,27 @@ test.describe('the wide composition is unchanged', () => {
     await expect(footer(page)).toContainText('v0.')
   })
 })
+
+test.describe('the navigation view holds the sidebar whole', () => {
+  test.use({ viewport: PHONE })
+
+  test('the journal calendar renders with a real height', async ({ page }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    const nav = page.locator('.layer-nav')
+    await expect(nav).toBeVisible()
+
+    const calendar = nav.locator('[class*="calendar"]').first()
+    await expect(calendar).toBeVisible()
+    const box = await calendar.boundingBox()
+    expect(box, 'calendar has no box').not.toBeNull()
+    expect(box!.height).toBeGreaterThan(120)
+    expect(box!.width).toBeGreaterThan(150)
+    await expect(nav.locator('[class*="grid"]').first()).toBeVisible()
+  })
+})
