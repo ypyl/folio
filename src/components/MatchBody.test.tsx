@@ -106,4 +106,11 @@ describe('MatchBody stylesheet', () => {
   it('gives the remainder note its own block', () => {
     expect(body('more')).toMatch(/display:\s*block/)
   })
+
+  it("divides a row's snippets with the app's hairline", () => {
+    const divider = rules.find(
+      (rule) => rule.selector.includes('.window') && rule.selector.includes('+'),
+    )
+    expect(divider?.body).toMatch(/border-top:\s*1px solid var\(--border-soft\)/)
+  })
 })

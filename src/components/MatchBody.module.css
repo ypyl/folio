@@ -37,8 +37,14 @@
   display: block;
 }
 
+/* A divider between the places inside one row: the same --border-soft hairline
+   the result rows use, so a divider means one thing in the dropdown whether it
+   separates results or the places within one. Inset to the snippet's width,
+   because it sits inside the row body's own padding. */
 .window + .window {
   margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-soft);
 }
 
 .more {

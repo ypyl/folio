@@ -310,7 +310,11 @@ result whose match is only in the page title opens with no mark.
 A result row shows a snippet for **every place** the query occurs in the page,
 not only the first. A run of nearby matches is one snippet covering them, each
 snippet carrying one line of context on each side of the matches it covers, and
-matches far apart are separate snippets. The row is never clamped: a
+matches far apart are separate snippets. A snippet after the first is divided
+from the one above it by the same `--border-soft` hairline that separates result
+rows, so a divider means one thing in the dropdown whether it separates results
+or the places inside one; the divider is inset to the snippet's width, because
+it sits inside the row body's own padding. The row is never clamped: a
 `-webkit-line-clamp` cuts from the top, and a snippet is anchored on its
 matches, so a clamp would hide the second match of a two-match snippet. Height
 is bounded by how many snippets the row shows, not by a clamp.
