@@ -632,14 +632,16 @@ function imageReference(text: string): { url: string; alt: string } | null {
  *  prose, so the `#section` of a fragment link is a fragment and never a page
  *  reference — in the previous editor a destination was a link attribute rather
  *  than text and was never scanned at all. */
-function inLiteral(view: EditorView, pos: number): boolean {
+function inLiteral(state: EditorState, pos: number, side: 1 | -1 = 1): boolean {
   for (
     // Side 1: a reference that starts exactly at a destination's first character
     // is still inside that destination, and the boundary would otherwise be read
-    // as the token to its left.
-    let node: ReturnType<typeof syntaxTree>['topNode'] | null = syntaxTree(view.state).resolveInner(
+    // as the token to its left. Completion reads side -1 instead: a caret past
+    // the document's last character has no node ending there under side 1, so a
+    // fence the user is typing into would not be seen.
+    let node: ReturnType<typeof syntaxTree>['topNode'] | null = syntaxTree(state).resolveInner(
       pos,
-      1,
+      side,
     );
     node;
     node = node.parent
@@ -741,7 +743,7 @@ function render(view: EditorView): Rendered {
       const line = state.doc.line(number)
       for (const ref of findReferenceRanges(line.text)) {
         const start = line.from + ref.from
-        if (seen.has(start) || inLiteral(view, start)) continue
+        if (seen.has(start) || inLiteral(state, start)) continue
         seen.add(start)
         marks.push({
           from: start,
@@ -898,7 +900,14 @@ const folioTheme = EditorView.theme({
 /** The completion source, reading the app's pools through the seam and writing
  *  the two canonical token forms (ADR-0012). A file's destination is escaped
  *  with `markdownDestination`, which is what makes the written text a link at
- *  all: micromark ends a destination at the space. */
+ *  all: micromark ends a destination at the space.
+ *
+ *  Every result sets `filter: false`: the app's pools already rank and cap the
+ *  rows, and CodeMirror's default filter would match its pattern (`#rea`, the
+ *  replace range that starts at the sigil) against the labels, dropping every
+ *  row and opening no popup. Turning the second pass off keeps the app's order.
+ *  Code and link destinations never complete, matching the badge rule that no
+ *  reference renders inside code. */
 export function completionSource(sources: SuggestionSources) {
   return (context: CompletionContext): CompletionResult | null => {
     const { state, pos } = context
@@ -907,33 +916,38 @@ export function completionSource(sources: SuggestionSources) {
     const after = state.doc.sliceString(pos, line.to)
 
     const boards = boardReferenceTrigger(before, after)
+    const pages = boards ? null : referenceTrigger(before, after)
+    const destination = boards || pages ? null : linkDestinationTrigger(before, after)
+    // Nothing is being typed: the common keystroke pays nothing, including the
+    // syntax lookup below.
+    if (!boards && !pages && !destination) return null
+    if (inLiteral(state, pos, -1)) return null
+
     if (boards && sources.boards) {
       const options = sources.boards(boards.query).map((suggestion) => ({
         label: suggestion.name,
         apply: boardToken(suggestion.name, boards.kind),
       }))
       if (options.length === 0) return null
-      return { from: pos - boards.text.length, to: pos, options }
+      return { from: pos - boards.text.length, to: pos, options, filter: false }
     }
 
-    const pages = referenceTrigger(before, after)
     if (pages) {
       const options = sources.pages(pages.query).map((suggestion) => ({
         label: suggestion.name,
         apply: referenceToken(suggestion.name, pages.kind),
       }))
       if (options.length === 0) return null
-      return { from: pos - pages.text.length, to: pos, options }
+      return { from: pos - pages.text.length, to: pos, options, filter: false }
     }
 
-    const destination = linkDestinationTrigger(before, after)
     if (destination) {
       const options = sources.files(destination.text, destination.image).map((suggestion) => ({
         label: suggestion.name,
         apply: markdownDestination(suggestion.path),
       }))
       if (options.length === 0) return null
-      return { from: pos - destination.text.length, to: pos, options }
+      return { from: pos - destination.text.length, to: pos, options, filter: false }
     }
 
     return null

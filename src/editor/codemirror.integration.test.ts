@@ -4,13 +4,14 @@
 // position is resolved is supplied by hand (see `pressAt`); the vault image
 // pass's viewport observer is exercised in the pane's own test.
 
-import { CompletionContext } from '@codemirror/autocomplete'
+import { CompletionContext, completionStatus, currentCompletions } from '@codemirror/autocomplete'
 import { languages } from '@codemirror/language-data'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createAssetImages, releaseAssetImages, syncAssetImages } from './assetImages'
 import { CodeMirrorAdapter, completionSource } from './codemirror'
+import type { SuggestionSources } from './editor'
 
 // jsdom has no layout, so it has no text rects. CodeMirror's own press handling
 // scans them (which is what a press the adapter does not claim falls through
@@ -28,10 +29,12 @@ beforeAll(() => {
 let adapter: CodeMirrorAdapter | null = null
 let host: HTMLElement | null = null
 
-async function open(markdown: string): Promise<HTMLElement> {
+async function open(markdown: string, sources?: SuggestionSources): Promise<HTMLElement> {
   host = document.createElement('div')
   document.body.append(host)
   adapter = new CodeMirrorAdapter()
+  // Attach before mount: the source reads the object the adapter mounts with.
+  if (sources) adapter.setSuggestionSource(sources)
   await adapter.mount(host)
   await adapter.setContent(markdown)
   return host
@@ -456,6 +459,132 @@ describe('accepting a file candidate writes a destination Markdown reads', () =>
     })(new CompletionContext(state, state.doc.length, false))
     expect(result?.from).toBe(doc.length - 'assets/Q3'.length)
     expect(result?.to).toBe(doc.length)
+  })
+})
+
+describe('typing a reference opens the popup', () => {
+  const pages: SuggestionSources = {
+    pages: () => [
+      { name: 'Reading list', path: 'Reading list.md', match: [0, 3] },
+      { name: 'Reading', path: 'Reading.md', match: [0, 3] },
+    ],
+    files: () => [],
+  }
+
+  const view = (): EditorView => (adapter as unknown as { view: EditorView }).view
+
+  /** Type `text` at the caret as a real input event: only `input.type`
+   *  activates the completion source on typing. */
+  function type(text: string): void {
+    const v = view()
+    const at = v.state.selection.main.head
+    v.dispatch({
+      changes: { from: at, insert: text },
+      selection: { anchor: at + text.length },
+      userEvent: 'input.type',
+    })
+  }
+
+  const place = (pos: number): void => view().dispatch({ selection: { anchor: pos } })
+
+  // The source runs after the typing debounce and resolves in a microtask, so a
+  // popup is only on screen a measure later.
+  const popupOpen = async (): Promise<void> => {
+    await vi.waitFor(() => expect(completionStatus(view().state)).toBe('active'))
+  }
+
+  async function expectNoPopup(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(completionStatus(view().state)).toBeNull()
+    expect(currentCompletions(view().state)).toEqual([])
+  }
+
+  it('lists the app-ordered rows whose labels never match the typed sigil', async () => {
+    await open('', pages)
+    type('#rea')
+    // CodeMirror's default filter would match `#rea` against the labels and
+    // drop every row; `filter: false` keeps the pool's order.
+    await popupOpen()
+    expect(currentCompletions(view().state).map((row) => row.label)).toEqual([
+      'Reading list',
+      'Reading',
+    ])
+  })
+
+  it('accepts the first row on Enter, through the editor keymap', async () => {
+    const el = await open('', {
+      pages: () => [{ name: 'Reading', path: 'Reading.md', match: [0, 3] }],
+      files: () => [],
+    })
+    type('#rea')
+    await popupOpen()
+    // The popup ignores keys for `interactionDelay` after it opens.
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    el.querySelector('.cm-content')?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    expect(view().state.doc.toString()).toBe('#Reading')
+  })
+
+  it('offers nothing inside a fenced code block', async () => {
+    await open('```\n#re\n```', pages)
+    place(7)
+    type('a')
+    await expectNoPopup()
+  })
+
+  it('offers nothing at the end of a fenced block, where the caret usually is', async () => {
+    // A right-biased syntax lookup resolves the document end to the Document,
+    // missing the fence the user is typing into.
+    await open('```\n#re', pages)
+    place(7)
+    type('a')
+    await expectNoPopup()
+  })
+
+  it('offers nothing inside inline code', async () => {
+    await open('`#re`', pages)
+    place(4)
+    type('a')
+    await expectNoPopup()
+  })
+
+  it('still offers pages outside code', async () => {
+    await open('note #re', pages)
+    place(8)
+    type('a')
+    await popupOpen()
+    expect(currentCompletions(view().state)).toHaveLength(2)
+  })
+
+  it('still offers boards outside code', async () => {
+    await open('', {
+      pages: () => [],
+      boards: () => [{ name: 'Migration', path: 'boards/Migration.excalidraw', match: [0, 3] }],
+      files: () => [],
+    })
+    type('#!Mig')
+    await popupOpen()
+    expect(currentCompletions(view().state).map((row) => row.label)).toEqual(['Migration'])
+  })
+
+  it('still offers file destinations outside code', async () => {
+    await open('', {
+      pages: () => [],
+      files: () => [{ name: 'assets/q3.png', path: 'assets/q3.png', match: [0, 7] }],
+    })
+    type('[x](assets/q')
+    await popupOpen()
+    expect(currentCompletions(view().state).map((row) => row.label)).toEqual(['assets/q3.png'])
+  })
+
+  it('returns filter: false so the app owns row filtering and order', () => {
+    const state = EditorState.create({ doc: '#rea' })
+    const result = completionSource({
+      pages: () => [{ name: 'Reading', path: 'Reading.md', match: [0, 3] }],
+      files: () => [],
+    })(new CompletionContext(state, state.doc.length, false))
+    expect(result?.filter).toBe(false)
   })
 })
 
