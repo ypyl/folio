@@ -53,6 +53,16 @@ describe('Tour', () => {
     expect(card.textContent).toContain('Your folders')
   })
 
+  it('teaches the page and board reference forms on the editor step', () => {
+    render(<Harness />)
+    const card = start()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(card.textContent).toContain('Your page')
+    expect(card.textContent).toContain('#word')
+    expect(card.textContent).toContain('#!word')
+  })
+
   it('disables Back on the first step and ends with Done on the last', () => {
     render(<Harness />)
     const card = start()

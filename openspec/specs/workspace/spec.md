@@ -749,17 +749,19 @@ tour control. The tour SHALL be a modal overlay with an accessible name, and
 while it is open it SHALL contain focus and require dismissal. It SHALL present
 an ordered sequence of steps, each naming one region of the shell — the folder
 rail, the sidebar, the editor area, the right panel, and the status bar — and
-explaining what that region holds. Each step SHALL highlight the region it
-names, and a step whose region is not on screen SHALL still show its explanation
-rather than fail. Every step except the first SHALL offer a way back to the
-previous step, every step except the last a way forward, and the tour SHALL
-offer a way to end it at any step, including by Escape. Opening the tour SHALL
-move focus into it, and ending it SHALL return focus to the control that opened
-it. The tour SHALL be presentational only: it SHALL change no page's content,
-write nothing to the vault, and store nothing, and it SHALL NOT launch on its
-own. The tour SHALL be available only at viewports wider than the compact
-breakpoint, where its rail control exists; it SHALL add no work to the editing
-or typing path.
+explaining what that region holds. The step naming the editor area SHALL also
+name the reference forms the page surface accepts — `#word` and `#[[Page]]` for
+a page, and `#!word` and `#![[Board]]` for a board — so the tour teaches linking
+as well as the pane. Each step SHALL highlight the region it names, and a step
+whose region is not on screen SHALL still show its explanation rather than fail.
+Every step except the first SHALL offer a way back to the previous step, every
+step except the last a way forward, and the tour SHALL offer a way to end it at
+any step, including by Escape. Opening the tour SHALL move focus into it, and
+ending it SHALL return focus to the control that opened it. The tour SHALL be
+presentational only: it SHALL change no page's content, write nothing to the
+vault, and store nothing, and it SHALL NOT launch on its own. The tour SHALL be
+available only at viewports wider than the compact breakpoint, where its rail
+control exists; it SHALL add no work to the editing or typing path.
 
 #### Scenario: The rail's tour control opens the tour
 
@@ -774,6 +776,11 @@ or typing path.
 - **WHEN** the user moves forward
 - **THEN** the next step names and highlights its region, and moving back
   returns to the first step
+
+#### Scenario: The editor step names the reference forms
+
+- **WHEN** the user reaches the step naming the editor area
+- **THEN** its explanation names the forms that reference a page and a board
 
 #### Scenario: Skipping ends the tour
 
