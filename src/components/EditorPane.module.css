@@ -71,72 +71,54 @@
   max-width: 46ch;
 }
 
+/* The brand screen's body copy (add-landing-page-info, add-issue-report-note):
+   the description, the facts, the tour line, and the issue-reporting line, all
+   centered on the tagline's measure. The description is what the app is, so it
+   carries secondary ink; the rest is supporting detail in tertiary ink. */
 .description,
-.facts {
-  margin: 0;
-  font-size: 14px;
-  text-align: center;
-}
-
-/* The description is what the app is (secondary ink); the facts are supporting
-   detail (tertiary ink), so the two do not read as one flat block. */
-.description {
-  color: var(--dark-warm);
-}
-
-.facts {
-  color: var(--stone);
-}
-
-/* The tour reference (add-landing-page-info): a line pointing at the tour, its
-   action following the app's one link behavior (brand ink, no underline, hover
-   tint) exactly as the repository link below it does. */
-.tourLine {
-  margin: 2px 0 0;
-  font-size: 14px;
-  color: var(--stone);
-  text-align: center;
-}
-
-.tourLink {
-  padding: 2px 6px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--brand);
-  font: inherit;
-  cursor: pointer;
-}
-
-.tourLink:hover {
-  background: var(--brand-tint);
-}
-
-/* The issue-reporting line (add-issue-report-note): where bugs and feature
-   requests go, with the repository link inline. Centered on the brand screen's
-   measure, in the same tertiary ink as the facts. */
+.facts,
+.tourLine,
 .repoNote {
   margin: 0;
   font-size: 14px;
   color: var(--stone);
   text-align: center;
+}
+
+.description {
+  color: var(--dark-warm);
+}
+
+.tourLine {
+  margin-top: 2px;
+}
+
+.repoNote {
   max-width: 46ch;
 }
 
-/* The project's public repository link (add-github-link, add-issue-report-note),
-   inline in the issue-reporting line on the brand screen in every no-folder
-   state. The app's one link style (DESIGN.md "Links"): brand ink, no underline,
-   hover lightens. */
-.repoLink {
+/* The app's one link treatment (DESIGN.md "Links"): brand ink, no underline,
+   hover tint. The repository link (add-github-link) is an anchor; the tour
+   reference (add-landing-page-info) is a button, so it carries the button
+   resets on top. */
+.repoLink,
+.tourLink {
   padding: 2px 6px;
   border-radius: 6px;
   color: var(--brand);
-  font-size: 14px;
   text-decoration: none;
 }
 
-.repoLink:hover {
+.repoLink:hover,
+.tourLink:hover {
   background: var(--brand-tint);
+}
+
+.tourLink {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
 }
 
 /* Loading state (indexing-loading-state): replaces the empty hint while the

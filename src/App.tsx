@@ -173,6 +173,10 @@ function App() {
   // why.
   const [chosenView, setChosenView] = useState<{ view: CompactView; item: string } | null>(null)
   const compact = useCompact()
+  // Both the rail and the brand screen open the one tour; the compact shell has
+  // no tour, so neither shows a control there (add-app-tour,
+  // add-landing-page-info).
+  const onTour = compact ? undefined : () => setTourOpen(true)
   // The calendar's Today re-anchor tick (move-nav-controls-to-status-bar):
   // Today now lives in the status bar, but the calendar it re-anchors stays in
   // the sidebar. App owns the tick and passes it down; it changes only on a
@@ -1029,7 +1033,7 @@ function App() {
             // The tour is a wide-viewport surface (add-app-tour): the compact
             // shell shows one view at a time, so App passes no callback there
             // and the rail renders no tour control.
-            onTour={compact ? undefined : () => setTourOpen(true)}
+            onTour={onTour}
             // Closing a folder forgets it; closing the active one returns home
             // (close-folders). The activeFolder?.id effect resets the page.
             onClose={(id) => void closeFolder(id)}
@@ -1145,7 +1149,7 @@ function App() {
               // The brand screen's tour reference (add-landing-page-info): the
               // same callback the rail gets, so both entry points open one tour,
               // and absent on compact where the tour does not exist.
-              onTour={compact ? undefined : () => setTourOpen(true)}
+              onTour={onTour}
               loading={indexing}
             />
           )}
