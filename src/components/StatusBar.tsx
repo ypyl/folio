@@ -149,7 +149,10 @@ export function StatusBar({
   const statusText = indexing ? 'Indexing notes…' : saveLabel
 
   return (
-    <footer className={compact ? `${styles.bar} ${styles.compactBar}` : styles.bar}>
+    <footer
+      data-tour="status"
+      className={compact ? `${styles.bar} ${styles.compactBar}` : styles.bar}
+    >
       {/* The compact shell's leading view control (add-compact-mobile-shell):
           the navigation unit — rail and sidebar together — which is where a
           first run lands, so this is the app bar's home control too. */}

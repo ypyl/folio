@@ -8,6 +8,7 @@ import { PaneCollapseToggle } from './components/PaneCollapseToggle'
 import { SearchSpotlight } from './components/SearchSpotlight'
 import { SearchResultsView } from './components/SearchResultsView'
 import { StatusBar } from './components/StatusBar'
+import { Tour } from './components/Tour'
 import { PresentationView } from './components/PresentationView'
 import { DraftStore } from './editor/drafts'
 import { BoardView } from './editor/boardView'
@@ -156,6 +157,9 @@ function App() {
   // owns. The chord listener and the rail's search trigger both set it; a
   // selection, Escape, or a scrim click clears it.
   const [searchOpen, setSearchOpen] = useState(false)
+  // The app tour (add-app-tour): a modal overlay App owns, opened from the
+  // rail's tour control on wide viewports. Session-only; nothing is written.
+  const [tourOpen, setTourOpen] = useState(false)
   // Pane collapse (add-collapsible-sidebars): session-only, so a reload brings
   // both panes back. The classes on the shell zero the pane's grid track,
   // which only the workspace grid reads.
@@ -1017,6 +1021,10 @@ function App() {
             // no vault is usable, matching search's scoped rule.
             onSearch={() => setSearchOpen(true)}
             searchDisabled={!canSearch}
+            // The tour is a wide-viewport surface (add-app-tour): the compact
+            // shell shows one view at a time, so App passes no callback there
+            // and the rail renders no tour control.
+            onTour={compact ? undefined : () => setTourOpen(true)}
             // Closing a folder forgets it; closing the active one returns home
             // (close-folders). The activeFolder?.id effect resets the page.
             onClose={(id) => void closeFolder(id)}
@@ -1191,7 +1199,12 @@ function App() {
         key={activeFolder?.id ?? 'none'}
         open={searchOpen}
         docs={searchCorpus}
-        onOpen={() => setSearchOpen(true)}
+        // The search chord lives on `document`, so it can fire over the tour;
+        // closing the tour first keeps two overlays from stacking (add-app-tour).
+        onOpen={() => {
+          setTourOpen(false)
+          setSearchOpen(true)
+        }}
         onClose={() => setSearchOpen(false)}
         disabled={graph === null}
         onSelect={handleSelect}
@@ -1200,6 +1213,9 @@ function App() {
         onQueryResult={handleQueryResult}
         onSeeAll={handleOpenResults}
       />
+      {/* The app tour (add-app-tour): a modal overlay over the shell while
+          open. Closing is a state flip, so nothing about the shell changes. */}
+      <Tour open={tourOpen} onClose={() => setTourOpen(false)} />
       {/* The presentation deck (add-presentations): a modal overlay over the
           shell while open. Closing is a state flip, so the editor underneath
           returns exactly as it was, and nothing is written to the vault. */}

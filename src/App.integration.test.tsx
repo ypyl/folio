@@ -2071,6 +2071,72 @@ describe('page contents (add-page-contents)', () => {
   })
 })
 
+// The app tour (add-app-tour spec): the rail's control, the overlay's steps, the
+// region hooks it resolves, and the search chord's interaction. jsdom has no
+// layout, so the cut-out's real geometry is held in tests/e2e/workspace.spec.ts.
+describe('the app tour (add-app-tour spec)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const tourControl = () => screen.getByRole('button', { name: 'Take the tour' })
+
+  it('opens from the rail control and walks the shell regions', async () => {
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    render(<App />)
+    await screen.findByText('Open a folder to begin.')
+
+    // Every region a step points at renders in the no-folder state, so a first
+    // run can take the whole tour (the editor hook is on the brand screen's
+    // <main>).
+    for (const selector of [
+      '#folder-rail',
+      '#sidebar-pane',
+      '[data-tour="editor"]',
+      '#meta-panel',
+      '[data-tour="status"]',
+    ]) {
+      expect(document.querySelector(selector)).toBeTruthy()
+    }
+
+    tourControl().focus()
+    fireEvent.click(tourControl())
+    const card = screen.getByRole('dialog', { name: 'App tour' })
+    expect(card.textContent).toContain('Your folders')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(card.textContent).toContain('Journal and Files')
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(screen.queryByRole('dialog', { name: 'App tour' })).toBeNull()
+    expect(document.activeElement).toBe(tourControl())
+  })
+
+  it('is closed by the search chord so the overlays do not stack', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(tourControl())
+    expect(screen.getByRole('dialog', { name: 'App tour' })).toBeTruthy()
+
+    searchInput()
+    expect(screen.queryByRole('dialog', { name: 'App tour' })).toBeNull()
+    expect(screen.getByLabelText('Search notes')).toBeTruthy()
+  })
+
+  it('drops the editor hook while the results view owns the main slot', async () => {
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    expect(document.querySelector('[data-tour="editor"]')).toBeTruthy()
+
+    fireEvent.change(searchInput(), { target: { value: 'folio' } })
+    const seeAll = await screen.findByRole('button', { name: 'See all 4 results' })
+    fireEvent.click(seeAll)
+    expect(document.querySelector('[data-tour="editor"]')).toBeNull()
+    // The other regions stay: only the main slot changed occupant.
+    expect(document.querySelector('[data-tour="status"]')).toBeTruthy()
+    expect(document.getElementById('meta-panel')).toBeTruthy()
+  })
+})
+
 // The compact shell (add-compact-mobile-shell spec): one view at a time, chosen
 // from the status bar's app-bar controls, with the Android Back step closing
 // the view instead of leaving the app. jsdom applies no stylesheets and has no
@@ -2236,6 +2302,13 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     } finally {
       back.mockRestore()
     }
+  })
+
+  it('shows no tour control on a narrow window', async () => {
+    stubCompact()
+    render(<App />)
+    await waitFor(() => expect(shownView()).toBe('nav'))
+    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
   })
 
   it('leaves the wide composition alone', async () => {

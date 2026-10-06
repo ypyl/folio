@@ -23,3 +23,40 @@ test('the no-folder state invites opening a folder', async ({ page }) => {
   await expect(repo).toBeVisible()
   await expect(repo).toHaveAttribute('href', 'https://github.com/ypyl/folio')
 })
+
+// add-app-tour: the cut-out's real geometry needs a browser (jsdom has no
+// layout). The rail's control opens the tour, the cut-out tracks the rail's own
+// box, the steps move, and ending the tour returns focus to the control.
+test('the rail starts a tour over the shell regions', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+
+  const control = page.getByRole('button', { name: 'Take the tour' })
+  await expect(control).toBeVisible()
+  await control.click()
+
+  const card = page.getByRole('dialog', { name: 'App tour' })
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Your folders')
+
+  // The cut-out is the step's region, in the same viewport coordinates.
+  const rail = await page.locator('#folder-rail').boundingBox()
+  const cut = await page.locator('[data-testid="tour-hole"]').boundingBox()
+  expect(rail).not.toBeNull()
+  expect(cut).not.toBeNull()
+  expect(Math.abs(cut!.x - rail!.x)).toBeLessThan(2)
+  expect(Math.abs(cut!.y - rail!.y)).toBeLessThan(2)
+  expect(Math.abs(cut!.width - rail!.width)).toBeLessThan(2)
+  expect(Math.abs(cut!.height - rail!.height)).toBeLessThan(2)
+
+  // Steps move forward and back.
+  await card.getByRole('button', { name: 'Next' }).click()
+  await expect(card).toContainText('Journal and Files')
+  await card.getByRole('button', { name: 'Back' }).click()
+  await expect(card).toContainText('Your folders')
+
+  // Ending the tour returns focus to the control that opened it.
+  await card.getByRole('button', { name: 'Skip' }).click()
+  await expect(card).toBeHidden()
+  await expect(control).toBeFocused()
+})

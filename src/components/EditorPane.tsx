@@ -353,7 +353,13 @@ export function EditorPane({
 
   if (page === null) {
     return (
-      <main ref={paneRef} onDragOver={handleDragover} onDrop={handleDrop} className={styles.pane}>
+      <main
+        ref={paneRef}
+        data-tour="editor"
+        onDragOver={handleDragover}
+        onDrop={handleDrop}
+        className={styles.pane}
+      >
         {loading ? (
           // Loading state (indexing-loading-state): decorative body-line
           // placeholders in place of the empty hint. The in-progress
@@ -396,6 +402,7 @@ export function EditorPane({
   return (
     <main
       ref={paneRef}
+      data-tour="editor"
       onDragOver={handleDragover}
       onDrop={handleDrop}
       onPaste={handlePaste}

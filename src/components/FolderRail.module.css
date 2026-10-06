@@ -31,7 +31,8 @@
 .brand,
 .search,
 .add,
-.avatar {
+.avatar,
+.tour {
   flex-shrink: 0;
   width: 40px;
   height: 40px;
@@ -82,6 +83,31 @@
   display: block;
   width: 20px;
   height: 20px;
+}
+
+/* Tour control (add-app-tour): the rail's last control, on the search
+   trigger's own surface so it reads as a rail control rather than a second
+   accent. Held to the rail's bottom edge with the meta panel footer's recipe
+   (`margin-top: auto` + sticky) so a long folder list scrolling above it never
+   pushes it out of reach; the fill is the rail's own `--ivory`, so rows pass
+   beneath it cleanly. */
+.tour {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  border: 1px solid var(--border);
+  background: var(--ivory);
+  color: var(--dark-warm);
+  font-size: 18px;
+  line-height: 1;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.tour:hover {
+  background: var(--brand-tint);
+  color: var(--brand);
 }
 
 /* Add: dashed outline, quiet — the rail's primary action. */

@@ -1,0 +1,115 @@
+/* The app tour (add-app-tour): a modal overlay. The wash is the cut-out's own
+   spread shadow — the overlay is transparent — and reuses the search
+   spotlight's scrim colour. The card is a lifted --ivory surface with the
+   whisper shadow DESIGN.md reserves for floating surfaces. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200; /* above the search spotlight's 100 */
+}
+
+/* The cut-out: a transparent box whose spread shadow paints the wash around the
+   step's region. A missing region leaves it zero-sized, washing the whole
+   viewport with no visible hole. Never takes pointer input. */
+.hole {
+  position: fixed;
+  border-radius: 8px;
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px color-mix(in srgb, var(--near-black) 32%, transparent);
+}
+
+.card {
+  position: fixed;
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: var(--ivory);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --near-black at low opacity */
+}
+
+.card:focus {
+  outline: none;
+}
+
+.progress {
+  margin: 0;
+  font-size: 12px;
+  color: var(--stone);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--near-black);
+}
+
+.body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dark-warm);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Skip leads the row, away from Back and Next. */
+.skip {
+  margin-right: auto;
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  color: var(--stone);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.skip:hover {
+  color: var(--dark-warm);
+}
+
+/* The primary button (DESIGN.md) styled here because only the secondary
+   variant ships as a shared utility. */
+.primary {
+  padding: 8px 16px;
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  background: var(--brand);
+  color: var(--ivory);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.primary:hover {
+  background: var(--brand-light);
+  transform: translateY(-1px);
+}
+
+.back:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    transition:
+      top 0.15s ease,
+      left 0.15s ease;
+  }
+}

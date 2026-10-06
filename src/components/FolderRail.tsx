@@ -15,6 +15,10 @@ interface FolderRailProps {
   /** Absent where the browser has no local-folder picker
    *  (warn-unsupported-browser): the rail then shows no add control. */
   onAdd?: () => void
+  /** Opens the app tour (add-app-tour). App supplies it only on wide
+   *  viewports, where the tour is available, so the control is absent on the
+   *  compact shell — the same optional-callback shape `onAdd` uses. */
+  onTour?: () => void
   /** The whole left navigation is folded (collapse-rail-with-sidebar): the rail
    *  keeps its grid slot via `visibility: hidden` and leaves the tab order, the
    *  same way the sidebar does. */
@@ -41,6 +45,7 @@ export function FolderRail({
   onSearch,
   searchDisabled = false,
   onAdd,
+  onTour,
   collapsed = false,
   onActivate,
   onClose,
@@ -128,6 +133,21 @@ export function FolderRail({
             })}
           </div>
         </>
+      )}
+      {/* The app tour's entry point (add-app-tour): a bottom-anchored square
+          `?`, the rail's last control, held to the rail's bottom edge however
+          many folders are listed. Present only where App passes `onTour`, which
+          it does on wide viewports alone. */}
+      {onTour && (
+        <button
+          type="button"
+          className={styles.tour}
+          onClick={onTour}
+          title="Take the tour"
+          aria-label="Take the tour"
+        >
+          <span aria-hidden="true">?</span>
+        </button>
       )}
     </nav>
   )

@@ -143,6 +143,25 @@ describe('FolderRail', () => {
     expect(onAdd).toHaveBeenCalled()
   })
 
+  it("renders the tour control only with onTour, and it is the rail's last", () => {
+    const onTour = vi.fn()
+    const { rerender } = render(<FolderRail {...railProps({ onTour })} />)
+    const tour = screen.getByRole('button', { name: 'Take the tour' })
+    fireEvent.click(tour)
+    expect(onTour).toHaveBeenCalledTimes(1)
+
+    // Last in DOM order: the rail's bottom-anchored control follows every
+    // folder entry and its close badge.
+    const nav = screen.getByRole('navigation', { name: 'Open folders' })
+    const controls = nav.querySelectorAll('button')
+    expect(controls[controls.length - 1]).toBe(tour)
+
+    rerender(
+      <FolderRail {...railProps({ folders: [folder('Work', 'granted', 'a')], onAdd: vi.fn() })} />,
+    )
+    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+  })
+
   it('renders a close control on every entry and closes without activating', () => {
     const folders = [
       folder('Work', 'granted', 'a'),
