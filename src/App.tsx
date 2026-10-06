@@ -17,6 +17,7 @@ import { createDebouncedSaver } from './editor/saver'
 import { deriveSlides } from './presentation/slides'
 import { deriveContents } from './vault/contents'
 import { copyDroppedFiles } from './vault/assets'
+import { withTrailingBlankLine } from './vault/trailing'
 import { isBoardTarget, openVaultPath } from './vault/assetOpen'
 import { boardToken, isBoardReferenceable, type ReferenceKind } from './vault/parse'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
@@ -762,7 +763,11 @@ function App() {
   // wins) and the indicator (dirty/saving/failed, else clean). `page` is
   // `displayed ?? pendingBlank` (set above): a real graph page, a vanished
   // page's last-known content, or the blank page for a not-yet-created path.
-  const initialContent = openDraft?.content ?? page?.content ?? ''
+  // The seed is normalized to end with one empty line (add-trailing-empty-line)
+  // so the editor shows it when a file that lacks one opens; the file is not
+  // written until the user edits. `openDraft.content` is already normalized
+  // once seeded, so re-normalizing is idempotent.
+  const initialContent = withTrailingBlankLine(openDraft?.content ?? page?.content ?? '')
   const saveState = openDraft?.status ?? 'clean'
   // A page with no file yet is "new": its save indicator reads as creating it.
   const newPage = pendingBlank !== null

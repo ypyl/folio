@@ -142,9 +142,9 @@ describe('useIndex', () => {
     })
     expect(ok).toBe(true)
     // Disk written.
-    expect(await storage.read('pages/a.md')).toBe('v2 #New')
+    expect(await storage.read('pages/a.md')).toBe('v2 #New\n\n')
     // Graph reflects the save without any refresh.
-    expect(result.current.graph?.pages.get('pages/a.md')?.content).toBe('v2 #New')
+    expect(result.current.graph?.pages.get('pages/a.md')?.content).toBe('v2 #New\n\n')
     // Backlinks re-derived: New points back to a.md.
     expect(result.current.graph?.backlinks.get('new')).toEqual(['pages/a.md'])
   })

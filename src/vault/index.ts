@@ -6,6 +6,7 @@
 import type { Page } from '../page'
 import { parseAssetPaths, parseBoardRefs, parseLinks, type BoardRef, type Link } from './parse'
 import type { VaultStorage } from './storage'
+import { withTrailingBlankLine } from './trailing'
 
 export type IndexPage = Page & {
   links: Link[]
@@ -130,17 +131,20 @@ export async function upsertPage(
   path: string,
   content: string,
 ): Promise<VaultIndex> {
-  await storage.write(path, content)
+  // A page always ends with one empty line (add-trailing-empty-line): normalize
+  // before the write and before the parse, so the file and the index agree.
+  const normalized = withTrailingBlankLine(content)
+  await storage.write(path, normalized)
   const lastModified = await storage.stat(path)
   const pages = new Map(current.graph.pages)
   pages.set(path, {
     path,
     title: stem(path),
     kind: kindOf(path),
-    content,
-    links: parseLinks(content),
-    assets: parseAssetPaths(content),
-    boards: parseBoardRefs(content),
+    content: normalized,
+    links: parseLinks(normalized),
+    assets: parseAssetPaths(normalized),
+    boards: parseBoardRefs(normalized),
     lastModified,
   })
   const snapshot = new Map(current.snapshot)

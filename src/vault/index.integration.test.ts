@@ -325,6 +325,33 @@ describe('pins in the index (design D1/D3)', () => {
   })
 })
 
+describe('a saved page ends with an empty line (add-trailing-empty-line)', () => {
+  it('writes exactly one trailing empty line and indexes the same text', async () => {
+    const tree = buildTree({ pages: { 'a.md': 'v1' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    const saved = await upsertPage(storage, first, 'pages/a.md', 'Done')
+    expect(await storage.read('pages/a.md')).toBe('Done\n\n')
+    expect(saved.graph.pages.get('pages/a.md')!.content).toBe('Done\n\n')
+  })
+
+  it('collapses several trailing blank lines to one', async () => {
+    const tree = buildTree({ pages: { 'a.md': 'v1' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    await upsertPage(storage, first, 'pages/a.md', 'Done\n\n\n')
+    expect(await storage.read('pages/a.md')).toBe('Done\n\n')
+  })
+
+  it('saves an empty page as a single empty line', async () => {
+    const tree = buildTree({ pages: { 'a.md': 'v1' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    await upsertPage(storage, first, 'pages/a.md', '')
+    expect(await storage.read('pages/a.md')).toBe('\n')
+  })
+})
+
 describe('page last-modified time (add-pinned-pages)', () => {
   it('a scanned page carries the file lastModified', async () => {
     const tree = buildTree({ pages: { 'a.md': 'v1' } })
@@ -491,7 +518,7 @@ describe('buildIndex (diff-rescan)', () => {
     const first = await buildIndex(storage)
     const second = await upsertPage(storage, first, 'pages/a.md', 'v2 #One #New')
     const page = second.graph.pages.get('pages/a.md')!
-    expect(page.content).toBe('v2 #One #New')
+    expect(page.content).toBe('v2 #One #New\n\n')
     expect(page.links).toEqual([
       { target: 'One', via: 'word' },
       { target: 'New', via: 'word' },

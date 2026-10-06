@@ -295,7 +295,7 @@ describe('navigation over the real index', () => {
     // today's note — blank here, since the fixture has no file for today —
     // seeded from nothing, and merely opening creates no file (the
     // unmaterialized-pages rule).
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
     const today = new Date()
     const cell = screen.getByRole('button', {
@@ -341,7 +341,7 @@ describe('navigation over the real index', () => {
   it('typing into the auto-opened today note materializes it on save', async () => {
     render(<App />)
     const tree = await openFixture()
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     const journalsDir = tree.children.get('journals') as FakeDirectoryHandle
     const today = new Date()
     const date = `${today.getFullYear()}-${`${today.getMonth() + 1}`.padStart(2, '0')}-${`${today.getDate()}`.padStart(2, '0')}`
@@ -353,7 +353,7 @@ describe('navigation over the real index', () => {
     expect(status.textContent).toBe('New page: created on first save')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = journalsDir.children.get(`${date}.md`) as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('Started the day in the journal.')
+    expect(await (await file.getFile()).text()).toBe('Started the day in the journal.\n\n')
     vi.unstubAllGlobals()
   })
 
@@ -601,7 +601,7 @@ describe('auto-save (page-editing spec)', () => {
     // After the ~1s debounce the file is written and the indicator clears.
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('edited welcome body')
+    expect(await (await file.getFile()).text()).toBe('edited welcome body\n\n')
     vi.unstubAllGlobals()
   })
 
@@ -616,7 +616,7 @@ describe('auto-save (page-editing spec)', () => {
 
     // The fresh Welcome editor mounts with the draft, not the indexed content.
     const reopened = editor()
-    await waitFor(() => expect(reopened.setContents[0]).toBe('draft of welcome'))
+    await waitFor(() => expect(reopened.setContents[0]).toBe('draft of welcome\n\n'))
     vi.unstubAllGlobals()
   })
 
@@ -642,7 +642,37 @@ describe('auto-save (page-editing spec)', () => {
     expect(retry.textContent).toBe('Unsaved changes')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('second edit')
+    expect(await (await file.getFile()).text()).toBe('second edit\n\n')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('a page ends with an empty line (add-trailing-empty-line)', () => {
+  it('shows the empty line on open and leaves the file untouched', async () => {
+    render(<App />)
+    const tree = await openFixture(buildTree({ pages: { 'NoLine.md': 'Done' } }))
+    fireEvent.click(await screen.findByRole('button', { name: 'NoLine' }))
+    await waitFor(() => expect(editor().setContents[0]).toBe('Done\n\n'))
+    // Opening does not write: the file still ends at its last content line.
+    const file = pagesDir(tree).children.get('NoLine.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('Done')
+    vi.unstubAllGlobals()
+  })
+
+  it('writes exactly one trailing empty line on save', async () => {
+    render(<App />)
+    const tree = await openFixture(buildTree({ pages: { 'NoLine.md': 'Done' } }))
+    fireEvent.click(await screen.findByRole('button', { name: 'NoLine' }))
+    await waitFor(() => expect(editor().setContents[0]).toBe('Done\n\n'))
+    editor().emitChange('Done more')
+    // Observe the dirty state first: "no status" is also true before React has
+    // rendered the edit, so the wait below could pass on a clean pane and the
+    // file assertion would read the pre-edit content.
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toBe('Unsaved changes')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    const file = pagesDir(tree).children.get('NoLine.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('Done more\n\n')
     vi.unstubAllGlobals()
   })
 })
@@ -707,7 +737,7 @@ describe('asset drag & drop (page-editing spec)', () => {
     expect(readBinary).toHaveBeenCalledWith('assets/photo.png')
     expect(img.getAttribute('alt')).toBe('photo')
     // The page's markdown is untouched: only the rendered element was re-pointed.
-    expect(editor().content).toBe('![photo](assets/photo.png)')
+    expect(editor().content).toBe('![photo](assets/photo.png)\n\n')
     readBinary.mockRestore()
     vi.unstubAllGlobals()
   })
@@ -780,7 +810,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     // opens it as a blank in-memory page; no file is created yet.
     fireEvent.click(await within(meta()).findByRole('button', { name: 'architecture' }))
     expect(pagesDir(tree).children.get('architecture.md')).toBeUndefined()
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
 
     // First edit reads as a brand-new page, not an edit to an existing file.
     editor().emitChange('Notes on how the shell fits together')
@@ -790,7 +820,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     // The save materializes the file on disk and clears the indicator.
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = pagesDir(tree).children.get('architecture.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together')
+    expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together\n\n')
     vi.unstubAllGlobals()
   })
 
@@ -817,7 +847,7 @@ describe('links pane navigation (static-navigation + ui-shell spec)', () => {
     )
     expect(row.className).toContain('dimmed')
     fireEvent.click(row)
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     expect(journalsDir.children.get('2026-09-19.md')).toBeUndefined()
     expect(screen.getByTitle('journals/2026-09-19.md').textContent).toBe('journals/2026-09-19.md')
     vi.unstubAllGlobals()
@@ -839,7 +869,7 @@ describe('journal calendar (static-navigation + ui-shell spec)', () => {
     // creates no file (no orphan days for days merely visited).
     fireEvent.click(screen.getByRole('button', { name: 'September 18, 2026' }))
     expect(journalsDir.children.get('2026-09-18.md')).toBeUndefined()
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
 
     // Writing into the day reads as a brand-new page, then materializes it.
     editor().emitChange('Wrote a journal entry')
@@ -847,7 +877,7 @@ describe('journal calendar (static-navigation + ui-shell spec)', () => {
     expect(status.textContent).toBe('New page: created on first save')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
     const file = journalsDir.children.get('2026-09-18.md') as FakeFileHandle
-    expect(await (await file.getFile()).text()).toBe('Wrote a journal entry')
+    expect(await (await file.getFile()).text()).toBe('Wrote a journal entry\n\n')
 
     // Once the day exists it is marked in the calendar.
     const day = screen.getByRole('button', { name: 'September 18, 2026' })
@@ -950,7 +980,7 @@ describe('folder rail flow', () => {
     // folder's today journal (journal-home) — blank here, since Home has no
     // journals directory.
     fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
     expect(within(pane()).queryByRole('heading', { level: 1, name: 'Welcome' })).toBeNull()
     vi.unstubAllGlobals()
@@ -1158,7 +1188,7 @@ describe('search results view (search-results-view spec)', () => {
     // auto-opened blank today journal (journal-home) — shows again; the
     // dropdown shows its empty state for the query.
     await waitFor(() => expect(editor()).not.toBe(previous))
-    expect(editor().setContents[0]).toBe('')
+    expect(editor().setContents[0]).toBe('\n')
     expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
     expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy()
     vi.unstubAllGlobals()
@@ -1177,7 +1207,7 @@ describe('search results view (search-results-view spec)', () => {
     // Escape closes back to the previously open page (the blank today
     // journal), and browsing alone writes nothing to the vault.
     await waitFor(() => expect(editor()).not.toBe(previous))
-    expect(editor().setContents[0]).toBe('')
+    expect(editor().setContents[0]).toBe('\n')
     expect([...pagesDir(tree).children.keys()].sort()).toEqual(before)
     vi.unstubAllGlobals()
   })
@@ -1254,7 +1284,7 @@ describe('reference badges (add-reference-badges)', () => {
     // #notes has no file: the badge opens a blank page and creates nothing
     // until the first save (the Forwardlinks rule).
     editor().emitReferenceClick('notes')
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     expect(pagesDir(tree).children.get('notes.md')).toBeUndefined()
     vi.unstubAllGlobals()
   })
@@ -1269,7 +1299,7 @@ describe('reference badges (add-reference-badges)', () => {
     // 2026-09-19 has no journal file: the badge opens the day, the breadcrumb
     // names the journal path, and nothing is written under pages/ or journals/.
     editor().emitReferenceClick('2026-09-19')
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     expect(screen.getByTitle('journals/2026-09-19.md').textContent).toBe('journals/2026-09-19.md')
     expect(journalsDir.children.get('2026-09-19.md')).toBeUndefined()
     expect(pagesDir(tree).children.get('2026-09-19.md')).toBeUndefined()
@@ -1446,7 +1476,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
     await screen.findByRole('button', { name: 'b' })
     fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
 
     // The new folder's own today journal is the trail, and nothing from the
     // previous vault can be reached any more.
@@ -1466,7 +1496,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     // Folio references #architecture, which has no file: opening it creates a
     // blank page, and mere recording must not materialize it.
     fireEvent.click(within(meta()).getByRole('button', { name: 'architecture' }))
-    await waitFor(() => expect(editor().setContents[0]).toBe(''))
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     await waitFor(() => expect(back().disabled).toBe(false))
 
     expect(write).not.toHaveBeenCalled()
