@@ -301,6 +301,8 @@ describe('the brand screen introduction (add-landing-page-info)', () => {
         'Pages and journals are plain Markdown. Link a page with #word or #[[Page]], and a whiteboard with #!board.',
       ),
     ).toBeTruthy()
+    // add-issue-report-note: the repository area says where issues go.
+    expect(screen.getByText(/Found a bug or have a feature request\?/)).toBeTruthy()
 
     // The brand screen is a second tour entry point, alongside the rail's:
     // both open the one tour.

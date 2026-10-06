@@ -24,6 +24,7 @@ test('the no-folder state invites opening a folder', async ({ page }) => {
   await expect(page.getByText('Keyboard shortcuts')).toBeVisible()
 
   // The project's public repository is reachable from here.
+  await expect(page.getByText(/Found a bug or have a feature request\?/)).toBeVisible()
   const repo = page.getByRole('link', { name: 'Folio on GitHub' })
   await expect(repo).toBeVisible()
   await expect(repo).toHaveAttribute('href', 'https://github.com/ypyl/folio')

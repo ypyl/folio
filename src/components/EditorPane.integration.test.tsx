@@ -484,6 +484,8 @@ describe('EditorPane', () => {
     const link = screen.getByRole('link', { name: 'Folio on GitHub' })
     expect(link.getAttribute('href')).toBe('https://github.com/ypyl/folio')
     expect(link.getAttribute('target')).toBe('_blank')
+    // add-issue-report-note: the link sits in a line saying where issues go.
+    expect(screen.getByText(/Found a bug or have a feature request\?/)).toBeTruthy()
   })
 
   it('shows the loading state instead of the empty hint while the index builds', async () => {

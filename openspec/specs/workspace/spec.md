@@ -570,8 +570,9 @@ opens the app tour, and that reference SHALL name the rail's tour control as the
 tour's other home.
 
 In every no-folder state, whether or not the browser can open local folders, the
-screen SHALL also show a link to the project's public repository, placed below
-the position the import action occupies. The link SHALL open the repository in a
+screen SHALL also show, below the position the import action occupies, a line
+stating that bugs and feature requests are reported on the project's public
+repository, with that repository's link. The link SHALL open the repository in a
 new browser tab, SHALL NOT navigate the app away from its screen, and SHALL
 carry an accessible name that identifies the repository.
 
@@ -624,6 +625,13 @@ carry an accessible name that identifies the repository.
 - **WHEN** the user looks at the brand screen
 - **THEN** it shows a link to the project's public repository, below the import
   action when that action is present
+
+#### Scenario: The brand screen says where issues go
+
+- **GIVEN** no folder is open
+- **WHEN** the user looks at the brand screen
+- **THEN** it states that issues are reported on the project's repository,
+  beside the repository link
 
 #### Scenario: The repository link opens in a new tab
 

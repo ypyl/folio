@@ -418,15 +418,22 @@ export function EditorPane({
               </div>
             )}
             {brandAction}
-            <a
-              className={styles.repoLink}
-              href="https://github.com/ypyl/folio"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Folio on GitHub"
-            >
-              GitHub
-            </a>
+            {/* The issue-reporting line (add-issue-report-note): where bugs and
+                feature requests go, with the repository link inline. Shown in
+                every no-folder state, in place of the bare repository link. */}
+            <p className={styles.repoNote}>
+              Found a bug or have a feature request? Report it on{' '}
+              <a
+                className={styles.repoLink}
+                href="https://github.com/ypyl/folio"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Folio on GitHub"
+              >
+                GitHub
+              </a>
+              .
+            </p>
           </div>
         )}
       </main>

@@ -112,10 +112,21 @@
   background: var(--brand-tint);
 }
 
-/* The project's public repository (add-github-link), shown on the brand screen
-   in every no-folder state, below the import action when it is present. The
-   app's one link style (DESIGN.md "Links"): brand ink, no underline, hover
-   lightens. */
+/* The issue-reporting line (add-issue-report-note): where bugs and feature
+   requests go, with the repository link inline. Centered on the brand screen's
+   measure, in the same tertiary ink as the facts. */
+.repoNote {
+  margin: 0;
+  font-size: 14px;
+  color: var(--stone);
+  text-align: center;
+  max-width: 46ch;
+}
+
+/* The project's public repository link (add-github-link, add-issue-report-note),
+   inline in the issue-reporting line on the brand screen in every no-folder
+   state. The app's one link style (DESIGN.md "Links"): brand ink, no underline,
+   hover lightens. */
 .repoLink {
   padding: 2px 6px;
   border-radius: 6px;
