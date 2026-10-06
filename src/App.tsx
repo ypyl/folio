@@ -17,7 +17,7 @@ import { deriveSlides } from './presentation/slides'
 import { deriveContents } from './vault/contents'
 import { copyDroppedFiles } from './vault/assets'
 import { isBoardTarget, openVaultPath } from './vault/assetOpen'
-import type { ReferenceKind } from './vault/parse'
+import { boardToken, isBoardReferenceable, type ReferenceKind } from './vault/parse'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
 import { useCompact, type CompactView } from './compact'
 import { useVault } from './vault/useVault'
@@ -34,6 +34,7 @@ import {
   assetName,
   boardName,
   boardReferrers,
+  boardStem,
   kindOf,
   localDayString,
   orderPages,
@@ -1072,6 +1073,14 @@ function App() {
                 // Keyed by path: switching boards remounts rather than mutating.
                 key={activePath ?? 'board'}
                 initialScene={boardScene}
+                // The blank-board note's token (add-board-empty-state-note): the
+                // board's filename stem, which is what a `#!` reference resolves
+                // to — not the `boardName` label (the path inside `boards/`).
+                boardToken={
+                  activePath !== null && isBoardReferenceable(boardStem(activePath))
+                    ? boardToken(boardStem(activePath), 'word')
+                    : null
+                }
                 onChange={handleBoardEdit}
               />
             )

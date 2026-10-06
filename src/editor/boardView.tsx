@@ -51,12 +51,27 @@ function usesCrosshair(type: string | undefined): boolean {
   return type !== undefined && !CURSORED_TOOLS.has(type)
 }
 
+/** What a board with no elements says (add-board-empty-state-note): the board's
+ *  `#!` reference token, so the user can write it in a page, and the rule that
+ *  drawing is what saves the board. A null token is a name with no reference
+ *  form; the note then describes the reference without inventing one. */
+function blankBoardNote(token: string | null): string {
+  return token === null
+    ? 'Draw to save this board. Reference it from a page with a #! token.'
+    : `Draw to save this board. Reference it from a page with ${token}.`
+}
+
 export function BoardView({
   initialScene,
+  boardToken,
   onChange,
 }: {
   /** The board file's text, or '' for a board that has never been saved. */
   initialScene: string
+  /** The board's `#!` token when its name has a reference form, else null
+   *  (add-board-empty-state-note). The vault grammar lives outside this layer
+   *  (ADR-0010), so App computes it and the host only prints it. */
+  boardToken: string | null
   /** Called with the serialized scene when the board's elements change. */
   onChange: (scene: string) => void
 }) {
@@ -72,6 +87,10 @@ export function BoardView({
   // Frozen on mount: Excalidraw reads initialData once, and App keys this
   // component by board path, so a board switch remounts rather than mutating.
   const [initialData] = useState(() => parseScene(initialScene))
+  // A board with no elements shows the note; once it holds one, the note never
+  // returns for that open board (add-board-empty-state-note). App keys the host
+  // by path, so a board switch remounts and re-evaluates this.
+  const [blank, setBlank] = useState(() => initialData.elements.length === 0)
   const lastSignature = useRef<string | null>(null)
   const changeRef = useRef(onChange)
   useEffect(() => {
@@ -99,6 +118,10 @@ export function BoardView({
         crosshair.current = wantsCrosshair
         hostRef.current?.toggleAttribute('data-crosshair', wantsCrosshair)
       }
+      // The note clears the first time an element exists and never returns
+      // (add-board-empty-state-note): the functional update bails out while the
+      // board stays non-blank, so a camera move costs no render.
+      if (elements.length > 0) setBlank((wasBlank) => (wasBlank ? false : wasBlank))
       const signature = sceneSignature(elements)
       // The first emit is the mount's own load, not an edit; and an unchanged
       // signature is a camera-only change, which never saves (design D7).
@@ -147,6 +170,11 @@ export function BoardView({
           <MainMenu.DefaultItems.ChangeCanvasBackground />
         </MainMenu>
       </Excalidraw>
+      {blank ? (
+        <p className={styles.blankNote} data-board-note="true">
+          {blankBoardNote(boardToken)}
+        </p>
+      ) : null}
     </div>
   )
 }

@@ -16,6 +16,32 @@
   color: var(--stone);
 }
 
+/* The note a board with no elements shows (add-board-empty-state-note). It
+   floats over the parchment canvas, so the lift is the ivory fill rather than a
+   closed hairline (Kami surfaces), with at most the whisper shadow. It sits
+   centered, below and clear of the editor's top-center toolbar, and takes no
+   pointer input, so it never blocks a draw. */
+.blankNote {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  z-index: 1;
+  max-width: 32rem;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--ivory);
+  box-shadow:
+    0 2px 8px rgba(20, 20, 19, 0.08),
+    0 8px 24px rgba(20, 20, 19, 0.06);
+  color: var(--stone);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 /* Kami chrome for the board editor (board-editor-chrome). Excalidraw themes
    itself entirely through CSS custom properties on `.excalidraw`, so mapping
    them recolours the toolbar, islands, menus, dialogs, and inputs without

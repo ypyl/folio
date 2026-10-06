@@ -51,17 +51,23 @@ vi.mock('./editor/codemirror', async () => {
 // to emit a change, so the pane switch and the save wiring are observable
 // without the real canvas.
 const boardInstances = vi.hoisted(() => ({
-  list: [] as { scene: string; onChange: (scene: string) => void }[],
+  list: [] as {
+    scene: string
+    token: string | null
+    onChange: (scene: string) => void
+  }[],
 }))
 vi.mock('./editor/boardView', () => ({
   BoardView: ({
     initialScene,
+    boardToken,
     onChange,
   }: {
     initialScene: string
+    boardToken: string | null
     onChange: (s: string) => void
   }) => {
-    boardInstances.list.push({ scene: initialScene, onChange })
+    boardInstances.list.push({ scene: initialScene, token: boardToken, onChange })
     return <div data-testid="board-view" data-scene={initialScene} />
   },
 }))
@@ -1645,6 +1651,42 @@ describe('whiteboards (add-whiteboards)', () => {
     await openFixture(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Migration.excalidraw' }))
     expect(await screen.findByTestId('board-view')).toBeTruthy()
+  })
+
+  it('passes the open board its canonical reference token for the blank note', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'A sketch: #![[Migration topology]]' },
+      boards: { 'Migration.excalidraw': '{}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(filesSection().getByRole('button', { name: 'Ideas' }))
+    await waitFor(() => expect(editor().content).toContain('#![[Migration topology]]'))
+
+    // A reference to a board with no file opens a blank board (the page rule).
+    act(() => editor().emitReferenceClick('Migration topology', 'board'))
+    await screen.findByTestId('board-view')
+    // The host is handed the token the note prints: the board's filename stem
+    // in the canonical form for a spaced name, which is bracketed.
+    expect(boardInstances.list.at(-1)?.token).toBe('#![[Migration topology]]')
+    // Opening a board with no file creates none.
+    const boardsDir = tree.children.get('boards') as FakeDirectoryHandle
+    expect(boardsDir.children.get('Migration topology.excalidraw')).toBeUndefined()
+    vi.unstubAllGlobals()
+  })
+
+  it('names an existing board by its stem token', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'nothing' },
+      boards: { 'sprint-14.excalidraw': '{}' },
+    })
+    await openFixture(tree)
+    fireEvent.click(filesSection().getByRole('button', { name: 'sprint-14.excalidraw' }))
+    await screen.findByTestId('board-view')
+    expect(boardInstances.list.at(-1)?.token).toBe('#!sprint-14')
   })
 
   it('shows the pages that reference the open board', async () => {
