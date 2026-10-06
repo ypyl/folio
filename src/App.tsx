@@ -1142,6 +1142,10 @@ function App() {
                   <LogseqImportButton onClick={() => void handleImport()} />
                 ) : undefined
               }
+              // The brand screen's tour reference (add-landing-page-info): the
+              // same callback the rail gets, so both entry points open one tour,
+              // and absent on compact where the tour does not exist.
+              onTour={compact ? undefined : () => setTourOpen(true)}
               loading={indexing}
             />
           )}

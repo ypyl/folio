@@ -43,6 +43,15 @@ const EMPTY_HINTS: Record<'notes' | 'open-folder' | 'browser-unsupported', strin
   'browser-unsupported': BROWSER_REQUIREMENT,
 }
 
+// The brand screen's introduction (add-landing-page-info): what Folio is and
+// what it does, shown under the tagline once the no-folder state has settled.
+// The facts mirror the tour's editor step and ADR-0024's board form, so the two
+// do not drift.
+const BRAND_DESCRIPTION =
+  'Folio is a local-first notes app. Your Markdown folder is the database: open it in the browser and your notes stay on your machine.'
+const BRAND_FACTS =
+  'Pages and journals are plain Markdown. Link a page with #word or #[[Page]], and a whiteboard with #!board.'
+
 // Line-number gutter (line-numbers change, design D3): the single shared
 // anchor rule (src/lineAnchors.ts) provides one canonical start line per
 // top-level block; this module binds those lines to the block DOM. Numbers
@@ -70,6 +79,7 @@ export function EditorPane({
   onChange,
   emptyHint = 'notes',
   brandAction,
+  onTour,
   onReady,
   loading = false,
   onAttachFiles,
@@ -98,6 +108,11 @@ export function EditorPane({
    *  (add-logseq-import): the Import from Logseq action. Presentational only —
    *  the pane owns no import state. */
   brandAction?: ReactNode
+  /** Opens the app tour from the brand screen (add-landing-page-info). App
+   *  supplies it only on wide viewports, where the tour is available, the same
+   *  optional-callback shape `FolderRail.onTour` uses; absent, the brand screen
+   *  shows its copy without the tour reference. */
+  onTour?: () => void
   /** The editor has mounted and applied its initial content. App uses this to
    *  present a page it just opened (add-row-context-menu, navigate-then-
    *  present): the document is live, so its blocks are ready to derive. Fires
@@ -383,6 +398,25 @@ export function EditorPane({
             >
               {EMPTY_HINTS[emptyHint]}
             </p>
+            {/* The app's introduction (add-landing-page-info): what Folio is
+                and what it does. Shown once the no-folder state has settled —
+                not during the transitional `notes` hint, which exists to keep
+                a stored folder's restore from flashing the open-folder copy. */}
+            {emptyHint !== 'notes' && (
+              <div className={styles.brandInfo}>
+                <p className={styles.description}>{BRAND_DESCRIPTION}</p>
+                <p className={styles.facts}>{BRAND_FACTS}</p>
+                {onTour && (
+                  <p className={styles.tourLine}>
+                    New here?{' '}
+                    <button type="button" className={styles.tourLink} onClick={onTour}>
+                      Take the tour
+                    </button>
+                    , or use the ? in the left rail.
+                  </p>
+                )}
+              </div>
+            )}
             {brandAction}
             <a
               className={styles.repoLink}

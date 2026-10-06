@@ -9,6 +9,11 @@ test('the no-folder state invites opening a folder', async ({ page }) => {
   await expect(page.getByText('Open a folder to begin.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add folder' })).toBeVisible()
 
+  // add-landing-page-info: the screen says what Folio is and does, and points
+  // at the tour.
+  await expect(page.getByText(/Folio is a local-first notes app/)).toBeVisible()
+  await expect(page.getByText(/Pages and journals are plain Markdown/)).toBeVisible()
+
   // No vault yet: search is disabled, and the trail and Today have nowhere to go.
   await expect(page.getByRole('button', { name: 'Open search' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Back' })).toBeDisabled()
@@ -31,7 +36,7 @@ test('the rail starts a tour over the shell regions', async ({ page }) => {
   await installVaultPicker(page)
   await page.goto('/')
 
-  const control = page.getByRole('button', { name: 'Take the tour' })
+  const control = page.locator('#folder-rail').getByRole('button', { name: 'Take the tour' })
   await expect(control).toBeVisible()
   await control.click()
 
@@ -59,4 +64,16 @@ test('the rail starts a tour over the shell regions', async ({ page }) => {
   await card.getByRole('button', { name: 'Skip' }).click()
   await expect(card).toBeHidden()
   await expect(control).toBeFocused()
+})
+
+// add-landing-page-info: the brand screen's own reference opens the same tour.
+test('the brand screen opens the tour from its reference', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+
+  const brand = page.locator('[data-tour="editor"]')
+  await expect(brand.getByText(/Folio is a local-first notes app/)).toBeVisible()
+  await brand.getByRole('button', { name: 'Take the tour' }).click()
+  await expect(page.getByRole('dialog', { name: 'App tour' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'App tour' })).toContainText('Your folders')
 })

@@ -276,6 +276,39 @@ describe('application shell', () => {
   })
 })
 
+describe('the brand screen introduction (add-landing-page-info)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const brandTour = () =>
+    within(document.querySelector('[data-tour="editor"]') as HTMLElement).getByRole('button', {
+      name: 'Take the tour',
+    })
+
+  it('describes the app and opens the tour from the brand screen', async () => {
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    render(<App />)
+    await screen.findByText('Open a folder to begin.')
+
+    expect(
+      screen.getByText(
+        'Folio is a local-first notes app. Your Markdown folder is the database: open it in the browser and your notes stay on your machine.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Pages and journals are plain Markdown. Link a page with #word or #[[Page]], and a whiteboard with #!board.',
+      ),
+    ).toBeTruthy()
+
+    // The brand screen is a second tour entry point, alongside the rail's:
+    // both open the one tour.
+    fireEvent.click(brandTour())
+    expect(screen.getByRole('dialog', { name: 'App tour' })).toBeTruthy()
+  })
+})
+
 describe('navigation over the real index', () => {
   it('lists vault pages and journal entries from the open folder', async () => {
     render(<App />)
@@ -2109,7 +2142,8 @@ describe('the app tour (add-app-tour spec)', () => {
     vi.unstubAllGlobals()
   })
 
-  const tourControl = () => screen.getByRole('button', { name: 'Take the tour' })
+  const tourControl = () =>
+    within(document.getElementById('folder-rail')!).getByRole('button', { name: 'Take the tour' })
 
   it('opens from the rail control and walks the shell regions', async () => {
     vi.stubGlobal('showDirectoryPicker', vi.fn())
@@ -2339,6 +2373,9 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     render(<App />)
     await waitFor(() => expect(shownView()).toBe('nav'))
     expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+    // The introduction still shows; only the tour reference goes, because the
+    // tour does not exist on the compact shell (add-landing-page-info).
+    expect(screen.getByText(/Folio is a local-first notes app/)).toBeTruthy()
   })
 
   it('leaves the wide composition alone', async () => {

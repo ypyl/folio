@@ -60,6 +60,58 @@
   color: var(--dark-warm);
 }
 
+/* The brand screen's introduction (add-landing-page-info): a short description
+   and a compact set of facts, under the tagline. Same centered measure as the
+   tagline, so the block reads as one column. */
+.brandInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 46ch;
+}
+
+.description,
+.facts {
+  margin: 0;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* The description is what the app is (secondary ink); the facts are supporting
+   detail (tertiary ink), so the two do not read as one flat block. */
+.description {
+  color: var(--dark-warm);
+}
+
+.facts {
+  color: var(--stone);
+}
+
+/* The tour reference (add-landing-page-info): a line pointing at the tour, its
+   action following the app's one link behavior (brand ink, no underline, hover
+   tint) exactly as the repository link below it does. */
+.tourLine {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--stone);
+  text-align: center;
+}
+
+.tourLink {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tourLink:hover {
+  background: var(--brand-tint);
+}
+
 /* The project's public repository (add-github-link), shown on the brand screen
    in every no-folder state, below the import action when it is present. The
    app's one link style (DESIGN.md "Links"): brand ink, no underline, hover

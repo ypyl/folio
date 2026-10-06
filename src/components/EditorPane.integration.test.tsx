@@ -448,6 +448,37 @@ describe('EditorPane', () => {
     }
   })
 
+  it('shows the app introduction and the tour reference (add-landing-page-info)', () => {
+    const onTour = vi.fn()
+    render(
+      <EditorPane
+        page={null}
+        emptyHint="open-folder"
+        initialContent=""
+        onChange={() => {}}
+        onTour={onTour}
+      />,
+    )
+    expect(screen.getByText(/Folio is a local-first notes app/)).toBeTruthy()
+    expect(screen.getByText(/Pages and journals are plain Markdown/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Take the tour' }))
+    expect(onTour).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the introduction during the transitional notes hint (add-landing-page-info)', () => {
+    render(
+      <EditorPane
+        page={null}
+        emptyHint="notes"
+        initialContent=""
+        onChange={() => {}}
+        onTour={() => {}}
+      />,
+    )
+    expect(screen.queryByText(/Folio is a local-first notes app/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+  })
+
   it('links to the project repository on the brand screen (add-github-link)', () => {
     render(<EditorPane page={null} emptyHint="open-folder" initialContent="" onChange={() => {}} />)
     const link = screen.getByRole('link', { name: 'Folio on GitHub' })
