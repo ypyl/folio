@@ -60,9 +60,9 @@
   color: var(--dark-warm);
 }
 
-/* The brand screen's introduction (add-landing-page-info): a short description
-   and a compact set of facts, under the tagline. Same centered measure as the
-   tagline, so the block reads as one column. */
+/* The brand screen's introduction (add-landing-page-info): the app's paragraph,
+   under the tagline. Same centered measure as the tagline, so the block reads as
+   one column. */
 .brandInfo {
   display: flex;
   flex-direction: column;
@@ -71,13 +71,12 @@
   max-width: 46ch;
 }
 
-/* The brand screen's body copy (add-landing-page-info, add-issue-report-note):
-   the description, the facts, the tour line, and the issue-reporting line, all
-   centered on the tagline's measure. The description is what the app is, so it
-   carries secondary ink; the rest is supporting detail in tertiary ink. */
+/* The brand screen's body paragraph (add-landing-page-info, add-issue-report-note):
+   the app's introduction as one paragraph, the tour line's sentence inside it,
+   and the issue-reporting line below it, all centered on the tagline's measure.
+   The introduction is what the app is, so it carries secondary ink; the rest is
+   supporting detail in tertiary ink. */
 .description,
-.facts,
-.tourLine,
 .repoNote {
   margin: 0;
   font-size: 14px;
@@ -87,10 +86,6 @@
 
 .description {
   color: var(--dark-warm);
-}
-
-.tourLine {
-  margin-top: 2px;
 }
 
 .repoNote {

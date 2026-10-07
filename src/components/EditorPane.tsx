@@ -404,17 +404,19 @@ export function EditorPane({
                 a stored folder's restore from flashing the open-folder copy. */}
             {emptyHint !== 'notes' && (
               <div className={styles.brandInfo}>
-                <p className={styles.description}>{BRAND_DESCRIPTION}</p>
-                <p className={styles.facts}>{BRAND_FACTS}</p>
-                {onTour && (
-                  <p className={styles.tourLine}>
-                    New here?{' '}
-                    <button type="button" className={styles.tourLink} onClick={onTour}>
-                      Take the tour
-                    </button>
-                    , or use the ? in the left rail.
-                  </p>
-                )}
+                <p className={styles.description}>
+                  {BRAND_DESCRIPTION} {BRAND_FACTS}
+                  {onTour && (
+                    <>
+                      {' '}
+                      New here?{' '}
+                      <button type="button" className={styles.tourLink} onClick={onTour}>
+                        Take the tour
+                      </button>
+                      , or use the ? in the left rail.
+                    </>
+                  )}
+                </p>
               </div>
             )}
             {brandAction}

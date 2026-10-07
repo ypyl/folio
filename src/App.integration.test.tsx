@@ -291,16 +291,8 @@ describe('the brand screen introduction (add-landing-page-info)', () => {
     render(<App />)
     await screen.findByText('Open a folder to begin.')
 
-    expect(
-      screen.getByText(
-        'Folio is a local-first notes app. Your Markdown folder is the database: open it in the browser and your notes stay on your machine.',
-      ),
-    ).toBeTruthy()
-    expect(
-      screen.getByText(
-        'Pages and journals are plain Markdown. Link a page with #word or #[[Page]], and a whiteboard with #!board.',
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText(/Folio is a local-first notes app/)).toBeTruthy()
+    expect(screen.getByText(/Pages and journals are plain Markdown/)).toBeTruthy()
     // add-issue-report-note: the repository area says where issues go.
     expect(screen.getByText(/Found a bug or have a feature request\?/)).toBeTruthy()
 
