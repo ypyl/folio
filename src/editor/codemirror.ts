@@ -1161,7 +1161,12 @@ export class CodeMirrorAdapter implements EditorAdapter {
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
     if (pos === null) return false
 
-    const ref = view.plugin(livePreview)?.rendered.refs.find((r) => pos >= r.from && pos <= r.to)
+    // The end is excluded. A press past a line's last character resolves onto
+    // that line's end, so an end-inclusive range would open a reference that
+    // ends its line from the blank space beside it. A press on the badge's last
+    // character still opens, because that press lands on the chip's own element
+    // and is answered above.
+    const ref = view.plugin(livePreview)?.rendered.refs.find((r) => pos >= r.from && pos < r.to)
     if (ref) {
       event.preventDefault()
       this.referenceClickListener?.(ref.target, ref.kind)

@@ -368,6 +368,19 @@ describe('opening a link needs the platform modifier', () => {
     expect(clicked).toHaveBeenCalledWith('Inbox', 'page')
   })
 
+  it('opens a reference that ends its line only on the badge', async () => {
+    const el = await open('lead #Inbox\n')
+    const clicked = vi.fn()
+    adapter?.onReferenceClick(clicked)
+    // A press past the line's last character resolves onto the line's end,
+    // which the reference also ends on: that press is on the blank space to the
+    // badge's right, so it opens nothing.
+    pressAt(el, 'lead #Inbox'.length)
+    expect(clicked).not.toHaveBeenCalled()
+    pressAt(el, 6)
+    expect(clicked).toHaveBeenCalledWith('Inbox', 'page')
+  })
+
   it('opens nothing for a bare fragment, with or without the modifier', async () => {
     const el = await open('see [#section](#section) end\n')
     const opened = vi.fn()
