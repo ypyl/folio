@@ -45,6 +45,18 @@ test('typing a reference completes a page and stays out of code', async ({ page 
   await expect(popup).toBeVisible()
   await expect(popup.getByRole('option', { name: 'Reading' })).toBeVisible()
 
+  // The popup is the app's own chrome, not CodeMirror's stock tooltip
+  // (style-completion-popup): the surface is the ivory token and the active row
+  // is the app's warm interactive fill, not the library's `#17c`. The selector
+  // above is what the styling hangs on, so a CodeMirror upgrade that renames it
+  // fails here instead of silently reverting the popup.
+  await expect
+    .poll(() => popup.evaluate((el) => getComputedStyle(el).backgroundColor))
+    .toBe('rgb(250, 249, 245)'); // --ivory
+  await expect
+    .poll(() => popup.locator('li[aria-selected]').first().evaluate((el) => getComputedStyle(el).backgroundColor))
+    .toBe('rgb(232, 230, 220)'); // --warm-sand
+
   // Enter accepts the active (first) row; the popup ignores keys for a beat
   // after it opens, so let it settle first.
   await page.waitForTimeout(200)

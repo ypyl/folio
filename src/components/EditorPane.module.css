@@ -861,3 +861,49 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* The reference-completion popup (style-completion-popup, DESIGN.md — floating
+   surfaces): CodeMirror renders it, so it starts as the library's stock tooltip
+   (cool-gray fill, a `#bbb` border, a monospace list, a `#17c` active row).
+   Here it takes the app's own floating-surface recipe — the same one the row
+   context menu and the code block's language picker carry — so the popup reads
+   as Folio chrome rather than the editor's. The `.cm-editor` ancestor raises
+   each selector above CodeMirror's own base theme, whose `&light` rules are
+   otherwise a specificity tie that source order would decide. Every rule stays
+   scoped under `.cm-tooltip-autocomplete`: `.cm-tooltip` is also the library's
+   generic tooltip, which nothing else in this app opens. */
+.editor :global(.cm-editor .cm-tooltip.cm-tooltip-autocomplete) {
+  background: var(--ivory);
+  border: 0;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --near-black at low opacity */
+}
+
+/* The list keeps CodeMirror's own width and height bounds (content-sized, a
+   long list scrolls) and the platform's scrollbar: an overlay whose width comes
+   from its content opts out of the reserved lane and the app thumb (DESIGN.md,
+   scroll regions), as the language picker already does. Only the type changes —
+   the app's UI font in place of the library's monospace. */
+.editor :global(.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul) {
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* A row: the app's menu-row recipe, so a candidate reads like every other
+   list entry in the app. Nothing else is added to it; the name is the content. */
+.editor :global(.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li) {
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--near-black);
+  line-height: 1.4;
+}
+
+/* The active row is the app's warm interactive fill, the same treatment the
+   search dropdown and the context menu give theirs. Ink-blue is the app's one
+   accent and stays out of a list row. */
+.editor :global(.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li:hover),
+.editor :global(.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]) {
+  background: var(--warm-sand);
+  color: var(--near-black);
+}
