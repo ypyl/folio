@@ -18,22 +18,31 @@
 
 import { isMac } from '../editor/chord'
 
-/** Which surface's availability gates a row. `back` and `forward` are the
+/** Which surface's availability gates a control. `back` and `forward` are the
  *  history trail's per-direction gates (add-history-keyboard-shortcuts), so one
- *  history row can disable while the other stays live. A row without its own
+ *  history chord can disable while the other stays live. A key without its own
  *  `surface` uses its group's `target`. */
 export type ShortcutSurface = 'editor' | 'app' | 'back' | 'forward'
 
+/** One key combination of a row. A shared row (Back / Forward) carries two
+ *  actions (add-compact-the-history-shortcut-row), so a key may name its own
+ *  action and gate on its own surface; both fall back to the row's. */
+export interface ShortcutKey {
+  chord: string
+  /** The action this key performs, when it differs from the row's label. */
+  label?: string
+  /** The availability gate for this key, when it differs from the row's group
+   *  target. */
+  surface?: ShortcutSurface
+}
+
 interface ShortcutItem {
   label: string
-  keys: string[]
+  keys: ShortcutKey[]
   /** False when the row's key combination is not bound on keydown, so
    *  activating it cannot apply it: the paste shortcut's shift modifier is read
    *  from the paste gesture. Defaults to true. */
   replayable?: boolean
-  /** The availability gate for this row, when it differs from its group's
-   *  target. Defaults to the group's target. */
-  surface?: ShortcutSurface
 }
 
 export const SHORTCUT_GROUPS: {
@@ -47,11 +56,11 @@ export const SHORTCUT_GROUPS: {
     heading: 'Editing',
     target: 'editor',
     items: [
-      { label: 'Undo', keys: ['Mod-z'] },
-      { label: 'Redo', keys: ['Mod-y', 'Shift-Mod-z'] },
+      { label: 'Undo', keys: [{ chord: 'Mod-z' }] },
+      { label: 'Redo', keys: [{ chord: 'Mod-y' }, { chord: 'Shift-Mod-z' }] },
       // Mod-Enter is context-dependent (it also served leaving a code block);
       // the reference chord is the one meaning left.
-      { label: 'Open reference', keys: ['Mod-Enter'] },
+      { label: 'Open reference', keys: [{ chord: 'Mod-Enter' }] },
     ],
   },
   {
@@ -59,12 +68,19 @@ export const SHORTCUT_GROUPS: {
     target: 'app',
     // replace-header-with-spotlight: the spotlight opens on either chord, so
     // both are listed and each is its own control. The history chords are
-    // Logseq's (add-history-keyboard-shortcuts): Mod+[ back, Mod+] forward, each
-    // gated on its own direction of the trail.
+    // Logseq's (add-history-keyboard-shortcuts) and share one row
+    // (add-compact-the-history-shortcut-row): Back and Forward in the
+    // direction-pair's order, each naming its own action and gating on its own
+    // direction of the trail.
     items: [
-      { label: 'Back', keys: ['Mod-['], surface: 'back' },
-      { label: 'Forward', keys: ['Mod-]'], surface: 'forward' },
-      { label: 'Search notes', keys: ['Mod-k', 'Mod-p'] },
+      {
+        label: 'Back / Forward',
+        keys: [
+          { chord: 'Mod-[', label: 'Back', surface: 'back' },
+          { chord: 'Mod-]', label: 'Forward', surface: 'forward' },
+        ],
+      },
+      { label: 'Search notes', keys: [{ chord: 'Mod-k' }, { chord: 'Mod-p' }] },
     ],
   },
 ]

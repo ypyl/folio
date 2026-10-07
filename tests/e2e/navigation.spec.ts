@@ -59,9 +59,10 @@ test('the history chords step the trail with the caret in the editor', async ({ 
   await page.keyboard.press('Control+[')
   await expect.poll(() => editor(page).innerText()).toBe(before)
 
-  // The keyboard-shortcuts reference lists both history rows
-  // (add-history-keyboard-shortcuts, workspace spec).
+  // The keyboard-shortcuts reference lists both history chords on one shared row
+  // (add-compact-the-history-shortcut-row, workspace spec).
   await page.getByText('Keyboard shortcuts').click()
-  await expect(page.getByRole('button', { name: /^Back / })).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Forward / })).toBeVisible()
+  const historyRow = page.getByRole('listitem').filter({ hasText: 'Back / Forward' })
+  await expect(historyRow.getByRole('button', { name: /^Back / })).toBeVisible()
+  await expect(historyRow.getByRole('button', { name: /^Forward / })).toBeVisible()
 })

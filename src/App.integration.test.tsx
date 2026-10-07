@@ -1417,14 +1417,19 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     vi.unstubAllGlobals()
   })
 
-  // add-history-keyboard-shortcuts: each history row disables on its own
-  // direction and, activated, steps the trail through the same document dispatch
-  // the search row uses.
-  it('steps the trail from a history row and gates each direction on its own', async () => {
+  // add-compact-the-history-shortcut-row: the history chords share one row, and
+  // each control disables on its own direction; activating one steps the trail
+  // through the same document dispatch the search row uses.
+  it('steps the trail from the shared history row and gates each direction on its own', async () => {
     render(<App />)
     await openFixture()
     await openReference()
     const todayPath = `journals/${localDayString(new Date())}.md`
+
+    // One row, labelled for the pair, carries both controls.
+    const row = screen.getByText('Back / Forward').closest('li') as HTMLElement
+    expect(within(row).getByRole('button', { name: 'Back Ctrl+[' })).toBeTruthy()
+    expect(within(row).getByRole('button', { name: 'Forward Ctrl+]' })).toBeTruthy()
 
     // The journal is the trail's only entry, so Back has nowhere to step.
     expect(control('Back Ctrl+[').disabled).toBe(true)

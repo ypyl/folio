@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { ShortcutsList } from './ShortcutsList'
 import styles from './ShortcutsList.module.css'
 import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
@@ -53,12 +53,22 @@ describe('ShortcutsList', () => {
 
   it('lists a row for each remaining action and nothing else', () => {
     renderList()
-    for (const label of ['Undo', 'Redo', 'Open reference', 'Back', 'Forward', 'Search notes']) {
+    for (const label of ['Undo', 'Redo', 'Open reference', 'Back / Forward', 'Search notes']) {
       expect(rowOf(label)).toBeTruthy()
     }
     // The formatting rows are gone with the WYSIWYG surface.
     expect(screen.queryByText('Bold')).toBeNull()
     expect(screen.queryByText('Heading 1')).toBeNull()
+  })
+
+  it('carries both history chords on one row, named for their own action', () => {
+    renderList()
+    const row = rowOf('Back / Forward')
+    // One row, two controls: the visible label names the pair, each control
+    // names its own direction (add-compact-the-history-shortcut-row).
+    expect(row.querySelectorAll('button')).toHaveLength(2)
+    expect(within(row).getByRole('button', { name: 'Back Ctrl+[' })).toBeTruthy()
+    expect(within(row).getByRole('button', { name: 'Forward Ctrl+]' })).toBeTruthy()
   })
 
   it('names each control by its action and its keys', () => {
@@ -105,7 +115,7 @@ describe('ShortcutsList', () => {
     expect(onApply).toHaveBeenCalledWith('Mod-k', 'app')
   })
 
-  it('disables each history row on its own direction', () => {
+  it('disables each history chord on its own direction, in the shared row', () => {
     renderList({ editor: true, app: true, back: false, forward: true })
     expect(
       (screen.getByRole('button', { name: 'Back Ctrl+[' }) as HTMLButtonElement).disabled,

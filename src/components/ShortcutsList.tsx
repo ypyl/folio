@@ -51,30 +51,36 @@ export const ShortcutsList = memo(function ShortcutsList({
                     <span className={styles.label}>{item.label}</span>
                     <span className={styles.keys}>
                       {item.keys.map((key) => {
+                        // A shared row (Back / Forward) names each key's own
+                        // action and gates it on its own surface, so the two
+                        // chips read and disable apart (add-compact-the-
+                        // history-shortcut-row). Both fall back to the row.
+                        const label = key.label ?? item.label
+                        const surface = key.surface ?? group.target
                         if (!interactive) {
                           return (
-                            <kbd key={key} className={styles.kbd}>
-                              {displayKeys(key)}
+                            <kbd key={key.chord} className={styles.kbd}>
+                              {displayKeys(key.chord)}
                             </kbd>
                           )
                         }
                         return (
                           <button
-                            key={key}
+                            key={key.chord}
                             type="button"
                             className={styles.kbd}
-                            // The control's name is its row's label plus its own
+                            // The control's name is its action plus its own
                             // tokens, so a two-chord row announces two distinct
                             // controls ("Redo Ctrl+Y" / "Redo Shift+Ctrl+Z").
                             // aria-label rather than aria-labelledby: a
                             // labelledby that points at the row's label makes
                             // the row's text read as a label for the control,
                             // which collides with the search box's own label.
-                            aria-label={`${item.label} ${displayKeys(key)}`}
-                            disabled={!canApply[item.surface ?? group.target]}
-                            onClick={() => onApply(key, group.target)}
+                            aria-label={`${label} ${displayKeys(key.chord)}`}
+                            disabled={!canApply[surface]}
+                            onClick={() => onApply(key.chord, group.target)}
                           >
-                            <kbd>{displayKeys(key)}</kbd>
+                            <kbd>{displayKeys(key.chord)}</kbd>
                           </button>
                         )
                       })}

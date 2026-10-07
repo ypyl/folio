@@ -33,13 +33,18 @@ const sheetItem = (label: string) => sheetItems.find((item) => item.label === la
 // fails rather than quietly advertising a chord nothing claims.
 describe('sheet vs editor bindings', () => {
   it('lists exactly the chords the app still binds', () => {
-    expect(sheetItems.map((item) => [item.label, item.keys])).toEqual([
+    expect(sheetItems.map((item) => [item.label, item.keys.map((key) => key.chord)])).toEqual([
       ['Undo', ['Mod-z']],
       ['Redo', ['Mod-y', 'Shift-Mod-z']],
       ['Open reference', ['Mod-Enter']],
-      ['Back', ['Mod-[']],
-      ['Forward', ['Mod-]']],
+      ['Back / Forward', ['Mod-[', 'Mod-]']],
       ['Search notes', ['Mod-k', 'Mod-p']],
+    ])
+    // The shared history row pins each chord's own action and gate
+    // (add-compact-the-history-shortcut-row).
+    expect(sheetItem('Back / Forward')?.keys.map((key) => [key.label, key.surface])).toEqual([
+      ['Back', 'back'],
+      ['Forward', 'forward'],
     ])
     expect(SHORTCUT_GROUPS.map((group) => group.heading)).toEqual(['Editing', 'App'])
   })
@@ -105,7 +110,7 @@ describe('sheet vs editor bindings', () => {
   })
 
   it('the Open reference row matches the chord the editor claims in a reference', async () => {
-    expect(sheetItem('Open reference')?.keys).toEqual(['Mod-Enter'])
+    expect(sheetItem('Open reference')?.keys.map((key) => key.chord)).toEqual(['Mod-Enter'])
     expect(displayKeys('Mod-Enter')).toMatch(/^(Ctrl|Cmd)\+Enter$/)
 
     const host = document.createElement('div')
