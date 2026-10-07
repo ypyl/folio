@@ -15,7 +15,10 @@ const items = SHORTCUT_GROUPS.flatMap((group) => group.items)
 const interactiveItems = items.filter((item) => item.replayable !== false)
 const allKeys = (list: typeof items) => list.reduce((count, item) => count + item.keys.length, 0)
 
-const renderList = (canApply = { editor: true, app: true }, onApply = vi.fn()) => {
+const renderList = (
+  canApply = { editor: true, app: true, back: true, forward: true },
+  onApply = vi.fn(),
+) => {
   render(<ShortcutsList canApply={canApply} onApply={onApply} />)
   return onApply
 }
@@ -32,7 +35,10 @@ describe('ShortcutsList', () => {
 
   it('renders every entry with its key tokens', () => {
     const { container } = render(
-      <ShortcutsList canApply={{ editor: true, app: true }} onApply={() => {}} />,
+      <ShortcutsList
+        canApply={{ editor: true, app: true, back: true, forward: true }}
+        onApply={() => {}}
+      />,
     )
     for (const item of items) {
       expect(screen.getByText(item.label)).toBeTruthy()
@@ -47,7 +53,7 @@ describe('ShortcutsList', () => {
 
   it('lists a row for each remaining action and nothing else', () => {
     renderList()
-    for (const label of ['Undo', 'Redo', 'Open reference', 'Search notes']) {
+    for (const label of ['Undo', 'Redo', 'Open reference', 'Back', 'Forward', 'Search notes']) {
       expect(rowOf(label)).toBeTruthy()
     }
     // The formatting rows are gone with the WYSIWYG surface.
@@ -62,6 +68,8 @@ describe('ShortcutsList', () => {
     expect(screen.getByRole('button', { name: 'Redo Ctrl+Y' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Redo Shift+Ctrl+Z' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open reference Ctrl+Enter' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Back Ctrl+[' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Forward Ctrl+]' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Search notes Ctrl+K' })).toBeTruthy()
   })
 
@@ -73,7 +81,10 @@ describe('ShortcutsList', () => {
   // widest row ("Outdent list item") onto two lines.
   it('covers every key label with the chip styling', () => {
     const { container } = render(
-      <ShortcutsList canApply={{ editor: true, app: true }} onApply={() => {}} />,
+      <ShortcutsList
+        canApply={{ editor: true, app: true, back: true, forward: true }}
+        onApply={() => {}}
+      />,
     )
     const labels = [...container.querySelectorAll('kbd')]
     expect(labels).toHaveLength(allKeys(items))
@@ -88,12 +99,24 @@ describe('ShortcutsList', () => {
     const onApply = renderList()
     fireEvent.click(screen.getByRole('button', { name: 'Undo Ctrl+Z' }))
     expect(onApply).toHaveBeenCalledWith('Mod-z', 'editor')
+    fireEvent.click(screen.getByRole('button', { name: 'Back Ctrl+[' }))
+    expect(onApply).toHaveBeenCalledWith('Mod-[', 'app')
     fireEvent.click(screen.getByRole('button', { name: 'Search notes Ctrl+K' }))
     expect(onApply).toHaveBeenCalledWith('Mod-k', 'app')
   })
 
+  it('disables each history row on its own direction', () => {
+    renderList({ editor: true, app: true, back: false, forward: true })
+    expect(
+      (screen.getByRole('button', { name: 'Back Ctrl+[' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Forward Ctrl+]' }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
+
   it('disables the rows whose surface is unavailable and leaves the others live', () => {
-    renderList({ editor: false, app: true })
+    renderList({ editor: false, app: true, back: true, forward: true })
     expect(
       (screen.getByRole('button', { name: 'Undo Ctrl+Z' }) as HTMLButtonElement).disabled,
     ).toBe(true)
@@ -122,7 +145,10 @@ describe('ShortcutsList', () => {
 
   it('labels each group section for assistive technology', () => {
     const { container } = render(
-      <ShortcutsList canApply={{ editor: true, app: true }} onApply={() => {}} />,
+      <ShortcutsList
+        canApply={{ editor: true, app: true, back: true, forward: true }}
+        onApply={() => {}}
+      />,
     )
     const sections = container.querySelectorAll('section')
     expect(sections).toHaveLength(SHORTCUT_GROUPS.length)

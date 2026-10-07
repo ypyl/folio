@@ -1,5 +1,5 @@
 import { memo, useId } from 'react'
-import { SHORTCUT_GROUPS, displayKeys } from './shortcuts'
+import { SHORTCUT_GROUPS, displayKeys, type ShortcutSurface } from './shortcuts'
 import styles from './ShortcutsList.module.css'
 
 // The keyboard-shortcuts reference body (move-help-to-right-panel). Rows are a
@@ -24,8 +24,11 @@ export const ShortcutsList = memo(function ShortcutsList({
    *  or the document (the app's own key listeners). */
   onApply: (chord: string, target: 'editor' | 'app') => void
   /** Which surfaces can accept a combination right now. A row whose surface is
-   *  unavailable renders disabled rather than acting on nothing (design D5). */
-  canApply: Record<'editor' | 'app', boolean>
+   *  unavailable renders disabled rather than acting on nothing (design D5). A
+   *  row's own `surface` wins over its group's target, so the two history rows
+   *  disable on their own direction
+   *  (add-history-keyboard-shortcuts). */
+  canApply: Record<ShortcutSurface, boolean>
 }) {
   // One id namespace per instance: group labels address their own section, and
   // each control is named by its row's label plus its own key tokens.
@@ -68,7 +71,7 @@ export const ShortcutsList = memo(function ShortcutsList({
                             // the row's text read as a label for the control,
                             // which collides with the search box's own label.
                             aria-label={`${item.label} ${displayKeys(key)}`}
-                            disabled={!canApply[group.target]}
+                            disabled={!canApply[item.surface ?? group.target]}
                             onClick={() => onApply(key, group.target)}
                           >
                             <kbd>{displayKeys(key)}</kbd>

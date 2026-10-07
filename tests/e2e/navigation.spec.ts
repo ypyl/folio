@@ -28,3 +28,40 @@ test("opening a vault lands on today's journal and lists its pages", async ({ pa
     'page',
   )
 })
+
+// openspec/specs/history (add-history-keyboard-shortcuts): Ctrl+[ and Ctrl+] step
+// the session trail wherever focus is, and inside the editor they supersede
+// CodeMirror's own list indent/outdent bindings.
+test('the history chords step the trail with the caret in the editor', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, {
+    'pages/Welcome.md': '- first item\n- second item\n',
+    'pages/Reading.md': 'A running list of things to read.',
+    [todayJournalPath()]: 'Started the day in the journal.',
+  })
+  await openVault(page)
+
+  await page.getByRole('button', { name: 'Welcome', exact: true }).click()
+  await page.getByRole('button', { name: 'Reading', exact: true }).click()
+  await expect(editor(page)).toContainText('A running list')
+
+  // Back to Welcome, then step forward with the caret on its list.
+  await page.keyboard.press('Control+[')
+  await expect(editor(page)).toContainText('first item')
+  await editor(page).click()
+  await page.keyboard.press('Control+End')
+  const before = await editor(page).innerText()
+  await page.keyboard.press('Control+]')
+  await expect(editor(page)).toContainText('A running list')
+
+  // The chord navigated instead of indenting: Welcome's list came back unchanged.
+  await page.keyboard.press('Control+[')
+  await expect.poll(() => editor(page).innerText()).toBe(before)
+
+  // The keyboard-shortcuts reference lists both history rows
+  // (add-history-keyboard-shortcuts, workspace spec).
+  await page.getByText('Keyboard shortcuts').click()
+  await expect(page.getByRole('button', { name: /^Back / })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Forward / })).toBeVisible()
+})

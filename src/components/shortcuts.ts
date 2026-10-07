@@ -18,6 +18,12 @@
 
 import { isMac } from '../editor/chord'
 
+/** Which surface's availability gates a row. `back` and `forward` are the
+ *  history trail's per-direction gates (add-history-keyboard-shortcuts), so one
+ *  history row can disable while the other stays live. A row without its own
+ *  `surface` uses its group's `target`. */
+export type ShortcutSurface = 'editor' | 'app' | 'back' | 'forward'
+
 interface ShortcutItem {
   label: string
   keys: string[]
@@ -25,6 +31,9 @@ interface ShortcutItem {
    *  activating it cannot apply it: the paste shortcut's shift modifier is read
    *  from the paste gesture. Defaults to true. */
   replayable?: boolean
+  /** The availability gate for this row, when it differs from its group's
+   *  target. Defaults to the group's target. */
+  surface?: ShortcutSurface
 }
 
 export const SHORTCUT_GROUPS: {
@@ -49,8 +58,14 @@ export const SHORTCUT_GROUPS: {
     heading: 'App',
     target: 'app',
     // replace-header-with-spotlight: the spotlight opens on either chord, so
-    // both are listed and each is its own control.
-    items: [{ label: 'Search notes', keys: ['Mod-k', 'Mod-p'] }],
+    // both are listed and each is its own control. The history chords are
+    // Logseq's (add-history-keyboard-shortcuts): Mod+[ back, Mod+] forward, each
+    // gated on its own direction of the trail.
+    items: [
+      { label: 'Back', keys: ['Mod-['], surface: 'back' },
+      { label: 'Forward', keys: ['Mod-]'], surface: 'forward' },
+      { label: 'Search notes', keys: ['Mod-k', 'Mod-p'] },
+    ],
   },
 ]
 

@@ -554,6 +554,12 @@ function App() {
       : null
   const page = displayed ?? pendingBlank
 
+  // Whether either trail control has anywhere to step (add-history-navigation).
+  // Read here as well as by the status bar, so the reference's history rows
+  // disable exactly when the controls do (add-history-keyboard-shortcuts).
+  const canBack = canStep(trail, -1)
+  const canForward = canStep(trail, 1)
+
   // Which surfaces the reference's rows can act on (design D5): editor rows need
   // a mounted editor — no page open also covers the brand empty state, the
   // results view, and indexing, where the graph is null and no adapter exists —
@@ -564,7 +570,10 @@ function App() {
   // One identity for the reference's availability, so the memoized list
   // re-renders only when a surface's availability actually changes — never per
   // keystroke (AGENTS.md: the keystroke budget).
-  const canApply = useMemo(() => ({ editor: canEdit, app: canSearch }), [canEdit, canSearch])
+  const canApply = useMemo(
+    () => ({ editor: canEdit, app: canSearch, back: canBack, forward: canForward }),
+    [canEdit, canSearch, canBack, canForward],
+  )
   /* oxlint-enable react/refs */
 
   const handleEdit = (markdown: string) => {
@@ -663,6 +672,31 @@ function App() {
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+
+  // History chords (add-history-keyboard-shortcuts, design D1/D2): Mod+[ and
+  // Mod+] step the trail wherever focus is, exactly as the status bar's Back and
+  // Forward controls do. The listener runs in the capture phase, so it claims
+  // the chord before CodeMirror's own binding for it (list indent and outdent)
+  // can act; Tab and Shift+Tab remain the indent chords. It is registered only
+  // while a vault is open - the landing screen has no history to browse, so its
+  // chords stay with the browser - and it re-registers on a navigation, never on
+  // a keystroke. It reads the event and the trail alone: no vault data, no
+  // allocation, no render.
+  useEffect(() => {
+    if (activeFolder === undefined) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+      const step = event.key === '[' ? -1 : event.key === ']' ? 1 : 0
+      if (step === 0) return
+      // The chord is the app's: never let it reach the editor or the browser.
+      event.preventDefault()
+      event.stopPropagation()
+      if (step === -1) handleBack()
+      else handleForward()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [activeFolder, handleBack, handleForward])
 
   // Focus follows the view (design D1): a covered editor leaves the tab order,
   // so the platform drops focus on the body when the row that held it is
@@ -935,10 +969,6 @@ function App() {
     () => sidebarRows.some((row) => row.kind === 'page' && row.path === activePath),
     [sidebarRows, activePath],
   )
-
-  // Whether either control has anywhere to step (add-history-navigation).
-  const canBack = canStep(trail, -1)
-  const canForward = canStep(trail, 1)
 
   // Loading state (indexing-loading-state): while an active folder with
   // storage is building its index, the graph is null — the panes show

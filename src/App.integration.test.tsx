@@ -1381,7 +1381,13 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     render(<App />)
     await openReference()
     // No vault: no editor is mounted and search is disabled, so no row acts.
-    for (const name of ['Undo Ctrl+Z', 'Open reference Ctrl+Enter', 'Search notes Ctrl+K']) {
+    for (const name of [
+      'Undo Ctrl+Z',
+      'Open reference Ctrl+Enter',
+      'Back Ctrl+[',
+      'Forward Ctrl+]',
+      'Search notes Ctrl+K',
+    ]) {
       expect(control(name).disabled).toBe(true)
     }
     // The formatting rows are gone, so nothing offers a chord the editor cannot
@@ -1408,6 +1414,29 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     // The chord reaches the app's own document listener, which opens the
     // spotlight and focuses its input.
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Search notes')))
+    vi.unstubAllGlobals()
+  })
+
+  // add-history-keyboard-shortcuts: each history row disables on its own
+  // direction and, activated, steps the trail through the same document dispatch
+  // the search row uses.
+  it('steps the trail from a history row and gates each direction on its own', async () => {
+    render(<App />)
+    await openFixture()
+    await openReference()
+    const todayPath = `journals/${localDayString(new Date())}.md`
+
+    // The journal is the trail's only entry, so Back has nowhere to step.
+    expect(control('Back Ctrl+[').disabled).toBe(true)
+    expect(control('Forward Ctrl+]').disabled).toBe(true)
+
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(control('Back Ctrl+[').disabled).toBe(false))
+    expect(control('Forward Ctrl+]').disabled).toBe(true)
+
+    fireEvent.click(control('Back Ctrl+['))
+    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
+    expect(control('Forward Ctrl+]').disabled).toBe(false)
     vi.unstubAllGlobals()
   })
 
@@ -1472,6 +1501,55 @@ describe('history navigation (add-history-navigation spec)', () => {
     await waitFor(() => expect(openRow()).toBe('Welcome'))
     expect(forward().disabled).toBe(false)
     vi.unstubAllGlobals()
+  })
+
+  // add-history-keyboard-shortcuts: the Logseq chords, Mod+[ and Mod+] (Ctrl
+  // here), step the same trail the status bar's controls do.
+  it('steps back and forward with the history chords, without adding entries', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Reading' }))
+    await waitFor(() => expect(openRow()).toBe('Reading'))
+
+    fireEvent.keyDown(document, { key: '[', ctrlKey: true })
+    await waitFor(() => expect(openRow()).toBe('Welcome'))
+    expect(forward().disabled).toBe(false)
+
+    fireEvent.keyDown(document, { key: ']', ctrlKey: true })
+    await waitFor(() => expect(openRow()).toBe('Reading'))
+
+    // The keyboard step added no entry: Back reaches Welcome again.
+    fireEvent.keyDown(document, { key: '[', ctrlKey: true })
+    await waitFor(() => expect(openRow()).toBe('Welcome'))
+    vi.unstubAllGlobals()
+  })
+
+  it('does nothing at the trail ends, and leaves the chord to the browser with no vault', async () => {
+    render(<App />)
+    await openFixture()
+    const todayPath = `journals/${localDayString(new Date())}.md`
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    fireEvent.keyDown(document, { key: '[', ctrlKey: true })
+    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
+
+    // The trail is back at its start, so the chord leaves the open page alone.
+    fireEvent.keyDown(document, { key: '[', ctrlKey: true })
+    expect(screen.getByTitle(todayPath)).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('does not claim the history chords on the landing screen', () => {
+    render(<App />)
+    const event = new KeyboardEvent('keydown', {
+      key: '[',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    document.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
   })
 
   it('discards what was ahead when a new page opens', async () => {

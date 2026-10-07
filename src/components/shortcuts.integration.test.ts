@@ -13,6 +13,8 @@ describe('displayKeys', () => {
     expect(displayKeys('Mod-b')).toBe('Ctrl+B')
     expect(displayKeys('Mod-Alt-1')).toBe('Ctrl+Alt+1')
     expect(displayKeys('Shift-Mod-z')).toBe('Shift+Ctrl+Z')
+    expect(displayKeys('Mod-[')).toBe('Ctrl+[')
+    expect(displayKeys('Mod-]')).toBe('Ctrl+]')
   })
 
   it('renders Mod as Cmd on mac platforms', () => {
@@ -35,6 +37,8 @@ describe('sheet vs editor bindings', () => {
       ['Undo', ['Mod-z']],
       ['Redo', ['Mod-y', 'Shift-Mod-z']],
       ['Open reference', ['Mod-Enter']],
+      ['Back', ['Mod-[']],
+      ['Forward', ['Mod-]']],
       ['Search notes', ['Mod-k', 'Mod-p']],
     ])
     expect(SHORTCUT_GROUPS.map((group) => group.heading)).toEqual(['Editing', 'App'])
