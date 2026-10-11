@@ -105,15 +105,19 @@ export function SearchSpotlight({
     return () => previous?.focus?.()
   }, [open])
 
-  // Ctrl/Cmd+P and Ctrl/Cmd+K open the spotlight from anywhere; preventDefault
-  // stops the browser's Print dialog for Ctrl+P. Inert without a usable vault.
+  // Ctrl/Cmd+P and Ctrl/Cmd+K open the spotlight from anywhere. The chord is
+  // claimed before `disabled` is consulted, because Ctrl/Cmd+P is the
+  // browser's Print dialog: bailing out first let the dialog open during the
+  // indexing window, when the graph is not built yet. With no usable vault the
+  // chord is swallowed and nothing happens. preventDefault is what suppresses
+  // Print; without it the key falls through to the browser.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return
       const key = e.key.toLowerCase()
       if (key !== 'k' && key !== 'p') return
-      if (disabled) return
       e.preventDefault()
+      if (disabled) return
       onOpen()
     }
     document.addEventListener('keydown', onKeyDown)

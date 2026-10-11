@@ -250,6 +250,21 @@ describe('SearchSpotlight keyboard (search spec: Cmd/Ctrl+K/P, arrows, enter)', 
     expect(screen.queryByRole('textbox', { name: 'Search notes' })).toBeNull()
   })
 
+  it('claims the chord without a usable vault, so the browser never prints', () => {
+    // The indexing window has a folder open but no graph yet. Ctrl/Cmd+P must
+    // not reach the browser's Print dialog even though the spotlight stays shut.
+    renderSpotlight({ docs: [], disabled: true }, false)
+    const event = new KeyboardEvent('keydown', {
+      key: 'p',
+      ctrlKey: true,
+      cancelable: true,
+      bubbles: true,
+    })
+    document.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(screen.queryByRole('textbox', { name: 'Search notes' })).toBeNull()
+  })
+
   it('returns focus to the previously focused element on close', async () => {
     // A button standing in for the editor's caret surface.
     const trigger = document.createElement('button')
