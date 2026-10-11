@@ -10,6 +10,7 @@
 // The importer is input-only: it never teaches the index, editor, or parser to
 // read Logseq conventions at runtime (ADR-0012, ADR-0024).
 
+import { baseName } from './link'
 import type { VaultStorage } from './storage'
 
 /** The characters Logseq percent-encodes that the importer decodes before
@@ -216,7 +217,7 @@ export function rewriteLogseqContent(
 
 const isMarkdown = (path: string): boolean => path.toLowerCase().endsWith('.md')
 const isHidden = (path: string): boolean => path.split('/').some((seg) => seg.startsWith('.'))
-const stemOf = (path: string): string => path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+const stemOf = (path: string): string => baseName(path).replace(/\.md$/i, '')
 
 function isPageSource(path: string): boolean {
   return (
@@ -248,7 +249,7 @@ const journalTarget = (path: string): string => `journals/${journalFileName(stem
 
 function assetTarget(path: string): string {
   if (path.startsWith('assets/')) return `assets/${path.slice('assets/'.length)}`
-  return `assets/${path.slice(path.lastIndexOf('/') + 1)}`
+  return `assets/${baseName(path)}`
 }
 
 function outputNameFor(path: string): string {

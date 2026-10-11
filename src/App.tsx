@@ -156,7 +156,7 @@ function App() {
   } | null>(null)
   // The search spotlight (replace-header-with-spotlight): a modal overlay App
   // owns. The chord listener and the rail's search trigger both set it; a
-  // selection, Escape, or a scrim click clears it.
+  // selection, Escape, or a backdrop click clears it.
   const [searchOpen, setSearchOpen] = useState(false)
   // The app tour (add-app-tour): a modal overlay App owns, opened from the
   // rail's tour control on wide viewports. Session-only; nothing is written.

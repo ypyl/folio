@@ -1,3 +1,4 @@
+import { baseName } from './link'
 import type { VaultStorage } from './storage'
 
 /** Copy dropped files into the vault's `assets/` folder (asset-drag-drop).
@@ -10,7 +11,7 @@ export async function copyDroppedFiles(storage: VaultStorage, files: File[]): Pr
   let existing = new Set<string>()
   try {
     // list returns root-relative paths; the uniqueness check is per-basename.
-    existing = new Set((await storage.list('assets')).map((p) => p.slice(p.lastIndexOf('/') + 1)))
+    existing = new Set((await storage.list('assets')).map(baseName))
   } catch {
     // assets/ does not exist yet; the first copy creates it.
   }

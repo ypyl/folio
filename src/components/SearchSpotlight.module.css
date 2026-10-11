@@ -1,29 +1,32 @@
-/* SearchSpotlight (replace-header-with-spotlight): a modal overlay holding the
-   search input and its grouped results dropdown. The scrim is a token-derived
-   wash; the dialog is a lifted --ivory surface with a whisper shadow (DESIGN.md
-   rule 4: shadows are reserved for floating surfaces such as dialogs). */
-
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 10vh 16px 16px;
-  background: color-mix(in srgb, var(--near-black) 32%, transparent);
-}
+/* SearchSpotlight (replace-header-with-spotlight): a native modal dialog
+   holding the search input and its grouped results dropdown. The element owns
+   the top layer, the focus trap, and Escape; its ::backdrop is the token-derived
+   wash, and the dialog is a lifted --ivory surface with a whisper shadow
+   (DESIGN.md rule 4: shadows are reserved for floating surfaces such as dialogs). */
 
 .dialog {
   display: flex;
   flex-direction: column;
-  width: min(640px, 100%);
+  width: min(640px, calc(100% - 32px));
   max-height: 70vh;
+  /* Near the top, like the old scrim lane; UA dialog margin is centered. */
+  margin: 10vh auto auto;
+  padding: 0;
   overflow: hidden;
   background: var(--ivory);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --near-black at low opacity */
+}
+
+/* The UA hides a closed dialog; the author `display` above would otherwise win
+   and leave it in the layout intercepting clicks. */
+.dialog:not([open]) {
+  display: none;
+}
+
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--near-black) 32%, transparent);
 }
 
 .box {

@@ -19,6 +19,8 @@
 // system in place, so the vault file is never written and never watched for a
 // change made outside. Markdown stays canonical (ADR-0001).
 
+import { baseName } from './link'
+
 /** Vault-relative only: a path carrying a scheme (`http:`, `https:`, `data:`,
  *  `blob:`) or starting at `/` is not a vault path. Shared with the image
  *  resolver (`fit-vault-images-to-pane`) and with the index's asset-reference
@@ -143,7 +145,7 @@ export function vaultTarget(href: string | null | undefined): string | null {
 /** A path's extension, lowercased and without the dot; '' when it has none. A
  *  leading-dot name has no extension, matching how the asset flow reads one. */
 function extensionOf(path: string): string {
-  const base = path.slice(path.lastIndexOf('/') + 1)
+  const base = baseName(path)
   const dot = base.lastIndexOf('.')
   return dot > 0 ? base.slice(dot + 1).toLowerCase() : ''
 }
@@ -233,7 +235,7 @@ export async function openVaultPath(
   // URL, and it is what makes the browser display rather than download.
   const url = URL.createObjectURL(bytes.slice(0, bytes.size, mimeFor(path)))
   if (tab) tab.setUrl(url)
-  else openers.download(url, path.slice(path.lastIndexOf('/') + 1))
+  else openers.download(url, baseName(path))
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS)
   return true
 }

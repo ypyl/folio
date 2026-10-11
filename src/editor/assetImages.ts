@@ -49,8 +49,6 @@ export type ObserverFactory = (
 export type AssetImagesOptions = {
   /** The scroll container whose viewport decides what is needed (design D1). */
   root?: Element | null
-  /** How far outside that viewport an image still counts as needed (D2). */
-  rootMargin?: string
   /** How many vault reads may be in flight at once (D3). */
   maxConcurrent?: number
   /** Test seam: replaces the real IntersectionObserver (D6). */
@@ -117,7 +115,7 @@ export function createAssetImages(options: AssetImagesOptions = {}): AssetImages
     read: null,
     released: false,
     root: options.root ?? null,
-    rootMargin: options.rootMargin ?? DEFAULT_ROOT_MARGIN,
+    rootMargin: DEFAULT_ROOT_MARGIN,
     maxConcurrent: options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT,
     observerFactory: options.observer ?? browserObserver,
   }

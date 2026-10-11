@@ -6,6 +6,25 @@ import styles from './SearchSpotlight.module.css'
 import matchStyles from './MatchBody.module.css'
 import type { SearchDoc } from '../search/core'
 
+// jsdom 30 has no <dialog> modal API, so showModal()/close() are stubbed to
+// toggle the `open` attribute, the way PresentationView.test.tsx does. The
+// focus trap and Escape-to-cancel the element provides are the platform's, and
+// are not asserted here.
+Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+  configurable: true,
+  writable: true,
+  value(this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  },
+})
+Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+  configurable: true,
+  writable: true,
+  value(this: HTMLDialogElement) {
+    this.removeAttribute('open')
+  },
+})
+
 // The spotlight is prop-driven (components never import the vault): docs arrive
 // via props, selection reports through onSelect, and App owns the `open` flag.
 // Every test renders through a small stateful wrapper so close/reopen behavior
@@ -37,7 +56,6 @@ const asset = (path: string): SearchDoc => ({
 const input = () => screen.getByRole('textbox', { name: 'Search notes' })
 const listbox = () => screen.getByRole('listbox', { name: 'Search results' })
 const options = () => within(listbox()).getAllByRole('option')
-const scrim = () => document.querySelector(`.${styles.scrim}`) as HTMLElement
 
 async function type(value: string) {
   fireEvent.change(input(), { target: { value } })
@@ -178,10 +196,11 @@ describe('SearchSpotlight action flow (search spec: debounce, outside click, cle
     expect(screen.getByText('Welcome')).toBeTruthy()
   })
 
-  it('closes on a scrim click keeping the query; reopening restores results', async () => {
+  it('closes on a backdrop click keeping the query; reopening restores results', async () => {
     const { onClose } = renderSpotlight({ docs: [page('Welcome.md', 'docker here')] })
     await type('docker')
-    fireEvent.click(scrim())
+    // A backdrop click targets the dialog element itself.
+    fireEvent.click(screen.getByRole('dialog', { name: 'Search' }))
     expect(onClose).toHaveBeenCalled()
     expect(screen.queryByRole('textbox', { name: 'Search notes' })).toBeNull()
 
@@ -294,16 +313,6 @@ describe('SearchSpotlight keyboard (search spec: Cmd/Ctrl+K/P, arrows, enter)', 
     } finally {
       trigger.remove()
     }
-  })
-
-  it('contains Tab within the overlap', async () => {
-    renderSpotlight({ docs: [page('Alpha.md', 'docker one')] })
-    await type('docker')
-    const focusables = within(screen.getByRole('dialog')).getAllByRole('button')
-    const last = focusables[focusables.length - 1]
-    last.focus()
-    fireEvent.keyDown(last, { key: 'Tab' })
-    expect(document.activeElement).toBe(input())
   })
 
   it('arrows move the active row and hover syncs to it', async () => {

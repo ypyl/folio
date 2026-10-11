@@ -34,8 +34,9 @@ const DESTINATION_ESCAPES: Record<string, string> = {
 
 const DESTINATION_ESCAPE = /[% ()<>"'`]/g
 
-/** The file's own name: the path's last segment. */
-function baseName(path: string): string {
+/** The file's own name: the path's last segment. Shared by every layer that
+ *  names a vault file. */
+export function baseName(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1)
 }
 

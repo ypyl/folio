@@ -38,7 +38,7 @@ export function SearchSpotlight({
   docs: SearchDoc[]
   /** Open the spotlight from the global chord listener. */
   onOpen: () => void
-  /** Close the spotlight (scrim click, Escape, or a selection). */
+  /** Close the spotlight (backdrop click, Escape, or a selection). */
   onClose: () => void
   onSelect: (path: string, blocks: number[]) => void
   /** Activating an asset result: open the file, do not navigate (ADR-0021). */
@@ -52,7 +52,7 @@ export function SearchSpotlight({
   /** Activation of the pinned see-all row (search-results-view). */
   onSeeAll?: (query: string) => void
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const timer = useRef<number | undefined>(undefined)
   const [query, setQuery] = useState('')
@@ -98,14 +98,25 @@ export function SearchSpotlight({
     onClose()
   }
 
-  // Focus the input on open; restore the previously focused element on close,
-  // so a chord from the editor returns the caret there.
+  // Focus the input on open and restore the previously focused element on
+  // close, so a chord from the editor returns the caret there. The native
+  // dialog restores focus too; doing it here keeps the behavior testable in
+  // jsdom and independent of the platform's support.
   useEffect(() => {
     if (!open) return
     const previous = document.activeElement as HTMLElement | null
     inputRef.current?.focus()
     inputRef.current?.select()
     return () => previous?.focus?.()
+  }, [open])
+
+  // The native modal owns the top layer, the backdrop, the focus trap, and
+  // Escape. jsdom has no modal API; tests stub the two methods.
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal()
+    else if (!open && dialog.open) dialog.close()
   }, [open])
 
   // Ctrl/Cmd+P and Ctrl/Cmd+K open the spotlight from anywhere. The chord is
@@ -126,25 +137,6 @@ export function SearchSpotlight({
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [disabled, onOpen])
-
-  // Tab is contained within the overlay so focus cannot reach the shell behind
-  // the scrim (design: the modal keeps its own focus).
-  const onDialogKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const focusables = dialog.querySelectorAll<HTMLElement>('input, button:not([disabled])')
-    if (focusables.length === 0) return
-    const first = focusables[0]
-    const last = focusables[focusables.length - 1]
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
-  }
 
   const openResults = () => {
     onSeeAll?.(query)
@@ -187,85 +179,87 @@ export function SearchSpotlight({
     }))
     .filter((s) => s.items.length > 0)
 
-  if (!open) return null
-
   return (
-    <div className={styles.scrim} onClick={onClose}>
-      <div
-        ref={dialogRef}
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Search"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={onDialogKeyDown}
-      >
-        <div className={styles.box}>
-          <input
-            ref={inputRef}
-            className={styles.input}
-            type="text"
-            placeholder="Search notes"
-            aria-label="Search notes"
-            autoComplete="off"
-            spellCheck={false}
-            disabled={disabled}
-            value={query}
-            onChange={(e) => handleChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            aria-expanded={shown}
-            aria-controls="search-results"
-          />
-          <button
-            type="button"
-            className={styles.clear}
-            aria-label="Clear search"
-            title="Clear search"
-            hidden={disabled || query === ''}
-            onClick={() => {
-              clear()
-              inputRef.current?.focus()
-            }}
-          >
-            {'\u2715'}
-          </button>
-        </div>
-        {shown && (
-          <div className={styles.drop}>
-            <div id="search-results" role="listbox" aria-label="Search results">
-              {sections.length === 0 && (
-                <div className={styles.empty}>{`No matches for \u201C${query.trim()}\u201D.`}</div>
-              )}
-              {sections.map((sec) => (
-                <section key={sec.label}>
-                  <div className={styles.head}>{sec.label}</div>
-                  {sec.items.map((r) => {
-                    const index = visible.indexOf(r)
-                    return (
-                      <button
-                        key={r.path}
-                        type="button"
-                        role="option"
-                        aria-selected={index === active}
-                        className={`${styles.item}${index === active ? ` ${styles.active}` : ''}`}
-                        onClick={() => activate(r)}
-                        onMouseEnter={() => setActive(index)}
-                      >
-                        <MatchBody result={r} compact limit={2} />
-                      </button>
-                    )
-                  })}
-                </section>
-              ))}
-            </div>
-            {results !== null && results.length > 0 && (
-              <button type="button" className={styles.more} onClick={openResults}>
-                {`See all ${results.length} ${results.length === 1 ? 'result' : 'results'}`}
-              </button>
-            )}
-          </div>
-        )}
+    <dialog
+      ref={dialogRef}
+      className={styles.dialog}
+      aria-label="Search"
+      onCancel={(event) => {
+        // Escape clears the query and closes, matching the input's own handler.
+        event.preventDefault()
+        clear()
+        onClose()
+      }}
+      onClick={(event) => {
+        // A click on the backdrop targets the dialog element itself.
+        if (event.target === dialogRef.current) onClose()
+      }}
+    >
+      <div className={styles.box}>
+        <input
+          ref={inputRef}
+          className={styles.input}
+          type="text"
+          placeholder="Search notes"
+          aria-label="Search notes"
+          autoComplete="off"
+          spellCheck={false}
+          disabled={disabled}
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          aria-expanded={shown}
+          aria-controls="search-results"
+        />
+        <button
+          type="button"
+          className={styles.clear}
+          aria-label="Clear search"
+          title="Clear search"
+          hidden={disabled || query === ''}
+          onClick={() => {
+            clear()
+            inputRef.current?.focus()
+          }}
+        >
+          {'\u2715'}
+        </button>
       </div>
-    </div>
+      {shown && (
+        <div className={styles.drop}>
+          <div id="search-results" role="listbox" aria-label="Search results">
+            {sections.length === 0 && (
+              <div className={styles.empty}>{`No matches for \u201C${query.trim()}\u201D.`}</div>
+            )}
+            {sections.map((sec) => (
+              <section key={sec.label}>
+                <div className={styles.head}>{sec.label}</div>
+                {sec.items.map((r) => {
+                  const index = visible.indexOf(r)
+                  return (
+                    <button
+                      key={r.path}
+                      type="button"
+                      role="option"
+                      aria-selected={index === active}
+                      className={`${styles.item}${index === active ? ` ${styles.active}` : ''}`}
+                      onClick={() => activate(r)}
+                      onMouseEnter={() => setActive(index)}
+                    >
+                      <MatchBody result={r} compact limit={2} />
+                    </button>
+                  )
+                })}
+              </section>
+            ))}
+          </div>
+          {results !== null && results.length > 0 && (
+            <button type="button" className={styles.more} onClick={openResults}>
+              {`See all ${results.length} ${results.length === 1 ? 'result' : 'results'}`}
+            </button>
+          )}
+        </div>
+      )}
+    </dialog>
   )
 }

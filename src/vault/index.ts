@@ -4,6 +4,7 @@
 // case-insensitively through a name map (ADR-0012).
 
 import type { Page } from '../page'
+import { baseName } from './link'
 import { parseAssetPaths, parseBoardRefs, parseLinks, type BoardRef, type Link } from './parse'
 import type { VaultStorage } from './storage'
 import { withTrailingBlankLine } from './trailing'
@@ -274,8 +275,7 @@ export function boardName(path: string): string {
 
 /** A board's name — the token text, its filename without `.excalidraw`. */
 export function boardStem(path: string): string {
-  const name = path.slice(path.lastIndexOf('/') + 1)
-  return name.slice(0, -BOARD_EXT.length)
+  return baseName(path).slice(0, -BOARD_EXT.length)
 }
 
 /** Where a board named `name` lives (add-whiteboards, design D2/D3). */
@@ -394,8 +394,7 @@ export function orderPages(pages: Iterable<IndexPage>, pins: string[]): IndexPag
 
 /** Title = filename with the final `.md` removed (design D1). */
 export function stem(path: string): string {
-  const name = path.slice(path.lastIndexOf('/') + 1)
-  return name.slice(0, -3) // removes '.md'/' .MD' regardless of extension case
+  return baseName(path).slice(0, -3) // removes '.md'/' .MD' regardless of extension case
 }
 
 /** Kind: journal iff the path starts with the journals directory (F1). */
