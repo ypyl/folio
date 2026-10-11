@@ -61,8 +61,8 @@ partial failure — appends only what is new and never duplicates. Importing the
 folder twice is a no-op.
 
 The rule set is documented in [MIGRATION_LOGSEQ_FOLIO.md](MIGRATION_LOGSEQ_FOLIO.md),
-implemented in the app and in `scripts/migrate-logseq.mjs`, and recorded as one-way and
-input-only in [ADR-0025](adr/0025-logseq-import-is-one-way-and-input-only.md).
+implemented in the app, and recorded as one-way and input-only in
+[ADR-0025](adr/0025-logseq-import-is-one-way-and-input-only.md).
 
 ## License
 

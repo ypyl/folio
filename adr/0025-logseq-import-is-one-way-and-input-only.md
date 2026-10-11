@@ -1,6 +1,7 @@
 # ADR-0025: The Logseq import is one-way and input-only
 
-- Status: Accepted
+- Status: Accepted (amended 2026-10-11: the CLI script `scripts/migrate-logseq.mjs`
+  was removed; the app importer is the only implementation)
 - Date: 2025-09-22
 
 ## Context
@@ -34,9 +35,8 @@ forms.** The importer is a one-way, input-only compatibility layer:
 - Nothing about the runtime grammar changes. ADR-0012 stands: after import, `[[Page]]`,
   `((uuid))`, `#tag/with/slash`, and `collapsed::` are still plain text.
 - The source folder is never written, renamed, or deleted.
-- The import rules live in `src/vault/logseqImport.ts` (and, for the shell, in
-  `scripts/migrate-logseq.mjs`); they are not part of the index or the editor. The rules
-  are documented in `MIGRATION_LOGSEQ_FOLIO.md`.
+- The import rules live in `src/vault/logseqImport.ts`; they are not part of the index
+  or the editor. The rules are documented in `MIGRATION_LOGSEQ_FOLIO.md`.
 - The merge is non-destructive: a destination path that already exists is skipped and
   reported, never overwritten, and the destination's `.folio/` meta is left alone.
 
@@ -55,9 +55,8 @@ is idempotent because existing paths are skipped.
 
 - The importer adds a second, isolated place where Logseq's conventions are known. It is
   bounded to one module plus its tests; nothing downstream learns them.
-- The rules exist twice — the app module and the CLI script — and must not drift.
-  `MIGRATION_LOGSEQ_FOLIO.md` is the shared reference and the app module is unit-tested
-  against it.
+- The rules live once, in the app module, which is unit-tested against
+  `MIGRATION_LOGSEQ_FOLIO.md`.
 - An imported vault can look like a Logseq vault to other tools that read Logseq, but
   Folio treats it as its own. There is no export back to Logseq.
 - Import cannot be cancelled and writes are not transactional; a failure leaves written

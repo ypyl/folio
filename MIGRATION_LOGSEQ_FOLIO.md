@@ -4,10 +4,11 @@ Rules for the one-way copy from a Logseq graph (`C:\Users\ypyl\mega\logseq`) int
 Folio vault (`C:\Users\ypyl\mega\folio`). The Logseq folder is **read-only** in this
 migration: nothing is moved, renamed, or deleted there.
 
-These rules are implemented in two places that must stay in step: the in-app importer
-(`src/vault/logseqImport.ts`, reached from the brand screen's **Import from Logseq**
-action) and the command-line script (`scripts/migrate-logseq.mjs`). See ADR-0025 for why
-the importer is one-way and input-only.
+These rules are implemented in the in-app importer (`src/vault/logseqImport.ts`,
+reached from the brand screen's **Import from Logseq** action). The command-line script
+this document planned (`scripts/migrate-logseq.mjs`) shipped and was later removed once
+the in-app importer was the only route; the references below are kept as the plan's
+record. See ADR-0025 for why the importer is one-way and input-only.
 
 This document is the plan. Every rule below is either settled by Folio's ADRs/specs or
 marked **DECIDE** (an open question for the owner). No file is copied until the DECIDE
