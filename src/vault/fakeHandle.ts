@@ -7,6 +7,26 @@
 
 export type FakeTreeNode = string | { [name: string]: FakeTreeNode }
 
+// FSA call counter (scanCost.test.ts). The vault scan is I/O bound, and every
+// one of these calls is an asynchronous round trip to the browser's file
+// process, so their count IS the open cost in the parts we control. Counting
+// them lets a test assert that cost scales with the vault's files and distinct
+// directories, never with files x path depth. Test-only: nothing in the app
+// reads it, and it changes no behavior.
+export const fsaCalls = {
+  getDirectoryHandle: 0,
+  getFileHandle: 0,
+  getFile: 0,
+  entries: 0,
+}
+
+export function resetFsaCalls(): void {
+  fsaCalls.getDirectoryHandle = 0
+  fsaCalls.getFileHandle = 0
+  fsaCalls.getFile = 0
+  fsaCalls.entries = 0
+}
+
 // Deterministic fake mtime: strictly increases on every write, so refresh
 // diff tests can rely on changed files always being detected (task 2.5).
 let fakeMtime = 1
@@ -33,6 +53,7 @@ export class FakeFileHandle {
   }
 
   async getFile(): Promise<File> {
+    fsaCalls.getFile++
     return new File([this.content], this.name, { lastModified: this.lastModified })
   }
 
@@ -83,6 +104,7 @@ export class FakeDirectoryHandle {
   }
 
   async getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle> {
+    fsaCalls.getFileHandle++
     const child = this.children.get(name)
     if (child instanceof FakeDirectoryHandle) {
       throw new DOMException('Path is a directory', 'TypeMismatchError')
@@ -100,6 +122,7 @@ export class FakeDirectoryHandle {
     name: string,
     options?: { create?: boolean },
   ): Promise<FileSystemDirectoryHandle> {
+    fsaCalls.getDirectoryHandle++
     const child = this.children.get(name)
     if (child instanceof FakeFileHandle) {
       throw new DOMException('Path is a file', 'TypeMismatchError')
@@ -115,6 +138,7 @@ export class FakeDirectoryHandle {
 
   /** Manual variant of the DOM's `entries()` (the DOM version needs no `dir` arg). */
   async *entries(): AsyncGenerator<[string, FakeFileHandle | FakeDirectoryHandle]> {
+    fsaCalls.entries++
     for (const [name, child] of this.children) yield [name, child]
   }
 }

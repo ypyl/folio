@@ -60,6 +60,15 @@ export type VaultIndex = {
   pins: string[]
 }
 
+/** How many pages the scan keeps in flight at once (design: open cost).
+ *  Each stat/read is one asynchronous round trip to the file process, so the
+ *  scan used to cost the sum of every hop in the vault; fanning them out makes
+ *  it the longest chain instead. Bounded because the calls are independent but
+ *  the browser's file process is one resource, and every page is resident in
+ *  memory anyway. Results are re-folded in path order, so the page map, and the
+ *  backlink order derived from it, are unchanged. */
+export const SCAN_CONCURRENCY = 16
+
 /** Full or incremental scan (design D3): with `previous` given, only files
  *  whose mtime moved are re-read; unchanged pages carry over. */
 export async function buildIndex(
@@ -70,19 +79,34 @@ export async function buildIndex(
   const files = new Set(paths.filter((path) => !hasHiddenSegment(path)))
   const snapshot = new Map<string, number>()
   const pages = new Map<string, IndexPage>()
-  for (const path of paths) {
-    if (!isPagePath(path)) continue
-    const lastModified = await storage.stat(path)
+  const scanned = await mapLimit(paths.filter(isPagePath), SCAN_CONCURRENCY, (path) =>
+    scanPage(storage, path, previous),
+  )
+  for (const { path, lastModified, page } of scanned) {
     snapshot.set(path, lastModified)
-    if (previous) {
-      const carried = carryOver(path, lastModified, previous)
-      if (carried) {
-        pages.set(path, carried)
-        continue
-      }
-    }
-    const content = await storage.read(path)
-    pages.set(path, {
+    pages.set(path, page)
+  }
+  const pins = await readPins(storage, previous, snapshot)
+  return { graph: fold(pages, files), snapshot, pins }
+}
+
+/** One page's scan step: its mtime, then its resident record, carried over
+ *  from `previous` when the mtime is unchanged. */
+async function scanPage(
+  storage: VaultStorage,
+  path: string,
+  previous?: VaultIndex,
+): Promise<{ path: string; lastModified: number; page: IndexPage }> {
+  const lastModified = await storage.stat(path)
+  if (previous) {
+    const carried = carryOver(path, lastModified, previous)
+    if (carried) return { path, lastModified, page: carried }
+  }
+  const content = await storage.read(path)
+  return {
+    path,
+    lastModified,
+    page: {
       path,
       title: stem(path),
       kind: kindOf(path),
@@ -91,10 +115,27 @@ export async function buildIndex(
       assets: parseAssetPaths(content),
       boards: parseBoardRefs(content),
       lastModified,
-    })
+    },
   }
-  const pins = await readPins(storage, previous, snapshot)
-  return { graph: fold(pages, files), snapshot, pins }
+}
+
+/** Bounded-concurrency map that returns results in `items` order, so a
+ *  parallel scan folds back into a deterministic, path-ordered map. */
+async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index])
+    }
+  })
+  await Promise.all(workers)
+  return results
 }
 
 /** Read the pins meta file into the index (design D1/D3). A missing file is

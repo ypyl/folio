@@ -59,6 +59,15 @@ function parseFilePath(path: string): string[] {
 export class FileSystemVaultStorage implements VaultStorage {
   /** The underlying Chrome handle. */
   private readonly root: FileSystemDirectoryHandle
+  /** Directory handles by vault-relative path ('' is the root), cached as
+   *  in-flight promises. FSA resolves one segment at a time, so without this
+   *  every read and stat re-walked the path from the root: 2 × (depth + 1)
+   *  round trips per file on a scan, which dwarfed the reads themselves.
+   *  Caching the promise, not the handle, is what makes it hold under the
+   *  scan's concurrency: 16 workers reaching the same directory at once share
+   *  the one request instead of stampeding it. Only successful lookups stay
+   *  cached, so a directory created outside the app resolves on the next try. */
+  private readonly dirs = new Map<string, Promise<FileSystemDirectoryHandle>>()
 
   constructor(root: FileSystemDirectoryHandle) {
     this.root = root
@@ -125,10 +134,28 @@ export class FileSystemVaultStorage implements VaultStorage {
     options?: { create: boolean },
   ): Promise<FileSystemDirectoryHandle> {
     let dir = this.root
+    let key = ''
     for (const segment of segments) {
-      dir = await dir.getDirectoryHandle(segment, options)
+      key = key === '' ? segment : `${key}/${segment}`
+      dir = await this.dirHandle(key, dir, segment, options)
     }
     return dir
+  }
+
+  /** One path segment's handle: share an in-flight lookup, remember only
+   *  success, and drop the entry on a miss so the next call retries. */
+  private dirHandle(
+    key: string,
+    parent: FileSystemDirectoryHandle,
+    segment: string,
+    options?: { create: boolean },
+  ): Promise<FileSystemDirectoryHandle> {
+    const cached = this.dirs.get(key)
+    if (cached !== undefined) return cached
+    const lookup = parent.getDirectoryHandle(segment, options)
+    this.dirs.set(key, lookup)
+    void lookup.catch(() => this.dirs.delete(key))
+    return lookup
   }
 }
 
