@@ -1,7 +1,7 @@
 // The transport seam between Folio's knowledge-management core and wherever
 // its Markdown files live. Only the app composition layer constructs a
-// VaultStorage (see ADR-0003, ADR-0013); everything else receives it via
-// props or the index built from it.
+// VaultStorage (see ADR-0003, ADR-0013, ADR-0030); everything else receives it
+// via props or the index built from it.
 //
 // Path contract (ADR-0013):
 //   - vault-root-relative, '/' as the separator
@@ -20,8 +20,6 @@ export interface VaultStorage {
   /** Resolve with the bytes of the file at `path` (readBinary): the binary
    *  counterpart of `read`, under the same path contract. Rejects if missing. */
   readBinary(path: string): Promise<Blob>
-  /** Remove the file at `path`. Rejects if missing. */
-  delete(path: string): Promise<void>
   /** Resolve with every file under `path` (recursive), as root-relative paths; directories never appear. */
   list(path: string): Promise<string[]>
   /** Resolve with the last-modified time (ms epoch) of the file at `path`. Rejects if missing. */

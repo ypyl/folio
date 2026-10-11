@@ -168,9 +168,6 @@ class MemStorage implements VaultStorage {
     if (value === undefined) throw new Error(`missing ${path}`)
     return value instanceof Blob ? value : new Blob([value])
   }
-  async delete(path: string): Promise<void> {
-    this.files.delete(path)
-  }
   async list(path: string): Promise<string[]> {
     const prefix = path === '' ? '' : `${path}/`
     return [...this.files.keys()].filter((k) => k.startsWith(prefix)).sort()

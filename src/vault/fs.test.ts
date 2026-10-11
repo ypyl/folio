@@ -125,26 +125,6 @@ describe('FileSystemVaultStorage', () => {
     await expect(vault.readBinary('../escape.png')).rejects.toBeInstanceOf(InvalidVaultPathError)
   })
 
-  it('deletes a file', async () => {
-    const vault = fakeVault(VAULT)
-    await vault.delete('tags.md')
-    await expect(vault.read('tags.md')).rejects.toMatchObject({ name: 'NotFoundError' })
-    expect(await vault.list('')).not.toContain('tags.md')
-  })
-
-  it('deletes a directory recursively', async () => {
-    const vault = fakeVault(VAULT)
-    await vault.delete('journals')
-    expect(await vault.list('')).not.toContain('journals/2026.md')
-    expect(await vault.list('')).not.toContain('journals/deep/x.md')
-  })
-
-  it('rejects deleting a missing path', async () => {
-    await expect(fakeVault(VAULT).delete('nope')).rejects.toMatchObject({
-      name: 'NotFoundError',
-    })
-  })
-
   it('lists root: flat, files only, sorted', async () => {
     await expect(fakeVault(VAULT).list('')).resolves.toEqual([
       'journals/2026.md',
@@ -183,15 +163,13 @@ describe('FileSystemVaultStorage', () => {
       const vault = fakeVault(VAULT)
       await expect(vault.read(path)).rejects.toBeInstanceOf(InvalidVaultPathError)
       await expect(vault.write(path, 'x')).rejects.toBeInstanceOf(InvalidVaultPathError)
-      await expect(vault.delete(path)).rejects.toBeInstanceOf(InvalidVaultPathError)
       await expect(vault.list(path)).rejects.toBeInstanceOf(InvalidVaultPathError)
     },
   )
 
-  it.each(['read', 'write', 'delete'] as const)('rejects %s of the root', async (op) => {
+  it.each(['read', 'write'] as const)('rejects %s of the root', async (op) => {
     const vault = fakeVault(VAULT)
-    const call =
-      op === 'read' ? vault.read('') : op === 'write' ? vault.write('', 'x') : vault.delete('')
+    const call = op === 'read' ? vault.read('') : vault.write('', 'x')
     await expect(call).rejects.toBeInstanceOf(InvalidVaultPathError)
   })
 })

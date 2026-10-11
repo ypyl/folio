@@ -1,8 +1,8 @@
 // Shared test-support fake of the File System Access handle subset both the
 // storage and the vault hook use (D4/D5 of build-fsa-storage and
 // build-open-folder-flow). Implements exactly the surface the impl depends on:
-// the storage calls (getFileHandle/getDirectoryHandle/entries/removeEntry/
-// createWritable) plus the permission API (queryPermission/requestPermission)
+// the storage calls (getFileHandle/getDirectoryHandle/entries/createWritable)
+// plus the permission API (queryPermission/requestPermission)
 // with a settable, per-instance state. Cast into the DOM types at call sites.
 
 export type FakeTreeNode = string | { [name: string]: FakeTreeNode }
@@ -116,12 +116,6 @@ export class FakeDirectoryHandle {
   /** Manual variant of the DOM's `entries()` (the DOM version needs no `dir` arg). */
   async *entries(): AsyncGenerator<[string, FakeFileHandle | FakeDirectoryHandle]> {
     for (const [name, child] of this.children) yield [name, child]
-  }
-
-  async removeEntry(name: string): Promise<void> {
-    if (!this.children.delete(name)) {
-      throw new DOMException('Entry not found', 'NotFoundError')
-    }
   }
 }
 

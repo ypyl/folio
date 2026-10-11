@@ -612,7 +612,7 @@ describe('asset inventory and references (add-asset-navigation)', () => {
     const first = await buildIndex(storage)
     expect(first.graph.files.has('assets/shot.png')).toBe(true)
 
-    await storage.delete('assets/shot.png')
+    ;(tree.children.get('assets') as FakeDirectoryHandle).children.delete('shot.png')
     const second = await buildIndex(storage, first)
 
     // The page did not change, so it is carried over by identity with its

@@ -19,7 +19,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 |-----|-------|--------|
 | [0001](0001-markdown-folder-is-the-database.md) | The Markdown folder is the database | Accepted |
 | [0002](0002-chromium-first-pwa-file-system-access.md) | Chromium-first PWA using the File System Access API | Accepted |
-| [0003](0003-vault-storage-abstraction.md) | Abstract filesystem access behind a `VaultStorage` interface | Accepted |
+| [0003](0003-vault-storage-abstraction.md) | Abstract filesystem access behind a `VaultStorage` interface | Accepted (delete removed by 0030) |
 | [0004](0004-in-memory-vault-index.md) | In-memory vault index, rebuilt on open, updated incrementally | Accepted |
 | [0005](0005-keep-ui-small-three-pane-layout.md) | Keep the UI small: three-pane layout, no graph visualization | Accepted |
 | [0006](0006-scope-guardrails-not-logseq.md) | Scope guardrails: do not rebuild Logseq | Accepted |
@@ -29,7 +29,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0010](0010-editor-vault-separation.md) | Keep the editor separate from the knowledge-management layer | Accepted |
 | [0011](0011-kami-design-language.md) | Adopt the Kami design language for Folio's visual identity | Accepted |
 | [0012](0012-unified-page-references.md) | Unified page references: tags and wikilinks are the same thing | Accepted |
-| [0013](0013-vault-storage-path-and-io-contract.md) | VaultStorage path and I/O contract | Accepted |
+| [0013](0013-vault-storage-path-and-io-contract.md) | VaultStorage path and I/O contract | Accepted (delete removed by 0030) |
 | [0014](0014-adopt-milkdown-code-block-component.md) | Adopt the Milkdown component code block (CodeMirror) | Superseded by 0029 |
 | [0015](0015-in-vault-app-meta.md) | The `.folio/` directory is app-owned state inside the vault | Accepted |
 | [0016](0016-apply-commands-by-key-chord.md) | Apply editor commands by replaying their key chord | Accepted |
@@ -46,6 +46,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0027](0027-pages-are-heading-structured-documents.md) | Pages are heading-structured documents, not outliners | Accepted |
 | [0028](0028-image-resolution-is-viewport-scoped.md) | Vault image resolution is scoped to the pane's viewport | Accepted |
 | [0029](0029-the-markdown-text-is-the-page-surface.md) | The page surface is the Markdown text, edited in CodeMirror | Accepted |
+| [0030](0030-vault-storage-has-no-delete.md) | VaultStorage has no delete | Accepted |
 
 ## Adding a new ADR
 

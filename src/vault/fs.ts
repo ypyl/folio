@@ -97,12 +97,6 @@ export class FileSystemVaultStorage implements VaultStorage {
     await writable.close()
   }
 
-  async delete(path: string): Promise<void> {
-    const segments = parseFilePath(path)
-    const parent = await this.resolveDir(segments.slice(0, -1))
-    await parent.removeEntry(lastSegment(segments), { recursive: true })
-  }
-
   async list(path: string): Promise<string[]> {
     const segments = parsePath(path)
     const dir = await this.resolveDir(segments)
