@@ -125,6 +125,21 @@ describe('SearchSpotlight rendering (search spec: groups, labels, snippets)', ()
     await waitFor(() => expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy())
   })
 
+  it('deploys a short query that matches a whole word', async () => {
+    renderSpotlight({ docs: [page('UX.md', 'notes'), page('Linux.md', 'kernel')] })
+    await type('ux')
+    expect(options()).toHaveLength(1)
+    expect(within(listbox()).getByText('UX')).toBeTruthy()
+  })
+
+  it('deploys nothing for a short query that matches nothing', async () => {
+    renderSpotlight({ docs: [page('Welcome.md', 'hello')] })
+    fireEvent.change(input(), { target: { value: 'zz' } })
+    // Past the debounce: the run has landed, and a short miss stays hidden.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
   it('caps a group in the dropdown and offers the see-all row', async () => {
     const docs: SearchDoc[] = []
     for (let i = 0; i < 23; i++) docs.push(page(`p${i}.md`, 'docker body'))

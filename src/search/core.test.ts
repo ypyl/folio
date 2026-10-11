@@ -11,6 +11,7 @@ import {
   snippetSegments,
   termsOf,
   topPerGroup,
+  wordRanges,
   type SearchDoc,
   type SearchRange,
 } from './core'
@@ -29,10 +30,26 @@ function fuse(docs: SearchDoc[]) {
 }
 
 describe('termsOf', () => {
-  it('splits on whitespace and drops terms under 3 chars', () => {
-    expect(termsOf('  new item a  ')).toEqual(['new', 'item'])
-    expect(termsOf('ab')).toEqual([])
+  it('splits on whitespace and keeps every non-empty term', () => {
+    expect(termsOf('  new item a  ')).toEqual(['new', 'item', 'a'])
+    expect(termsOf('ab')).toEqual(['ab'])
     expect(termsOf('')).toEqual([])
+    expect(termsOf('   ')).toEqual([])
+  })
+})
+
+describe('wordRanges', () => {
+  it('matches whole words only, case-insensitively', () => {
+    expect(wordRanges('UX design, ux again', 'ux')).toEqual([
+      [0, 2],
+      [11, 13],
+    ])
+    expect(wordRanges('Linux', 'ux')).toEqual([])
+  })
+
+  it('treats punctuation as a boundary, so C# and CI/CD match', () => {
+    expect(wordRanges('I use C# daily', 'C#')).toEqual([[6, 8]])
+    expect(wordRanges('CI/CD pipeline', 'CI/CD')).toEqual([[0, 5]])
   })
 })
 
@@ -101,8 +118,34 @@ describe('searchDocs (AND-term model)', () => {
     expect(sliced).toHaveLength(PER_GROUP + 1)
   })
 
-  it('returns nothing for a sub-3-char query', () => {
-    expect(searchDocs(fuse([doc('a.md', 'A', 'abc')]), 'ab')).toEqual([])
+  it('matches a short term as a whole word, in title or body', () => {
+    const docs = [
+      doc('UX.md', 'UX', 'notes'),
+      doc('body.md', 'Notes', 'a UX review'),
+      doc('linux.md', 'Linux', 'kernel notes'),
+    ]
+    const results = searchDocs(fuse(docs), 'UX')
+    // Title word first, then the body word; Linux is never a candidate.
+    expect(results.map((r) => r.path)).toEqual(['UX.md', 'body.md'])
+  })
+
+  it('never matches a short term inside a longer word', () => {
+    expect(searchDocs(fuse([doc('linux.md', 'Linux', 'kernel notes')]), 'ux')).toEqual([])
+  })
+
+  it('highlights only the whole-word occurrence of a short term', () => {
+    const results = searchDocs(fuse([doc('notes.md', 'Notes', 'Linux and UX here')]), 'ux')
+    expect(results.map((r) => r.path)).toEqual(['notes.md'])
+    expect(results[0].ranges).toEqual([[10, 12]])
+  })
+
+  it('still requires every term when one of them is short', () => {
+    const docs = [
+      doc('both.md', 'Both', 'UX design system'),
+      doc('only-ux.md', 'Only UX', 'nothing else'),
+      doc('only-design.md', 'Design', 'no shortterm here'),
+    ]
+    expect(searchDocs(fuse(docs), 'UX design').map((r) => r.path)).toEqual(['both.md'])
   })
 })
 

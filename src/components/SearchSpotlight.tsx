@@ -66,7 +66,10 @@ export function SearchSpotlight({
 
   const run = (value: string) => {
     const found = searchDocs(fuse, value)
-    setResults(found)
+    // A short query that matches nothing deploys nothing: the empty state is
+    // for real queries, and one or two characters are usually a word still
+    // being typed (search-short-terms).
+    setResults(found.length === 0 && value.trim().length < 3 ? null : found)
     onQueryResult?.(value, found)
   }
 

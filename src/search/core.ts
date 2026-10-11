@@ -4,7 +4,7 @@
 // carry exact-match ranges for snippet highlighting.
 
 import type Fuse from 'fuse.js'
-import { type IFuseOptions } from 'fuse.js'
+import { type FuseResult, type IFuseOptions } from 'fuse.js'
 import { assetName, boardName } from '../vault/index'
 import { blockStartLines } from '../lineAnchors'
 
@@ -95,12 +95,11 @@ function matchTier(r: AccFlags): number {
   return 3
 }
 
-/** Query terms: whitespace-split, terms under 3 characters are noise. */
+/** Query terms: whitespace-split. Every non-empty term counts whatever its
+ *  length. A term of three or more characters matches literally or fuzzily; a
+ *  shorter one matches a whole word only (see `searchDocs`). */
 export function termsOf(query: string): string[] {
-  return query
-    .trim()
-    .split(/\s+/)
-    .filter((t) => t.length >= 3)
+  return query.trim().split(/\s+/).filter(Boolean)
 }
 
 /** Case-insensitive exact occurrences of a term in raw text. Used for
@@ -125,19 +124,76 @@ function hasExact(text: string, term: string): boolean {
   return text.toLowerCase().includes(term.toLowerCase())
 }
 
-/** AND-term search over a prepared Fuse: every query term must match; per
- *  term, ranges prefer exact occurrences and fall back to Fuse's fuzzy range
- *  only when a term has no exact match (a typo), dropping fragments under 3
- *  chars. Results sort by match tier before score — exact title, exact body,
- *  fuzzy title, fuzzy body — so literal matches lead their kind group, then by
- *  summed score, uncapped — the launcher dropdown slices per group via
- *  topPerGroup, the results view paginates the full list. */
+/** The shortest term that also matches fuzzily. A term below it matches a whole
+ *  word only, so a two-character name ("UX") is findable without turning every
+ *  short fragment into a loose substring hit. */
+const FUZZY_MIN_LENGTH = 3
+
+/** A character that can be part of a word for whole-word matching: any letter
+ *  or digit. Every other character, punctuation included, is a boundary, which
+ *  keeps `C#` and `CI/CD` matchable. Stateless (no `g` flag), so it is safe to
+ *  share across calls. */
+const WORD_CHAR = /[\p{L}\p{N}]/u
+
+function isWordChar(char: string | undefined): boolean {
+  return char !== undefined && WORD_CHAR.test(char)
+}
+
+/** Case-insensitive whole-word occurrences of a term: every literal occurrence
+ *  not touching a letter or digit on either side. This is what keeps a short
+ *  term out of longer words ("UX" never matches the "ux" in "Linux"). Built on
+ *  `indexOf` plus a boundary check rather than a per-item regex, so a scan
+ *  allocates only the ranges it returns. */
+export function wordRanges(text: string, term: string): SearchRange[] {
+  const needle = term.toLowerCase()
+  if (!needle) return []
+  const hay = text.toLowerCase()
+  const ranges: SearchRange[] = []
+  let from = 0
+  let i: number
+  while ((i = hay.indexOf(needle, from)) !== -1) {
+    const end = i + needle.length
+    if (!isWordChar(hay[i - 1]) && !isWordChar(hay[end])) ranges.push([i, end])
+    from = end
+  }
+  return ranges
+}
+
+/** Whether `term` appears in `text` as a whole word, case-insensitively. */
+function hasWord(text: string, term: string): boolean {
+  return wordRanges(text, term).length > 0
+}
+
+/** Candidate hits for a short term: pages and journal days the index already
+ *  holds whose title or body holds the term as a whole word. Fuse cannot supply
+ *  these (`minMatchCharLength: 3` drops them), so the term is matched by one
+ *  pass over the in-memory corpus, the same order as the `fuse.search` it
+ *  stands in for. Short hits carry score 0: they rank by tier, and every one of
+ *  them matched literally. */
+function wholeWordHits(fuse: Fuse<SearchDoc>, term: string): FuseResult<SearchDoc>[] {
+  const hits: FuseResult<SearchDoc>[] = []
+  for (const item of fuse.getIndex().docs) {
+    if (hasWord(item.title, term) || hasWord(item.text, term)) {
+      hits.push({ item, refIndex: -1, score: 0 })
+    }
+  }
+  return hits
+}
+
+/** AND-term search over a prepared Fuse: every query term must match. A term of
+ *  three or more characters matches literally, falling back to Fuse's fuzzy
+ *  range only when it has no exact occurrence (a typo); a shorter term matches
+ *  whole words only, with no fuzzy fallback. Results sort by match tier before
+ *  score - exact title, exact body, fuzzy title, fuzzy body - so literal matches
+ *  lead their kind group, then by summed score, uncapped: the launcher dropdown
+ *  slices per group via topPerGroup, the results view paginates the full list. */
 export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[] {
   const terms = termsOf(query)
   if (!terms.length) return []
   const acc = new Map<string, Omit<SearchResult, 'blocks'> & AccFlags>()
   for (const term of terms) {
-    const hits = fuse.search(term)
+    const short = term.length < FUZZY_MIN_LENGTH
+    const hits = short ? wholeWordHits(fuse, term) : fuse.search(term)
     for (const hit of hits) {
       const item = hit.item
       const rec = acc.get(item.path) ?? {
@@ -155,16 +211,18 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
       acc.set(item.path, rec)
       rec._terms += 1
       rec.score += hit.score ?? 1
-      rec._titleExact &&= hasExact(item.title, term)
-      const textMatch = hit.matches?.find((m) => m.key === 'text')
-      let ranges = exactRanges(item.text, term)
+      rec._titleExact &&= short ? hasWord(item.title, term) : hasExact(item.title, term)
+      let ranges = short ? wordRanges(item.text, term) : exactRanges(item.text, term)
       rec._bodyExact &&= ranges.length > 0
-      if (!ranges.length && textMatch) {
-        ranges = textMatch.indices
-          .map(([s, e]) => [s, e + 1] as SearchRange)
-          .filter(([s, e]) => e - s >= 3)
+      if (!short && !ranges.length) {
+        const textMatch = hit.matches?.find((m) => m.key === 'text')
+        if (textMatch) {
+          ranges = textMatch.indices
+            .map(([s, e]) => [s, e + 1] as SearchRange)
+            .filter(([s, e]) => e - s >= 3)
+        }
       }
-      rec._titleFuzzy ||= !!hit.matches?.some((m) => m.key === 'title')
+      rec._titleFuzzy ||= !short && !!hit.matches?.some((m) => m.key === 'title')
       rec.ranges.push(...ranges)
     }
   }
