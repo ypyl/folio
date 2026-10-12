@@ -118,6 +118,13 @@ const URL_CLASS = 'folio-cm-url'
 /** Decoration classes for the document's own Markdown syntax. */
 const HEADING_CLASS = 'folio-cm-heading'
 const FENCE_CLASS = 'folio-cm-fence'
+/** The code block's panel: a full-width line class on every line of a fenced
+ *  block, with first/last roles for the padded, rounded ends. The `FENCE_CLASS`
+ *  mark keeps the block's text colour; only a line class can paint the line box
+ *  an inline mark cannot reach (DESIGN.md — Code). */
+const CODE_PANEL_CLASS = 'folio-cm-code'
+const CODE_PANEL_FIRST_CLASS = 'folio-cm-code-first'
+const CODE_PANEL_LAST_CLASS = 'folio-cm-code-last'
 const QUOTE_CLASS = 'folio-cm-quote'
 const MARKER_CLASS = 'folio-cm-marker'
 
@@ -657,6 +664,35 @@ function inLiteral(state: EditorState, pos: number, side: 1 | -1 = 1): boolean {
   return false
 }
 
+/** The panel classes for one fenced block: every line of the block in
+ *  `[first, last]` that the viewport also holds, with the padded/rounded roles
+ *  on the block's own first and last line. Pure, so the viewport clamp is
+ *  unit-testable without a browser: only the lines in view are decorated, and a
+ *  role names the node's real edge, so a fence scrolled past its top shows no
+ *  false edge. */
+export function codePanelLines(
+  doc: Text,
+  from: number,
+  to: number,
+  visibleFirst: number,
+  visibleLast: number,
+): { number: number; classes: string[] }[] {
+  const first = doc.lineAt(from).number
+  const final = doc.lineAt(to).number
+  const lines: { number: number; classes: string[] }[] = []
+  for (
+    let number = Math.max(first, visibleFirst);
+    number <= Math.min(final, visibleLast);
+    number += 1
+  ) {
+    const classes = [CODE_PANEL_CLASS]
+    if (number === first) classes.push(CODE_PANEL_FIRST_CLASS)
+    if (number === final) classes.push(CODE_PANEL_LAST_CLASS)
+    lines.push({ number, classes })
+  }
+  return lines
+}
+
 /** Build the decoration set for the visible region only. */
 function render(view: EditorView): Rendered {
   const marks: { from: number; to: number; decoration: Decoration }[] = []
@@ -764,11 +800,42 @@ function render(view: EditorView): Rendered {
   // hide their markers while the caret is away from them, so prose reads as
   // prose; everything else keeps its markers, dimmed.
   const last = view.visibleRanges[view.visibleRanges.length - 1]
+  const visibleFrom = view.visibleRanges[0]?.from ?? 0
+  const visibleTo = last?.to ?? state.doc.length
+  const visibleFirst = state.doc.lineAt(visibleFrom).number
+  const visibleLast = state.doc.lineAt(visibleTo).number
   tree.iterate({
-    from: view.visibleRanges[0]?.from ?? 0,
-    to: last?.to ?? state.doc.length,
+    from: visibleFrom,
+    to: visibleTo,
     enter: (node) => {
       const name = node.name
+
+      // A fenced block reads as a full-width panel: every line gets the panel's
+      // fill across the line box, and the block's own ends get the padded,
+      // rounded roles. The lines are clamped to the viewport, so the work scales
+      // with what is on screen, not with the document (AGENTS.md budget).
+      if (name === 'FencedCode' || name === 'CodeBlock') {
+        for (const { number, classes } of codePanelLines(
+          state.doc,
+          node.from,
+          node.to,
+          visibleFirst,
+          visibleLast,
+        )) {
+          const line = state.doc.line(number)
+          marks.push({
+            from: line.from,
+            to: line.from,
+            decoration: Decoration.line({ class: classes.join(' ') }),
+          })
+        }
+        marks.push({
+          from: node.from,
+          to: node.to,
+          decoration: Decoration.mark({ class: FENCE_CLASS }),
+        })
+        return
+      }
 
       const markName = INLINE_MARKS[name]
       // A link reads as its own text: the opening mark and the tail from the
@@ -813,13 +880,11 @@ function render(view: EditorView): Rendered {
             ? // A URL outside a link is a bare URL: the text reads as a link. One
               // inside a link keeps the muted ink its destination has today.
               Decoration.mark({ class: URL_CLASS })
-            : name === 'FencedCode' || name === 'CodeBlock'
-              ? Decoration.mark({ class: FENCE_CLASS })
-              : name === 'Blockquote'
-                ? Decoration.mark({ class: QUOTE_CLASS })
-                : name === 'HeaderMark' || name === 'QuoteMark'
-                  ? Decoration.mark({ class: MARKER_CLASS })
-                  : null
+            : name === 'Blockquote'
+              ? Decoration.mark({ class: QUOTE_CLASS })
+              : name === 'HeaderMark' || name === 'QuoteMark'
+                ? Decoration.mark({ class: MARKER_CLASS })
+                : null
       if (!decoration) return
       marks.push({ from: node.from, to: node.to, decoration })
     },
@@ -893,7 +958,14 @@ const folioTheme = EditorView.theme({
   '.folio-cm-heading': { fontSize: '1.15em', letterSpacing: '-0.01em' },
   '.folio-cm-url': { color: '#1B365D' }, // --brand: a bare URL reads as a link
   '.folio-cm-marker': { color: '#a8a7a0' },
-  '.folio-cm-fence': { background: '#f5f4ed', color: '#3d3d3a' },
+  // The code block's panel (DESIGN.md — Code): a full-width ivory fill on every
+  // line, padded and rounded at the block's ends, no border. The ivory hex
+  // mirrors --ivory, which a CodeMirror theme cannot import; the two must not
+  // drift (the same rule `codeHighlight` states).
+  '.folio-cm-fence': { color: '#3d3d3a' },
+  '.folio-cm-code': { background: '#faf9f5', paddingLeft: '12px', paddingRight: '12px' },
+  '.folio-cm-code-first': { paddingTop: '8px', borderRadius: '8px 8px 0 0' },
+  '.folio-cm-code-last': { paddingBottom: '8px', borderRadius: '0 0 8px 8px' },
   '.folio-cm-quote': { color: '#6b6a64' },
 })
 

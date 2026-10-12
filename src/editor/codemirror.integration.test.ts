@@ -745,6 +745,44 @@ describe('a fenced block is highlighted in the language its info string names', 
     )
     expect(fragments).toEqual([])
     expect(styled.some((span) => span.className.includes('folio-cm-fence'))).toBe(true)
+    // The panel is the block's shape, and it is there with no language too.
+    const panel = [...content.querySelectorAll('.cm-line')].filter((line) =>
+      line.classList.contains('folio-cm-code'),
+    )
+    expect(panel.length).toBeGreaterThan(0)
+  })
+})
+
+describe('a fenced block reads as a panel', () => {
+  const panelLines = (el: HTMLElement): HTMLElement[] =>
+    [...el.querySelectorAll<HTMLElement>('.cm-line')].filter((line) =>
+      line.classList.contains('folio-cm-code'),
+    )
+
+  it('paints every line of the block, with the ends carrying the roles', async () => {
+    const el = await open('lead\n\n```js\nconst a = 1\n```\n')
+    const lines = panelLines(el)
+    expect(lines.map((line) => line.textContent)).toEqual(['```js', 'const a = 1', '```'])
+    expect(lines[0].classList.contains('folio-cm-code-first')).toBe(true)
+    expect(lines[1].classList.contains('folio-cm-code-first')).toBe(false)
+    expect(lines[1].classList.contains('folio-cm-code-last')).toBe(false)
+    expect(lines[2].classList.contains('folio-cm-code-last')).toBe(true)
+  })
+
+  it('keeps the fence lines visible and the source editable', async () => {
+    const el = await open('lead\n\n```js\nconst a = 1\n```\n')
+    // The fences are still the page's text, so the block is edited as Markdown.
+    expect(el.textContent).toContain('```js')
+    expect(el.textContent).toContain('const a = 1')
+    const changes: string[] = []
+    adapter?.onChange((markdown) => changes.push(markdown))
+    adapter?.insertMarkdown('x')
+    expect(changes[0]).toContain('```js\nconst a = 1\n```')
+  })
+
+  it('leaves the panel off prose', async () => {
+    const el = await open('lead\n\nplain words\n')
+    expect(panelLines(el)).toEqual([])
   })
 })
 
