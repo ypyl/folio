@@ -59,9 +59,11 @@ link's hidden destination SHALL remain what Ctrl+Click opens. Inside code,
 characters SHALL stay literal. A fenced code block SHALL render as a full-width
 panel: each of the block's lines SHALL carry the panel's fill across the whole
 line, with the block's first and last lines padded and its ends rounded, so the
-block reads apart from the prose. The fence lines SHALL stay visible and
-editable, the panel SHALL carry no border, and the rendering SHALL remain
-presentational — the document keeps every character.
+block reads apart from the prose. The panel's fill SHALL be the app's code
+surface — the same fill inline code carries — so the block reads as one surface
+and no narrower background shows behind its text. The fence lines SHALL stay
+visible and editable, the panel SHALL carry no border, and the rendering SHALL
+remain presentational — the document keeps every character.
 
 #### Scenario: A reference renders as a badge
 
@@ -116,8 +118,9 @@ presentational — the document keeps every character.
 - **GIVEN** a page whose Markdown contains a fence opened with a language
 - **WHEN** the page renders
 - **THEN** the block's content is highlighted for that language, the block reads
-  as a full-width panel with a fill, padding, and rounded ends, the fence lines
-  stay visible and editable, and a fence with no language renders monochrome
+  as one full-width panel in the app's code surface with padding and rounded
+  ends, the fence lines stay visible and editable, and a fence with no language
+  renders monochrome
 
 #### Scenario: The panel is presentational
 

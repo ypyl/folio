@@ -47,7 +47,7 @@ restraint.
 |---|---|---|
 | `--parchment` | `#f5f4ed` | Page background — warm cream, the emotional foundation. **Never pure white** |
 | `--ivory` | `#faf9f5` | Quiet filled container (brighter than parchment) |
-| `--inline-code-bg` | `#f0eee6` | Screen inline annotation — one warm-gray step darker than parchment |
+| `--inline-code-bg` | `#f0eee6` | Screen code surface — inline pills and fenced-block panels, one warm-gray step darker than parchment |
 | `--warm-sand` | `#e8e6dc` | Interactive surface (secondary buttons) |
 | `--dark-surface` | `#30302e` | Dark-theme container — warm charcoal |
 | `--deep-dark` | `#141413` | Dark-theme page background — not pure black, slight olive undertone |
@@ -303,12 +303,14 @@ same weight and margin it always had.
 
 A fenced block is highlighted in place (ADR-0029): the fence and its language
 are the Markdown text, and the block's content is coloured by the grammar the
-opening fence names. A quiet ivory fill — no border, 8px radius — marks the
-block out from the prose. Syntax highlighting uses existing tokens only: keyword
-`--brand`, comment `--stone`, string `--olive`, number `--dark-warm`,
-function/class `--near-black`. The mapping lives in
-`src/editor/codeHighlight.ts` (hex values mirror the tokens above, so the two
-must not drift); a fence with no language stays monochrome.
+opening fence names. One warm-gray fill — the same `--inline-code-bg` surface
+inline code carries, no border, 8px radius — marks the block out from the
+prose, so a block reads as a single surface rather than narrower boxes behind
+its text. Syntax highlighting uses existing tokens only: keyword `--brand`,
+comment `--stone`, string `--olive`, number `--dark-warm`, function/class
+`--near-black`. The mapping lives in `src/editor/codeHighlight.ts` (hex values
+mirror the tokens above, so the two must not drift); a fence with no language
+stays monochrome.
 
 ### Search match
 

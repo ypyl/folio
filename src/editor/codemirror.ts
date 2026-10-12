@@ -935,7 +935,7 @@ const folioHighlight = HighlightStyle.define([
   { tag: tags.strong, color: '#141413', fontWeight: '600' },
   { tag: tags.emphasis, fontStyle: 'italic' },
   { tag: tags.strikethrough, textDecoration: 'line-through' },
-  { tag: tags.monospace, background: '#f0efe8', color: '#3d3d3a', borderRadius: '3px' },
+  { tag: tags.monospace, background: '#f0eee6', color: '#3d3d3a', borderRadius: '3px' },
   { tag: tags.contentSeparator, color: '#141413', fontWeight: '600' },
   { tag: tags.link, color: '#1B365D' },
   { tag: tags.url, color: '#6b6a64' },
@@ -958,12 +958,14 @@ const folioTheme = EditorView.theme({
   '.folio-cm-heading': { fontSize: '1.15em', letterSpacing: '-0.01em' },
   '.folio-cm-url': { color: '#1B365D' }, // --brand: a bare URL reads as a link
   '.folio-cm-marker': { color: '#a8a7a0' },
-  // The code block's panel (DESIGN.md — Code): a full-width ivory fill on every
-  // line, padded and rounded at the block's ends, no border. The ivory hex
-  // mirrors --ivory, which a CodeMirror theme cannot import; the two must not
-  // drift (the same rule `codeHighlight` states).
+  // The code block's panel (DESIGN.md — Code): a full-width fill in the app's
+  // code surface, the same --inline-code-bg that the code text's own monospace
+  // pill uses, so the two are one surface and no narrower background shows
+  // behind the text. Padded and rounded at the block's ends, no border. The hex
+  // mirrors --inline-code-bg, which a CodeMirror theme cannot import; the two
+  // must not drift (the same rule `codeHighlight` states).
   '.folio-cm-fence': { color: '#3d3d3a' },
-  '.folio-cm-code': { background: '#faf9f5', paddingLeft: '12px', paddingRight: '12px' },
+  '.folio-cm-code': { background: '#f0eee6', paddingLeft: '12px', paddingRight: '12px' },
   '.folio-cm-code-first': { paddingTop: '8px', borderRadius: '8px 8px 0 0' },
   '.folio-cm-code-last': { paddingBottom: '8px', borderRadius: '0 0 8px 8px' },
   '.folio-cm-quote': { color: '#6b6a64' },

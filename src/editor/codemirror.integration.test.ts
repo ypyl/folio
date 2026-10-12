@@ -784,6 +784,18 @@ describe('a fenced block reads as a panel', () => {
     const el = await open('lead\n\nplain words\n')
     expect(panelLines(el)).toEqual([])
   })
+
+  it('paints the panel and the code text in one code surface', async () => {
+    const el = await open('lead\n\n```\nplain words\n```\n')
+    const codeLine = panelLines(el)[1]
+    // The code text's own monospace span (the old text-width pill) sits on the
+    // same code surface as the full-width panel, so it leaves no narrower
+    // background behind the words (`--inline-code-bg` #f0eee6).
+    const pill = codeLine.querySelector('span span')
+    expect(getComputedStyle(codeLine).backgroundColor).toBe('rgb(240, 238, 230)')
+    expect(pill).not.toBeNull()
+    expect(getComputedStyle(pill as Element).backgroundColor).toBe('rgb(240, 238, 230)')
+  })
 })
 
 describe('a markdown link reads as its text', () => {
