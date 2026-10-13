@@ -56,6 +56,12 @@ export interface EditorAdapter {
   staticBlocks(): StaticBlock[]
   /** Subscribe to document changes; the callback receives serialized Markdown. */
   onChange(listener: (markdown: string) => void): void
+  /** Subscribe to the surface re-rendering: the callback runs after a document,
+   *  selection, or viewport change, when the editor may have mounted or removed
+   *  rendered nodes. A view notification: it carries no document and is not a
+   *  change to save. The pane re-registers the images the editor brought into
+   *  view through it (render-vault-images, ADR-0028). */
+  onRender(listener: () => void): void
   /** Subscribe to reference activation (badge click or Mod+Enter); the callback
    *  receives the target name and which namespace it names — a page or a board —
    *  never a resolved path (ADR-0010). */

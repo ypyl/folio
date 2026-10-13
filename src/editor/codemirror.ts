@@ -1050,6 +1050,7 @@ function linkAt(view: EditorView, pos: number): string | null {
 export class CodeMirrorAdapter implements EditorAdapter {
   private view: EditorView | null = null
   private changeListener: ((markdown: string) => void) | null = null
+  private renderListener: (() => void) | null = null
   private referenceClickListener: ((target: string, kind: 'page' | 'board') => void) | null = null
   private boardLinkListener: ((path: string) => void) | null = null
   private assetReader: ((path: string) => Promise<Blob>) | null = null
@@ -1086,6 +1087,14 @@ export class CodeMirrorAdapter implements EditorAdapter {
       autocompletion({ override: [completionSource(this.sources)] }),
       folioTheme,
       EditorView.updateListener.of((update) => {
+        // The rendered DOM changed (a new document, selection, or viewport), so
+        // the pane re-registers images the editor mounted or dropped: CodeMirror
+        // creates an image widget's element only when it scrolls into view or
+        // the caret leaves its reference, and both happen with no document
+        // change (render-vault-images, ADR-0028). The condition mirrors the
+        // live-preview plugin's own re-render triggers.
+        if (update.docChanged || update.selectionSet || update.viewportChanged)
+          this.renderListener?.()
         if (!update.docChanged) return
         const text = update.state.doc.toString()
         if (this.seed !== null) {
@@ -1174,6 +1183,10 @@ export class CodeMirrorAdapter implements EditorAdapter {
 
   onChange(listener: (markdown: string) => void): void {
     this.changeListener = listener
+  }
+
+  onRender(listener: () => void): void {
+    this.renderListener = listener
   }
 
   onReferenceClick(listener: (target: string, kind: 'page' | 'board') => void): void {

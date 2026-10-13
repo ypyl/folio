@@ -123,6 +123,17 @@ describe('inline rendering is view-only', () => {
     create.mockRestore()
   })
 
+  it('reports a render when the caret moves, so a remounted image is re-registered', async () => {
+    // The live-preview plugin re-renders on a selection change, which mounts or
+    // drops an image widget's element with no document change; the pane's pass
+    // must be told so it can register what is now on screen (ADR-0028).
+    await open('![photo](assets/photo.png)\n\ntail')
+    let renders = 0
+    adapter?.onRender(() => (renders += 1))
+    adapter?.applyChord('ArrowRight')
+    expect(renders).toBeGreaterThan(0)
+  })
+
   it('renders an angle-bracketed destination holding a space', async () => {
     const el = await open('lead\n\n![photo](<my photo.png>)\n')
     expect(el.querySelector('.folio-image img')?.getAttribute('src')).toBe('my photo.png')

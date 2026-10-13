@@ -30,6 +30,7 @@ export class FakeEditor implements EditorAdapter {
   /** How many times the shell took focus back (add-compact-mobile-shell). */
   focuses = 0
   private listeners: ((markdown: string) => void)[] = []
+  private renderListeners: (() => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
   private boardLinkListeners: ((path: string) => void)[] = []
   /** Every attached vault reader, in order (open-vault-assets) — lets pane
@@ -72,6 +73,7 @@ export class FakeEditor implements EditorAdapter {
   async destroy(): Promise<void> {
     this.destructed = true
     this.listeners = []
+    this.renderListeners = []
     this.referenceListeners = []
     this.boardLinkListeners = []
     this.suggestionSources = null
@@ -119,6 +121,10 @@ export class FakeEditor implements EditorAdapter {
     this.listeners.push(listener)
   }
 
+  onRender(listener: () => void): void {
+    this.renderListeners.push(listener)
+  }
+
   onReferenceClick(listener: (target: string, kind: ReferenceKind) => void): void {
     this.referenceListeners.push(listener)
   }
@@ -159,6 +165,13 @@ export class FakeEditor implements EditorAdapter {
   emitChange(markdown: string): void {
     this.content = markdown
     this.syncDoc()
+    this.emitRender()
     for (const listener of this.listeners) listener(markdown)
+  }
+
+  /** Test hook: simulate the surface re-rendering (a document or viewport
+   *  change) without changing the document, as a scroll does. */
+  emitRender(): void {
+    for (const listener of this.renderListeners) listener()
   }
 }

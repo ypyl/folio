@@ -100,3 +100,55 @@ test('Escape dismisses the located frames', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(frames).toHaveCount(0)
 })
+
+// openspec/specs/editing: a vault image resolves as it scrolls into view
+// (render-vault-images, ADR-0028). CodeMirror mounts an image's element only
+// when it enters the viewport, so the pane must re-register images on a render
+// with no document change; without that, a scrolled-to image keeps its raw
+// vault path and shows as broken.
+test('a vault image resolves as it scrolls into view', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory()
+    for await (const [name] of root.entries()) await root.removeEntry(name, { recursive: true })
+    const assets = await root.getDirectoryHandle('assets', { create: true })
+    const pages = await root.getDirectoryHandle('pages', { create: true })
+
+    const png = await new Promise<Uint8Array>((resolve) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 8
+      canvas.height = 8
+      canvas.getContext('2d')!.fillRect(0, 0, 8, 8)
+      canvas.toBlob(async (blob) => resolve(new Uint8Array(await blob!.arrayBuffer())), 'image/png')
+    })
+
+    let body = ''
+    for (let i = 0; i < 15; i++) {
+      const file = await assets.getFileHandle(`shot-${i}.png`, { create: true })
+      const writable = await file.createWritable()
+      await writable.write(png)
+      await writable.close()
+      // Tall filler so each image sits a screen apart.
+      body += `\n\n![shot ${i}](assets/shot-${i}.png)\n\n${'filler\n'.repeat(30)}`
+    }
+    const pageFile = await pages.getFileHandle('Shots.md', { create: true })
+    const writable = await pageFile.createWritable()
+    await writable.write(body)
+    await writable.close()
+  })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Shots' }).click()
+
+  // Every image the editor mounts while scrolling shows vault bytes, not the
+  // path the browser cannot fetch.
+  const pane = page.locator('main')
+  for (let step = 0; step < 5; step++) {
+    await pane.evaluate((el) => el.scrollBy(0, 900))
+    const sources = await page.locator('.folio-image img').evaluateAll((imgs) =>
+      imgs.map((img) => img.getAttribute('src') ?? ''),
+    )
+    expect(sources.length).toBeGreaterThan(0)
+    expect(sources.every((src) => src.startsWith('blob:'))).toBe(true)
+  }
+})

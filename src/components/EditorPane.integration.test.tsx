@@ -37,6 +37,7 @@ type FakeEditorView = EditorAdapter & {
   chords: string[]
   assetReaders: ((path: string) => Promise<Blob>)[]
   emitChange: (markdown: string) => void
+  emitRender: () => void
   emitReferenceClick: (target: string) => void
   blocks: StaticBlock[]
   highlights: number[][]
@@ -328,6 +329,39 @@ describe('EditorPane', () => {
     } finally {
       vi.unstubAllGlobals()
       revoke.mockRestore()
+    }
+  })
+
+  // render-vault-images / ADR-0028: CodeMirror mounts an image widget only when
+  // it scrolls into view, with no document change, so the pane must re-register
+  // images on every render, not only on an edit.
+  it('registers an image the editor mounts on a viewport change', async () => {
+    vi.stubGlobal('IntersectionObserver', ControlledObserver)
+    ControlledObserver.instances.length = 0
+    try {
+      const read = vi.fn(async () => new Blob(['png']))
+      render(
+        <EditorPane page={page} initialContent={'hello'} onChange={() => {}} readAsset={read} />,
+      )
+      // Wait for the editor to mount and seed, so the surface is the live one.
+      await waitFor(() => expect(fake().setContents).toContain('hello'))
+      const surface = document.querySelector('.fake-editor-surface') as HTMLElement
+      const observer = await waitFor(() => {
+        const el = ControlledObserver.instances[0]
+        expect(el).toBeDefined()
+        return el
+      })
+      // The editor mounts a new image element without touching the document.
+      const late = document.createElement('img')
+      late.setAttribute('src', 'assets/late.png')
+      surface.appendChild(late)
+      act(() => fake().emitRender())
+      expect(observer.observed).toContain(late)
+      act(() => observer.emit(late, true))
+      await waitFor(() => expect(read).toHaveBeenCalledWith('assets/late.png'))
+      await waitFor(() => expect(late.getAttribute('src')).toMatch(/^blob:/))
+    } finally {
+      vi.unstubAllGlobals()
     }
   })
 

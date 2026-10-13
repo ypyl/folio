@@ -259,8 +259,12 @@ export function EditorPane({
     adapter.onChange((markdown) => {
       setIsEmpty(markdown.trim() === '')
       onChange(markdown)
-      updateImages()
     })
+    // The rendered DOM changed: the editor mounted an image widget as it
+    // scrolled into view, or dropped one as it left, so the pass re-registers
+    // what is on screen (ADR-0028). The editor reports this with no document
+    // change, which is why the change listener alone is not enough.
+    adapter.onRender(() => updateImages())
     adapter.onReferenceClick((target, kind) => openReferenceRef.current?.(target, kind))
     adapter.onBoardLink((path) => boardLinkRef.current?.(path))
     // Vault links (open-vault-assets): the bytes behind a link that points into
