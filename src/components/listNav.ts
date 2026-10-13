@@ -24,6 +24,9 @@ export function listKeyDown({
 }): (e: KeyboardEvent) => void {
   return (e) => {
     if (e.key === 'Escape') {
+      // Claiming the key is reported by preventDefault (chord.ts): the app's
+      // frame-dismiss listens for Escape and must see this surface owned it.
+      e.preventDefault()
       onEscape?.()
       return
     }

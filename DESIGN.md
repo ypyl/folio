@@ -319,10 +319,12 @@ with a 1px `--brand` edge around its whole extent — every line of the block,
 from its start line through its last non-blank line — and the first match's
 block is the one scrolled into view. The frames are identical; nothing marks the
 scrolled-to one apart from the scroll. They stay until a later locate replaces
-them (`.folio-search-hit`, with `.folio-search-hit-first` and
-`.folio-search-hit-last` carrying the horizontal edges). They do not fade, and an
-edit does not clear them: each belongs to the block it found, so it stays with
-that text.
+them, or until `Escape` clears them (`.folio-search-hit`, with
+`.folio-search-hit-first` and `.folio-search-hit-last` carrying the horizontal
+edges). Escape yields to any surface that already claims it, and a cleared page
+stays unmarked when it is opened again until the next locate. They do not fade,
+and an edit does not clear them: each belongs to the block it found, so it stays
+with that text.
 
 The frame is drawn with inset `box-shadow` on a positioned overlay, never a
 border or a fill: a border grows the line's box, which would move the text and

@@ -1083,6 +1083,89 @@ describe('content search over the real index (search spec)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('clears the frames on Escape', async () => {
+    render(<App />)
+    await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n' } }))
+    await screen.findByRole('button', { name: 'Notes' })
+    fireEvent.change(searchInput(), { target: { value: 'dog' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
+    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
+
+    // Escape is the lowest claim on the key, so with nothing else open it
+    // dismisses the frames (dismiss-located-block-frames).
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([]))
+    vi.unstubAllGlobals()
+  })
+
+  it('leaves the frames when the spotlight claims Escape', async () => {
+    render(<App />)
+    await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n' } }))
+    await screen.findByRole('button', { name: 'Notes' })
+    fireEvent.change(searchInput(), { target: { value: 'dog' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
+    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
+
+    // Reopen the spotlight (the query is kept) and Escape it: it clears and
+    // closes, and the frames survive because the surface owns the key.
+    const input = searchInput()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    await waitFor(() => expect((input.closest('dialog') as HTMLDialogElement).open).toBe(false))
+    expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1])
+    vi.unstubAllGlobals()
+  })
+
+  it('leaves the frames when the results view claims Escape', async () => {
+    render(<App />)
+    await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n' } }))
+    await screen.findByRole('button', { name: 'Notes' })
+    fireEvent.change(searchInput(), { target: { value: 'dog' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
+    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
+
+    // See-all opens the full results view; Escape there closes the view. The
+    // frames are left alone, so returning to the page shows them again.
+    searchInput()
+    fireEvent.click(await screen.findByRole('button', { name: /See all/ }))
+    const view = await screen.findByRole('main', { name: 'Search results' })
+    fireEvent.keyDown(view, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('main', { name: 'Search results' })).toBeNull())
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps a cleared page unmarked until the next locate', async () => {
+    render(<App />)
+    await openFixture(
+      buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n', 'Other.md': 'Nothing here.\n' } }),
+    )
+    await screen.findByRole('button', { name: 'Notes' })
+    fireEvent.change(searchInput(), { target: { value: 'dog' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
+    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([]))
+
+    // The slot is empty, so leaving the page and coming back finds it unmarked.
+    fireEvent.click(filesSection().getByRole('button', { name: 'Other' }))
+    await waitFor(() => expect(editor().content).toContain('Nothing here'))
+    fireEvent.click(filesSection().getByRole('button', { name: 'Notes' }))
+    await waitFor(() => expect(editor().content).toContain('Body dog'))
+    expect(editor().highlights[editor().highlights.length - 1]).toEqual([])
+
+    // A later locate frames it again.
+    fireEvent.change(searchInput(), { target: { value: 'dog' } })
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
+    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
+    vi.unstubAllGlobals()
+  })
+
   it('opens a journal day from a search result like the calendar would', async () => {
     render(<App />)
     await openFixture()

@@ -146,6 +146,11 @@ export function SearchSpotlight({
   // Escape clears the query and closes; the shared list handler owns the rest.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
+      // Claiming the key is reported by preventDefault (chord.ts): the app's
+      // frame-dismiss listens for Escape and must see the spotlight owned it.
+      // The spotlight closes through onClose below, so suppressing the key's
+      // default does not leave the dialog open.
+      e.preventDefault()
       clear()
       onClose()
       return

@@ -740,9 +740,12 @@ moves and reflows nothing. It SHALL be presentational: it SHALL NOT enter the
 page's Markdown, change the saved content, or be written. It SHALL NOT fade, and
 a document change SHALL NOT clear it; each frame SHALL stay with the text it
 marks as the document changes. Leaving the located page and returning, including
-through Back and Forward, SHALL NOT clear it. A page opened with no block named
-SHALL be unmarked. Locating SHALL NOT create an undoable edit and SHALL NOT move
-the caret or the selection.
+through Back and Forward, SHALL NOT clear it. Pressing `Escape` SHALL clear the
+frames when no other surface claims the key, and a page whose frames were
+cleared SHALL be unmarked when it is opened again; the next locate SHALL frame
+it again. `Escape` SHALL NOT clear the frames while a surface that claims it is
+open. A page opened with no block named SHALL be unmarked. Locating SHALL NOT
+create an undoable edit and SHALL NOT move the caret or the selection.
 
 #### Scenario: A requested block is scrolled to and framed
 
@@ -774,6 +777,27 @@ the caret or the selection.
 - **WHEN** the user opens another page and comes back, or steps back through
   history
 - **THEN** the block is framed again, without a further search
+
+#### Scenario: Escape clears the frames
+
+- **GIVEN** a page with one or more framed blocks and no other surface open
+- **WHEN** the user presses `Escape`
+- **THEN** the frames are gone, and the page and its file are otherwise
+  unchanged
+
+#### Scenario: A cleared page stays unmarked
+
+- **GIVEN** a page whose frames were cleared with `Escape`
+- **WHEN** the user opens another page and comes back
+- **THEN** the page is unmarked, and a later locate frames it again
+
+#### Scenario: Escape yields to an open surface
+
+- **GIVEN** a page with framed blocks and a surface that claims `Escape` open —
+  the search spotlight, the results view, the app tour, the presentation deck,
+  the row context menu, or the editor's completion popup
+- **WHEN** the user presses `Escape`
+- **THEN** that surface handles the key and the frames are still there
 
 #### Scenario: The mark never reaches the file
 

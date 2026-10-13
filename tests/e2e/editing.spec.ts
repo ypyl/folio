@@ -69,3 +69,34 @@ test('typing a reference completes a page and stays out of code', async ({ page 
   await page.waitForTimeout(400)
   await expect(page.locator('.cm-tooltip-autocomplete')).toHaveCount(0)
 })
+
+// openspec/specs/editing: the located frames are dismissed with Escape, but the
+// spotlight keeps the key while it is open (dismiss-located-block-frames).
+test('Escape dismisses the located frames', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, { 'pages/Notes.md': '# dog\n\nBody dog\n\nMore dog\n' })
+  await openVault(page)
+  await expect(page.getByRole('button', { name: 'Notes' })).toBeVisible()
+
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Search notes' }).fill('dog')
+  await page.getByRole('option', { name: /Notes/ }).click()
+
+  // Every matching block is framed, one line each.
+  const frames = page.locator('.folio-search-hit')
+  await expect(frames).toHaveCount(3)
+
+  // The spotlight claims Escape first: reopening and dismissing it leaves the
+  // frames in place.
+  await page.keyboard.press('Control+k')
+  const spotlight = page.getByRole('textbox', { name: 'Search notes' })
+  await expect(spotlight).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(spotlight).not.toBeVisible()
+  await expect(frames).toHaveCount(3)
+
+  // With nothing else claiming the key, Escape clears the frames.
+  await page.keyboard.press('Escape')
+  await expect(frames).toHaveCount(0)
+})

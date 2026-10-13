@@ -698,6 +698,24 @@ function App() {
     return () => document.removeEventListener('keydown', onKeyDown, true)
   }, [activeFolder, handleBack, handleForward])
 
+  // Escape dismisses the located frames (dismiss-located-block-frames): the
+  // frames are search residue, and Escape is how search surfaces are dismissed.
+  // It is the lowest claim on the key, so every surface that already uses it
+  // keeps it: the handler yields to an event another surface prevented, and to
+  // each surface App owns. A cleared slot is null, so the page is no longer
+  // remembered as framed and returning to it shows nothing until the next
+  // locate. Reads state only; nothing here runs on a keystroke.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (searchOpen || tourOpen || importView !== null || slides !== null || mode === 'results')
+        return
+      setMatchHighlight(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [searchOpen, tourOpen, importView, slides, mode])
+
   // Focus follows the view (design D1): a covered editor leaves the tab order,
   // so the platform drops focus on the body when the row that held it is
   // hidden. Returning to the editor restores it. Wide viewports never take this
