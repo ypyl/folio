@@ -32,7 +32,7 @@ const DEFAULT_MAX_CONCURRENT = 3
 const WRAPPER_CLASS = 'folio-image'
 
 /** A browser-provided "is this element in view" signal (design D6). */
-export type VisibilityObserver = {
+type VisibilityObserver = {
   observe(target: Element): void
   unobserve(target: Element): void
   disconnect(): void
@@ -46,7 +46,7 @@ export type ObserverFactory = (
   rootMargin: string,
 ) => VisibilityObserver
 
-export type AssetImagesOptions = {
+type AssetImagesOptions = {
   /** The scroll container whose viewport decides what is needed (design D1). */
   root?: Element | null
   /** How many vault reads may be in flight at once (D3). */
@@ -164,10 +164,10 @@ function releasePath(cache: AssetImages, path: string): void {
 /** Start as many queued reads as the in-flight cap allows, one read per path. */
 function pump(cache: AssetImages): void {
   while (cache.reading.size < cache.maxConcurrent && cache.queue.length > 0) {
-    const path = cache.queue.shift() as string
-    if (cache.urls.has(path) || cache.failed.has(path) || cache.reading.has(path)) continue
     const read = cache.read
     if (read === null) return
+    const path = cache.queue.shift() as string
+    if (cache.urls.has(path) || cache.failed.has(path) || cache.reading.has(path)) continue
     cache.reading.add(path)
     read(path)
       .then((blob) => {
