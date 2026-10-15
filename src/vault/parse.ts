@@ -111,7 +111,7 @@ const CLOSING_BRACKET = /\]/
  * caret. The trigger is the longest token prefix `REF` would accept, so the
  * popup's replace range is exactly the text the user is typing.
  */
-export type ReferenceTrigger = {
+type ReferenceTrigger = {
   kind: 'word' | 'bracketed'
   /** Raw token text from '#' through the caret: `#rea`, `#[[read`. */
   text: string
@@ -150,7 +150,7 @@ export function referenceTrigger(before: string, after: string): ReferenceTrigge
 
 /** The board-reference token being typed at the caret (`#!` / `#![[`): the
  *  page trigger with the board sigil (add-whiteboards, design D2). */
-export type BoardTrigger = {
+type BoardTrigger = {
   board: true
   kind: 'word' | 'bracketed'
   /** Raw token text from `#!` through the caret: `#!Mig`, `#![[Mig`. */
@@ -188,7 +188,7 @@ export function boardReferenceTrigger(before: string, after: string): BoardTrigg
  * `image` whether the construct is an image's. All three are needed by the
  * accept step, which replaces the whole construct.
  */
-export type DestinationTrigger = {
+type DestinationTrigger = {
   kind: 'destination'
   /** The typed destination after `](`: `q3`, `assets/q3`. Never empty. */
   text: string

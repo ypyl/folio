@@ -80,7 +80,7 @@ export function journalFileName(stem: string): string {
 }
 
 /** Per-run rewrite counters, surfaced in the result report. */
-export type ImportStats = {
+type ImportStats = {
   plainWikilinks: number
   bracketedRefs: number
   aliasedLinks: number
@@ -280,7 +280,7 @@ export type ImportReport = {
   stats: ImportStats
 }
 
-export type ImportResult = { ok: true; report: ImportReport } | { ok: false; error: string }
+type ImportResult = { ok: true; report: ImportReport } | { ok: false; error: string }
 
 /** The hidden ledger of imported source files (merge-logseq-imports): app-owned
  *  vault meta beside `.folio/pins.md` (ADR-0015), never a page. One entry per

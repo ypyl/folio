@@ -128,15 +128,11 @@ export function vaultTarget(href: string | null | undefined): string | null {
   // nothing is served at it (spec: non-external targets do not open).
   if (!href || href.startsWith('#') || BARE_WWW.test(href) || !isVaultRelative(href)) return null
   try {
-    try {
-      // Strict, unlike `decodeVaultPath`: a destination the browser cannot
-      // decode names no file this vault holds, so the open gesture refuses it.
-      // The index and the image pass keep the literal instead, so a file whose
-      // name really does carry a `%` still lists and still renders.
-      return decodeURIComponent(href)
-    } catch {
-      return null
-    }
+    // Strict, unlike `decodeVaultPath`: a destination the browser cannot
+    // decode names no file this vault holds, so the open gesture refuses it.
+    // The index and the image pass keep the literal instead, so a file whose
+    // name really does carry a `%` still lists and still renders.
+    return decodeURIComponent(href)
   } catch {
     return null
   }
@@ -171,7 +167,7 @@ export function isDisplayable(path: string): boolean {
 
 /** How to read a vault file's bytes: the shape the storage seam's binary read
  *  already has, so a vault hands its own reader straight through. */
-export type AssetReader = (path: string) => Promise<Blob>
+type AssetReader = (path: string) => Promise<Blob>
 
 /** The reader for a page with no vault behind it: it cannot answer, so a vault
  *  link opens nothing. The adapter's reader before one is attached, and the
@@ -180,7 +176,7 @@ export const noVaultReader: AssetReader = () => Promise.reject(new Error('no vau
 
 /** The DOM side of opening, injected so the decisions above can be exercised
  *  without a browser (design D8). */
-export type Openers = {
+type Openers = {
   /** Open a blank window *now*, before the read, and return a handle to it;
    *  null when no window could be opened. The read fills it later, or discards
    *  it by closing it. */
@@ -192,7 +188,7 @@ export type Openers = {
 /** The real openers. The blank window is opened before the read because a user
  *  gesture is what allows a window at all (design D4), and its `opener` is
  *  cleared so a file that carries script of its own cannot reach the app. */
-export const domOpeners: Openers = {
+const domOpeners: Openers = {
   openTab: () => {
     const opened = window.open('', '_blank')
     if (!opened) return null

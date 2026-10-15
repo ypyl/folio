@@ -10,7 +10,7 @@
 /** Which side of its region a step's card prefers. */
 export type TourSide = 'right' | 'left' | 'top' | 'bottom' | 'center'
 
-export type TourStep = {
+type TourStep = {
   /** A CSS selector for the region the step names. */
   target: string
   title: string

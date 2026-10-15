@@ -328,7 +328,7 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
   }))
 }
 
-export type SearchSection = { label: string; items: SearchResult[] }
+type SearchSection = { label: string; items: SearchResult[] }
 
 /** The default group order (search spec: Pages, Journal, Boards, Files). */
 const DEFAULT_ORDER: SearchKind[] = ['page', 'journal', 'board', 'asset']
@@ -382,12 +382,12 @@ export function topPerGroup(results: SearchResult[]): SearchResult[] {
   return out
 }
 
-export type Segment = { text: string; hit: boolean }
+type Segment = { text: string; hit: boolean }
 
 /** One snippet: the 1-based inclusive line span it covers, how many occurrences
  *  it holds, and its hit/non-hit segments. A row renders one of these per run of
  *  nearby matches (show-every-match-per-result). */
-export type SnippetWindow = { from: number; to: number; hits: number; segments: Segment[] }
+type SnippetWindow = { from: number; to: number; hits: number; segments: Segment[] }
 
 /** How close two matches must be to share a window: a match whose first line is
  *  within this many lines of the current window's last line joins it. */

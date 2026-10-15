@@ -27,7 +27,7 @@ export type ShortcutSurface = 'editor' | 'app' | 'back' | 'forward'
 /** One key combination of a row. A shared row (Back / Forward) carries two
  *  actions (add-compact-the-history-shortcut-row), so a key may name its own
  *  action and gate on its own surface; both fall back to the row's. */
-export interface ShortcutKey {
+interface ShortcutKey {
   chord: string
   /** The action this key performs, when it differs from the row's label. */
   label?: string

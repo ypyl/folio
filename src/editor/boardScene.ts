@@ -7,10 +7,10 @@
 /** The minimal shape a signature reads from an element. Excalidraw's own
  *  element type is far larger; the host never needs more than identity and
  *  version to tell a real edit from a camera move. */
-export type SceneElement = { id: string; version?: number }
+type SceneElement = { id: string; version?: number }
 
 /** What Excalidraw's `initialData` / `serializeAsJSON` round-trip. */
-export type BoardScene = {
+type BoardScene = {
   elements: unknown[]
   appState: Record<string, unknown>
   files: Record<string, unknown>

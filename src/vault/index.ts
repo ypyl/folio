@@ -304,10 +304,10 @@ export function listAssets(files: Iterable<string>): string[] {
 const ASSETS_DIR = 'assets/'
 
 /** Where boards live (add-whiteboards); the board token's name resolves here. */
-export const BOARDS_DIR = 'boards/'
+const BOARDS_DIR = 'boards/'
 
 /** The extension that makes a file under `boards/` a board. */
-export const BOARD_EXT = '.excalidraw'
+const BOARD_EXT = '.excalidraw'
 
 /** A listed asset's row label: its path inside `assets/`, so two files with the
  *  same name in different folders read differently (vault-assets spec). A file
