@@ -76,6 +76,11 @@ export function useIndex(storage: VaultStorage | undefined): {
         if (cancelled) return
         latest.current = next
         setBuilt({ storage: store, graph: next.graph, pins: next.pins })
+      } catch {
+        // A transient read failure (a file deleted between the listing and its
+        // stat) must not reject the refresh: the current index stays and the
+        // next tick retries. The initial build above catches for the same
+        // reason.
       } finally {
         inflight.current = false
       }
