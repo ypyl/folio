@@ -672,6 +672,30 @@ describe('auto-save (page-editing spec)', () => {
     expect(await (await file.getFile()).text()).toBe('second edit\n\n')
     vi.unstubAllGlobals()
   })
+
+  it('flushes a pending edit before switching folders, so nothing is lost', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('flush before switch')
+
+    // Switch folders before the ~1s debounce fires: the old folder's writer must
+    // hand its pending edit to disk, not drop it.
+    const home = buildTree({ pages: { 'b.md': 'b' } })
+    home.name = 'Home'
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => home as unknown as FileSystemDirectoryHandle),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
+
+    await waitFor(async () => {
+      const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
+      expect(await (await file.getFile()).text()).toBe('flush before switch\n\n')
+    })
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('a page ends with an empty line (add-trailing-empty-line)', () => {

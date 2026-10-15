@@ -52,16 +52,16 @@ describe('createDebouncedSaver (design C1/C2)', () => {
     saver.dispose()
   })
 
-  it('dispose cancels a pending timer and drops drafts', async () => {
+  it('dispose flushes a pending draft instead of dropping it', async () => {
     vi.useFakeTimers()
-    const saved: string[] = []
-    const saver = createDebouncedSaver(async (p) => {
-      saved.push(p)
+    const saved: Array<[string, string]> = []
+    const saver = createDebouncedSaver(async (p, c) => {
+      saved.push([p, c])
       return true
     }, 1000)
     saver.schedule('a.md', 'x')
     saver.dispose()
-    await vi.advanceTimersByTimeAsync(2000)
-    expect(saved).toEqual([])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(saved).toEqual([['a.md', 'x']])
   })
 })

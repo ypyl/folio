@@ -773,11 +773,12 @@ function App() {
   }
 
   // Clear drafts and rebuild the saver whenever the active storage changes
-  // (drafts are disposable like the index, ADR-0004). savePage is a stable
-  // identity from useIndex, so this effect runs once per folder.
+  // (drafts are disposable like the index, ADR-0004). The previous saver's
+  // cleanup flushes its pending write first, so clearing here loses nothing.
+  // savePage is a stable identity from useIndex, so this effect runs once per
+  // folder.
   useEffect(() => {
     drafts.clear()
-    saverRef.current?.dispose()
     const saver = createDebouncedSaver(async (path, content) => {
       // Compare-skip (design C2): if the draft went back to the saved text
       // before the timer fired (an undo), there is nothing to write.
@@ -814,6 +815,26 @@ function App() {
       boardSaverRef.current = null
     }
   }, [activeFolder?.storage, saveBoard])
+
+  // The debounce leaves a short window in which the last edits are only in
+  // memory. A hidden tab or a page going away flushes both writers, so closing
+  // or reloading the tab does not drop them. The writes are async and
+  // best-effort; the listener lives for the app's whole life.
+  useEffect(() => {
+    const flush = () => {
+      void saverRef.current?.flush()
+      void boardSaverRef.current?.flush()
+    }
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onHidden)
+    }
+  }, [])
 
   // The open page's draft feeds the editor's initial content (existing draft
   // wins) and the indicator (dirty/saving/failed, else clean). `page` is

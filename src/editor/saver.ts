@@ -21,6 +21,7 @@ export function createDebouncedSaver(save: SaveFn, delay: number) {
 
   /** Write every scheduled draft in path order, sequentially. */
   async function flush(): Promise<void> {
+    if (timer !== null) clearTimeout(timer)
     timer = null
     const items = [...pending]
     pending.clear()
@@ -29,11 +30,14 @@ export function createDebouncedSaver(save: SaveFn, delay: number) {
     }
   }
 
+  /** Stop the timer and write what is pending. Disposing must not drop the last
+   *  edits: a folder switch or an unmount would otherwise lose the text typed
+   *  inside the debounce window. The writes are fire-and-forget here, and the
+   *  save function's own compare-skip still drops a page that went back to its
+   *  saved text. */
   function dispose(): void {
-    if (timer !== null) clearTimeout(timer)
-    timer = null
-    pending.clear()
+    void flush()
   }
 
-  return { schedule, dispose }
+  return { schedule, flush, dispose }
 }

@@ -9,7 +9,7 @@ Ordered most important first.
 
 ## Must fix
 
-- [ ] **Pending edits are lost on folder switch and tab close** (`src/App.tsx:778-799`,
+- [x] **Pending edits are lost on folder switch and tab close** (`src/App.tsx:778-799`,
       `src/editor/saver.ts:32-36`). The 1s debounced writer drops its pending map
       without writing: the folder-change effect runs `drafts.clear()` then
       `dispose()`, and there is no `pagehide`/`beforeunload` flush. Type a
