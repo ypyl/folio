@@ -19,6 +19,40 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
 
+## Cleaning up the vault
+
+Folio never deletes files. It edits them, so clearing a page in the app can leave an
+empty file behind, but the file itself stays in the folder. Everything else,
+deleting, renaming, moving, or emptying folders, is yours to do in your file
+manager.
+
+What a vault holds:
+
+| Path | Holds |
+| --- | --- |
+| `pages/` | one `.md` file per page, optionally in subfolders |
+| `journals/` | one `.md` file per day, named `YYYY-MM-DD.md` |
+| `assets/` | dropped, pasted, and imported files, whatever the extension |
+| `boards/` | `.excalidraw` whiteboards, referenced by `#!` tokens |
+| `.folio/` | the app's own bookkeeping: `pins.md` (pinned pages) and `imports.md` (the Logseq import ledger) |
+| anything else | ignored by Folio; a Markdown file is a page only under `pages/` or `journals/` |
+
+So cleanup is plain file deletion:
+
+- **Page or journal day**: delete its `.md` file. References to it stop resolving and
+  backlinks to it go with it; nothing else is touched.
+- **Attachment**: delete the file from `assets/`. It leaves the Assets listing and any
+  page that named it.
+- **Whiteboard**: delete the `.excalidraw` file from `boards/`. The `#!` token stays in the
+  referring page and simply stops resolving.
+- **Pins**: delete `.folio/pins.md`.
+- **Logseq import ledger**: delete `.folio/imports.md` to make a folder importable again;
+  the next run then writes those files once more, appending to what a previous run left.
+
+Folio picks deletions up when it rescans: switching back to its tab, or reopening the
+folder, re-lists the vault, so a file you deleted drops out of the index and one you
+dropped in by hand appears.
+
 ## Tech Stack
 
 - React 19 + TypeScript, built with Vite 8
