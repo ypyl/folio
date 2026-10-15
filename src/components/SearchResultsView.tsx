@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { SearchResult } from '../search/core'
+import { parseQuery, sectionsOf, type SearchResult } from '../search/core'
 import { MatchBody } from './MatchBody'
 import { listKeyDown } from './listNav'
 import styles from './SearchResultsView.module.css'
@@ -43,24 +43,15 @@ export function SearchResultsView({
     rootRef.current?.focus()
   }, [])
 
-  // Pages, then journal days, then boards, then assets, each keeping its
-  // relevance order (spec: same grouping as the dropdown, no cap).
+  // The results as operator-ordered sections (search operators), then flattened
+  // for the pager: the promoted group or the `title:` Names section leads, and
+  // every section keeps its relevance order. The same grouping as the dropdown,
+  // no cap (search spec).
+  const sections = useMemo(() => sectionsOf(results, parseQuery(query).operator), [results, query])
   const flat = useMemo(
-    () => [
-      ...results
-        .filter((r) => r.kind === 'page')
-        .map((item) => ({ item, group: 'pages' as const })),
-      ...results
-        .filter((r) => r.kind === 'journal')
-        .map((item) => ({ item, group: 'journal' as const })),
-      ...results
-        .filter((r) => r.kind === 'board')
-        .map((item) => ({ item, group: 'boards' as const })),
-      ...results
-        .filter((r) => r.kind === 'asset')
-        .map((item) => ({ item, group: 'assets' as const })),
-    ],
-    [results],
+    () =>
+      sections.flatMap((section) => section.items.map((item) => ({ item, group: section.label }))),
+    [sections],
   )
   const total = flat.length
   const pageCount = Math.max(1, Math.ceil(total / RESULTS_PER_PAGE))
@@ -112,17 +103,7 @@ export function SearchResultsView({
       </div>
       {rows.map(({ item, group, header }, i) => (
         <div key={item.path}>
-          {header && (
-            <div className={styles.groupHead}>
-              {group === 'pages'
-                ? 'Pages'
-                : group === 'journal'
-                  ? 'Journal'
-                  : group === 'boards'
-                    ? 'Boards'
-                    : 'Assets'}
-            </div>
-          )}
+          {header && <div className={styles.groupHead}>{group}</div>}
           <button
             type="button"
             className={`${styles.row}${i === active ? ` ${styles.active}` : ''}`}

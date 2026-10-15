@@ -26,6 +26,7 @@ const result = (text: string, over: Partial<SearchResult> = {}): SearchResult =>
   ranges: [],
   text,
   blocks: [],
+  matchedTitle: false,
   ...over,
 })
 

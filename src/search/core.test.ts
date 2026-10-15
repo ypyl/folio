@@ -7,12 +7,14 @@ import {
   boardSearchDoc,
   exactRanges,
   matchBlocks,
+  parseQuery,
   searchDocs,
+  sectionsOf,
   snippetSegments,
-  termsOf,
   topPerGroup,
   wordRanges,
   type SearchDoc,
+  type SearchOperator,
   type SearchRange,
 } from './core'
 
@@ -28,15 +30,6 @@ function doc(
 function fuse(docs: SearchDoc[]) {
   return new Fuse(docs, FUSE_OPTIONS)
 }
-
-describe('termsOf', () => {
-  it('splits on whitespace and keeps every non-empty term', () => {
-    expect(termsOf('  new item a  ')).toEqual(['new', 'item', 'a'])
-    expect(termsOf('ab')).toEqual(['ab'])
-    expect(termsOf('')).toEqual([])
-    expect(termsOf('   ')).toEqual([])
-  })
-})
 
 describe('wordRanges', () => {
   it('matches whole words only, case-insensitively', () => {
@@ -203,6 +196,105 @@ describe('searchDocs (exact-first ranking)', () => {
     const docs = [doc('b.md', 'Notes', 'docker body'), doc('a.md', 'Notes', 'docker body')]
     const results = searchDocs(fuse(docs), 'docker')
     expect(results.map((r) => r.path)).toEqual(['a.md', 'b.md'])
+  })
+})
+
+describe('parseQuery (search operators)', () => {
+  it('returns terms with no operator when none is typed', () => {
+    expect(parseQuery('docker kubernetes')).toEqual({
+      operator: null,
+      terms: ['docker', 'kubernetes'],
+    })
+  })
+
+  it('takes the first operator and leaves its remainder as a term', () => {
+    expect(parseQuery('board:meeting notes')).toEqual({
+      operator: 'board',
+      terms: ['meeting', 'notes'],
+    })
+  })
+
+  it('accepts a bare operator', () => {
+    expect(parseQuery('board: notes')).toEqual({ operator: 'board', terms: ['notes'] })
+    expect(parseQuery('board:')).toEqual({ operator: 'board', terms: [] })
+  })
+
+  it('is case-insensitive', () => {
+    expect(parseQuery('Board: notes')).toEqual({ operator: 'board', terms: ['notes'] })
+  })
+
+  it('maps the assets: token to the asset kind', () => {
+    expect(parseQuery('assets: report').operator).toBe('asset')
+  })
+
+  it('ignores an operator token after the first', () => {
+    expect(parseQuery('board: assets: notes')).toEqual({ operator: 'board', terms: ['notes'] })
+  })
+
+  it('leaves a colon that is not an operator word as a term', () => {
+    expect(parseQuery('http://x notes')).toEqual({ operator: null, terms: ['http://x', 'notes'] })
+  })
+})
+
+describe('matchedTitle (search operators)', () => {
+  it('is true when a term matches the title, with or without a body match', () => {
+    const [both] = searchDocs(fuse([doc('Docker.md', 'Docker', 'docker in body')]), 'docker')
+    expect(both.matchedTitle).toBe(true)
+    const [titleOnly] = searchDocs(fuse([doc('Docker.md', 'Docker', 'plain')]), 'docker')
+    expect(titleOnly.matchedTitle).toBe(true)
+  })
+
+  it('is false for a body-only match', () => {
+    const [hit] = searchDocs(fuse([doc('Notes.md', 'Notes', 'docker in body')]), 'docker')
+    expect(hit.matchedTitle).toBe(false)
+  })
+})
+
+describe('sectionsOf (search operators)', () => {
+  const corpus = [
+    doc('Notes.md', 'Notes', 'docker in the body'),
+    doc('journals/2026-09-02.md', '2026-09-02', 'docker notes', 'journal'),
+    boardSearchDoc('boards/docker-map.excalidraw'),
+    assetSearchDoc('assets/docker-notes.pdf'),
+  ]
+  const labels = (results: ReturnType<typeof searchDocs>, op: SearchOperator | null) =>
+    sectionsOf(results, op).map((s) => s.label)
+
+  it('keeps the default order with no operator', () => {
+    expect(labels(searchDocs(fuse(corpus), 'docker'), null)).toEqual([
+      'Pages',
+      'Journal',
+      'Boards',
+      'Assets',
+    ])
+  })
+
+  it('promotes the operator kind and keeps the rest in default order', () => {
+    expect(labels(searchDocs(fuse(corpus), 'docker'), 'board')).toEqual([
+      'Boards',
+      'Pages',
+      'Journal',
+      'Assets',
+    ])
+    expect(labels(searchDocs(fuse(corpus), 'docker'), 'asset')).toEqual([
+      'Assets',
+      'Pages',
+      'Journal',
+      'Boards',
+    ])
+  })
+
+  it('drops empty groups', () => {
+    const results = searchDocs(fuse([doc('Notes.md', 'Notes', 'docker')]), 'docker')
+    expect(labels(results, 'board')).toEqual(['Pages'])
+  })
+
+  it('leads with a Names section for title, then the content groups', () => {
+    const results = searchDocs(
+      fuse([doc('Docker.md', 'Docker', 'plain'), doc('Notes.md', 'Notes', 'docker')]),
+      'docker',
+    )
+    expect(labels(results, 'title')).toEqual(['Names', 'Pages'])
   })
 })
 

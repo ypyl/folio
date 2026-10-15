@@ -18,6 +18,7 @@ const result = (path: string, over: Partial<SearchResult> = {}): SearchResult =>
   ranges: [],
   text: '',
   blocks: [],
+  matchedTitle: false,
   ...over,
 })
 
@@ -216,5 +217,37 @@ describe('SearchResultsView snippet budget (show-every-match-per-result)', () =>
     const row = rows()[0] as HTMLElement
     expect(within(row).getAllByText('docker')).toHaveLength(5)
     expect(within(row).getByText('+3 more on this page')).toBeTruthy()
+  })
+})
+
+// search operators: the results view follows the query's operator, the same
+// grouping the dropdown shows.
+describe('SearchResultsView operator ordering (search operators)', () => {
+  it('leads with the promoted kind', () => {
+    renderView({
+      query: 'board: docker',
+      results: [
+        page(0),
+        result('boards/migration.excalidraw', { kind: 'board', title: 'migration', text: '' }),
+      ],
+    })
+    const heads = within(main())
+      .getAllByText(/^(Pages|Boards)$/)
+      .map((h) => h.textContent)
+    expect(heads).toEqual(['Boards', 'Pages'])
+  })
+
+  it('leads with a Names section for a title query', () => {
+    renderView({
+      query: 'title: docker',
+      results: [
+        result('Docker.md', { text: 'plain body', matchedTitle: true }),
+        result('Notes.md', { text: 'docker in the body' }),
+      ],
+    })
+    const heads = within(main())
+      .getAllByText(/^(Names|Pages)$/)
+      .map((h) => h.textContent)
+    expect(heads).toEqual(['Names', 'Pages'])
   })
 })

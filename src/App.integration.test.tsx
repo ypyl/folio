@@ -1197,10 +1197,12 @@ describe('content search over the real index (search spec)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
     // The folder switch closes the spotlight; its folder-keyed remount clears
-    // the query (search: scoped to the active vault).
+    // the query (search: scoped to the active vault). Reopening shows the
+    // operator list, since the query is empty, not a stale result set.
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(searchInput().value).toBe('')
-    expect(screen.queryByRole('listbox')).toBeNull()
+    const reopened = searchInput()
+    expect(reopened.value).toBe('')
+    expect(screen.queryByRole('listbox', { name: 'Search results' })).toBeNull()
     vi.unstubAllGlobals()
   })
 })

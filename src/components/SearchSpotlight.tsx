@@ -1,15 +1,67 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
 import {
   FUSE_OPTIONS,
+  SEARCH_OPERATORS,
+  parseQuery,
   searchDocs,
+  sectionsOf,
   topPerGroup,
+  type OperatorDef,
   type SearchDoc,
+  type SearchOperator,
   type SearchResult,
 } from '../search/core'
 import { MatchBody } from './MatchBody'
 import { listKeyDown } from './listNav'
 import styles from './SearchSpotlight.module.css'
+
+/** The operator row glyphs, keyed by operator: the catalogue carries the tokens
+ *  and the copy, the icon is a view concern. The same hairline stroke style as
+ *  the rest of the app's icons. */
+const ICON_PROPS = {
+  viewBox: '0 0 24 24',
+  width: 18,
+  height: 18,
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.6,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': true,
+} as const
+
+const OPERATOR_ICONS: Record<SearchOperator, ReactNode> = {
+  page: (
+    <svg {...ICON_PROPS}>
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4" />
+    </svg>
+  ),
+  journal: (
+    <svg {...ICON_PROPS}>
+      <rect x="4" y="5" width="16" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M4 10h16" />
+    </svg>
+  ),
+  board: (
+    <svg {...ICON_PROPS}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M9 4v16M15 4v16" />
+    </svg>
+  ),
+  asset: (
+    <svg {...ICON_PROPS}>
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4M9 13h6M9 17h6" />
+    </svg>
+  ),
+  title: (
+    <svg {...ICON_PROPS}>
+      <path d="M4 7V5h16v2M12 5v14M9 19h6" />
+    </svg>
+  ),
+}
 
 const DEBOUNCE_MS = 120
 
@@ -61,8 +113,14 @@ export function SearchSpotlight({
   // never flashes during typing.
   const [results, setResults] = useState<SearchResult[] | null>(null)
   const [active, setActive] = useState(-1)
+  // Bumped when a chosen operator row inserts its token; the effect below then
+  // moves the caret to the end once the controlled value has painted. Kept in
+  // state, not a ref, so the row handler stays a pure state update.
+  const [caretTick, setCaretTick] = useState(0)
 
   const fuse = useMemo(() => new Fuse(docs, FUSE_OPTIONS), [docs])
+  // The query's operator, if any: it decides the group order both surfaces use.
+  const { operator } = parseQuery(query)
 
   const run = (value: string) => {
     const found = searchDocs(fuse, value)
@@ -87,6 +145,26 @@ export function SearchSpotlight({
     setActive(-1)
     window.clearTimeout(timer.current)
   }
+
+  // Choosing an operator row inserts its token and leaves the caret after it, so
+  // the user finishes the query without reaching back for the field. No run is
+  // scheduled: an operator alone has no term and should not show an empty state.
+  const chooseOperator = (op: OperatorDef) => {
+    setQuery(`${op.token} `)
+    setResults(null)
+    setActive(-1)
+    setCaretTick((n) => n + 1)
+  }
+
+  // Move the caret to the end of a just-inserted operator token, once React has
+  // painted the new query into the controlled input. The tick is the trigger,
+  // since the value here is whatever the query just became.
+  useEffect(() => {
+    if (caretTick === 0) return
+    const input = inputRef.current
+    input?.focus()
+    input?.setSelectionRange(input.value.length, input.value.length)
+  }, [caretTick])
 
   // A result opens what it names (search-assets-by-name): a page or journal day
   // navigates, a file is opened in place and nothing navigates. The spotlight
@@ -158,31 +236,25 @@ export function SearchSpotlight({
     navKeyDown(e)
   }
 
-  const shown = open && results !== null
+  const empty = query.trim() === ''
+  // The operator list is what an empty query deploys (search operators); a
+  // disabled spotlight (no usable vault) deploys nothing.
+  const showOperators = open && !disabled && empty
+  const shown = open && (results !== null || showOperators)
   // The dropdown stays a bounded launcher: the per-group slice of the full
-  // list; the see-all row hands the rest to the results view.
+  // list, regrouped by the active operator; the see-all row hands the rest to
+  // the results view.
   const visible = results === null ? [] : topPerGroup(results)
+  const sections = sectionsOf(visible, operator)
+  const navLength = shown ? (showOperators ? SEARCH_OPERATORS.length : visible.length) : 0
   const navKeyDown = listKeyDown({
     // 0 while the dropdown is hidden, so a hidden list claims no key.
-    length: shown && results ? visible.length : 0,
+    length: navLength,
     active,
     setActive,
-    onEnter: (index) => activate(visible[index]),
+    onEnter: (index) =>
+      showOperators ? chooseOperator(SEARCH_OPERATORS[index]) : activate(visible[index]),
   })
-
-  const sections = (
-    [
-      ['Pages', 'page'],
-      ['Journal', 'journal'],
-      ['Boards', 'board'],
-      ['Assets', 'asset'],
-    ] as const
-  )
-    .map(([label, kind]) => ({
-      label,
-      items: visible.filter((r) => r.kind === kind),
-    }))
-    .filter((s) => s.items.length > 0)
 
   return (
     <dialog
@@ -232,36 +304,62 @@ export function SearchSpotlight({
       </div>
       {shown && (
         <div className={styles.drop}>
-          <div id="search-results" role="listbox" aria-label="Search results">
-            {sections.length === 0 && (
-              <div className={styles.empty}>{`No matches for \u201C${query.trim()}\u201D.`}</div>
-            )}
-            {sections.map((sec) => (
-              <section key={sec.label}>
-                <div className={styles.head}>{sec.label}</div>
-                {sec.items.map((r) => {
-                  const index = visible.indexOf(r)
-                  return (
-                    <button
-                      key={r.path}
-                      type="button"
-                      role="option"
-                      aria-selected={index === active}
-                      className={`${styles.item}${index === active ? ` ${styles.active}` : ''}`}
-                      onClick={() => activate(r)}
-                      onMouseEnter={() => setActive(index)}
-                    >
-                      <MatchBody result={r} compact limit={2} />
-                    </button>
-                  )
-                })}
-              </section>
-            ))}
-          </div>
-          {results !== null && results.length > 0 && (
-            <button type="button" className={styles.more} onClick={openResults}>
-              {`See all ${results.length} ${results.length === 1 ? 'result' : 'results'}`}
-            </button>
+          {showOperators ? (
+            <div id="search-results" role="listbox" aria-label="Search operators">
+              {SEARCH_OPERATORS.map((op, index) => (
+                <button
+                  key={op.id}
+                  type="button"
+                  role="option"
+                  aria-selected={index === active}
+                  className={`${styles.command}${index === active ? ` ${styles.active}` : ''}`}
+                  onClick={() => chooseOperator(op)}
+                  onMouseEnter={() => setActive(index)}
+                >
+                  <span className={styles.commandIcon}>{OPERATOR_ICONS[op.id]}</span>
+                  <span className={styles.commandBody}>
+                    <span className={styles.commandLabel}>{op.label}</span>
+                    <span className={styles.commandDesc}>{op.description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div id="search-results" role="listbox" aria-label="Search results">
+                {sections.length === 0 && (
+                  <div
+                    className={styles.empty}
+                  >{`No matches for \u201C${query.trim()}\u201D.`}</div>
+                )}
+                {sections.map((sec) => (
+                  <section key={sec.label}>
+                    <div className={styles.head}>{sec.label}</div>
+                    {sec.items.map((r) => {
+                      const index = visible.indexOf(r)
+                      return (
+                        <button
+                          key={r.path}
+                          type="button"
+                          role="option"
+                          aria-selected={index === active}
+                          className={`${styles.item}${index === active ? ` ${styles.active}` : ''}`}
+                          onClick={() => activate(r)}
+                          onMouseEnter={() => setActive(index)}
+                        >
+                          <MatchBody result={r} compact limit={2} />
+                        </button>
+                      )
+                    })}
+                  </section>
+                ))}
+              </div>
+              {results !== null && results.length > 0 && (
+                <button type="button" className={styles.more} onClick={openResults}>
+                  {`See all ${results.length} ${results.length === 1 ? 'result' : 'results'}`}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

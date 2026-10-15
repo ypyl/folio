@@ -73,16 +73,21 @@ export type SearchResult = {
    *  only in the title or there is no content. The first is the one the editor
    *  scrolls to. */
   blocks: number[]
+  /** Whether any term matched the title or name (search operators): what the
+   *  `title:` operator promotes. True whether the match was literal or fuzzy. */
+  matchedTitle: boolean
 }
 
 /** Rank fields tracked while accumulating a result (design D1): whether every
- *  term matched the title/body literally, and whether any term matched the
- *  title fuzzily. Stripped before a result leaves `searchDocs`. */
+ *  term matched the title/body literally, whether any term matched the title
+ *  fuzzily, and whether the title matched at all. Stripped before a result
+ *  leaves `searchDocs`. */
 type AccFlags = {
   _terms: number
   _titleExact: boolean
   _bodyExact: boolean
   _titleFuzzy: boolean
+  _titleHit: boolean
 }
 
 /** Match tier, best first (design D1): exact title, exact body, fuzzy title,
@@ -95,11 +100,88 @@ function matchTier(r: AccFlags): number {
   return 3
 }
 
-/** Query terms: whitespace-split. Every non-empty term counts whatever its
- *  length. A term of three or more characters matches literally or fuzzily; a
- *  shorter one matches a whole word only (see `searchDocs`). */
-export function termsOf(query: string): string[] {
-  return query.trim().split(/\s+/).filter(Boolean)
+/** The five ordering operators a query can carry (search operators): four pick a
+ *  kind to promote, and `title` picks the name field. The id is the kind it
+ *  promotes; `title` is its own thing. */
+export type SearchOperator = SearchKind | 'title'
+
+export type OperatorDef = {
+  id: SearchOperator
+  /** The typed token, colon included. */
+  token: string
+  label: string
+  description: string
+}
+
+/** The operator catalogue (search operators): the one source for the tokens and
+ *  the copy the empty-query list shows. The rows add an icon; the glyph stays
+ *  with the view. */
+export const SEARCH_OPERATORS: OperatorDef[] = [
+  {
+    id: 'page',
+    token: 'page:',
+    label: 'Pages first',
+    description: 'Put matching pages at the top',
+  },
+  {
+    id: 'journal',
+    token: 'journal:',
+    label: 'Journal first',
+    description: 'Put matching journal days at the top',
+  },
+  {
+    id: 'board',
+    token: 'board:',
+    label: 'Boards first',
+    description: 'Put matching boards at the top',
+  },
+  {
+    id: 'asset',
+    token: 'assets:',
+    label: 'Files first',
+    description: 'Put matching files at the top',
+  },
+  {
+    id: 'title',
+    token: 'title:',
+    label: 'Names first',
+    description: 'Put matches in a title or name at the top',
+  },
+]
+
+/** Operator word, as typed minus the colon, to its id: `assets` types the plural
+ *  but promotes the `asset` kind. */
+const OPERATOR_BY_WORD: Record<string, SearchOperator> = {
+  page: 'page',
+  journal: 'journal',
+  board: 'board',
+  assets: 'asset',
+  title: 'title',
+}
+
+/** Split a query into its operator and its terms (search operators). The first
+ *  whitespace-separated token that begins with an operator word plus `:` is the
+ *  operator, compared case-insensitively; text after its colon is an ordinary
+ *  term, and any later operator token is dropped rather than matched. Everything
+ *  else stays a term, in order. */
+export function parseQuery(query: string): { operator: SearchOperator | null; terms: string[] } {
+  let operator: SearchOperator | null = null
+  const terms: string[] = []
+  for (const token of query.trim().split(/\s+/).filter(Boolean)) {
+    const colon = token.indexOf(':')
+    const id = colon > 0 ? OPERATOR_BY_WORD[token.slice(0, colon).toLowerCase()] : undefined
+    if (id) {
+      // The first operator wins; a later operator token is ignored, not a term.
+      if (operator === null) {
+        operator = id
+        const rest = token.slice(colon + 1)
+        if (rest) terms.push(rest)
+      }
+      continue
+    }
+    terms.push(token)
+  }
+  return { operator, terms }
 }
 
 /** Case-insensitive exact occurrences of a term in raw text. Used for
@@ -188,9 +270,9 @@ function wholeWordHits(fuse: Fuse<SearchDoc>, term: string): FuseResult<SearchDo
  *  lead their kind group, then by summed score, uncapped: the launcher dropdown
  *  slices per group via topPerGroup, the results view paginates the full list. */
 export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[] {
-  const terms = termsOf(query)
+  const terms = parseQuery(query).terms
   if (!terms.length) return []
-  const acc = new Map<string, Omit<SearchResult, 'blocks'> & AccFlags>()
+  const acc = new Map<string, Omit<SearchResult, 'blocks' | 'matchedTitle'> & AccFlags>()
   for (const term of terms) {
     const short = term.length < FUZZY_MIN_LENGTH
     const hits = short ? wholeWordHits(fuse, term) : fuse.search(term)
@@ -207,11 +289,16 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
         _titleExact: true,
         _bodyExact: true,
         _titleFuzzy: false,
+        _titleHit: false,
       }
       acc.set(item.path, rec)
       rec._terms += 1
       rec.score += hit.score ?? 1
-      rec._titleExact &&= short ? hasWord(item.title, term) : hasExact(item.title, term)
+      const titleExact = short ? hasWord(item.title, term) : hasExact(item.title, term)
+      const titleFuzzy = !short && !!hit.matches?.some((m) => m.key === 'title')
+      rec._titleExact &&= titleExact
+      rec._titleFuzzy ||= titleFuzzy
+      rec._titleHit ||= titleExact || titleFuzzy
       let ranges = short ? wordRanges(item.text, term) : exactRanges(item.text, term)
       rec._bodyExact &&= ranges.length > 0
       if (!short && !ranges.length) {
@@ -222,7 +309,6 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
             .filter(([s, e]) => e - s >= 3)
         }
       }
-      rec._titleFuzzy ||= !short && !!hit.matches?.some((m) => m.key === 'title')
       rec.ranges.push(...ranges)
     }
   }
@@ -230,12 +316,56 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
     .filter((r) => r._terms === terms.length)
     .map((r) => ({ ...r, _tier: matchTier(r) }))
     .sort((a, b) => a._tier - b._tier || a.score - b.score || a.path.localeCompare(b.path))
-  return results.map(
-    ({ _terms: _a, _titleExact: _b, _bodyExact: _c, _titleFuzzy: _d, _tier: _e, ...rest }) => ({
-      ...rest,
-      blocks: matchBlocks(rest.text, rest.ranges),
-    }),
-  )
+  return results.map((r) => ({
+    path: r.path,
+    title: r.title,
+    kind: r.kind,
+    text: r.text,
+    score: r.score,
+    ranges: r.ranges,
+    matchedTitle: r._titleHit,
+    blocks: matchBlocks(r.text, r.ranges),
+  }))
+}
+
+export type SearchSection = { label: string; items: SearchResult[] }
+
+/** The default group order (search spec: Pages, Journal, Boards, Files). */
+const DEFAULT_ORDER: SearchKind[] = ['page', 'journal', 'board', 'asset']
+
+const KIND_LABEL: Record<SearchKind, string> = {
+  page: 'Pages',
+  journal: 'Journal',
+  board: 'Boards',
+  asset: 'Assets',
+}
+
+/** Results as labelled sections in the given kind order; empty groups dropped. */
+function groupByKind(results: SearchResult[], order: SearchKind[]): SearchSection[] {
+  return order
+    .map((kind) => ({ label: KIND_LABEL[kind], items: results.filter((r) => r.kind === kind) }))
+    .filter((s) => s.items.length > 0)
+}
+
+/** One search's results as labelled sections, in the order its operator asks for
+ *  (search operators): the default order, the promoted kind first, or a `Names`
+ *  section of title/name matches ahead of the content-only groups. Both surfaces
+ *  render this, so the operator cannot drift between them. */
+export function sectionsOf(
+  results: SearchResult[],
+  operator: SearchOperator | null,
+): SearchSection[] {
+  if (operator === 'title') {
+    const names = results.filter((r) => r.matchedTitle)
+    const rest = results.filter((r) => !r.matchedTitle)
+    return [{ label: 'Names', items: names }, ...groupByKind(rest, DEFAULT_ORDER)].filter(
+      (s) => s.items.length > 0,
+    )
+  }
+  const order = operator
+    ? [operator, ...DEFAULT_ORDER.filter((k) => k !== operator)]
+    : DEFAULT_ORDER
+  return groupByKind(results, order)
 }
 
 /** Per-group slice of a full result set (search-results-view): keeps the

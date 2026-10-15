@@ -53,8 +53,18 @@ const asset = (path: string): SearchDoc => ({
   text: '',
 })
 
+/** A board search document (add-whiteboards): labelled by its path inside
+ *  `boards/`, carrying no text. */
+const board = (path: string): SearchDoc => ({
+  path,
+  title: path.replace(/^boards\//, ''),
+  kind: 'board',
+  text: '',
+})
+
 const input = () => screen.getByRole('textbox', { name: 'Search notes' })
 const listbox = () => screen.getByRole('listbox', { name: 'Search results' })
+const operatorList = () => screen.getByRole('listbox', { name: 'Search operators' })
 const options = () => within(listbox()).getAllByRole('option')
 
 async function type(value: string) {
@@ -232,12 +242,12 @@ describe('SearchSpotlight action flow (search spec: debounce, outside click, cle
     expect(last[1]).toHaveLength(23)
   })
 
-  it('the clear x resets the query and refocuses the input', async () => {
+  it('the clear x resets the query, refocuses the input, and lists the operators', async () => {
     renderSpotlight({ docs: [page('Welcome.md', 'docker here')] })
     await type('docker')
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
     expect((input() as HTMLInputElement).value).toBe('')
-    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(screen.getByRole('listbox', { name: 'Search operators' })).toBeTruthy()
     expect(document.activeElement).toBe(input())
   })
 
@@ -422,5 +432,53 @@ describe('dropdown snippet budget (show-every-match-per-result)', () => {
     const row = options()[0]
     expect(within(row).getAllByText('docker')).toHaveLength(2)
     expect(within(row).getByText('+2 more on this page')).toBeTruthy()
+  })
+})
+
+// search operators: an empty query offers the operators; an operator reorders
+// the results without hiding any, and `title:` promotes name matches.
+describe('SearchSpotlight operators (search operators)', () => {
+  it('lists the five operators for an empty query', () => {
+    renderSpotlight({ docs: [page('Welcome.md', 'docker here')] })
+    expect(within(operatorList()).getAllByRole('option')).toHaveLength(5)
+  })
+
+  it('lists no operators while the vault is unusable', () => {
+    renderSpotlight({ docs: [], disabled: true })
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('choosing an operator inserts its token and leaves the caret after it', () => {
+    renderSpotlight({ docs: [page('Welcome.md', 'docker here')] })
+    fireEvent.click(within(operatorList()).getByRole('option', { name: /Boards first/ }))
+    const el = input() as HTMLInputElement
+    expect(el.value).toBe('board: ')
+    expect(document.activeElement).toBe(el)
+    expect(el.selectionStart).toBe(7)
+  })
+
+  it('promotes the operator kind above the other groups', async () => {
+    renderSpotlight({
+      docs: [page('Ops.md', 'docker in production'), board('boards/docker-map.excalidraw')],
+    })
+    await type('board: docker')
+    const heads = within(listbox())
+      .getAllByText(/^(Pages|Boards)$/)
+      .map((h) => h.textContent)
+    expect(heads).toEqual(['Boards', 'Pages'])
+    // Promotion reorders, it does not filter: the page is still listed.
+    expect(within(listbox()).getByText('Ops')).toBeTruthy()
+  })
+
+  it('leads with a Names section for a title query', async () => {
+    renderSpotlight({
+      docs: [page('Docker.md', 'plain body'), page('Notes.md', 'docker in the body')],
+    })
+    await type('title: docker')
+    const heads = within(listbox())
+      .getAllByText(/^(Names|Pages)$/)
+      .map((h) => h.textContent)
+    expect(heads).toEqual(['Names', 'Pages'])
+    expect(within(listbox()).getByText('Docker')).toBeTruthy()
   })
 })
