@@ -68,14 +68,6 @@ const EMPTY_ASSETS: string[] = []
 /** One shared empty boards list, for the same reason as `EMPTY_ASSETS`. */
 const EMPTY_BOARDS: string[] = []
 
-/** The rows the meta panel's Links list shows for the open page
- *  (vault-assets, board-references-in-panel, merge-link-sections): one per file
- *  the page points at,
- *  plus one per board it references with a `#!` token, deduped by path — a board
- *  row winning, so a token and a path link to one board are one row, and the
- *  board's own view is what activating it opens. A board the vault does not
- *  hold yet is unmaterialized, so its row dims. Pure and vault-shaped, so the
- *  memo above it can stay a one-liner. */
 /** Order a "who references this" list (reorder-meta-panel-lists): the most
  *  recently edited page first, path ascending as the tiebreak — the sidebar's
  *  own rule (orderPages) minus pins. Returns a copy, because the index's
@@ -88,6 +80,13 @@ function orderByLastEdited(graph: Graph, paths: string[]): string[] {
   )
 }
 
+/** The rows the meta panel's Links list shows for the open page
+ *  (vault-assets, board-references-in-panel, merge-link-sections): one per file
+ *  the page points at, plus one per board it references with a `#!` token,
+ *  deduped by path — a board row winning, so a token and a path link to one
+ *  board are one row, and the board's own view is what activating it opens. A
+ *  board the vault does not hold yet is unmaterialized, so its row dims. Pure
+ *  and vault-shaped, so the memo above it can stay a one-liner. */
 function pageReferenceRows(page: IndexPage, graph: Graph): LinkRow[] {
   const rows = new Map<string, LinkRow>()
   for (const path of pageAssets(page, graph)) {
