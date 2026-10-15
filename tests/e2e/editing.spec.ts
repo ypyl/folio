@@ -141,14 +141,21 @@ test('a vault image resolves as it scrolls into view', async ({ page }) => {
   await page.getByRole('button', { name: 'Shots' }).click()
 
   // Every image the editor mounts while scrolling shows vault bytes, not the
-  // path the browser cannot fetch.
+  // path the browser cannot fetch. Resolution is async, so wait for the mounted
+  // set to settle instead of sampling the moment the scroll returns.
   const pane = page.locator('main')
   for (let step = 0; step < 5; step++) {
     await pane.evaluate((el) => el.scrollBy(0, 900))
-    const sources = await page.locator('.folio-image img').evaluateAll((imgs) =>
-      imgs.map((img) => img.getAttribute('src') ?? ''),
-    )
-    expect(sources.length).toBeGreaterThan(0)
-    expect(sources.every((src) => src.startsWith('blob:'))).toBe(true)
+    await expect
+      .poll(
+        async () => {
+          const sources = await page
+            .locator('.folio-image img')
+            .evaluateAll((imgs) => imgs.map((img) => img.getAttribute('src') ?? ''))
+          return sources.length > 0 && sources.every((src) => src.startsWith('blob:'))
+        },
+        { message: 'every mounted vault image resolves to a blob URL' },
+      )
+      .toBe(true)
   }
 })

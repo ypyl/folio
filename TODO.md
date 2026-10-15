@@ -42,7 +42,7 @@ Ordered most important first.
       Fix: move the pure row builders (`useMemo` block near 838-960 plus
       `orderByLastEdited`/`pageReferenceRows`) into a module taking
       `graph`/`page`/`pins`; keep state and effects in `App`. No behavior change.
-- [ ] **Flaky tests** (`tests/e2e/editing.spec.ts:109`, `src/App.integration.test.tsx`).
+- [x] **Flaky tests** (`tests/e2e/editing.spec.ts:109`, `src/App.integration.test.tsx`).
       The image spec asserts every `<img src>` is a `blob:` after a scroll,
       racing the viewport pass; it fails under parallel load and passes alone.
       Fix: assert on the one image (`toHaveAttribute('src', /^blob:/)`) so
