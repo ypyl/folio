@@ -10,6 +10,14 @@ import { SearchResultsView } from './components/SearchResultsView'
 import { StatusBar } from './components/StatusBar'
 import { Tour } from './components/Tour'
 import { PresentationView } from './components/PresentationView'
+import {
+  journalRows,
+  orderedPageRows,
+  pageBacklinks,
+  pageForwardlinks,
+  pagesReferencingBoard,
+  sidebarListing,
+} from './rows'
 import { DraftStore } from './editor/drafts'
 import { BoardView } from './editor/boardView'
 import { chordToKeyEventInit } from './editor/chord'
@@ -33,18 +41,12 @@ import {
 import { runLogseqImport } from './vault/logseqImport'
 import { LogseqImportButton, LogseqImportPanel, type ImportView } from './components/LogseqImport'
 import {
-  assetName,
-  boardName,
-  boardReferrers,
   boardStem,
   kindOf,
   localDayString,
-  orderPages,
-  pageAssets,
   resolveBoardPath,
   resolveReferencePath,
   stem,
-  type Graph,
   type IndexPage,
 } from './vault/index'
 import {
@@ -67,43 +69,6 @@ const EMPTY_ASSETS: string[] = []
 
 /** One shared empty boards list, for the same reason as `EMPTY_ASSETS`. */
 const EMPTY_BOARDS: string[] = []
-
-/** Order a "who references this" list (reorder-meta-panel-lists): the most
- *  recently edited page first, path ascending as the tiebreak — the sidebar's
- *  own rule (orderPages) minus pins. Returns a copy, because the index's
- *  arrays are shared. */
-function orderByLastEdited(graph: Graph, paths: string[]): string[] {
-  return [...paths].sort(
-    (a, b) =>
-      (graph.pages.get(b)?.lastModified ?? 0) - (graph.pages.get(a)?.lastModified ?? 0) ||
-      a.localeCompare(b),
-  )
-}
-
-/** The rows the meta panel's Links list shows for the open page
- *  (vault-assets, board-references-in-panel, merge-link-sections): one per file
- *  the page points at, plus one per board it references with a `#!` token,
- *  deduped by path — a board row winning, so a token and a path link to one
- *  board are one row, and the board's own view is what activating it opens. A
- *  board the vault does not hold yet is unmaterialized, so its row dims. Pure
- *  and vault-shaped, so the memo above it can stay a one-liner. */
-function pageReferenceRows(page: IndexPage, graph: Graph): LinkRow[] {
-  const rows = new Map<string, LinkRow>()
-  for (const path of pageAssets(page, graph)) {
-    rows.set(path, { kind: 'asset', badge: 'a', title: assetName(path), path, materialized: true })
-  }
-  for (const ref of page.boards) {
-    const path = resolveBoardPath(ref.target, graph.boardsByName)
-    rows.set(path, {
-      kind: 'board',
-      badge: 'b',
-      title: boardName(path),
-      path,
-      materialized: graph.files.has(path),
-    })
-  }
-  return [...rows.values()]
-}
 
 function App() {
   const {
@@ -856,21 +821,7 @@ function App() {
   // must not re-walk the link graph (vault-proportional work stays off the
   // typing path).
   const backlinkRows = useMemo<LinkRow[]>(
-    () =>
-      graph && page
-        ? orderByLastEdited(graph, graph.backlinks.get(page.title.toLowerCase()) ?? []).map(
-            (path) => {
-              const p = graph.pages.get(path)
-              return {
-                kind: 'page' as const,
-                badge: 'in' as const,
-                title: p ? p.title : path,
-                path,
-                materialized: true,
-              }
-            },
-          )
-        : [],
+    () => (graph && page ? pageBacklinks(graph, page) : []),
     [graph, page],
   )
   // The pages that reference the open board (add-whiteboards: Referenced by),
@@ -879,16 +830,7 @@ function App() {
   const boardReferrerRows = useMemo<LinkRow[]>(
     () =>
       graph && activePath !== null && mode === 'board'
-        ? orderByLastEdited(graph, boardReferrers(graph, activePath)).map((path) => {
-            const p = graph.pages.get(path)
-            return {
-              kind: 'page' as const,
-              badge: 'in' as const,
-              title: p ? p.title : path,
-              path,
-              materialized: p !== undefined,
-            }
-          })
+        ? pagesReferencingBoard(graph, activePath)
         : [],
     [graph, activePath, mode],
   )
@@ -901,47 +843,7 @@ function App() {
   // not re-walk the link graph (vault-proportional work stays off the typing
   // path).
   const forwardlinkRows = useMemo<LinkRow[]>(
-    () =>
-      graph && page
-        ? [
-            ...page.links
-              .map((l) => {
-                const targetPath = resolveReferencePath(l.target, graph.byName)
-                const p = graph.pages.get(targetPath)
-                if (p) {
-                  return {
-                    kind: 'page' as const,
-                    badge: 'out' as const,
-                    title: p.title,
-                    path: targetPath,
-                    materialized: true,
-                  }
-                }
-                // No page matches the reference: it is unmaterialized. A name
-                // that is not a date materializes under `pages/`, preserving any
-                // directory part in bracketed names; a date name is the journal
-                // day, which materializes under `journals/`.
-                return {
-                  kind: 'page' as const,
-                  badge: 'out' as const,
-                  title: l.target,
-                  path: targetPath,
-                  materialized: false,
-                }
-              })
-              .filter(
-                // A page's link to itself isn't useful navigation (mirrors the
-                // index's backlink self-exclusion).
-                (r) => r.path !== page.path,
-              ),
-            // The page's files (vault-assets, design D1) follow the page rows,
-            // labelled with the file's name and badged by kind. Whether one
-            // exists is read from the vault's own listing, so a file deleted
-            // outside the app drops out on the next scan even though this page's
-            // record is carried over untouched.
-            ...pageReferenceRows(page, graph),
-          ]
-        : [],
+    () => (graph && page ? pageForwardlinks(graph, page) : []),
     [graph, page],
   )
   // The open page's headings for the Contents section (add-page-contents),
@@ -963,14 +865,8 @@ function App() {
   // pages array was previously order-unspecified (alphabetical by accident).
   // Memoized on graph/pins identity: the sort is vault-sized and must not run
   // on every keystroke.
-  const pages = useMemo(
-    () => (graph ? orderPages(graph.pages.values(), pins).filter((p) => p.kind === 'page') : []),
-    [graph, pins],
-  )
-  const journalEntries = useMemo(
-    () => (graph ? [...graph.pages.values()].filter((p) => p.kind === 'journal') : []),
-    [graph],
-  )
+  const pages = useMemo(() => (graph ? orderedPageRows(graph, pins) : []), [graph, pins])
+  const journalEntries = useMemo(() => (graph ? journalRows(graph) : []), [graph])
 
   // The Links list (merge-link-sections): the open page's incoming pages, then
   // its outgoing pages and files, as one memoized array. The two source arrays
@@ -985,19 +881,10 @@ function App() {
   // labelled by kind. Memoized on its inputs' identity so the memoized Sidebar
   // bails on every keystroke (App.test: the sidebar memo), and so the
   // vault-sized ordering never runs per keystroke.
-  const sidebarRows = useMemo<SidebarRow[]>(() => {
-    const pinned = new Set(pins)
-    return [
-      ...pages.map((p) => ({
-        kind: 'page' as const,
-        path: p.path,
-        label: p.title,
-        pinned: pinned.has(p.path),
-      })),
-      ...boards.map((path) => ({ kind: 'board' as const, path, label: boardName(path) })),
-      ...assets.map((path) => ({ kind: 'asset' as const, path, label: assetName(path) })),
-    ]
-  }, [pages, boards, assets, pins])
+  const sidebarRows = useMemo<SidebarRow[]>(
+    () => sidebarListing(pages, boards, assets, pins),
+    [pages, boards, assets, pins],
+  )
 
   // The status bar offers the reveal (reveal-open-page-in-files) only when the
   // open item is a page that has a row here: a board's and a journal day's

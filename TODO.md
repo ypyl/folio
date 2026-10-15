@@ -32,13 +32,18 @@ Ordered most important first.
       (ADR-0029 replaced Milkdown with CodeMirror). `milkdown`/`ProseMirror`
       appear in no `.ts`/`.tsx`. Fix: delete those rule blocks; keep every
       `.cm-*` rule.
-- [ ] **Trim the integration suite where e2e already covers it** (`src/App.integration.test.tsx`).
+- [x] **Trim the integration suite where e2e already covers it** (`src/App.integration.test.tsx`) — **left as-is** (decided 2026-10-15).
+      Keeping the tests. The e2e overlap is topical, not line-for-line, and
+      the integration suite also holds the pre-index, failure, and
+      "stays off the typing path" cases e2e cannot reach. The cost is local
+      runtime, not correctness; deleting green tests to save it is a bad trade.
+      Original note:
       486 integration tests (jsdom, whole `<App/>`) dominate the run; search,
       whiteboards, compact shell, tour, and history flows also have Playwright
       specs. Fix: drop the overlapping happy paths from `App.integration.test.tsx`
       (~40 shell-level tests); keep the pre-index states, failure branches, and
       "stays off the typing path" assertions. Leave the unit suite alone.
-- [ ] **`App.tsx` is one 1187-line component** (`src/App.tsx:109-1296`, 54 hooks).
+- [x] **`App.tsx` is one 1187-line component** (`src/App.tsx:109-1296`, 54 hooks).
       Fix: move the pure row builders (`useMemo` block near 838-960 plus
       `orderByLastEdited`/`pageReferenceRows`) into a module taking
       `graph`/`page`/`pins`; keep state and effects in `App`. No behavior change.
@@ -66,7 +71,7 @@ Ordered most important first.
       `codePanelLines` from `./codemirror`). Fix: rename to
       `codemirror.codePanel.test.ts`, or fold its three cases into the existing
       `codemirror.*` tests.
-- [ ] **Logseq import rewrites the whole ledger after every file**
+- [x] **Logseq import rewrites the whole ledger after every file** — **left as-is** (decided 2026-10-15).
       (`src/vault/logseqImport.ts:415`), O(n²) on a large graph. Only worth
       changing if an import feels slow: flush every N files and accept a crash
       window of N re-appends.
