@@ -187,6 +187,14 @@ directions. The regions are the editor pane, the sidebar's Pages, Boards, and
 Assets bodies, the meta panel's Backlinks, Forwardlinks, and References bodies,
 the search results list, and the search dropdown.
 
+A **row or band that spans the region** (a search result row, a group head, the
+see-all row) reaches into the reserved lane so its fill and its hairline divider
+run to the region's edge rather than stopping at the gutter: the region sets
+`overflow-x: hidden` and gives those children `width: calc(100% + var(--row-reach))`
+(32px), and the overshoot is clipped at the padding edge, so any platform's
+scrollbar width is covered without a magic per-platform number. The row's text
+stays inside the content box; only its background reaches.
+
 A region that reserves the lane carries the app's own bar in it: a thin,
 rounded, inset pill in `--stone`, shown for as long as the region can scroll
 and absent while it cannot. Every such region repeats the recipe beside its

@@ -5,11 +5,17 @@
 
 .pane {
   background: var(--parchment);
+  /* The reserved scrollbar lane (scrollbar-gutter below) sits outside the
+     content box, so a row would stop short of the edge. overflow-x: hidden lets
+     rows and group heads reach into the lane and clips the overshoot. */
   overflow-y: auto;
+  overflow-x: hidden;
   /* Reserve the scrollbar's lane (DESIGN.md, scroll regions) so a match list
      crossing the viewport's height does not reflow the rows. */
   scrollbar-gutter: stable;
   min-width: 0;
+  /* How far a row reaches past its content box, to fill the reserved lane. */
+  --row-reach: 32px;
 }
 
 /* The bar: the app's own thumb in the lane above (DESIGN.md, scroll regions),
@@ -57,6 +63,7 @@
   position: sticky;
   top: 0;
   z-index: 1;
+  width: calc(100% + var(--row-reach));
   background: var(--parchment);
   padding: 18px 24px 6px;
   font-size: 11px;
@@ -68,7 +75,7 @@
 
 .row {
   display: block;
-  width: 100%;
+  width: calc(100% + var(--row-reach));
   text-align: left;
   background: transparent;
   border: 0;

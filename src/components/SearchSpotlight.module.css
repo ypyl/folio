@@ -102,9 +102,16 @@
 .drop {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  /* The reserved scrollbar lane (scrollbar-gutter below) sits outside the
+     content box, so a row would stop 15px short of the edge. overflow-x: hidden
+     lets the rows reach into the lane (see --row-reach) and clips the overshoot
+     at the padding edge, so the highlight spans the full width. */
+  overflow-y: auto;
+  overflow-x: hidden;
   border-top: 1px solid var(--border-soft);
   scrollbar-gutter: stable;
+  /* How far a row reaches past its content box, to fill the reserved lane. */
+  --row-reach: 32px;
 }
 
 /* The dropdown's bar: the app's own thumb in the reserved lane (DESIGN.md,
@@ -128,6 +135,7 @@
 .head {
   position: sticky;
   top: 0;
+  width: calc(100% + var(--row-reach));
   background: var(--ivory);
   padding: 6px 12px;
   font-size: 11px;
@@ -140,7 +148,7 @@
 
 .item {
   display: block;
-  width: 100%;
+  width: calc(100% + var(--row-reach));
   text-align: left;
   background: transparent;
   border: 0;
@@ -162,7 +170,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
+  width: calc(100% + var(--row-reach));
   text-align: left;
   background: transparent;
   border: 0;
@@ -207,10 +215,11 @@
   font-size: 13px;
 }
 
-/* See-all pin row: a full-width command under the listbox. */
+/* See-all pin row: a full-width command under the listbox. Reaches into the
+   reserved scrollbar lane like a result row (see `.drop`). */
 .more {
   display: block;
-  width: 100%;
+  width: calc(100% + var(--row-reach));
   padding: 9px 12px;
   border: 0;
   border-top: 1px solid var(--border-soft);
