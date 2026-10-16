@@ -1,7 +1,7 @@
 {
   "name": "folio",
   "private": true,
-  "version": "0.60.12",
+  "version": "0.60.13",
   "type": "module",
   "scripts": {
     "dev": "vite",

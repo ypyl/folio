@@ -9,15 +9,38 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 ## Features
 
 - Open one or more local Markdown folders (vaults) directly from the browser; the folder is the database
-- WYSIWYG Markdown editing with auto-save, GFM tables, syntax-highlighted code blocks, and block line numbers
+- Markdown editing with a live preview: images, tables, and references render inline while the text stays the source; auto-save and syntax-highlighted code blocks
 - Page references (`#word`, `#[[Page]]`) with backlinks and forwardlinks, plus inline completion for references and link destinations
 - Daily journal pages with a calendar
 - Whiteboards: `.excalidraw` boards under `boards/`, referenced with `#!` tokens and edited in the pane
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
-- Full-text search over pages and journals, and by name over assets and boards
-- Pinned pages, back/forward history, and a status bar
+- Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
+- Favorites, back/forward history, and a status bar
+- A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
+
+## Searching
+
+Open the spotlight with `Ctrl/Cmd+P`, `Ctrl/Cmd+K`, or the folder rail's search
+icon. The query splits into terms and every term must match; a term of three or
+more characters matches literally or fuzzily, a shorter one matches a whole word
+only.
+
+Five operators reorder the results. Type one as a token anywhere in the query
+(text after the colon is an ordinary term) and the dropdown and the full results
+view lead with what it names:
+
+| Operator | Leads with |
+| --- | --- |
+| `page:` | matching pages |
+| `journal:` | matching journal days |
+| `board:` | matching boards |
+| `assets:` | matching files |
+| `title:` | matches in a title or name, under a **Names** heading, ahead of content matches |
+
+An operator reorders, it never hides a result, and the first operator in a query
+wins. With an empty query the spotlight lists the five operators to choose from.
 
 ## Cleaning up the vault
 
