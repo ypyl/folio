@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-10-18
+goal: Move reminder creation to the Journal calendar's day menu; materialize a
+  due reminder into the day's note on open; remove the right-panel Reminders
+  section
