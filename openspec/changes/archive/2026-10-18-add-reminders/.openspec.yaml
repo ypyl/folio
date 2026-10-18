@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-18
+goal: "Reminders: a page referenced from journal lines, scheduled by rules in
+  .folio/reminders.md, derived per day, never materialized"
