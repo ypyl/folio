@@ -128,6 +128,21 @@ vi.mock('./components/months', async (importOriginal) => {
   }
 })
 
+// Count the day-reminder derivation so a test can prove typing never rebuilds
+// it (add-reminders, the editor-responsiveness budget). Everything else in the
+// module is passed through unchanged.
+const reminderCalls = vi.hoisted(() => ({ count: 0 }))
+vi.mock('./rows', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./rows')>()
+  return {
+    ...actual,
+    dayReminders: (...args: Parameters<typeof actual.dayReminders>) => {
+      reminderCalls.count += 1
+      return actual.dayReminders(...args)
+    },
+  }
+})
+
 // The calendar only renders one month and the app opens today's journal, so the
 // suite is time-sensitive. Freeze Date (only Date, not timers: waitFor and the
 // debounced save stay real) to the fixture's month, or the suite goes red the
@@ -145,6 +160,7 @@ type FakeView = EditorAdapter & {
   blocks: { type: string; html: string }[]
   setContents: string[]
   insertions: string[]
+  appends: string[]
   chords: string[]
   highlights: number[][]
   focuses: number
@@ -236,6 +252,10 @@ function searchInput(): HTMLInputElement {
   fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
   return screen.getByLabelText('Search notes') as HTMLInputElement
 }
+
+/** The search spotlight's listbox, scoped so option queries do not also see the
+ *  reminder form's control options (add-reminders). */
+const searchOptions = () => within(screen.getByRole('dialog', { name: 'Search' }))
 
 describe('application shell', () => {
   it('renders the shell chrome with the open-a-folder empty state', async () => {
@@ -1055,8 +1075,8 @@ describe('content search over the real index (search spec)', () => {
     const search = searchInput()
     fireEvent.change(search, { target: { value: 'backlinks' } })
     // 'backlinks' matches Ideas.md (page) and journals/2026-09-03.md (journal).
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(2))
-    fireEvent.click(screen.getByRole('option', { name: /^Ideas/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(2))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Ideas/ }))
     await waitFor(() =>
       expect(editor().setContents[0]).toContain('Half-formed thoughts worth keeping'),
     )
@@ -1068,8 +1088,8 @@ describe('content search over the real index (search spec)', () => {
     await openFixture()
     await screen.findByRole('button', { name: 'Welcome' })
     fireEvent.change(searchInput(), { target: { value: 'backlinks' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(2))
-    fireEvent.click(screen.getByRole('option', { name: /^Ideas/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(2))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Ideas/ }))
     await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
     const located = editor().highlights[editor().highlights.length - 1]
     expect(located).toEqual([expect.any(Number)])
@@ -1098,8 +1118,8 @@ describe('content search over the real index (search spec)', () => {
     await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n\nMore dog\n' } }))
     await screen.findByRole('button', { name: 'Notes' })
     fireEvent.change(searchInput(), { target: { value: 'dog' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
-    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(1))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Notes/ }))
     // The search already knows every occurrence; the pane is handed each block
     // it falls in, not only the first (frame-every-matching-block).
     await waitFor(() => expect(editor().highlights.length).toBeGreaterThan(0))
@@ -1112,8 +1132,8 @@ describe('content search over the real index (search spec)', () => {
     await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n' } }))
     await screen.findByRole('button', { name: 'Notes' })
     fireEvent.change(searchInput(), { target: { value: 'dog' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
-    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(1))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Notes/ }))
     await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
 
     // Escape is the lowest claim on the key, so with nothing else open it
@@ -1128,8 +1148,8 @@ describe('content search over the real index (search spec)', () => {
     await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n' } }))
     await screen.findByRole('button', { name: 'Notes' })
     fireEvent.change(searchInput(), { target: { value: 'dog' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
-    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(1))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Notes/ }))
     await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
 
     // Reopen the spotlight (the query is kept) and Escape it: it clears and
@@ -1146,8 +1166,8 @@ describe('content search over the real index (search spec)', () => {
     await openFixture(buildTree({ pages: { 'Notes.md': '# dog\n\nBody dog\n' } }))
     await screen.findByRole('button', { name: 'Notes' })
     fireEvent.change(searchInput(), { target: { value: 'dog' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
-    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(1))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Notes/ }))
     await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
 
     // See-all opens the full results view; Escape there closes the view. The
@@ -1168,8 +1188,8 @@ describe('content search over the real index (search spec)', () => {
     )
     await screen.findByRole('button', { name: 'Notes' })
     fireEvent.change(searchInput(), { target: { value: 'dog' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
-    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(1))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Notes/ }))
     await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -1184,8 +1204,8 @@ describe('content search over the real index (search spec)', () => {
 
     // A later locate frames it again.
     fireEvent.change(searchInput(), { target: { value: 'dog' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBe(1))
-    fireEvent.click(screen.getByRole('option', { name: /^Notes/ }))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBe(1))
+    fireEvent.click(searchOptions().getByRole('option', { name: /^Notes/ }))
     await waitFor(() => expect(editor().highlights[editor().highlights.length - 1]).toEqual([0, 1]))
     vi.unstubAllGlobals()
   })
@@ -1210,7 +1230,7 @@ describe('content search over the real index (search spec)', () => {
     await screen.findByRole('button', { name: 'Welcome' }) // index built: search is enabled
     const search = searchInput()
     fireEvent.change(search, { target: { value: 'backlinks' } })
-    await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0))
+    await waitFor(() => expect(searchOptions().getAllByRole('option').length).toBeGreaterThan(0))
 
     const home = buildTree({ pages: { 'b.md': 'b' } })
     home.name = 'Home'
@@ -2588,5 +2608,115 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     expect(sidebar.className).not.toContain(sidebarStyles.collapsed)
     expect(rail.className).not.toContain(railStyles.collapsed)
     expect(shell().className).not.toContain('left-collapsed')
+  })
+})
+
+describe('reminders (add-reminders)', () => {
+  const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
+  /** The Reminders section, scoped so its rows do not collide with Links. */
+  const reminders = () =>
+    (within(meta()).getByText('Reminders') as HTMLElement).closest('details') as HTMLElement
+  const storageOf = (tree: FakeDirectoryHandle) =>
+    new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
+
+  it('sets a reminder on the open day and records it as one written line', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const store = storageOf(tree)
+    const today = `journals/${localDayString(new Date())}.md`
+
+    // Add a daily reminder for a page with no file yet.
+    fireEvent.change(within(reminders()).getByLabelText('Reminder page'), {
+      target: { value: 'Take pills' },
+    })
+    fireEvent.change(within(reminders()).getByLabelText('Repeat'), { target: { value: 'daily' } })
+    fireEvent.click(within(reminders()).getByRole('button', { name: 'Add' }))
+
+    await waitFor(async () => {
+      expect(await store.read('.folio/reminders.md')).toContain(
+        `- daily ${localDayString(new Date())} #[[Take pills]]`,
+      )
+    })
+    // One rule: no page and no note file were created by setting it.
+    await expect(store.read('pages/Take pills.md')).rejects.toThrow()
+    await expect(store.read(today)).rejects.toThrow()
+
+    // The pending row appears; activating it writes exactly one reference.
+    fireEvent.click(
+      await within(reminders()).findByRole('button', { name: 'Add Take pills to this day' }),
+    )
+    await waitFor(() => expect(editor().appends).toHaveLength(1))
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('#[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    expect((await store.read(today)).match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
+    // The row flips to recorded once the save lands.
+    await within(reminders()).findByRole('button', { name: 'Open Take pills' })
+
+    // The reminder page's backlinks now list the day.
+    fireEvent.click(within(reminders()).getByRole('button', { name: 'Open Take pills' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Take pills.md')).toBeTruthy())
+    expect(links().getByRole('button', { name: localDayString(new Date()) })).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('opening and scrolling the day writes nothing', async () => {
+    const tree = buildTree({
+      pages: { 'Welcome.md': 'hi' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+    await within(reminders()).findByRole('button', { name: 'Add Take pills to this day' })
+
+    fireEvent.scroll(within(meta()).getByText('Reminders'))
+    await expect(store.read('journals/2026-09-15.md')).rejects.toThrow()
+    vi.unstubAllGlobals()
+  })
+
+  it('removing a reminder stops it and keeps the written record', async () => {
+    const tree = buildTree({
+      pages: { 'Welcome.md': 'hi' },
+      journals: { '2026-09-15.md': 'took them #[[Take pills]]' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+    const recorded = await within(reminders()).findByRole('button', { name: 'Open Take pills' })
+
+    fireEvent.contextMenu(recorded)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+
+    await waitFor(async () => {
+      const rules = await store.read('.folio/reminders.md')
+      expect(rules).not.toContain('daily')
+      expect(rules).toContain('# Reminders')
+    })
+    // The written record stays.
+    expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
+
+    // A later day has no reminders left.
+    fireEvent.click(screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 16)) }))
+    await waitFor(() => expect(screen.getByTitle('journals/2026-09-16.md')).toBeTruthy())
+    await waitFor(() =>
+      expect(within(reminders()).getByText('No reminders for this day.')).toBeTruthy(),
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the day reminder derivation off the typing path', async () => {
+    render(<App />)
+    await openFixture()
+    const before = reminderCalls.count
+    await act(async () => {
+      editor().emitChange('a keystroke')
+    })
+    expect(reminderCalls.count).toBe(before)
+    vi.unstubAllGlobals()
   })
 })

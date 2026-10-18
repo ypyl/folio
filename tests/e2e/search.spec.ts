@@ -61,7 +61,9 @@ test('an empty query lists the operators and a chosen one fills the input', asyn
   await page.keyboard.press('Control+k')
   const input = page.getByRole('textbox', { name: 'Search notes' })
   await expect(page.getByRole('listbox', { name: 'Search operators' })).toBeVisible()
-  await expect(page.getByRole('option')).toHaveCount(5)
+  await expect(
+    page.getByRole('listbox', { name: 'Search operators' }).getByRole('option'),
+  ).toHaveCount(5)
 
   await page.getByRole('option', { name: /Boards first/ }).click()
   await expect(input).toHaveValue('board: ')

@@ -26,6 +26,7 @@ import {
   upsertBoard,
   upsertPage,
   upsertPins,
+  upsertReminders,
   type IndexPage,
 } from './index'
 
@@ -322,6 +323,71 @@ describe('pins in the index (design D1/D3)', () => {
     const first = await buildIndex(storage)
     const saved = await upsertPage(storage, first, 'pages/a.md', 'v2')
     expect(saved.pins).toEqual(['pages/a.md'])
+  })
+})
+
+describe('reminders in the index (add-reminders, ADR-0031)', () => {
+  it('reads the meta file into rules and never as a page', async () => {
+    const tree = buildTree({
+      pages: { 'a.md': 'a' },
+      '.folio': {
+        'reminders.md':
+          '# Reminders\n\n- yearly 1990-04-12 #[[Ana birthday]]\n- daily 2026-10-16 #[[Take pills]]\n',
+      },
+    })
+    const index = await buildIndex(vault(tree))
+    expect(index.reminders).toEqual([
+      { recurrence: 'yearly', anchor: '1990-04-12', target: 'Ana birthday' },
+      { recurrence: 'daily', anchor: '2026-10-16', target: 'Take pills' },
+    ])
+    expect(index.graph.pages.has('.folio/reminders.md')).toBe(false)
+    expect(index.snapshot.get('.folio/reminders.md')).toBeGreaterThan(0)
+  })
+
+  it('a missing meta file means no rules', async () => {
+    const index = await buildIndex(vault(buildTree({ pages: { 'a.md': 'a' } })))
+    expect(index.reminders).toEqual([])
+  })
+
+  it('carries rules by identity when the meta file is unchanged', async () => {
+    const tree = buildTree({
+      pages: { 'a.md': 'a' },
+      '.folio': { 'reminders.md': '- daily 2026-10-16 #[[Take pills]]\n' },
+    })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    const second = await buildIndex(storage, first)
+    expect(second.reminders).toBe(first.reminders)
+  })
+
+  it('upserts rules through to disk and heals the snapshot', async () => {
+    const tree = buildTree({ pages: { 'a.md': 'a' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    expect(first.reminders).toEqual([])
+
+    const next = await upsertReminders(storage, first, [
+      { recurrence: 'daily', anchor: '2026-10-16', target: 'Take pills' },
+    ])
+    expect(next.reminders).toHaveLength(1)
+    expect(await storage.read('.folio/reminders.md')).toContain(
+      '- daily 2026-10-16 #[[Take pills]]',
+    )
+    const refreshed = await buildIndex(storage, next)
+    expect(refreshed.reminders).toBe(next.reminders)
+    // A rule edit never disturbs page records.
+    expect(refreshed.graph.pages.get('pages/a.md')).toBe(first.graph.pages.get('pages/a.md'))
+  })
+
+  it('a saved page preserves the rules', async () => {
+    const tree = buildTree({
+      pages: { 'a.md': 'v1' },
+      '.folio': { 'reminders.md': '- daily 2026-10-16 #[[Take pills]]\n' },
+    })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+    const saved = await upsertPage(storage, first, 'pages/a.md', 'v2')
+    expect(saved.reminders).toEqual(first.reminders)
   })
 })
 

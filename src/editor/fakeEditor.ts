@@ -16,6 +16,8 @@ export class FakeEditor implements EditorAdapter {
   readonly setContents: string[] = []
   /** Every insertMarkdown call, in order — lets tests assert what was inserted. */
   readonly insertions: string[] = []
+  /** Every appendMarkdown call, in order (add-reminders). */
+  readonly appends: string[] = []
   /** The drop point each insertMarkdown call carried, in the same order;
    *  `null` for a call that had none (drag-references-into-editor). */
   readonly insertionPoints: (DropPoint | null)[] = []
@@ -108,6 +110,12 @@ export class FakeEditor implements EditorAdapter {
     this.emitChange(this.content + markdown)
     this.insertions.push(markdown)
     this.insertionPoints.push(point ?? null)
+  }
+
+  appendMarkdown(markdown: string): void {
+    const prefix = this.content !== '' && !this.content.endsWith('\n') ? '\n' : ''
+    this.emitChange(this.content + prefix + markdown)
+    this.appends.push(markdown)
   }
 
   // The real adapter replays the chord through the editor's keymap; the fake

@@ -4,7 +4,9 @@ import {
   upsertBoard,
   upsertPage,
   upsertPins,
+  upsertReminders,
   type Graph,
+  type ReminderRule,
   type VaultIndex,
 } from './index'
 import type { VaultStorage } from './storage'
@@ -16,18 +18,21 @@ import type { VaultStorage } from './storage'
 // D3 - external edits reach the index without restarting).
 const REFRESH_INTERVAL_MS = 30_000
 
-type Built = { storage: VaultStorage; graph: Graph; pins: string[] }
+type Built = { storage: VaultStorage; graph: Graph; pins: string[]; reminders: ReminderRule[] }
 
 // One shared empty list for the no-graph state (add-page-history, design D8):
 // the sidebar is memoized, so a fresh [] on every render would defeat the memo
 // while the index builds.
 const EMPTY_PINS: string[] = []
+const EMPTY_REMINDERS: ReminderRule[] = []
 
 export function useIndex(storage: VaultStorage | undefined): {
   graph: Graph | null
   pins: string[]
+  reminders: ReminderRule[]
   savePage: (path: string, content: string) => Promise<boolean>
   saveBoard: (path: string, scene: string) => Promise<boolean>
+  saveReminders: (rules: ReminderRule[]) => Promise<boolean>
   togglePin: (path: string) => Promise<boolean>
 } {
   // The build result is tagged with the storage it came from and only shown
@@ -36,6 +41,7 @@ export function useIndex(storage: VaultStorage | undefined): {
   const [built, setBuilt] = useState<Built | null>(null)
   const graph = built !== null && built.storage === storage ? built.graph : null
   const pins = built !== null && built.storage === storage ? built.pins : EMPTY_PINS
+  const reminders = built !== null && built.storage === storage ? built.reminders : EMPTY_REMINDERS
   const latest = useRef<VaultIndex | null>(null)
   const inflight = useRef(false)
   // Generation counter: bumped when the storage changes, so an in-flight save
@@ -58,7 +64,12 @@ export function useIndex(storage: VaultStorage | undefined): {
       .then((index) => {
         if (cancelled) return
         latest.current = index
-        setBuilt({ storage: store, graph: index.graph, pins: index.pins })
+        setBuilt({
+          storage: store,
+          graph: index.graph,
+          pins: index.pins,
+          reminders: index.reminders,
+        })
       })
       .catch(() => {
         // Permission/folder failures keep the current state (no error UI).
@@ -75,7 +86,7 @@ export function useIndex(storage: VaultStorage | undefined): {
         const next = await buildIndex(store, current)
         if (cancelled) return
         latest.current = next
-        setBuilt({ storage: store, graph: next.graph, pins: next.pins })
+        setBuilt({ storage: store, graph: next.graph, pins: next.pins, reminders: next.reminders })
       } catch {
         // A transient read failure (a file deleted between the listing and its
         // stat) must not reject the refresh: the current index stays and the
@@ -110,9 +121,10 @@ export function useIndex(storage: VaultStorage | undefined): {
   // the page dirty and shows it.
   const savePage = useWriteThrough(upsertPage, storage, latest, generation, setBuilt)
   const saveBoard = useWriteThrough(upsertBoard, storage, latest, generation, setBuilt)
+  const saveReminders = useWriteThrough(upsertReminders, storage, latest, generation, setBuilt)
   const togglePin = useWriteThrough(togglePins, storage, latest, generation, setBuilt)
 
-  return { graph, pins, savePage, saveBoard, togglePin }
+  return { graph, pins, reminders, savePage, saveBoard, saveReminders, togglePin }
 }
 
 /**
@@ -145,7 +157,7 @@ function useWriteThrough<A extends unknown[]>(
         // render-time mutation and cannot see the await boundary).
         /* oxlint-disable-next-line react/immutability */
         latest.current = next
-        setBuilt({ storage, graph: next.graph, pins: next.pins })
+        setBuilt({ storage, graph: next.graph, pins: next.pins, reminders: next.reminders })
         return true
       } catch {
         return false

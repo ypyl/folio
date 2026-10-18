@@ -4,10 +4,15 @@
 // case-insensitively through a name map (ADR-0012).
 
 import type { Page } from '../page'
+import { journalDayName, journalDayPath } from './dates'
 import { baseName } from './link'
 import { parseAssetPaths, parseBoardRefs, parseLinks, type BoardRef, type Link } from './parse'
+import { parseReminders, renderReminders, type ReminderRule } from './reminders'
 import type { VaultStorage } from './storage'
 import { withTrailingBlankLine } from './trailing'
+
+export { journalDate, journalDayName, journalDayPath, localDayString } from './dates'
+export type { Recurrence, ReminderRule } from './reminders'
 
 export type IndexPage = Page & {
   links: Link[]
@@ -52,6 +57,11 @@ export type Graph = {
  *  page index and search (isPagePath excludes hidden segments). */
 const PINS_PATH = '.folio/pins.md'
 
+/** The vault's hidden reminder-rule meta file (add-reminders, ADR-0031): one
+ *  `- <recurrence> <anchor> <reference>` line per rule. Its dot-directory keeps
+ *  it out of the page index and search, like the pins file. */
+const REMINDERS_PATH = '.folio/reminders.md'
+
 /** A built index plus the mtime snapshot it was derived from (design D3). */
 export type VaultIndex = {
   graph: Graph
@@ -59,6 +69,8 @@ export type VaultIndex = {
   snapshot: Map<string, number>
   /** Ordered pinned page paths from the meta file, most recently pinned first. */
   pins: string[]
+  /** The reminder rules from the meta file, in file order (add-reminders). */
+  reminders: ReminderRule[]
 }
 
 /** How many pages the scan keeps in flight at once (design: open cost).
@@ -88,7 +100,8 @@ export async function buildIndex(
     pages.set(path, page)
   }
   const pins = await readPins(storage, previous, snapshot)
-  return { graph: fold(pages, files), snapshot, pins }
+  const reminders = await readReminders(storage, previous, snapshot)
+  return { graph: fold(pages, files), snapshot, pins, reminders }
 }
 
 /** One page's scan step: its mtime, then its resident record, carried over
@@ -162,6 +175,28 @@ async function readPins(
   return parsePins(await storage.read(PINS_PATH))
 }
 
+/** Read the reminders meta file into the index (add-reminders, ADR-0031). A
+ *  missing file is the empty list — `VaultStorage.read`/`stat` reject on a
+ *  missing path (ADR-0013), so absence is caught. The mtime joins the snapshot,
+ *  so refresh re-reads rules only when the file changed, exactly like pins. */
+async function readReminders(
+  storage: VaultStorage,
+  previous: VaultIndex | undefined,
+  snapshot: Map<string, number>,
+): Promise<ReminderRule[]> {
+  let mtime: number
+  try {
+    mtime = await storage.stat(REMINDERS_PATH)
+  } catch {
+    return [] // no meta file: no reminders
+  }
+  snapshot.set(REMINDERS_PATH, mtime)
+  if (previous && previous.snapshot.get(REMINDERS_PATH) === mtime) {
+    return previous.reminders
+  }
+  return parseReminders(await storage.read(REMINDERS_PATH))
+}
+
 /** Write-through path for the app's own saves (ADR-0004, design B1): persist
  *  the page, re-parse it in memory, and heal the mtime snapshot so the next
  *  diff-rescan skips the file. Non-optimistic by construction — the page
@@ -195,7 +230,7 @@ export async function upsertPage(
   // asset check reads includes it (design D2).
   const files = new Set(current.graph.files)
   files.add(path)
-  return { graph: fold(pages, files), snapshot, pins: current.pins }
+  return { graph: fold(pages, files), snapshot, pins: current.pins, reminders: current.reminders }
 }
 
 /** Write-through for pin edits (design D1/D3), mirroring upsertPage: write
@@ -212,7 +247,24 @@ export async function upsertPins(
   const lastModified = await storage.stat(PINS_PATH)
   const snapshot = new Map(current.snapshot)
   snapshot.set(PINS_PATH, lastModified)
-  return { graph: current.graph, snapshot, pins }
+  return { graph: current.graph, snapshot, pins, reminders: current.reminders }
+}
+
+/** Write-through for reminder-rule edits (add-reminders), mirroring
+ *  `upsertPins`: write the meta file, re-read its mtime, and heal the snapshot
+ *  so the next diff-rescan skips it. Non-optimistic by construction — the index
+ *  changes only after the write resolves, so a failed write leaves it
+ *  consistent with disk. */
+export async function upsertReminders(
+  storage: VaultStorage,
+  current: VaultIndex,
+  reminders: ReminderRule[],
+): Promise<VaultIndex> {
+  await storage.write(REMINDERS_PATH, renderReminders(reminders))
+  const lastModified = await storage.stat(REMINDERS_PATH)
+  const snapshot = new Map(current.snapshot)
+  snapshot.set(REMINDERS_PATH, lastModified)
+  return { graph: current.graph, snapshot, pins: current.pins, reminders }
 }
 
 const PINS_HEADER = '# Pinned pages - order is pin order, most recent first'
@@ -352,7 +404,12 @@ export async function upsertBoard(
   await storage.write(path, scene)
   const files = new Set(current.graph.files)
   files.add(path)
-  return { graph: fold(current.graph.pages, files), snapshot: current.snapshot, pins: current.pins }
+  return {
+    graph: fold(current.graph.pages, files),
+    snapshot: current.snapshot,
+    pins: current.pins,
+    reminders: current.reminders,
+  }
 }
 
 /** Parse the pins meta file: an ordered list of page paths (design D1).
@@ -400,55 +457,6 @@ export function stem(path: string): string {
 /** Kind: journal iff the path starts with the journals directory (F1). */
 export function kindOf(path: string): 'journal' | 'page' {
   return path.startsWith('journals/') ? 'journal' : 'page'
-}
-
-const JOURNAL_DATE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/
-
-/** The calendar date ('YYYY-MM-DD') of a journal day path, else null
- *  (journal-calendar D5). Non-date files under `journals/` have no cell. */
-export function journalDate(path: string): string | null {
-  return JOURNAL_DATE.exec(path)?.[1] ?? null
-}
-
-/** Local 'YYYY-MM-DD' for a Date — built from local year/month/day parts,
- *  never toISOString(), which shifts the day at local midnight boundaries
- *  (journal-calendar D5). */
-export function localDayString(date: Date): string {
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${mm}-${dd}`
-}
-
-/** The zero-padded date-name shape the journal directory and the calendar
- *  agree on. Shape alone is not enough: see `journalDayName`. */
-const DATE_NAME = /^(\d{4})-(\d{2})-(\d{2})$/
-
-const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-function isLeapYear(year: number): boolean {
-  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
-}
-
-/** The date string when `name` is a real calendar day in zero-padded
- *  `YYYY-MM-DD` form, else null (design D1). Checked by component, never by
- *  `Date`: `new Date('2026-09-16')` parses as UTC and `new Date(y, m, d)` maps
- *  years 0-99 to 1900+, so both would answer a different question than "is this
- *  a day the journal calendar can show". A name that is not a real day is not
- *  a journal day and keeps the ordinary page rule. */
-export function journalDayName(name: string): string | null {
-  const match = DATE_NAME.exec(name)
-  if (!match) return null
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  if (month < 1 || month > 12 || day < 1) return null
-  const length = month === 2 && isLeapYear(year) ? 29 : MONTH_LENGTHS[month - 1]
-  return day <= length ? name : null
-}
-
-/** The journal day's vault path for a date name (design D1). */
-export function journalDayPath(name: string): string {
-  return `journals/${name}.md`
 }
 
 /** The path a reference navigates to (design D2): a date name is the journal

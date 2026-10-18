@@ -11,6 +11,7 @@ import {
   assetName,
   boardName,
   boardReferrers,
+  journalDayPath,
   orderPages,
   pageAssets,
   resolveBoardPath,
@@ -18,6 +19,7 @@ import {
   type Graph,
   type IndexPage,
 } from './vault/index'
+import { ruleMatches, type ReminderRule } from './vault/reminders'
 
 /** Order a "who references this" list: the most recently edited page first,
  *  path ascending as the tiebreak — the sidebar's own rule (`orderPages`) minus
@@ -140,4 +142,54 @@ export function sidebarListing(
     ...boards.map((path) => ({ kind: 'board' as const, path, label: boardName(path) })),
     ...assets.map((path) => ({ kind: 'asset' as const, path, label: assetName(path) })),
   ]
+}
+
+/** One reminder row on an open journal day (add-reminders). `target` is the
+ *  page name as the rule writes it, which is what a removal matches; `title` is
+ *  the page's own title when the vault holds it, else the target. */
+export type ReminderRow = {
+  target: string
+  title: string
+  path: string
+  pending: boolean
+}
+
+/** The open journal day's reminders (add-reminders, design D4/D5). For each
+ *  rule, a recorded row when the day's note already references the rule's page,
+ *  else a pending row when the rule matches the day; a rule that neither
+ *  matches nor is referenced produces no row. Pending rows lead, recorded rows
+ *  follow, and a page appears once even if two rules name it. Pure: the caller
+ *  memoizes it on the graph's identity and the open day, so it never reaches
+ *  the keystroke path. */
+export function dayReminders(
+  graph: Graph,
+  rules: readonly ReminderRule[],
+  day: string,
+): ReminderRow[] {
+  const page = graph.pages.get(journalDayPath(day))
+  const referenced = new Set<string>()
+  if (page) {
+    for (const link of page.links) {
+      referenced.add(resolveReferencePath(link.target, graph.byName))
+    }
+  }
+  const pending: ReminderRow[] = []
+  const recorded: ReminderRow[] = []
+  const seen = new Set<string>()
+  for (const rule of rules) {
+    const path = resolveReferencePath(rule.target, graph.byName)
+    if (seen.has(path)) continue
+    const isRecorded = referenced.has(path)
+    if (!isRecorded && !ruleMatches(rule, day)) continue
+    seen.add(path)
+    const row: ReminderRow = {
+      target: rule.target,
+      title: graph.pages.get(path)?.title ?? rule.target,
+      path,
+      pending: !isRecorded,
+    }
+    if (isRecorded) recorded.push(row)
+    else pending.push(row)
+  }
+  return [...pending, ...recorded]
 }

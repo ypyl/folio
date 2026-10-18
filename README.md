@@ -16,6 +16,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
 - Favorites, back/forward history, and a status bar
+- Reminders: a page reference on a journal day, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, shown on the day and counted by the app badge
 - A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
@@ -42,6 +43,32 @@ view lead with what it names:
 An operator reorders, it never hides a result, and the first operator in a query
 wins. With an empty query the spotlight lists the five operators to choose from.
 
+## Reminders
+
+A reminder is a page you reference from a journal day. A rule in
+`.folio/reminders.md` says when that day comes around, with a recurrence and an
+anchor date:
+
+```markdown
+# Reminders - order is reminder order
+
+- yearly 1990-04-12 #[[Ana birthday]]
+- monthly 2026-10-01 #[[Pay rent]]
+- daily 2026-10-16 #[[Take pills]]
+```
+
+Open a journal day and the right panel's **Reminders** section lists what is due
+and what is already taken, with a small form to set one. Activating a pending
+reminder writes one reference line into the day's note; that line is the record,
+and the page's backlinks become the history of every day it was referenced.
+Removing a reminder deletes only its rule: the page and the lines stay.
+
+Occurrences are derived, so merely opening a day writes nothing. A month or year
+that does not hold the anchor day (the 31st in a short month, February 29 in a
+common year) fires nothing rather than moving to another day. The badge on the
+installed app's icon counts the open day's pending reminders. A reminder only
+surfaces while the app is open: there is no server to wake a closed tab.
+
 ## Cleaning up the vault
 
 Folio never deletes files. It edits them, so clearing a page in the app can leave an
@@ -57,7 +84,7 @@ What a vault holds:
 | `journals/` | one `.md` file per day, named `YYYY-MM-DD.md` |
 | `assets/` | dropped, pasted, and imported files, whatever the extension |
 | `boards/` | `.excalidraw` whiteboards, referenced by `#!` tokens |
-| `.folio/` | the app's own bookkeeping: `pins.md` (pinned pages) and `imports.md` (the Logseq import ledger) |
+| `.folio/` | the app's own bookkeeping: `pins.md` (pinned pages), `reminders.md` (reminder rules), and `imports.md` (the Logseq import ledger) |
 | anything else | ignored by Folio; a Markdown file is a page only under `pages/` or `journals/` |
 
 So cleanup is plain file deletion:
@@ -69,6 +96,8 @@ So cleanup is plain file deletion:
 - **Whiteboard**: delete the `.excalidraw` file from `boards/`. The `#!` token stays in the
   referring page and simply stops resolving.
 - **Pins**: delete `.folio/pins.md`.
+- **Reminders**: delete `.folio/reminders.md`. The pages and the journal lines that
+  reference them stay; only the schedule goes.
 - **Logseq import ledger**: delete `.folio/imports.md` to make a folder importable again;
   the next run then writes those files once more, appending to what a previous run left.
 

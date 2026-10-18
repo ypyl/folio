@@ -64,6 +64,10 @@ const BRAND_FACTS =
 export type EditorPaneHandle = {
   /** Apply a keyboard chord to the editor, as pressing it would. */
   applyChord: (chord: string) => boolean
+  /** Append Markdown at the end of the open document (add-reminders): the
+   *  reminder list records an occurrence through this, so it does not depend
+   *  on where the caret is. */
+  appendMarkdown: (markdown: string) => void
   /** The open document's top-level blocks for a presentation
    *  (add-presentations); reading them changes nothing. */
   staticBlocks: () => StaticBlock[]
@@ -167,6 +171,7 @@ export function EditorPane({
     ref,
     () => ({
       applyChord: (chord: string) => adapterRef.current?.applyChord(chord) ?? false,
+      appendMarkdown: (markdown: string) => adapterRef.current?.appendMarkdown(markdown),
       staticBlocks: () => adapterRef.current?.staticBlocks() ?? [],
       focus: () => adapterRef.current?.focus(),
     }),

@@ -74,8 +74,9 @@ describe('scan cost', () => {
     // getDirectoryHandle calls: each of the 200 stats and reads re-resolved
     // `pages/sub0/sub1/sub2/pN.md` from the root, 2 × (depth + 1) per page.
     // Now the only directory lookups are the 4 distinct directories the scan
-    // touches plus one failed probe for `.folio/pins.md`.
-    expect(fsaCalls.getDirectoryHandle).toBe(5)
+    // touches plus a failed probe for each meta file, `.folio/pins.md` and
+    // `.folio/reminders.md` (add-reminders).
+    expect(fsaCalls.getDirectoryHandle).toBe(6)
     // Two file lookups and two getFile calls per page: one stat, one read.
     expect(fsaCalls.getFileHandle).toBe(400)
     expect(fsaCalls.getFile).toBe(400)
@@ -93,7 +94,7 @@ describe('scan cost', () => {
     resetFsaCalls()
     await buildIndex(large)
 
-    expect(smallDirs).toBe(5)
+    expect(smallDirs).toBe(6)
     expect(fsaCalls.getDirectoryHandle).toBe(smallDirs)
     expect(fsaCalls.getFileHandle).toBe(1000)
   })
@@ -109,8 +110,9 @@ describe('scan cost', () => {
     // stat only: the pages carry over, so no content is re-read or re-parsed.
     expect(fsaCalls.getFileHandle).toBe(120)
     expect(fsaCalls.getFile).toBe(120)
-    // Every directory is already cached; only the `.folio/pins.md` probe runs.
-    expect(fsaCalls.getDirectoryHandle).toBe(1)
+    // Every directory is already cached; only the probes for the two meta
+    // files, `.folio/pins.md` and `.folio/reminders.md`, run.
+    expect(fsaCalls.getDirectoryHandle).toBe(2)
   })
 
   it('fans the scan out, bounded by the concurrency cap', async () => {
