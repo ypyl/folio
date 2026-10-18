@@ -844,10 +844,11 @@ function App() {
   // The open page's reminder target (add-reminders, design D2): the calendar day
   // menu acts on the open page, and whether it already has a rule decides the
   // menu's Remove item. Read from `activePath`/`graph`, not the last-known page
-  // ref, so it is stable for a page that has no file yet. Null when no page is
-  // open or a board is open.
+  // ref, so it is stable for a page that has no file yet. A journal day is not a
+  // target (a day is where a reminder lands, not what it is about), so the menu
+  // offers nothing while one is open; null also covers a board and no open item.
   const reminderTarget =
-    mode === 'page' && activePath !== null
+    mode === 'page' && activePath !== null && kindOf(activePath) === 'page'
       ? (graph?.pages.get(activePath)?.title ?? stem(activePath))
       : null
   const hasReminder =

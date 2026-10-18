@@ -2619,6 +2619,15 @@ describe('reminders from the calendar (add-reminders)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('offers no day menu while a journal day is open', async () => {
+    render(<App />)
+    await openFixture()
+    // The app opens today's journal; a day is not a reminder target.
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    expect(screen.queryByRole('menu')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
   it('materializes a due reminder on open, once', async () => {
     const tree = buildTree({
       pages: { 'Welcome.md': 'hi' },
