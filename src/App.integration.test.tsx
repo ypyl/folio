@@ -11,6 +11,7 @@ import { dayLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 import { COMPACT_QUERY } from './compact'
+import { features } from './features'
 
 // jsdom 30 has no <dialog> modal API, so `showModal()` cannot open the
 // presentation dialog and role queries would treat it as hidden. Stub the two
@@ -135,9 +136,13 @@ vi.mock('./components/months', async (importOriginal) => {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 8, 15))
+  // The reminders tests exercise the enabled feature; the shipped build has it
+  // off (gate-reminders-behind-a-flag).
+  features.reminders = true
 })
 afterEach(() => {
   vi.useRealTimers()
+  features.reminders = false
 })
 
 type FakeView = EditorAdapter & {
@@ -2625,6 +2630,24 @@ describe('reminders from the calendar (add-reminders)', () => {
     // The app opens today's journal; a day is not a reminder target.
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
     expect(screen.queryByRole('menu')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('writes nothing and offers no day menu while the flag is off', async () => {
+    features.reminders = false
+    const tree = buildTree({
+      pages: { 'Welcome.md': 'hi' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    // No day menu for the open page, and no materialization on open.
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    expect(screen.queryByRole('menu')).toBeNull()
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+    await expect(store.read('journals/2026-09-15.md')).rejects.toThrow()
     vi.unstubAllGlobals()
   })
 

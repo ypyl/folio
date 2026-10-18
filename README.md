@@ -16,7 +16,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
 - Favorites, back/forward history, and a status bar
-- Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes
+- Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (off in the shipped build; see [Reminders](#reminders))
 - A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
@@ -70,6 +70,10 @@ A month or year that does not hold the anchor day (the 31st in a short month,
 February 29 in a common year) fires nothing rather than moving to another day.
 The badge on the installed app's icon counts the open day's reminders. A reminder
 only surfaces while the app is open: there is no server to wake a closed tab.
+
+The feature is built but not yet exposed: it sits behind a flag and is off in the
+shipped build, so the day menu and the badge stay hidden. Set `VITE_REMINDERS=1`
+to turn it on for a run.
 
 ## Cleaning up the vault
 

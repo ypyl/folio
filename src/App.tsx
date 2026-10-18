@@ -59,6 +59,7 @@ import {
 } from './vault/index'
 import { matchingRules, type Recurrence, type ReminderRule } from './vault/reminders'
 import { syncAppBadge } from './badge'
+import { features } from './features'
 import {
   boardCandidates,
   candidateNames,
@@ -600,8 +601,9 @@ function App() {
     // matching rule whose page the note does not reference appends one line, so
     // the day holds its occurrence and the normal save persists it. It runs at
     // mount, so it touches only the day being opened, and it is idempotent
-    // because a written line makes the day reference the page.
-    if (graph && journalDay !== null) {
+    // because a written line makes the day reference the page. Gated by the
+    // feature flag, so a disabled feature writes nothing.
+    if (features.reminders && graph && journalDay !== null) {
       for (const rule of unreferencedRules(graph, reminders, journalDay)) {
         editorRef.current?.appendMarkdown(referenceToken(rule.target, 'word'))
       }
@@ -856,8 +858,10 @@ function App() {
     reminders.some((r) => r.target.toLowerCase() === reminderTarget.toLowerCase())
 
   // The badge counts the open day's matching rules (design D4), written or not.
+  // Gated by the feature flag, so a disabled feature sets no badge.
   const openDayReminders = useMemo(
-    () => (journalDay !== null ? matchingRules(reminders, journalDay).length : 0),
+    () =>
+      features.reminders && journalDay !== null ? matchingRules(reminders, journalDay).length : 0,
     [reminders, journalDay],
   )
   useEffect(() => {

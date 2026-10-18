@@ -19,6 +19,7 @@ import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
 import type { Recurrence } from '../vault/reminders'
+import { features } from '../features'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
@@ -259,10 +260,11 @@ export const Sidebar = memo(
       })
     }
 
-    // Open the day's menu only when a page is open to remind about; otherwise
-    // the day cell keeps the browser's own menu (no reminder items).
+    // Open the day's menu only when the reminders feature is on and a page is
+    // open to remind about; otherwise the day cell keeps the browser's own menu
+    // (no reminder items).
     const openDayMenu = (e: ReactMouseEvent<HTMLButtonElement>, date: string) => {
-      if (reminderTarget === null) return
+      if (!features.reminders || reminderTarget === null) return
       e.preventDefault()
       const trigger = e.currentTarget
       const rect = trigger.getBoundingClientRect()

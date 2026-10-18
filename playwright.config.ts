@@ -23,10 +23,13 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     // A dedicated port for the run. Playwright starts and stops this server
-    // itself, so no dev server outlives the run.
+    // itself, so no dev server outlives the run. `VITE_REMINDERS=1` turns the
+    // reminders feature on for the run; the shipped build leaves it off
+    // (gate-reminders-behind-a-flag).
     command: `npm run dev -- --port ${PORT} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 60_000,
+    env: { VITE_REMINDERS: '1' },
   },
 })

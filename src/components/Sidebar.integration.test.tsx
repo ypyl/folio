@@ -5,6 +5,7 @@ import { Sidebar, type SidebarHandle, type SidebarRow } from './Sidebar'
 import styles from './Sidebar.module.css'
 import { dayLabel, monthYearLabel } from './months'
 import { assetName, boardName, localDayString } from '../vault/index'
+import { features } from '../features'
 
 const journal = {
   path: 'journals/2026-09-06.md',
@@ -748,6 +749,13 @@ describe('Sidebar reveal (reveal-open-page-in-files)', () => {
 })
 
 describe('Sidebar day menu (add-reminders)', () => {
+  beforeEach(() => {
+    features.reminders = true
+  })
+  afterEach(() => {
+    features.reminders = false
+  })
+
   const dayCell = () => screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) })
 
   it('offers the recurrence items and calls onRemind with the day', () => {
