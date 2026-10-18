@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-18
+goal: Hide the reminders feature behind a flag that is off, keeping the engine
+  and seams
