@@ -26,7 +26,6 @@ be openable, referenceable, and searchable like any other page.
 - **WHEN** a reminder page exists in the vault
 - **THEN** it opens, can be referenced, and appears in search like any page
 
-
 ### Requirement: Reminder rules live in the vault's app-owned state
 
 The app SHALL keep reminder rules in the vault's `.folio/` directory as plain
@@ -51,6 +50,7 @@ ignored.
 - **GIVEN** `.folio/reminders.md` holds a line that is not a valid rule
 - **WHEN** the app reads the rules
 - **THEN** that line has no effect and the other rules still apply
+
 ### Requirement: A rule names a recurrence, an anchor date, and a page
 
 A rule SHALL carry a recurrence, an anchor calendar date, and a reference to a
@@ -222,8 +222,9 @@ acting on the currently open page as the target and the clicked day as the
 anchor: `Once, on this day`, `Every day`, `Every week`, `Every month`, `Every
 year`, and `Remove reminder` when the open page has a rule. Choosing a recurrence
 SHALL set the open page's single rule anchored on that day, replacing an existing
-rule. With no page open, or with a board open, the menu SHALL offer no reminder
-items.
+rule. The items SHALL be offered only when the open item is a page, not a journal
+day. With no page open, with a journal day open, or with a board open, the menu
+SHALL offer no reminder items.
 
 #### Scenario: A once reminder is anchored on the clicked day
 
@@ -248,6 +249,12 @@ items.
 #### Scenario: No reminder items without an open page
 
 - **WHEN** no page is open and the user opens the day menu
+- **THEN** the menu offers no reminder items
+
+#### Scenario: A journal day offers no reminder items
+
+- **GIVEN** an open journal day
+- **WHEN** the user opens a day menu
 - **THEN** the menu offers no reminder items
 
 ### Requirement: Setting a reminder from a day writes one rule

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-18
+goal: Offer the calendar day menu's reminder items only when the open page is a
+  regular page, not a journal day
