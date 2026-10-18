@@ -746,3 +746,46 @@ describe('Sidebar reveal (reveal-open-page-in-files)', () => {
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Alpha' }))
   })
 })
+
+describe('Sidebar day menu (add-reminders)', () => {
+  const dayCell = () => screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) })
+
+  it('offers the recurrence items and calls onRemind with the day', () => {
+    const onRemind = vi.fn()
+    render(
+      <Sidebar
+        rows={[pageRow('pages/Ana.md', 'Ana')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={journal.path}
+        onSelect={() => {}}
+        hasVault
+        reminderTarget="Ana"
+        hasReminder
+        onRemind={onRemind}
+        onRemoveReminder={vi.fn()}
+      />,
+    )
+    fireEvent.contextMenu(dayCell())
+    expect(screen.getByRole('menu')).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'Remove reminder' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
+    expect(onRemind).toHaveBeenCalledWith('2026-09-06', 'yearly')
+  })
+
+  it('offers no day menu when no page is open to remind about', () => {
+    render(
+      <Sidebar
+        rows={[pageRow('pages/Ana.md', 'Ana')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={journal.path}
+        onSelect={() => {}}
+        hasVault
+        reminderTarget={null}
+      />,
+    )
+    fireEvent.contextMenu(dayCell())
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})

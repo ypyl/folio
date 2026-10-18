@@ -16,7 +16,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
 - Favorites, back/forward history, and a status bar
-- Reminders: a page reference on a journal day, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, shown on the day and counted by the app badge
+- Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes
 - A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
@@ -45,29 +45,31 @@ wins. With an empty query the spotlight lists the five operators to choose from.
 
 ## Reminders
 
-A reminder is a page you reference from a journal day. A rule in
-`.folio/reminders.md` says when that day comes around, with a recurrence and an
-anchor date:
+A reminder is a page you reference from a journal day. Set one from the Journal
+calendar: open the page you want to be reminded about, right-click a day, and
+choose a recurrence. The menu offers `Once, on this day`, `Every day`,
+`Every week`, `Every month`, `Every year`, and `Remove reminder` when the page
+already has one. A page has one reminder; choosing another replaces it.
+
+The rule lives in `.folio/reminders.md`:
 
 ```markdown
 # Reminders - order is reminder order
 
-- yearly 1990-04-12 #[[Ana birthday]]
+- yearly 2026-04-12 #[[Ana birthday]]
 - monthly 2026-10-01 #[[Pay rent]]
 - daily 2026-10-16 #[[Take pills]]
 ```
 
-Open a journal day and the right panel's **Reminders** section lists what is due
-and what is already taken, with a small form to set one. Activating a pending
-reminder writes one reference line into the day's note; that line is the record,
-and the page's backlinks become the history of every day it was referenced.
-Removing a reminder deletes only its rule: the page and the lines stay.
+When you open a journal day that a rule matches, the app writes one reference
+line into that day's note. The line is the occurrence and the record, and the
+page's backlinks become the history of every day it was referenced. Removing a
+reminder deletes only its rule: the page and the written lines stay.
 
-Occurrences are derived, so merely opening a day writes nothing. A month or year
-that does not hold the anchor day (the 31st in a short month, February 29 in a
-common year) fires nothing rather than moving to another day. The badge on the
-installed app's icon counts the open day's pending reminders. A reminder only
-surfaces while the app is open: there is no server to wake a closed tab.
+A month or year that does not hold the anchor day (the 31st in a short month,
+February 29 in a common year) fires nothing rather than moving to another day.
+The badge on the installed app's icon counts the open day's reminders. A reminder
+only surfaces while the app is open: there is no server to wake a closed tab.
 
 ## Cleaning up the vault
 

@@ -1,6 +1,6 @@
 # ADR-0031: Reminders are derived from rules and never materialized
 
-- Status: Accepted
+- Status: Superseded by [0032](0032-a-due-reminder-is-written-on-open.md)
 - Date: 2026-10-18
 
 ## Context

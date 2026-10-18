@@ -11,14 +11,13 @@ import { StatusBar } from './components/StatusBar'
 import { Tour } from './components/Tour'
 import { PresentationView } from './components/PresentationView'
 import {
-  dayReminders,
   journalRows,
   orderedPageRows,
   pageBacklinks,
   pageForwardlinks,
   pagesReferencingBoard,
   sidebarListing,
-  type ReminderRow,
+  unreferencedRules,
 } from './rows'
 import { DraftStore } from './editor/drafts'
 import { BoardView } from './editor/boardView'
@@ -58,7 +57,7 @@ import {
   stem,
   type IndexPage,
 } from './vault/index'
-import type { Recurrence, ReminderRule } from './vault/reminders'
+import { matchingRules, type Recurrence, type ReminderRule } from './vault/reminders'
 import { syncAppBadge } from './badge'
 import {
   boardCandidates,
@@ -531,6 +530,11 @@ function App() {
       : null
   const page = displayed ?? pendingBlank
 
+  // The open journal day's date (add-reminders), or null when the open page is
+  // not a journal day. It is the day a reminder anchors on and the day whose due
+  // rules materialize.
+  const journalDay = page && page.kind === 'journal' ? journalDate(page.path) : null
+
   // Whether either trail control has anywhere to step (add-history-navigation).
   // Read here as well as by the status bar, so the reference's history rows
   // disable exactly when the controls do (add-history-keyboard-shortcuts).
@@ -588,10 +592,21 @@ function App() {
   // a no-op, so React's StrictMode double-mount cannot present twice.
   const handleEditorReady = useCallback(() => {
     const target = pendingPresent.current
-    if (target === null || target !== activePathRef.current) return
-    pendingPresent.current = null
-    setSlides(deriveSlides(editorRef.current?.staticBlocks() ?? []))
-  }, [])
+    if (target !== null && target === activePathRef.current) {
+      pendingPresent.current = null
+      setSlides(deriveSlides(editorRef.current?.staticBlocks() ?? []))
+    }
+    // Materialize the day's due reminders (add-reminders, design D3): each
+    // matching rule whose page the note does not reference appends one line, so
+    // the day holds its occurrence and the normal save persists it. It runs at
+    // mount, so it touches only the day being opened, and it is idempotent
+    // because a written line makes the day reference the page.
+    if (graph && journalDay !== null) {
+      for (const rule of unreferencedRules(graph, reminders, journalDay)) {
+        editorRef.current?.appendMarkdown(referenceToken(rule.target, 'word'))
+      }
+    }
+  }, [graph, reminders, journalDay])
 
   // Favorite a page from its row's context menu (add-row-context-menu). This is
   // the pin store the status-bar star used, now keyed by the row's own path.
@@ -826,49 +841,51 @@ function App() {
   // A page with no file yet is "new": its save indicator reads as creating it.
   const newPage = pendingBlank !== null
 
-  // The open day's reminder schedule (add-reminders, design D4/D5): the open
-  // journal day's date, then its rows, derived from the rules and the day's own
-  // references. Memoized on the graph, the rules, and the day, so typing never
-  // re-walks the rules (vault-proportional work stays off the keystroke path).
-  const journalDay = page && page.kind === 'journal' ? journalDate(page.path) : null
-  const reminderRows = useMemo<ReminderRow[]>(
-    () => (graph && journalDay !== null ? dayReminders(graph, reminders, journalDay) : []),
-    [graph, reminders, journalDay],
+  // The open page's reminder target (add-reminders, design D2): the calendar day
+  // menu acts on the open page, and whether it already has a rule decides the
+  // menu's Remove item. Read from `activePath`/`graph`, not the last-known page
+  // ref, so it is stable for a page that has no file yet. Null when no page is
+  // open or a board is open.
+  const reminderTarget =
+    mode === 'page' && activePath !== null
+      ? (graph?.pages.get(activePath)?.title ?? stem(activePath))
+      : null
+  const hasReminder =
+    reminderTarget !== null &&
+    reminders.some((r) => r.target.toLowerCase() === reminderTarget.toLowerCase())
+
+  // The badge counts the open day's matching rules (design D4), written or not.
+  const openDayReminders = useMemo(
+    () => (journalDay !== null ? matchingRules(reminders, journalDay).length : 0),
+    [reminders, journalDay],
   )
-  const pendingReminders = reminderRows.reduce((sum, row) => sum + (row.pending ? 1 : 0), 0)
   useEffect(() => {
-    syncAppBadge(pendingReminders)
-  }, [pendingReminders])
+    syncAppBadge(openDayReminders)
+  }, [openDayReminders])
 
-  // Record a pending reminder on the open day (design D7): append its reference
-  // at the end of the note, and the normal draft-and-save writes it. The app
-  // writes only here, on the user's action.
-  const handleRecordReminder = useCallback((row: ReminderRow) => {
-    editorRef.current?.appendMarkdown(referenceToken(row.target, 'word'))
-  }, [])
-
-  // Set or replace a reminder anchored on the open day (design D6): one rule
-  // per page, so a second add for the same page replaces the first.
-  const handleAddReminder = useCallback(
-    (target: string, recurrence: Recurrence) => {
-      if (journalDay === null || !isReferenceable(target)) return
-      const rule: ReminderRule = { recurrence, anchor: journalDay, target }
+  // Set or replace the open page's one reminder, anchored on the clicked day
+  // (design D2): a second choice replaces the first.
+  const handleRemind = useCallback(
+    (date: string, recurrence: Recurrence) => {
+      if (reminderTarget === null || !isReferenceable(reminderTarget)) return
+      const rule: ReminderRule = { recurrence, anchor: date, target: reminderTarget }
       const next = [
-        ...reminders.filter((r) => r.target.toLowerCase() !== target.toLowerCase()),
+        ...reminders.filter((r) => r.target.toLowerCase() !== reminderTarget.toLowerCase()),
         rule,
       ]
       void saveReminders(next)
     },
-    [journalDay, reminders, saveReminders],
+    [reminderTarget, reminders, saveReminders],
   )
 
-  // Remove a reminder's rule (design D10): the page and the written lines stay.
-  const handleRemoveReminder = useCallback(
-    (target: string) => {
-      void saveReminders(reminders.filter((r) => r.target !== target))
-    },
-    [reminders, saveReminders],
-  )
+  // Remove the open page's reminder rule (design D10): the page and any written
+  // lines stay.
+  const handleRemoveReminder = useCallback(() => {
+    if (reminderTarget === null) return
+    void saveReminders(
+      reminders.filter((r) => r.target.toLowerCase() !== reminderTarget.toLowerCase()),
+    )
+  }, [reminderTarget, reminders, saveReminders])
 
   // Resolve the open page's place in the link graph (links-pane): backlinks
   // come from the folded reverse index; forwardlinks resolve each reference
@@ -984,10 +1001,6 @@ function App() {
   // index's resolvable names in page order, rebuilt only when the graph or the
   // pins change, never per keystroke. The editor asks this through the adapter.
   const suggestPool = useMemo(() => (graph ? candidateNames(graph, pins) : []), [graph, pins])
-  // The reminder form's page field offers the same names the reference picker
-  // does (add-reminders, design D6), so the form can only name a page the app
-  // can resolve. Stable identity so the panel does not re-render on a keystroke.
-  const reminderCandidates = useMemo(() => suggestPool.map((c) => c.name), [suggestPool])
   const suggest = useMemo(
     () =>
       (query: string): Suggestion[] =>
@@ -1075,6 +1088,10 @@ function App() {
             onOpenBoard={handleOpenBoard}
             onFavorite={handleFavorite}
             onPresent={handlePresent}
+            reminderTarget={reminderTarget}
+            hasReminder={hasReminder}
+            onRemind={handleRemind}
+            onRemoveReminder={handleRemoveReminder}
             hasVault={graph !== null}
             loading={indexing}
             todayTick={todayTick}
@@ -1181,12 +1198,6 @@ function App() {
             contents={mode === 'page' ? contentsRows : []}
             links={linkRows}
             activePath={mode === 'page' ? activePath : null}
-            journalDay={mode === 'page' ? journalDay : null}
-            reminders={reminderRows}
-            reminderCandidates={reminderCandidates}
-            onRecordReminder={handleRecordReminder}
-            onAddReminder={handleAddReminder}
-            onRemoveReminder={handleRemoveReminder}
             boardOpen={mode === 'board'}
             boardReferrers={boardReferrerRows}
             onSelect={handleSelect}

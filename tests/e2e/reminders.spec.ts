@@ -1,41 +1,50 @@
 import { expect, test } from '@playwright/test'
 import { editor, installVaultPicker, openVault, seedVault } from './helpers/vault'
 
-// add-reminders: set a rule on the open day, record it as one written line, and
-// remove the rule while the record stays. Real Chromium against the origin
-// private file system; only the OS folder dialog is replaced
+// add-reminders (remind-from-the-calendar): set a reminder for the open page
+// from a calendar day's menu, see it materialize into the day's note on open,
+// and remove the rule while the written line stays. Real Chromium against the
+// origin private file system; only the OS folder dialog is replaced
 // (tests/e2e/helpers/vault.ts).
 
-test('sets, records, and removes a reminder on the open day', async ({ page }) => {
+test('sets, materializes, and removes a reminder from the calendar', async ({ page }) => {
   await installVaultPicker(page)
   await page.goto('/')
-  await seedVault(page, { 'pages/Welcome.md': 'Welcome\n' })
+  await seedVault(page, { 'pages/Ana.md': 'Ana\n' })
   await openVault(page)
 
-  const reminders = page.locator('details', {
-    has: page.locator('summary', { hasText: 'Reminders' }),
+  const files = page.locator('details', {
+    has: page.locator('summary', { hasText: 'Files' }),
   })
-  await expect(reminders).toBeVisible()
-  await expect(reminders.getByText('No reminders for this day.')).toBeVisible()
+  const todayLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date())
+  const todayCell = page.getByRole('button', { name: todayLabel })
 
-  // Set a daily rule anchored on the open day: one rule, no page file.
-  await reminders.getByLabel('Reminder page').fill('Take pills')
-  await reminders.getByLabel('Repeat').selectOption('daily')
-  await reminders.getByRole('button', { name: 'Add' }).click()
+  // Open the page to be reminded about, then set the reminder from today's cell.
+  await files.getByRole('button', { name: 'Ana', exact: true }).click()
+  await expect(page.getByTitle('pages/Ana.md')).toBeVisible()
+  await todayCell.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Every day' }).click()
 
-  // The pending row appears and records one reference into the note.
-  const pending = reminders.getByRole('button', { name: 'Add Take pills to this day' })
-  await expect(pending).toBeVisible()
-  await pending.click()
-  await expect(editor(page)).toContainText('#[[Take pills]]')
+  // The open page now has a rule, so the day menu offers removal.
+  await todayCell.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toBeVisible()
+  await page.keyboard.press('Escape')
 
-  // The row flips to recorded once the save lands.
-  const recorded = reminders.getByRole('button', { name: 'Open Take pills' })
-  await expect(recorded).toBeVisible()
+  // Opening today's journal materializes the reminder line into the note.
+  await page.getByRole('button', { name: 'Today' }).click()
+  await expect(editor(page)).toContainText('#Ana')
 
   // Removing the rule clears the schedule; the written line stays.
-  await recorded.click({ button: 'right' })
+  await files.getByRole('button', { name: 'Ana', exact: true }).click()
+  await todayCell.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Remove reminder' }).click()
-  await expect(reminders.getByText('No reminders for this day.')).toBeVisible()
-  await expect(editor(page)).toContainText('#[[Take pills]]')
+  await todayCell.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Today' }).click()
+  await expect(editor(page)).toContainText('#Ana')
 })

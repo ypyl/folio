@@ -193,3 +193,20 @@ function monthLabel(date: Date): string {
 function shiftDate(date: Date, months: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + months, 1)
 }
+
+describe('JournalCalendar day menu (add-reminders)', () => {
+  it('reports a right-clicked day with its date', () => {
+    const onDayContextMenu = vi.fn()
+    render(
+      <JournalCalendar
+        journalEntries={[]}
+        activePath={null}
+        onSelect={vi.fn()}
+        onDayContextMenu={onDayContextMenu}
+      />,
+    )
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'September 20, 2026' }))
+    expect(onDayContextMenu).toHaveBeenCalledTimes(1)
+    expect(onDayContextMenu.mock.calls[0][1]).toBe('2026-09-20')
+  })
+})

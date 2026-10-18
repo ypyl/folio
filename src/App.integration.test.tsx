@@ -128,21 +128,6 @@ vi.mock('./components/months', async (importOriginal) => {
   }
 })
 
-// Count the day-reminder derivation so a test can prove typing never rebuilds
-// it (add-reminders, the editor-responsiveness budget). Everything else in the
-// module is passed through unchanged.
-const reminderCalls = vi.hoisted(() => ({ count: 0 }))
-vi.mock('./rows', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./rows')>()
-  return {
-    ...actual,
-    dayReminders: (...args: Parameters<typeof actual.dayReminders>) => {
-      reminderCalls.count += 1
-      return actual.dayReminders(...args)
-    },
-  }
-})
-
 // The calendar only renders one month and the app opens today's journal, so the
 // suite is time-sensitive. Freeze Date (only Date, not timers: waitFor and the
 // debounced save stay real) to the fixture's month, or the suite goes red the
@@ -2611,41 +2596,39 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
   })
 })
 
-describe('reminders (add-reminders)', () => {
-  const meta = () => screen.getByRole('complementary', { name: 'Page sidebar' })
-  /** The Reminders section, scoped so its rows do not collide with Links. */
-  const reminders = () =>
-    (within(meta()).getByText('Reminders') as HTMLElement).closest('details') as HTMLElement
+describe('reminders from the calendar (add-reminders)', () => {
   const storageOf = (tree: FakeDirectoryHandle) =>
     new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
+  const dayCell = (date: Date) => screen.getByRole('button', { name: dayLabel(date) })
 
-  it('sets a reminder on the open day and records it as one written line', async () => {
+  it('sets a reminder for the open page from a calendar day menu', async () => {
     render(<App />)
     const tree = await openFixture()
     const store = storageOf(tree)
-    const today = `journals/${localDayString(new Date())}.md`
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
 
-    // Add a daily reminder for a page with no file yet.
-    fireEvent.change(within(reminders()).getByLabelText('Reminder page'), {
-      target: { value: 'Take pills' },
-    })
-    fireEvent.change(within(reminders()).getByLabelText('Repeat'), { target: { value: 'daily' } })
-    fireEvent.click(within(reminders()).getByRole('button', { name: 'Add' }))
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
 
     await waitFor(async () => {
-      expect(await store.read('.folio/reminders.md')).toContain(
-        `- daily ${localDayString(new Date())} #[[Take pills]]`,
-      )
+      expect(await store.read('.folio/reminders.md')).toContain('- yearly 2026-09-20 #[[Welcome]]')
     })
-    // One rule: no page and no note file were created by setting it.
-    await expect(store.read('pages/Take pills.md')).rejects.toThrow()
-    await expect(store.read(today)).rejects.toThrow()
+    // Setting a reminder writes no page or note.
+    await expect(store.read('journals/2026-09-20.md')).rejects.toThrow()
+    vi.unstubAllGlobals()
+  })
 
-    // The pending row appears; activating it writes exactly one reference.
-    fireEvent.click(
-      await within(reminders()).findByRole('button', { name: 'Add Take pills to this day' }),
-    )
-    await waitFor(() => expect(editor().appends).toHaveLength(1))
+  it('materializes a due reminder on open, once', async () => {
+    const tree = buildTree({
+      pages: { 'Welcome.md': 'hi' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+    const today = 'journals/2026-09-15.md'
+
     await waitFor(
       async () => {
         expect(await store.read(today)).toContain('#[[Take pills]]')
@@ -2653,43 +2636,29 @@ describe('reminders (add-reminders)', () => {
       { timeout: 3000 },
     )
     expect((await store.read(today)).match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
-    // The row flips to recorded once the save lands.
-    await within(reminders()).findByRole('button', { name: 'Open Take pills' })
 
-    // The reminder page's backlinks now list the day.
-    fireEvent.click(within(reminders()).getByRole('button', { name: 'Open Take pills' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Take pills.md')).toBeTruthy())
-    expect(links().getByRole('button', { name: localDayString(new Date()) })).toBeTruthy()
+    // Reopening the day adds nothing.
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    await waitFor(() => expect(screen.getByTitle(today)).toBeTruthy())
+    expect((await store.read(today)).match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
     vi.unstubAllGlobals()
   })
 
-  it('opening and scrolling the day writes nothing', async () => {
+  it('removes a reminder from the day menu and keeps the record', async () => {
     const tree = buildTree({
-      pages: { 'Welcome.md': 'hi' },
-      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
-    })
-    render(<App />)
-    await openFixture(tree)
-    const store = storageOf(tree)
-    await within(reminders()).findByRole('button', { name: 'Add Take pills to this day' })
-
-    fireEvent.scroll(within(meta()).getByText('Reminders'))
-    await expect(store.read('journals/2026-09-15.md')).rejects.toThrow()
-    vi.unstubAllGlobals()
-  })
-
-  it('removing a reminder stops it and keeps the written record', async () => {
-    const tree = buildTree({
-      pages: { 'Welcome.md': 'hi' },
+      pages: { 'Take pills.md': 'pills\n' },
       journals: { '2026-09-15.md': 'took them #[[Take pills]]' },
       '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
     })
     render(<App />)
     await openFixture(tree)
     const store = storageOf(tree)
-    const recorded = await within(reminders()).findByRole('button', { name: 'Open Take pills' })
+    fireEvent.click(filesSection().getByRole('button', { name: 'Take pills' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Take pills.md')).toBeTruthy())
 
-    fireEvent.contextMenu(recorded)
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 15)))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
 
     await waitFor(async () => {
@@ -2697,26 +2666,7 @@ describe('reminders (add-reminders)', () => {
       expect(rules).not.toContain('daily')
       expect(rules).toContain('# Reminders')
     })
-    // The written record stays.
     expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
-
-    // A later day has no reminders left.
-    fireEvent.click(screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 16)) }))
-    await waitFor(() => expect(screen.getByTitle('journals/2026-09-16.md')).toBeTruthy())
-    await waitFor(() =>
-      expect(within(reminders()).getByText('No reminders for this day.')).toBeTruthy(),
-    )
-    vi.unstubAllGlobals()
-  })
-
-  it('keeps the day reminder derivation off the typing path', async () => {
-    render(<App />)
-    await openFixture()
-    const before = reminderCalls.count
-    await act(async () => {
-      editor().emitChange('a keystroke')
-    })
-    expect(reminderCalls.count).toBe(before)
     vi.unstubAllGlobals()
   })
 })

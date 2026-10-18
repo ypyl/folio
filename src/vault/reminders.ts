@@ -93,3 +93,9 @@ export function ruleMatches(rule: ReminderRule, day: string): boolean {
       return today.month === anchor.month && today.day === anchor.day
   }
 }
+
+/** The rules that match `day`, in file order (add-reminders, the calendar-day
+ *  change): what the badge counts and what a due day may materialize. */
+export function matchingRules(rules: readonly ReminderRule[], day: string): ReminderRule[] {
+  return rules.filter((rule) => ruleMatches(rule, day))
+}

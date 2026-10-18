@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayReminders } from './rows'
+import { unreferencedRules } from './rows'
 import type { Graph, IndexPage } from './vault/index'
 import type { ReminderRule } from './vault/reminders'
 
@@ -38,64 +38,36 @@ function rule(
   return { recurrence, anchor, target }
 }
 
-describe('dayReminders (add-reminders)', () => {
-  it('shows a due rule with nothing referenced as pending', () => {
+describe('unreferencedRules (add-reminders)', () => {
+  it('returns a matching rule whose page the day does not reference', () => {
     const graph = graphOf([page('journals/2026-10-16.md')])
-    const rows = dayReminders(graph, [rule('daily', '2026-10-16', 'Take pills')], '2026-10-16')
-    expect(rows).toEqual([
-      { target: 'Take pills', title: 'Take pills', path: 'pages/Take pills.md', pending: true },
-    ])
+    const rows = unreferencedRules(graph, [rule('daily', '2026-10-16', 'Take pills')], '2026-10-16')
+    expect(rows).toEqual([rule('daily', '2026-10-16', 'Take pills')])
   })
 
-  it('shows a rule the day already references as recorded', () => {
-    const graph = graphOf([
-      page('journals/2026-10-16.md', ['Take pills']),
-      page('pages/Take pills.md'),
-    ])
-    const rows = dayReminders(graph, [rule('daily', '2026-10-16', 'Take pills')], '2026-10-16')
-    expect(rows).toEqual([
-      { target: 'Take pills', title: 'Take pills', path: 'pages/Take pills.md', pending: false },
-    ])
-  })
-
-  it('records a referenced page even on a day the rule does not match', () => {
-    const graph = graphOf([page('journals/2026-10-16.md', ['Review inbox'])])
-    const rows = dayReminders(graph, [rule('weekly', '2026-10-15', 'Review inbox')], '2026-10-16')
-    expect(rows.map((r) => [r.target, r.pending])).toEqual([['Review inbox', false]])
-  })
-
-  it('a rule that neither matches nor is referenced produces no row', () => {
-    const graph = graphOf([page('journals/2026-10-16.md')])
-    const rows = dayReminders(graph, [rule('weekly', '2026-10-15', 'Review inbox')], '2026-10-16')
+  it('skips a matching rule whose page the day already references', () => {
+    const graph = graphOf([page('journals/2026-10-16.md', ['Take pills'])])
+    const rows = unreferencedRules(graph, [rule('daily', '2026-10-16', 'Take pills')], '2026-10-16')
     expect(rows).toEqual([])
   })
 
-  it('lists pending rows before recorded rows', () => {
-    const graph = graphOf([page('journals/2026-10-16.md', ['Paid'])])
-    const rows = dayReminders(
+  it('skips a rule that does not match the day', () => {
+    const graph = graphOf([page('journals/2026-10-16.md')])
+    const rows = unreferencedRules(
       graph,
-      [rule('daily', '2026-10-16', 'Paid'), rule('daily', '2026-10-16', 'Pending one')],
+      [rule('weekly', '2026-10-15', 'Review inbox')],
       '2026-10-16',
     )
-    expect(rows.map((r) => [r.title, r.pending])).toEqual([
-      ['Pending one', true],
-      ['Paid', false],
-    ])
+    expect(rows).toEqual([])
   })
 
   it('lists a page once when two rules name it', () => {
     const graph = graphOf([page('journals/2026-10-16.md')])
-    const rows = dayReminders(
+    const rows = unreferencedRules(
       graph,
       [rule('daily', '2026-10-16', 'Take pills'), rule('weekly', '2026-10-16', 'Take pills')],
       '2026-10-16',
     )
     expect(rows).toHaveLength(1)
-  })
-
-  it('labels a materialized page by its own title', () => {
-    const graph = graphOf([page('journals/2026-10-16.md'), page('pages/ana.md')])
-    const rows = dayReminders(graph, [rule('daily', '2026-10-16', 'ANA')], '2026-10-16')
-    expect(rows[0]).toMatchObject({ target: 'ANA', title: 'ana', path: 'pages/ana.md' })
   })
 })

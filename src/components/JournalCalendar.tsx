@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import type { Page } from '../page'
 import { journalDate, localDayString } from '../vault/index'
 import { dayLabel, monthYearLabel } from './months'
@@ -46,11 +46,15 @@ export function JournalCalendar({
   journalEntries,
   activePath,
   onSelect,
+  onDayContextMenu,
   todayTick = 0,
 }: {
   journalEntries: Page[]
   activePath: string | null
   onSelect: (path: string) => void
+  /** Open the day's context menu (add-reminders): Sidebar owns the menu and its
+   *  reminder items, so this only reports the invocation and its day. */
+  onDayContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>, date: string) => void
   /** Bumped when the navigation row's Today control is activated; only a
    *  reason to re-run the re-anchor effect below. */
   todayTick?: number
@@ -132,6 +136,7 @@ export function JournalCalendar({
               aria-label={cell.label}
               aria-current={cell.date === activeDate ? 'date' : undefined}
               onClick={() => openDay(cell.date)}
+              onContextMenu={(e) => onDayContextMenu?.(e, cell.date)}
             >
               {Number(cell.date.slice(8))}
             </button>

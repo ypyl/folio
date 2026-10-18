@@ -18,6 +18,7 @@ import { RowContextMenu } from './RowContextMenu'
 import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
+import type { Recurrence } from '../vault/reminders'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
@@ -109,6 +110,10 @@ export const Sidebar = memo(
       onOpenBoard,
       onFavorite,
       onPresent,
+      reminderTarget = null,
+      hasReminder = false,
+      onRemind,
+      onRemoveReminder,
       hasVault,
       loading = false,
       todayTick = 0,
@@ -133,6 +138,16 @@ export const Sidebar = memo(
       /** Present a page (add-row-context-menu): the row menu's second item. App
        *  opens the page first when it is not already open. */
       onPresent?: (path: string) => void
+      /** The open page's name, the target of a reminder set from a day menu
+       *  (add-reminders). Null when no page is open or a board is open, which
+       *  makes the day menu offer no reminder items. */
+      reminderTarget?: string | null
+      /** The open page already has a reminder rule (add-reminders). */
+      hasReminder?: boolean
+      /** Set a reminder for the open page, anchored on `date` (add-reminders). */
+      onRemind?: (date: string, recurrence: Recurrence) => void
+      /** Remove the open page's reminder rule (add-reminders). */
+      onRemoveReminder?: () => void
       /** A folder is open and indexed; gates the journal calendar and the Files
        *  section's empty state. */
       hasVault: boolean
@@ -218,6 +233,16 @@ export const Sidebar = memo(
     } | null>(null)
     const menuRow = menu === null ? undefined : rows.find((r) => r.path === menu.path)
 
+    // The journal day's context menu (add-reminders): the same floating surface
+    // as a page row's, anchored on a calendar day and acting on the open page.
+    // Local, like the row menu, so it never touches the typing path.
+    const [dayMenu, setDayMenu] = useState<{
+      date: string
+      x: number
+      y: number
+      trigger: HTMLElement
+    } | null>(null)
+
     // Open the menu at the invocation point. Chromium fires `contextmenu` for a
     // right-click and for `Shift+F10`/the Menu key; the keyboard invocation
     // reports zero coordinates, so it anchors at the focused row instead.
@@ -228,6 +253,22 @@ export const Sidebar = memo(
       const keyboard = e.clientX === 0 && e.clientY === 0
       setMenu({
         path,
+        x: keyboard ? rect.left : e.clientX,
+        y: keyboard ? rect.bottom : e.clientY,
+        trigger,
+      })
+    }
+
+    // Open the day's menu only when a page is open to remind about; otherwise
+    // the day cell keeps the browser's own menu (no reminder items).
+    const openDayMenu = (e: ReactMouseEvent<HTMLButtonElement>, date: string) => {
+      if (reminderTarget === null) return
+      e.preventDefault()
+      const trigger = e.currentTarget
+      const rect = trigger.getBoundingClientRect()
+      const keyboard = e.clientX === 0 && e.clientY === 0
+      setDayMenu({
+        date,
         x: keyboard ? rect.left : e.clientX,
         y: keyboard ? rect.bottom : e.clientY,
         trigger,
@@ -413,6 +454,7 @@ export const Sidebar = memo(
                   journalEntries={journalEntries}
                   activePath={activePath}
                   onSelect={onSelect}
+                  onDayContextMenu={openDayMenu}
                   todayTick={todayTick}
                 />
               )}
@@ -458,6 +500,26 @@ export const Sidebar = memo(
               },
               ...(PRESENT_ENABLED
                 ? [{ label: 'Present', onSelect: () => onPresent?.(menu.path) }]
+                : []),
+            ]}
+          />
+        ) : null}
+        {/* The journal day's context menu (add-reminders): the reminder items
+          act on the open page, anchored on the clicked day. */}
+        {dayMenu !== null ? (
+          <RowContextMenu
+            x={dayMenu.x}
+            y={dayMenu.y}
+            restoreFocusTo={dayMenu.trigger}
+            onClose={() => setDayMenu(null)}
+            items={[
+              { label: 'Once, on this day', onSelect: () => onRemind?.(dayMenu.date, 'once') },
+              { label: 'Every day', onSelect: () => onRemind?.(dayMenu.date, 'daily') },
+              { label: 'Every week', onSelect: () => onRemind?.(dayMenu.date, 'weekly') },
+              { label: 'Every month', onSelect: () => onRemind?.(dayMenu.date, 'monthly') },
+              { label: 'Every year', onSelect: () => onRemind?.(dayMenu.date, 'yearly') },
+              ...(hasReminder
+                ? [{ label: 'Remove reminder', onSelect: () => onRemoveReminder?.() }]
                 : []),
             ]}
           />

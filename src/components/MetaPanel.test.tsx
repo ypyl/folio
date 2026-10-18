@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MetaPanel, type LinkRow } from './MetaPanel'
-import type { ReminderRow } from '../rows'
 import styles from './MetaPanel.module.css'
 
 // The panel receives the keyboard-shortcuts reference as a node
@@ -522,94 +521,5 @@ describe('MetaPanel board mode (add-whiteboards)', () => {
       />,
     )
     expect(within(meta()).getByText('No pages reference this board.')).toBeTruthy()
-  })
-})
-
-describe('MetaPanel reminders (add-reminders)', () => {
-  const reminder = (target: string, pending: boolean): ReminderRow => ({
-    target,
-    title: target,
-    path: `pages/${target}.md`,
-    pending,
-  })
-
-  const remindersPanel = (props: Partial<Parameters<typeof MetaPanel>[0]> = {}) =>
-    render(
-      <MetaPanel
-        pageOpen
-        links={[]}
-        activePath="journals/2026-10-16.md"
-        journalDay="2026-10-16"
-        reminderCandidates={['Take pills']}
-        onSelect={() => {}}
-        onOpenAsset={() => {}}
-        shortcuts={shortcuts}
-        {...props}
-      />,
-    )
-
-  it('shows the section and its rows on a journal day', () => {
-    remindersPanel({ reminders: [reminder('Take pills', true), reminder('Paid', false)] })
-    expect(within(meta()).getByText('Reminders')).toBeTruthy()
-    expect(within(meta()).getByRole('button', { name: 'Add Take pills to this day' })).toBeTruthy()
-    expect(within(meta()).getByRole('button', { name: 'Open Paid' })).toBeTruthy()
-  })
-
-  it('shows empty copy when the day has no reminders', () => {
-    remindersPanel()
-    expect(within(meta()).getByText('No reminders for this day.')).toBeTruthy()
-  })
-
-  it('has no Reminders section on a page that is not a journal day', () => {
-    remindersPanel({ journalDay: null })
-    expect(within(meta()).queryByText('Reminders')).toBeNull()
-  })
-
-  it('has no Reminders section while a board is open', () => {
-    remindersPanel({ boardOpen: true, boardReferrers: [] })
-    expect(within(meta()).queryByText('Reminders')).toBeNull()
-  })
-
-  it('records a pending reminder and opens a recorded one', () => {
-    const onRecordReminder = vi.fn()
-    const onSelect = vi.fn()
-    remindersPanel({
-      reminders: [reminder('Take pills', true), reminder('Paid', false)],
-      onRecordReminder,
-      onSelect,
-    })
-    fireEvent.click(within(meta()).getByRole('button', { name: 'Add Take pills to this day' }))
-    expect(onRecordReminder).toHaveBeenCalledWith(reminder('Take pills', true))
-    fireEvent.click(within(meta()).getByRole('button', { name: 'Open Paid' }))
-    expect(onSelect).toHaveBeenCalledWith('pages/Paid.md')
-  })
-
-  it('adds a reminder with the chosen recurrence and clears the field', () => {
-    const onAddReminder = vi.fn()
-    remindersPanel({ onAddReminder })
-    fireEvent.change(within(meta()).getByLabelText('Reminder page'), {
-      target: { value: 'Take pills' },
-    })
-    fireEvent.change(within(meta()).getByLabelText('Repeat'), { target: { value: 'daily' } })
-    fireEvent.click(within(meta()).getByRole('button', { name: 'Add' }))
-    expect(onAddReminder).toHaveBeenCalledWith('Take pills', 'daily')
-    expect((within(meta()).getByLabelText('Reminder page') as HTMLInputElement).value).toBe('')
-  })
-
-  it('disables Add until a page is typed', () => {
-    remindersPanel()
-    expect(
-      (within(meta()).getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled,
-    ).toBe(true)
-  })
-
-  it('removes a reminder from its row menu', () => {
-    const onRemoveReminder = vi.fn()
-    remindersPanel({ reminders: [reminder('Take pills', true)], onRemoveReminder })
-    fireEvent.contextMenu(
-      within(meta()).getByRole('button', { name: 'Add Take pills to this day' }),
-    )
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
-    expect(onRemoveReminder).toHaveBeenCalledWith('Take pills')
   })
 })

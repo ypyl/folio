@@ -91,16 +91,14 @@
   min-height: 32px; /* a long listing still leaves something to grab */
 }
 
-/* The Contents and Reminders bands (add-page-contents, add-reminders): size to
-   their rows up to a cap, then scroll, so a short list never claims a share of
-   the panel's height. They do not join the link sections' height sharing. */
-.contents,
-.reminders {
+/* The Contents band (add-page-contents): size to its rows up to a cap, then
+   scroll, so a short outline never claims a share of the panel's height. It
+   does not join the link sections' height sharing. */
+.contents {
   flex: 0 0 auto;
 }
 
-.contentsBody,
-.remindersBody {
+.contentsBody {
   max-height: 40vh;
   overflow-y: auto;
   scrollbar-gutter: stable; /* DESIGN.md, scroll regions */
@@ -207,79 +205,20 @@
   margin-top: 0;
 }
 
-.contentsBody::-webkit-scrollbar,
-.remindersBody::-webkit-scrollbar {
+.contentsBody::-webkit-scrollbar {
   background: transparent;
 }
 
-.contentsBody::-webkit-scrollbar-track,
-.remindersBody::-webkit-scrollbar-track {
+.contentsBody::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.contentsBody::-webkit-scrollbar-thumb,
-.remindersBody::-webkit-scrollbar-thumb {
+.contentsBody::-webkit-scrollbar-thumb {
   background-color: var(--stone);
   border: 4px solid transparent; /* inset the pill within the lane */
   background-clip: content-box; /* paint only inside the transparent border */
   border-radius: 999px;
   min-height: 32px;
-}
-
-/* The reminder form (add-reminders): a page field over a repeat select and its
-   Add control, sized to the panel's narrow column. `--warm-sand` is the
-   secondary button surface (DESIGN.md), and focus takes the ink-blue accent. */
-.reminderForm {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.reminderInput,
-.reminderSelect {
-  min-width: 0;
-  padding: 4px 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--ivory);
-  color: var(--dark-warm);
-  font: inherit;
-  font-size: 13px;
-}
-
-.reminderInput:focus-visible,
-.reminderSelect:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
-}
-
-.reminderActions {
-  display: flex;
-  gap: 4px;
-}
-
-.reminderSelect {
-  flex: 1 1 auto;
-}
-
-.reminderAdd {
-  flex: 0 0 auto;
-  padding: 4px 10px;
-  border: none;
-  border-radius: 6px;
-  background: var(--warm-sand);
-  color: var(--dark-warm);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.reminderAdd:disabled {
-  color: var(--stone);
-  cursor: default;
 }
 
 /* Bottom-anchored keyboard-shortcuts section: the three bands above it claim

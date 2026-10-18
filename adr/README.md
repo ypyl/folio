@@ -47,7 +47,8 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0028](0028-image-resolution-is-viewport-scoped.md) | Vault image resolution is scoped to the pane's viewport | Accepted |
 | [0029](0029-the-markdown-text-is-the-page-surface.md) | The page surface is the Markdown text, edited in CodeMirror | Accepted |
 | [0030](0030-vault-storage-has-no-delete.md) | VaultStorage has no delete | Accepted |
-| [0031](0031-reminders-are-derived-from-rules.md) | Reminders are derived from rules and never materialized | Accepted |
+| [0031](0031-reminders-are-derived-from-rules.md) | Reminders are derived from rules and never materialized | Superseded by [0032](0032-a-due-reminder-is-written-on-open.md) |
+| [0032](0032-a-due-reminder-is-written-on-open.md) | A due reminder is written into the journal day when it is opened | Accepted |
 
 ## Adding a new ADR
 

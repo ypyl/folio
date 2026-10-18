@@ -1,18 +1,12 @@
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { buildContentTree, type ContentEntry, type ContentNode } from '../vault/contents'
-import type { ReminderRow } from '../rows'
-import type { Recurrence } from '../vault/reminders'
 import { Accordion } from './Accordion'
-import { RowContextMenu } from './RowContextMenu'
 import styles from './MetaPanel.module.css'
 
 // Stable empty inputs: a defaulted prop must not be a fresh array each render,
 // so the Contents tree memo rebuilds only when the caller's rows change.
 const EMPTY_CONTENTS: ContentEntry[] = []
 const EMPTY_BLOCKS: ReadonlySet<number> = new Set()
-// Stable empty inputs for the reminders section, for the same reason.
-const EMPTY_REMINDERS: ReminderRow[] = []
-const EMPTY_CANDIDATES: string[] = []
 
 // One link row in the meta panel. `path` is the target's vault-relative path;
 // `kind` is what the row points at, which decides what activating it does: a
@@ -163,156 +157,25 @@ function ContentList({
   )
 }
 
-// The right meta panel: Reminders (journal days only), Contents, Links, and the
-// keyboard-shortcuts reference (add-page-contents, merge-link-sections,
-// add-reminders). Reminders lists the open journal day's scheduled reminders,
-// taken or pending, and offers the control that sets one. Contents lists the
-// open page's headings (page-contents capability); Links holds the open page's
-// links in one list — the pages that reference it, then the pages it references,
-// then its files (assets then boards) — each row badged by direction or kind.
-// While a board is open the panel shows the board's Referenced by rows instead.
+// The right meta panel: Contents, Links, and the keyboard-shortcuts reference
+// (add-page-contents, merge-link-sections). Contents lists the open page's
+// headings (page-contents capability); Links holds the open page's links in one
+// list: the pages that reference it, then the pages it references, then its
+// files (assets then boards), each row badged by direction or kind. While a
+// board is open the panel shows the board's Referenced by rows instead.
 // Placeholder copy while no page is open; real, navigable rows (or empty-state
 // copy) once one is (ui-shell spec); skeleton rows while the active folder's
-// index builds (indexing-loading-state). Components never import the vault —
+// index builds (indexing-loading-state). Components never import the vault:
 // App supplies rows, and it supplies the shortcuts reference as a node too
 // (apply-shortcuts-on-click), so the panel stays layout and knows nothing about
 // what a key combination does. The shortcuts reference is content-only and
 // renders in every state (move-help-to-right-panel).
 
-/** The recurrences the reminder form offers, in daily-use order (add-reminders,
- *  design D6). The value is the rule's own token. */
-const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
-  { value: 'yearly', label: 'Every year' },
-  { value: 'monthly', label: 'Every month' },
-  { value: 'weekly', label: 'Every week' },
-  { value: 'daily', label: 'Every day' },
-  { value: 'once', label: 'Once' },
-]
-
-// The open journal day's reminders (add-reminders, design D5/D6/D10): the day's
-// reminder rows and the control that sets one. A pending row records the
-// reminder on the day; a recorded row opens its page. A row's menu removes the
-// reminder's rule, never the written line (ADR-0031).
-function RemindersBody({
-  rows,
-  candidates,
-  onSelect,
-  onRecord,
-  onAdd,
-  onRemove,
-}: {
-  rows: ReminderRow[]
-  /** Page names the form's field offers, the reference candidate pool. */
-  candidates: string[]
-  onSelect: (path: string) => void
-  onRecord: (row: ReminderRow) => void
-  onAdd: (target: string, recurrence: Recurrence) => void
-  onRemove: (target: string) => void
-}) {
-  const [target, setTarget] = useState('')
-  const [recurrence, setRecurrence] = useState<Recurrence>('yearly')
-  const [menu, setMenu] = useState<{
-    x: number
-    y: number
-    target: string
-    row: HTMLElement
-  } | null>(null)
-  const listId = useId()
-  const name = target.trim()
-
-  return (
-    <>
-      {rows.length === 0 ? (
-        <p className="section-placeholder">No reminders for this day.</p>
-      ) : (
-        <div className={styles.list}>
-          {rows.map((row) => (
-            <button
-              key={row.path}
-              type="button"
-              className={styles.row}
-              aria-label={row.pending ? `Add ${row.title} to this day` : `Open ${row.title}`}
-              onClick={() => (row.pending ? onRecord(row) : onSelect(row.path))}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                setMenu({ x: e.clientX, y: e.clientY, target: row.target, row: e.currentTarget })
-              }}
-            >
-              <span className={styles.badge} aria-hidden="true">
-                {row.pending ? 'due' : 'ok'}
-              </span>
-              <span className={styles.rowText}>{row.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <form
-        className={styles.reminderForm}
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (name === '') return
-          onAdd(name, recurrence)
-          setTarget('')
-        }}
-      >
-        <input
-          className={styles.reminderInput}
-          type="text"
-          list={listId}
-          value={target}
-          placeholder="Page to remind about"
-          aria-label="Reminder page"
-          onChange={(e) => setTarget(e.target.value)}
-        />
-        <datalist id={listId}>
-          {candidates.map((candidate) => (
-            // Presentational: the list is the field's own completion pool, not
-            // a widget of its own, so it must not add `option` roles beside the
-            // search dropdown's (design D6).
-            <option key={candidate} value={candidate} role="presentation" />
-          ))}
-        </datalist>
-        <div className={styles.reminderActions}>
-          <select
-            className={styles.reminderSelect}
-            aria-label="Repeat"
-            value={recurrence}
-            onChange={(e) => setRecurrence(e.target.value as Recurrence)}
-          >
-            {RECURRENCE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className={styles.reminderAdd} disabled={name === ''}>
-            Add
-          </button>
-        </div>
-      </form>
-      {menu !== null && (
-        <RowContextMenu
-          x={menu.x}
-          y={menu.y}
-          items={[{ label: 'Remove reminder', onSelect: () => onRemove(menu.target) }]}
-          restoreFocusTo={menu.row}
-          onClose={() => setMenu(null)}
-        />
-      )}
-    </>
-  )
-}
 export function MetaPanel({
   pageOpen,
   contents = EMPTY_CONTENTS,
   links,
   activePath,
-  journalDay = null,
-  reminders = EMPTY_REMINDERS,
-  reminderCandidates = EMPTY_CANDIDATES,
-  onRecordReminder = () => {},
-  onAddReminder = () => {},
-  onRemoveReminder = () => {},
   boardOpen = false,
   boardReferrers = [],
   onSelect,
@@ -325,19 +188,6 @@ export function MetaPanel({
   pageOpen: boolean
   /** The open page's headings, above Backlinks (add-page-contents). */
   contents?: ContentEntry[]
-  /** The open journal day's date, or null when the open page is not a journal
-   *  day (add-reminders). Never null makes the Reminders section absent. */
-  journalDay?: string | null
-  /** The open journal day's reminder rows (add-reminders). */
-  reminders?: ReminderRow[]
-  /** Page names the reminder form offers (add-reminders). */
-  reminderCandidates?: string[]
-  /** Record a pending reminder on the open day (add-reminders). */
-  onRecordReminder?: (row: ReminderRow) => void
-  /** Set a reminder for `target` with `recurrence`, anchored on the open day. */
-  onAddReminder?: (target: string, recurrence: Recurrence) => void
-  /** Remove the reminder rule for `target` (add-reminders). */
-  onRemoveReminder?: (target: string) => void
   /** The open page's links in one list: the pages that reference it (`in`), the
    *  pages it references (`out`), then its files (assets `a`, boards `b`). App
    *  orders and memoizes it (merge-link-sections). */
@@ -422,30 +272,6 @@ export function MetaPanel({
         </Accordion>
       ) : (
         <>
-          {/* Reminders (add-reminders): the open journal day's schedule, above
-              its own shape and links. It sizes to its rows up to a cap, like
-              Contents, and is absent on a page that is not a journal day. */}
-          {journalDay !== null && (
-            <Accordion
-              title="Reminders"
-              defaultOpen
-              className={styles.reminders}
-              bodyClassName={styles.remindersBody}
-            >
-              {loading ? (
-                skeletonLine
-              ) : (
-                <RemindersBody
-                  rows={reminders}
-                  candidates={reminderCandidates}
-                  onSelect={onSelect}
-                  onRecord={onRecordReminder}
-                  onAdd={onAddReminder}
-                  onRemove={onRemoveReminder}
-                />
-              )}
-            </Accordion>
-          )}
           {/* Contents (add-page-contents): the page's own shape, above its
               links. It sizes to its list up to a cap, so a short outline never
               claims a share of the panel's height. */}
