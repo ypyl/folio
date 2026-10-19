@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-19
+goal: A persisted prerelease mode toggled from the folder rail, which enables
+  features that ship behind a flag (reminders)

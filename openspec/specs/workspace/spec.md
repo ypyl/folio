@@ -94,19 +94,22 @@ show a visible focus indicator in the app's accent when focused by keyboard.
 ### Requirement: The folder rail lists open folders and switches between them
 
 The rail SHALL render the Folio brand as its first control, then the search
-trigger, then the add control and one entry per open folder, and at viewports
-wider than the compact breakpoint a tour control held to the rail's bottom edge
-as its last control. Where the browser cannot open local folders, the rail SHALL
-show no add control and the app SHALL not invoke the picker. At or below the
-compact breakpoint the rail SHALL show no tour control. Activating an entry
-SHALL make that folder active, and a folder whose stored permission is pending
-SHALL request permission rather than opening the picker. Opening the same folder
-twice SHALL NOT add a second entry. Switching folders SHALL reset the open page
-to the new folder's today journal. The rail SHALL render no entries until stored
-folders have resolved, SHALL keep a fixed control size, and SHALL scroll
-vertically only. The tour control SHALL keep its place at the rail's bottom edge
-however many folders are listed, SHALL carry an accessible name naming the
-action it performs, and SHALL show visible keyboard focus.
+trigger, then the add control and one entry per open folder, then a prerelease
+control, and at viewports wider than the compact breakpoint a tour control held
+to the rail's bottom edge as its last control. Where the browser cannot open
+local folders, the rail SHALL show no add control and the app SHALL not invoke
+the picker. At or below the compact breakpoint the rail SHALL show no tour
+control. Activating an entry SHALL make that folder active, and a folder whose
+stored permission is pending SHALL request permission rather than opening the
+picker. Opening the same folder twice SHALL NOT add a second entry. Switching
+folders SHALL reset the open page to the new folder's today journal. The rail
+SHALL render no entries until stored folders have resolved, SHALL keep a fixed
+control size, and SHALL scroll vertically only. The tour control SHALL keep its
+place at the rail's bottom edge however many folders are listed, SHALL carry an
+accessible name naming the action it performs, and SHALL show visible keyboard
+focus. The prerelease control SHALL render in every state, compact included,
+SHALL carry an accessible name and `aria-pressed`, and SHALL sit before the tour
+control.
 
 #### Scenario: The add control opens the picker and lists the folder
 
@@ -151,6 +154,12 @@ action it performs, and SHALL show visible keyboard focus.
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the navigation view is shown
 - **THEN** the rail shows no tour control
+
+#### Scenario: The prerelease control renders before the tour
+
+- **WHEN** the rail renders
+- **THEN** the prerelease control is present and the tour control, where shown,
+  follows it
 
 ### Requirement: A folder entry can be closed
 
