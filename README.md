@@ -47,10 +47,11 @@ wins. With an empty query the spotlight lists the five operators to choose from.
 ## Reminders
 
 A reminder is a page you reference from a journal day. Set one from the Journal
-calendar: open the page you want to be reminded about, right-click a day, and
-choose a recurrence. The menu offers `Once, on this day`, `Every day`,
-`Every week`, `Every month`, `Every year`, and `Remove reminder` when the page
-already has one. A page has one reminder; choosing another replaces it.
+calendar: open the page you want to be reminded about, right-click a day (today
+or a later one), and choose a recurrence. The menu offers `Once, on this day`,
+`Every day`, `Every week`, `Every month`, `Every year`, and `Remove reminder`
+when the page already has one. A page has one reminder; choosing another
+replaces it.
 
 The rule lives in `.folio/reminders.md`:
 

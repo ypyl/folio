@@ -18,6 +18,7 @@ import { RowContextMenu } from './RowContextMenu'
 import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
+import { localDayString } from '../vault/index'
 import type { Recurrence } from '../vault/reminders'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
@@ -113,6 +114,7 @@ export const Sidebar = memo(
       reminderTarget = null,
       hasReminder = false,
       remindersEnabled = false,
+      today = localDayString(new Date()),
       onRemind,
       onRemoveReminder,
       hasVault,
@@ -148,6 +150,9 @@ export const Sidebar = memo(
       /** The effective reminders gate: the build flag or prerelease mode
        *  (add-prerelease-mode). App computes it; the sidebar only reads it. */
       remindersEnabled?: boolean
+      /** The local day as `YYYY-MM-DD`. A day before it offers no reminder
+       *  items (disallow-past-reminder-days); a test can pin it. */
+      today?: string
       /** Set a reminder for the open page, anchored on `date` (add-reminders). */
       onRemind?: (date: string, recurrence: Recurrence) => void
       /** Remove the open page's reminder rule (add-reminders). */
@@ -263,11 +268,12 @@ export const Sidebar = memo(
       })
     }
 
-    // Open the day's menu only when the reminders feature is on and a page is
-    // open to remind about; otherwise the day cell keeps the browser's own menu
-    // (no reminder items).
+    // Open the day's menu only when the reminders feature is on, a page is open
+    // to remind about, and the day is today or later; otherwise the day cell
+    // keeps the browser's own menu (no reminder items). `YYYY-MM-DD` is
+    // zero-padded, so a string comparison orders the days.
     const openDayMenu = (e: ReactMouseEvent<HTMLButtonElement>, date: string) => {
-      if (!remindersEnabled || reminderTarget === null) return
+      if (!remindersEnabled || reminderTarget === null || date < today) return
       e.preventDefault()
       const trigger = e.currentTarget
       const rect = trigger.getBoundingClientRect()

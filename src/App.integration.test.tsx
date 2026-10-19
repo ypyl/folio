@@ -2653,6 +2653,18 @@ describe('reminders from the calendar (add-reminders)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('offers no day menu for a day before today', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+
+    // Today is frozen at 2026-09-15; the 14th is past.
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 14)))
+    expect(screen.queryByRole('menu')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
   it('turns the reminder feature on from the rail in prerelease mode', async () => {
     features.reminders = false
     render(<App />)

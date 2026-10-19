@@ -763,6 +763,7 @@ describe('Sidebar day menu (add-reminders)', () => {
         reminderTarget="Ana"
         hasReminder
         remindersEnabled
+        today="2026-09-06"
         onRemind={onRemind}
         onRemoveReminder={vi.fn()}
       />,
@@ -773,6 +774,26 @@ describe('Sidebar day menu (add-reminders)', () => {
     expect(screen.getByRole('menuitem', { name: 'Remove reminder' })).toBeTruthy()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
     expect(onRemind).toHaveBeenCalledWith('2026-09-06', 'yearly')
+  })
+
+  it('offers no day menu for a day before today', () => {
+    render(
+      <Sidebar
+        rows={[pageRow('pages/Ana.md', 'Ana')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={journal.path}
+        onSelect={() => {}}
+        hasVault
+        reminderTarget="Ana"
+        hasReminder
+        remindersEnabled
+        today="2026-09-15"
+        onRemind={vi.fn()}
+      />,
+    )
+    fireEvent.contextMenu(dayCell())
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('offers no day menu when no page is open to remind about', () => {
