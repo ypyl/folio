@@ -223,9 +223,9 @@ anchor: `Once, on this day`, `Every day`, `Every week`, `Every month`, `Every
 year`, and `Remove reminder` when the open page has a rule. Choosing a recurrence
 SHALL set the open page's single rule anchored on that day, replacing an existing
 rule. The items SHALL be offered only when the open item is a page, not a journal
-day. With no page open, with a journal day open, or with a board open, the menu
-SHALL offer no reminder items. The reminder items SHALL appear under a `Reminder`
-heading.
+day, and only for a day that is today or later. With no page open, with a journal
+day open, with a board open, or with a day before today, the menu SHALL offer no
+reminder items. The reminder items SHALL appear under a `Reminder` heading.
 
 #### Scenario: A once reminder is anchored on the clicked day
 
@@ -264,6 +264,12 @@ heading.
 - **WHEN** the user looks at the menu
 - **THEN** the items appear under a visible `Reminder` heading, and assistive
   technology reads them as a group named `Reminder`
+
+#### Scenario: A day before today offers no reminder items
+
+- **GIVEN** an open page and a day before today
+- **WHEN** the user opens that day's menu
+- **THEN** the menu offers no reminder items
 
 ### Requirement: Setting a reminder from a day writes one rule
 
