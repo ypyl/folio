@@ -52,3 +52,11 @@
   text-transform: uppercase;
   user-select: none;
 }
+
+/* The heading's group keeps the menu's column flow (add-reminder-menu-heading):
+   the items used to be the menu's direct flex children, so the wrapper must
+   carry the same direction or they fall inline. */
+.group {
+  display: flex;
+  flex-direction: column;
+}

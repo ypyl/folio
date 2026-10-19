@@ -142,7 +142,7 @@ export function RowContextMenu({
       {heading === undefined ? (
         list
       ) : (
-        <div role="group" aria-label={heading}>
+        <div role="group" aria-label={heading} className={styles.group}>
           {/* The group's name already carries the heading to assistive
               technology; the visible line is decoration. */}
           <div className={styles.heading} aria-hidden="true">

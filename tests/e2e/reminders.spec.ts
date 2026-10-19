@@ -33,6 +33,12 @@ test('sets, materializes, and removes a reminder from the calendar', async ({ pa
   // The open page now has a rule, so the day menu offers removal.
   await todayCell.click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toBeVisible()
+  // The items stay stacked in one column under the header, not inline.
+  const tops = await page
+    .getByRole('menuitem')
+    .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)))
+  expect(new Set(tops).size).toBe(tops.length)
+  expect(tops).toEqual([...tops].sort((a, b) => a - b))
   await page.keyboard.press('Escape')
 
   // Opening today's journal materializes the reminder line into the note.
