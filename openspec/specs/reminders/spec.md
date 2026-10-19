@@ -224,7 +224,8 @@ year`, and `Remove reminder` when the open page has a rule. Choosing a recurrenc
 SHALL set the open page's single rule anchored on that day, replacing an existing
 rule. The items SHALL be offered only when the open item is a page, not a journal
 day. With no page open, with a journal day open, or with a board open, the menu
-SHALL offer no reminder items.
+SHALL offer no reminder items. The reminder items SHALL appear under a `Reminder`
+heading.
 
 #### Scenario: A once reminder is anchored on the clicked day
 
@@ -256,6 +257,13 @@ SHALL offer no reminder items.
 - **GIVEN** an open journal day
 - **WHEN** the user opens a day menu
 - **THEN** the menu offers no reminder items
+
+#### Scenario: The day menu names the reminder group
+
+- **GIVEN** an open page and a day menu with reminder items
+- **WHEN** the user looks at the menu
+- **THEN** the items appear under a visible `Reminder` heading, and assistive
+  technology reads them as a group named `Reminder`
 
 ### Requirement: Setting a reminder from a day writes one rule
 
