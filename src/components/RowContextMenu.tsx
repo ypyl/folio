@@ -24,6 +24,7 @@ export function RowContextMenu({
   x,
   y,
   items,
+  heading,
   restoreFocusTo,
   onClose,
 }: {
@@ -31,6 +32,10 @@ export function RowContextMenu({
   x: number
   y: number
   items: RowMenuItem[]
+  /** An optional group name shown above the items (add-reminder-menu-heading):
+   *  a visible, non-focusable line, and the name assistive technology reads for
+   *  the group. Omitted where the items need no name (the page-row menu). */
+  heading?: string
   /** The row the menu belongs to; focus returns here when the menu leaves. */
   restoreFocusTo: HTMLElement | null
   /** Close the menu. Every dismissal and every item activation funnels here;
@@ -111,6 +116,21 @@ export function RowContextMenu({
     }
   }
 
+  const list = items.map((item) => (
+    <button
+      key={item.label}
+      type="button"
+      role="menuitem"
+      className={styles.item}
+      onClick={() => {
+        item.onSelect()
+        onClose()
+      }}
+    >
+      {item.label}
+    </button>
+  ))
+
   return (
     <div
       ref={menuRef}
@@ -119,20 +139,18 @@ export function RowContextMenu({
       style={{ left: pos.left, top: pos.top }}
       onKeyDown={onKeyDown}
     >
-      {items.map((item) => (
-        <button
-          key={item.label}
-          type="button"
-          role="menuitem"
-          className={styles.item}
-          onClick={() => {
-            item.onSelect()
-            onClose()
-          }}
-        >
-          {item.label}
-        </button>
-      ))}
+      {heading === undefined ? (
+        list
+      ) : (
+        <div role="group" aria-label={heading}>
+          {/* The group's name already carries the heading to assistive
+              technology; the visible line is decoration. */}
+          <div className={styles.heading} aria-hidden="true">
+            {heading}
+          </div>
+          {list}
+        </div>
+      )}
     </div>
   )
 }

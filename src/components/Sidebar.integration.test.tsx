@@ -769,6 +769,7 @@ describe('Sidebar day menu (add-reminders)', () => {
     )
     fireEvent.contextMenu(dayCell())
     expect(screen.getByRole('menu')).toBeTruthy()
+    expect(within(screen.getByRole('menu')).getByRole('group', { name: 'Reminder' })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: 'Remove reminder' })).toBeTruthy()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
     expect(onRemind).toHaveBeenCalledWith('2026-09-06', 'yearly')

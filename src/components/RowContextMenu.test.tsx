@@ -96,3 +96,19 @@ describe('RowContextMenu', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('RowContextMenu heading (add-reminder-menu-heading)', () => {
+  it('renders an optional heading as a labelled group, not a menuitem', () => {
+    open({ heading: 'Reminder' })
+    const menu = screen.getByRole('menu')
+    const group = within(menu).getByRole('group', { name: 'Reminder' })
+    expect(within(group).getAllByRole('menuitem')).toHaveLength(2)
+    expect(within(menu).queryByRole('menuitem', { name: 'Reminder' })).toBeNull()
+    expect(within(group).getByText('Reminder')).toBeTruthy()
+  })
+
+  it('renders no group without a heading', () => {
+    open()
+    expect(screen.queryByRole('group')).toBeNull()
+  })
+})

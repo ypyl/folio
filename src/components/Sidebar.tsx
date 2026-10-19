@@ -517,6 +517,7 @@ export const Sidebar = memo(
             y={dayMenu.y}
             restoreFocusTo={dayMenu.trigger}
             onClose={() => setDayMenu(null)}
+            heading="Reminder"
             items={[
               { label: 'Once, on this day', onSelect: () => onRemind?.(dayMenu.date, 'once') },
               { label: 'Every day', onSelect: () => onRemind?.(dayMenu.date, 'daily') },

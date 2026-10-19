@@ -39,3 +39,16 @@
   outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
+
+/* An optional group name (add-reminder-menu-heading): a muted caption above the
+   items, so the menu reads as a named group. Not interactive: the items below
+   keep the keyboard model. */
+.heading {
+  padding: 4px 8px 2px;
+  color: var(--stone);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  user-select: none;
+}
