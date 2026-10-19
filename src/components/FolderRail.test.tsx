@@ -202,3 +202,29 @@ describe('FolderRail', () => {
     expect(screen.getByRole('button', { name: 'Close folder Work' })).toBeTruthy()
   })
 })
+
+describe('FolderRail prerelease control (add-prerelease-mode)', () => {
+  it('toggles the mode, reports its state, and keeps the tour last', () => {
+    const onTogglePrerelease = vi.fn()
+    const onTour = vi.fn()
+    const { rerender } = render(
+      <FolderRail {...railProps({ prerelease: false, onTogglePrerelease, onTour })} />,
+    )
+    const toggle = screen.getByRole('button', { name: 'Prerelease features' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(toggle)
+    expect(onTogglePrerelease).toHaveBeenCalledTimes(1)
+
+    // The tour is still the rail's last control with the toggle present.
+    const nav = screen.getByRole('navigation', { name: 'Open folders' })
+    const controls = nav.querySelectorAll('button')
+    expect(controls[controls.length - 1]).toBe(
+      screen.getByRole('button', { name: 'Take the tour' }),
+    )
+
+    rerender(<FolderRail {...railProps({ prerelease: true, onTogglePrerelease, onTour })} />)
+    expect(
+      screen.getByRole('button', { name: 'Prerelease features' }).getAttribute('aria-pressed'),
+    ).toBe('true')
+  })
+})

@@ -136,6 +136,7 @@ vi.mock('./components/months', async (importOriginal) => {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 8, 15))
+  localStorage.clear()
   // The reminders tests exercise the enabled feature; the shipped build has it
   // off (gate-reminders-behind-a-flag).
   features.reminders = true
@@ -143,6 +144,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   features.reminders = false
+  localStorage.clear()
 })
 
 type FakeView = EditorAdapter & {
@@ -2648,6 +2650,25 @@ describe('reminders from the calendar (add-reminders)', () => {
     expect(screen.queryByRole('menu')).toBeNull()
     await new Promise((resolve) => setTimeout(resolve, 1200))
     await expect(store.read('journals/2026-09-15.md')).rejects.toThrow()
+    vi.unstubAllGlobals()
+  })
+
+  it('turns the reminder feature on from the rail in prerelease mode', async () => {
+    features.reminders = false
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+
+    // Off by default: no day menu.
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    // Turn prerelease mode on from the rail; the day menu then offers reminders.
+    fireEvent.click(screen.getByRole('button', { name: 'Prerelease features' }))
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    expect(screen.getByRole('menu')).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'Every year' })).toBeTruthy()
     vi.unstubAllGlobals()
   })
 

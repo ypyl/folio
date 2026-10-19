@@ -85,16 +85,63 @@
   height: 20px;
 }
 
-/* Tour control (add-app-tour): the rail's last control, on the search
-   trigger's own surface so it reads as a rail control rather than a second
-   accent. Held to the rail's bottom edge with the meta panel footer's recipe
-   (`margin-top: auto` + sticky) so a long folder list scrolling above it never
-   pushes it out of reach; the fill is the rail's own `--ivory`, so rows pass
-   beneath it cleanly. */
-.tour {
+/* The rail's bottom group (add-prerelease-mode): the prerelease toggle and the
+   tour control, held to the rail's bottom edge with the meta panel footer's
+   recipe (`margin-top: auto` + sticky) so a long folder list scrolling above it
+   never pushes them out of reach. The fill is the rail's own `--ivory`, so rows
+   pass beneath it cleanly. */
+.railBottom {
   margin-top: auto;
   position: sticky;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--ivory);
+}
+
+/* The prerelease toggle (add-prerelease-mode): the search trigger's surface,
+   with the ink-blue accent while the mode is on, so the state is visible. */
+.prerelease {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--ivory);
+  color: var(--dark-warm);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.prerelease:hover {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+.prerelease[aria-pressed='true'] {
+  background: var(--brand-tint);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.prereleaseIcon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Tour control (add-app-tour): the rail's last control, on the search
+   trigger's own surface so it reads as a rail control rather than a second
+   accent. It sits in the bottom group above. */
+.tour {
   border: 1px solid var(--border);
   background: var(--ivory);
   color: var(--dark-warm);

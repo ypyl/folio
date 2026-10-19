@@ -5,7 +5,6 @@ import { Sidebar, type SidebarHandle, type SidebarRow } from './Sidebar'
 import styles from './Sidebar.module.css'
 import { dayLabel, monthYearLabel } from './months'
 import { assetName, boardName, localDayString } from '../vault/index'
-import { features } from '../features'
 
 const journal = {
   path: 'journals/2026-09-06.md',
@@ -749,13 +748,6 @@ describe('Sidebar reveal (reveal-open-page-in-files)', () => {
 })
 
 describe('Sidebar day menu (add-reminders)', () => {
-  beforeEach(() => {
-    features.reminders = true
-  })
-  afterEach(() => {
-    features.reminders = false
-  })
-
   const dayCell = () => screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) })
 
   it('offers the recurrence items and calls onRemind with the day', () => {
@@ -770,6 +762,7 @@ describe('Sidebar day menu (add-reminders)', () => {
         hasVault
         reminderTarget="Ana"
         hasReminder
+        remindersEnabled
         onRemind={onRemind}
         onRemoveReminder={vi.fn()}
       />,
@@ -790,10 +783,32 @@ describe('Sidebar day menu (add-reminders)', () => {
         activePath={journal.path}
         onSelect={() => {}}
         hasVault
+        remindersEnabled
         reminderTarget={null}
       />,
     )
     fireEvent.contextMenu(dayCell())
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('Sidebar day menu feature gate (add-prerelease-mode)', () => {
+  it('offers no day menu while the reminders gate is off', () => {
+    render(
+      <Sidebar
+        rows={[pageRow('pages/Ana.md', 'Ana')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={journal.path}
+        onSelect={() => {}}
+        hasVault
+        reminderTarget="Ana"
+        hasReminder
+        remindersEnabled={false}
+        onRemind={vi.fn()}
+      />,
+    )
+    fireEvent.contextMenu(screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) }))
     expect(screen.queryByRole('menu')).toBeNull()
   })
 })

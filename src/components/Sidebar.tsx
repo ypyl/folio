@@ -19,7 +19,6 @@ import { ROW_STRIDE, windowPieces } from './pageWindow'
 import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
 import type { Recurrence } from '../vault/reminders'
-import { features } from '../features'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
@@ -113,6 +112,7 @@ export const Sidebar = memo(
       onPresent,
       reminderTarget = null,
       hasReminder = false,
+      remindersEnabled = false,
       onRemind,
       onRemoveReminder,
       hasVault,
@@ -145,6 +145,9 @@ export const Sidebar = memo(
       reminderTarget?: string | null
       /** The open page already has a reminder rule (add-reminders). */
       hasReminder?: boolean
+      /** The effective reminders gate: the build flag or prerelease mode
+       *  (add-prerelease-mode). App computes it; the sidebar only reads it. */
+      remindersEnabled?: boolean
       /** Set a reminder for the open page, anchored on `date` (add-reminders). */
       onRemind?: (date: string, recurrence: Recurrence) => void
       /** Remove the open page's reminder rule (add-reminders). */
@@ -264,7 +267,7 @@ export const Sidebar = memo(
     // open to remind about; otherwise the day cell keeps the browser's own menu
     // (no reminder items).
     const openDayMenu = (e: ReactMouseEvent<HTMLButtonElement>, date: string) => {
-      if (!features.reminders || reminderTarget === null) return
+      if (!remindersEnabled || reminderTarget === null) return
       e.preventDefault()
       const trigger = e.currentTarget
       const rect = trigger.getBoundingClientRect()

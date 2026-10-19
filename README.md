@@ -20,6 +20,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
+- Prerelease mode: a folder-rail toggle that enables features which ship behind a flag
 
 ## Searching
 
@@ -72,8 +73,9 @@ The badge on the installed app's icon counts the open day's reminders. A reminde
 only surfaces while the app is open: there is no server to wake a closed tab.
 
 The feature is built but not yet exposed: it sits behind a flag and is off in the
-shipped build, so the day menu and the badge stay hidden. Set `VITE_REMINDERS=1`
-to turn it on for a run.
+shipped build. Turn on **prerelease mode** with the flask control at the bottom
+of the folder rail to enable it, or set `VITE_REMINDERS=1` to turn it on for a
+run.
 
 ## Cleaning up the vault
 
