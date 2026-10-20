@@ -466,6 +466,7 @@ export const Sidebar = memo(
                   activePath={activePath}
                   onSelect={onSelect}
                   onDayContextMenu={openDayMenu}
+                  today={today}
                   todayTick={todayTick}
                 />
               )}

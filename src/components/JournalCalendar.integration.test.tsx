@@ -73,6 +73,21 @@ describe('JournalCalendar grid', () => {
     expect(today.classList.contains(styles.today)).toBe(true)
   })
 
+  it('marks the day it is given as today, not the wall clock', () => {
+    // The day arrives from useToday, so a session left open across midnight
+    // marks the new day without a remount (disallow-past-reminder-days).
+    render(
+      <JournalCalendar
+        journalEntries={[]}
+        activePath={null}
+        onSelect={vi.fn()}
+        today="2026-09-16"
+      />,
+    )
+    expect(byDate('September 16, 2026').classList.contains(styles.today)).toBe(true)
+    expect(byDate('September 15, 2026').classList.contains(styles.today)).toBe(false)
+  })
+
   it('shows the current month when no day is open', () => {
     render(<JournalCalendar journalEntries={[]} activePath={null} onSelect={vi.fn()} />)
     const now = new Date()

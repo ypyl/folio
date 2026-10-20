@@ -37,6 +37,7 @@ import {
 } from './vault/parse'
 import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } from './history'
 import { useCompact, type CompactView } from './compact'
+import { useToday } from './useToday'
 import { useVault } from './vault/useVault'
 import { useIndex } from './vault/useIndex'
 import {
@@ -165,6 +166,10 @@ function App() {
   // the sidebar. App owns the tick and passes it down; it changes only on a
   // Today activation, so it never touches the keystroke path.
   const [todayTick, setTodayTick] = useState(0)
+  // The local day, re-read at local midnight and on wake (useToday). App passes
+  // it down so the calendar's today marking and the day menu's past-day guard
+  // agree, and neither goes stale in a session left open overnight.
+  const today = useToday()
   // Last content shown for the open path: if the file vanished in a
   // refresh, keep showing it instead of yanking the page (design D6).
   const lastKnown = useRef<IndexPage | null>(null)
@@ -1108,6 +1113,7 @@ function App() {
             onRemoveReminder={handleRemoveReminder}
             hasVault={graph !== null}
             loading={indexing}
+            today={today}
             todayTick={todayTick}
           />
         </div>

@@ -47,6 +47,7 @@ export function JournalCalendar({
   activePath,
   onSelect,
   onDayContextMenu,
+  today = localDayString(new Date()),
   todayTick = 0,
 }: {
   journalEntries: Page[]
@@ -55,11 +56,14 @@ export function JournalCalendar({
   /** Open the day's context menu (add-reminders): Sidebar owns the menu and its
    *  reminder items, so this only reports the invocation and its day. */
   onDayContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>, date: string) => void
+  /** The local day as `YYYY-MM-DD`, the cell marked as today. Passed down so it
+   *  matches the day menu's past-day guard and refreshes at local midnight
+   *  (useToday); a test can pin it. */
+  today?: string
   /** Bumped when the navigation row's Today control is activated; only a
    *  reason to re-run the re-anchor effect below. */
   todayTick?: number
 }) {
-  const today = localDayString(new Date())
   const existing = new Set<string>()
   for (const page of journalEntries) {
     const date = journalDate(page.path)
