@@ -123,8 +123,10 @@ export function StatusBar({
    *  an ordinary navigation. */
   onToday?: () => void
   /** Reveal the open page's row in the sidebar's Files listing
-   *  (reveal-open-page-in-files). App supplies it only while the open item is a
-   *  page that has a Files row; the page name is inert text without it. */
+   *  (reveal-open-page-in-files). App supplies it for any open page; a page with
+   *  no file yet is created by the reveal so it can have a row
+   *  (reveal-a-page-that-has-no-file). A board, an asset, and a journal day keep
+   *  inert text, which is what the absence of this prop means. */
   onRevealPage?: () => void
   /** The compact shell (add-compact-mobile-shell): the bar is its app bar, so
    *  it carries the two view controls and drops what a phone-width row cannot

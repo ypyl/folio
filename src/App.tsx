@@ -734,41 +734,6 @@ function App() {
     previousView.current = compactView
   }, [compact, compactView])
 
-  // Reveal the open page's row in the Files listing (reveal-open-page-in-files,
-  // ui-shell spec). The status bar offers this only while the open item is a
-  // page with a Files row; the sidebar performs it. A folded left pane is
-  // display: none, so nothing inside it can take focus: unfold first, then
-  // reveal after the commit that expanded it. View-only — no navigation, no
-  // re-open, no vault write. On the compact shell the listing is a view of its
-  // own rather than a folded pane, and the same two-step applies to it.
-  const sidebarRef = useRef<SidebarHandle | null>(null)
-  const pendingReveal = useRef(false)
-
-  const handleRevealPage = useCallback(() => {
-    // The compact shell keeps the listing in a view of its own (design D6):
-    // show that view first, then reveal after the commit that made the row
-    // focusable — the same two-step a folded pane needs, for the same reason.
-    if (compact && compactView !== 'nav') {
-      pendingReveal.current = true
-      showCompactView('nav')
-      return
-    }
-    if (!compact && leftCollapsed) {
-      pendingReveal.current = true
-      setLeftCollapsed(false)
-      return
-    }
-    sidebarRef.current?.revealActive()
-  }, [compact, compactView, leftCollapsed, showCompactView])
-
-  useEffect(() => {
-    if (!pendingReveal.current) return
-    if (!compact && leftCollapsed) return
-    if (compact && compactView !== 'nav') return
-    pendingReveal.current = false
-    sidebarRef.current?.revealActive()
-  }, [compact, compactView, leftCollapsed])
-
   // A board's element change (add-whiteboards, design D7): schedule the scene
   // for the debounced board writer. Panning never reaches here (the board view
   // filters camera-only changes), so this runs once per real edit.
@@ -1028,14 +993,78 @@ function App() {
     [pages, boards, assets, pins],
   )
 
-  // The status bar offers the reveal (reveal-open-page-in-files) only when the
-  // open item is a page that has a row here: a board's and a journal day's
-  // breadcrumb stay inert text. Memoized on the rows' identity, so it costs
-  // nothing per keystroke.
+  // The status bar offers the reveal (reveal-open-page-in-files) for any open
+  // page: a board's and a journal day's breadcrumb stay inert text. Memoized on
+  // the path's kind, so it costs nothing per keystroke.
   const canRevealPage = useMemo(
+    () => mode === 'page' && activePath !== null && kindOf(activePath) === 'page',
+    [mode, activePath],
+  )
+  // Whether that page already has a Files row. A page opened from a reference to
+  // a missing name starts with no file and no row, so revealing it has to create
+  // the page first (reveal-a-page-that-has-no-file); a page with a file writes
+  // nothing. Memoized on the rows' identity.
+  const hasPageRow = useMemo(
     () => sidebarRows.some((row) => row.kind === 'page' && row.path === activePath),
     [sidebarRows, activePath],
   )
+
+  // Reveal the open page's row in the Files listing (reveal-open-page-in-files,
+  // ui-shell spec, reveal-a-page-that-has-no-file). The status bar offers this
+  // for any open page; the sidebar performs it. A folded left pane is
+  // display: none, so nothing inside it can take focus: unfold first, then
+  // reveal after the commit that expanded it. A page with no file has no row, so
+  // the reveal creates it first — the one write a page with a file never sees.
+  // On the compact shell the listing is a view of its own rather than a folded
+  // pane, and the same two-step applies to it.
+  const sidebarRef = useRef<SidebarHandle | null>(null)
+  const pendingReveal = useRef(false)
+
+  const handleRevealPage = useCallback(() => {
+    if (activePath === null) return
+    pendingReveal.current = true
+    // A page with no file has no row to reveal: write it the way its first save
+    // would, with what the editor shows (empty for a page just opened from a
+    // reference), and let the effect below reveal the row the write creates.
+    if (!hasPageRow) {
+      void savePage(activePath, withTrailingBlankLine(openDraft?.content ?? page?.content ?? ''))
+    }
+    // The compact shell keeps the listing in a view of its own (design D6):
+    // show that view first, then reveal after the commit that made the row
+    // focusable — the same two-step a folded pane needs, for the same reason.
+    if (compact && compactView !== 'nav') {
+      showCompactView('nav')
+      return
+    }
+    if (!compact && leftCollapsed) {
+      setLeftCollapsed(false)
+      return
+    }
+    if (hasPageRow) {
+      pendingReveal.current = false
+      sidebarRef.current?.revealActive()
+    }
+  }, [
+    activePath,
+    compact,
+    compactView,
+    hasPageRow,
+    leftCollapsed,
+    openDraft,
+    page,
+    savePage,
+    showCompactView,
+  ])
+
+  useEffect(() => {
+    if (!pendingReveal.current) return
+    if (!compact && leftCollapsed) return
+    if (compact && compactView !== 'nav') return
+    // The row may be the one the reveal itself just created.
+    if (!hasPageRow) return
+    pendingReveal.current = false
+    sidebarRef.current?.revealActive()
+  }, [compact, compactView, hasPageRow, leftCollapsed])
 
   // Loading state (indexing-loading-state): while an active folder with
   // storage is building its index, the graph is null — the panes show

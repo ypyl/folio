@@ -2219,6 +2219,52 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     vi.unstubAllGlobals()
   })
 
+  it('creates a page with no file so it can be revealed', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Folio' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('#architecture'))
+    // Folio references #architecture, which has no file: the badge opens a blank
+    // page, and the crumb is still a control (reveal-a-page-that-has-no-file).
+    editor().emitReferenceClick('architecture')
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
+    expect(pagesDir(tree).children.get('architecture.md')).toBeUndefined()
+
+    fireEvent.click(revealButton('architecture.md'))
+
+    // The reveal writes the page the way its first save would, then the row it
+    // creates takes focus.
+    await waitFor(() => expect(pagesDir(tree).children.has('architecture.md')).toBe(true))
+    const file = pagesDir(tree).children.get('architecture.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('\n')
+    const row = await waitFor(() => filesSection().getByRole('button', { name: 'architecture' }))
+    expect(document.activeElement).toBe(row)
+    expect(editor().setContents[0]).toBe('\n')
+    vi.unstubAllGlobals()
+  })
+
+  it('writes the open text of a page with no file when revealing it', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(filesSection().getByRole('button', { name: 'Folio' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('#architecture'))
+    editor().emitReferenceClick('architecture')
+    await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
+
+    // The page has unsaved text and still no file; the reveal must not lose it.
+    editor().emitChange('Notes on how the shell fits together')
+    fireEvent.click(revealButton('architecture.md'))
+
+    await waitFor(
+      async () => {
+        const file = pagesDir(tree).children.get('architecture.md') as FakeFileHandle
+        expect(await (await file.getFile()).text()).toBe('Notes on how the shell fits together\n\n')
+      },
+      { timeout: 3000 },
+    )
+    vi.unstubAllGlobals()
+  })
+
   it('keeps the reveal off the typing path', async () => {
     render(<App />)
     await openFixture()

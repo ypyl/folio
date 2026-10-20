@@ -15,7 +15,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - Whiteboards: `.excalidraw` boards under `boards/`, referenced with `#!` tokens and edited in the pane
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
-- Favorites, back/forward history, and a status bar
+- Favorites, back/forward history, and a status bar: the open page's name in the bar reveals its row in Files, creating the page first when it has no file yet
 - Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (off in the shipped build; see [Reminders](#reminders))
 - A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
