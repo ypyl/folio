@@ -113,10 +113,12 @@ export const Sidebar = memo(
       onPresent,
       reminderTarget = null,
       hasReminder = false,
+      reminderTargets,
       remindersEnabled = false,
       today = localDayString(new Date()),
       onRemind,
       onRemoveReminder,
+      onRemoveReminderFor,
       hasVault,
       loading = false,
       todayTick = 0,
@@ -147,6 +149,10 @@ export const Sidebar = memo(
       reminderTarget?: string | null
       /** The open page already has a reminder rule (add-reminders). */
       hasReminder?: boolean
+      /** Every page that holds a rule, by lowercased page name
+       *  (remove-reminder-from-the-page-row). App memoizes it on the rules, so a
+       *  page row's menu answers "has a reminder" with one lookup. */
+      reminderTargets?: ReadonlySet<string>
       /** The effective reminders gate: the build flag or prerelease mode
        *  (add-prerelease-mode). App computes it; the sidebar only reads it. */
       remindersEnabled?: boolean
@@ -157,6 +163,9 @@ export const Sidebar = memo(
       onRemind?: (date: string, recurrence: Recurrence) => void
       /** Remove the open page's reminder rule (add-reminders). */
       onRemoveReminder?: () => void
+      /** Remove the rule of the page a row belongs to
+       *  (remove-reminder-from-the-page-row), whether or not it is open. */
+      onRemoveReminderFor?: (path: string) => void
       /** A folder is open and indexed; gates the journal calendar and the Files
        *  section's empty state. */
       hasVault: boolean
@@ -445,6 +454,15 @@ export const Sidebar = memo(
 
     useImperativeHandle(ref, () => ({ revealActive }), [revealActive])
 
+    // Whether the menu's row page already holds a rule
+    // (remove-reminder-from-the-page-row): the item is offered only then, and
+    // only while the feature is on, so a disabled build keeps the two-item menu.
+    const menuRowHasReminder =
+      menuRow !== undefined &&
+      menuRow.kind === 'page' &&
+      remindersEnabled &&
+      (reminderTargets?.has(menuRow.label.toLowerCase()) ?? false)
+
     return (
       <aside
         id="sidebar-pane"
@@ -510,6 +528,9 @@ export const Sidebar = memo(
                 label: menuRow?.pinned ? 'Unfavorite' : 'Favorite',
                 onSelect: () => onFavorite?.(menu.path),
               },
+              ...(menuRowHasReminder
+                ? [{ label: 'Remove reminder', onSelect: () => onRemoveReminderFor?.(menu.path) }]
+                : []),
               ...(PRESENT_ENABLED
                 ? [{ label: 'Present', onSelect: () => onPresent?.(menu.path) }]
                 : []),

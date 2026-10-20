@@ -51,7 +51,9 @@ calendar: open the page you want to be reminded about, right-click a day (today
 or a later one), and choose a recurrence. The menu offers `Once, on this day`,
 `Every day`, `Every week`, `Every month`, `Every year`, and `Remove reminder`
 when the page already has one. A page has one reminder; choosing another
-replaces it.
+replaces it. To clear a page's reminder without opening the page, right-click its
+row in the Files listing: `Remove reminder` sits between `Favorite` and
+`Present`.
 
 The rule lives in `.folio/reminders.md`:
 

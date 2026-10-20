@@ -867,6 +867,14 @@ function App() {
   const hasReminder =
     reminderTarget !== null &&
     reminders.some((r) => r.target.toLowerCase() === reminderTarget.toLowerCase())
+  // The pages that hold a rule, by lowercased name
+  // (remove-reminder-from-the-page-row): the sidebar's row menu reads this to
+  // offer its removal item. Memoized on the rules' own identity, so a row menu
+  // answers with one set lookup and no scan, and a keystroke rebuilds nothing.
+  const reminderTargets = useMemo(
+    () => new Set(reminders.map((rule) => rule.target.toLowerCase())),
+    [reminders],
+  )
 
   // The badge counts the open day's matching rules (design D4), written or not.
   // Gated by the feature flag, so a disabled feature sets no badge.
@@ -894,14 +902,31 @@ function App() {
     [reminderTarget, reminders, saveReminders],
   )
 
-  // Remove the open page's reminder rule (design D10): the page and any written
-  // lines stay.
+  // Remove one page's rule (design D10): the page and any written lines stay.
+  // The day menu passes the open page's name and a row's menu passes its own, so
+  // both routes go through this one filter and cannot drift.
+  const removeReminderFor = useCallback(
+    (target: string) => {
+      const name = target.toLowerCase()
+      void saveReminders(reminders.filter((r) => r.target.toLowerCase() !== name))
+    },
+    [reminders, saveReminders],
+  )
+
   const handleRemoveReminder = useCallback(() => {
-    if (reminderTarget === null) return
-    void saveReminders(
-      reminders.filter((r) => r.target.toLowerCase() !== reminderTarget.toLowerCase()),
-    )
-  }, [reminderTarget, reminders, saveReminders])
+    if (reminderTarget !== null) removeReminderFor(reminderTarget)
+  }, [reminderTarget, removeReminderFor])
+
+  // Remove the rule of the page a row belongs to, whether or not it is open
+  // (remove-reminder-from-the-page-row). The row's title resolves the same way
+  // the open page's target does, so a page whose file does not exist yet is
+  // resolved identically.
+  const handleRemoveReminderFor = useCallback(
+    (path: string) => {
+      removeReminderFor(graph?.pages.get(path)?.title ?? stem(path))
+    },
+    [graph, removeReminderFor],
+  )
 
   // Resolve the open page's place in the link graph (links-pane): backlinks
   // come from the folded reverse index; forwardlinks resolve each reference
@@ -1108,9 +1133,11 @@ function App() {
             onPresent={handlePresent}
             reminderTarget={reminderTarget}
             hasReminder={hasReminder}
+            reminderTargets={reminderTargets}
             remindersEnabled={remindersEnabled}
             onRemind={handleRemind}
             onRemoveReminder={handleRemoveReminder}
+            onRemoveReminderFor={handleRemoveReminderFor}
             hasVault={graph !== null}
             loading={indexing}
             today={today}

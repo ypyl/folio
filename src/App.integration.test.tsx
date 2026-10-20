@@ -2734,4 +2734,62 @@ describe('reminders from the calendar (add-reminders)', () => {
     expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
     vi.unstubAllGlobals()
   })
+
+  it('removes a reminder from the page row menu without opening the page', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n', 'Welcome.md': 'hi' },
+      journals: { '2026-09-15.md': 'took them #[[Take pills]]' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+    fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+
+    // The row's own menu removes its page's rule, and the open page is not it.
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+
+    await waitFor(async () => {
+      const rules = await store.read('.folio/reminders.md')
+      expect(rules).not.toContain('Take pills')
+      expect(rules).toContain('# Reminders')
+    })
+    // Nothing else moves: the open page, the page itself, and the written day.
+    expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy()
+    await expect(store.read('pages/Take pills.md')).resolves.toBeDefined()
+    expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
+    vi.unstubAllGlobals()
+  })
+
+  it('offers no row removal while the flag is off, and keeps the rule', async () => {
+    features.reminders = false
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    // The row menu still opens for favorites; it just carries no reminder item.
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
+    expect(screen.getByRole('menu')).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+
+    // The rule survives untouched: turning the feature on still fires it.
+    expect(await store.read('.folio/reminders.md')).toContain('#[[Take pills]]')
+    fireEvent.click(screen.getByRole('button', { name: 'Prerelease features' }))
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
+    expect(screen.getByRole('menuitem', { name: 'Remove reminder' })).toBeTruthy()
+    fireEvent.click(dayCell(new Date(2026, 8, 16)))
+    await waitFor(
+      async () => {
+        expect(await store.read('journals/2026-09-16.md')).toContain('#[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    vi.unstubAllGlobals()
+  })
 })

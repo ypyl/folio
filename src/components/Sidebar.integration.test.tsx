@@ -672,6 +672,54 @@ describe('page-row context menu (add-row-context-menu)', () => {
     rightClick('Alpha')
     expect(screen.getByRole('menuitem', { name: 'Unfavorite' })).toBeTruthy()
   })
+
+  // remove-reminder-from-the-page-row: the reminder item sits between the
+  // favorite item and Present, and only a page that holds a rule gets it.
+  it('offers Remove reminder for a page that holds a rule, after the favorite item', () => {
+    const onRemoveReminderFor = vi.fn()
+    list({
+      remindersEnabled: true,
+      reminderTargets: new Set(['alpha']),
+      onRemoveReminderFor,
+    })
+
+    rightClick('Alpha')
+    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
+      'Favorite',
+      'Remove reminder',
+    ])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+    expect(onRemoveReminderFor).toHaveBeenCalledWith('a.md')
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('offers no Remove reminder for a page without a rule', () => {
+    list({
+      remindersEnabled: true,
+      reminderTargets: new Set(['somebody-else']),
+      onRemoveReminderFor: vi.fn(),
+    })
+    rightClick('Alpha')
+    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+  })
+
+  it('offers no Remove reminder while the reminders feature is off', () => {
+    list({
+      remindersEnabled: false,
+      reminderTargets: new Set(['alpha']),
+      onRemoveReminderFor: vi.fn(),
+    })
+    rightClick('Alpha')
+    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+  })
+
+  it('does not open a page when removing its reminder', () => {
+    const onSelect = vi.fn()
+    list({ remindersEnabled: true, reminderTargets: new Set(['alpha']), onSelect })
+    rightClick('Alpha')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+    expect(onSelect).not.toHaveBeenCalled()
+  })
 })
 
 // Revealing the open page's row (reveal-open-page-in-files, the status-bar
