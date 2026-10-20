@@ -1,0 +1,67 @@
+/* The replacement confirmation (confirm-replacing-a-reminder): a native modal
+   <dialog>, so the top layer, the focus containment, and the backdrop come from
+   the platform. DESIGN.md's floating surfaces: an --ivory lift over the
+   token-derived wash, one whisper shadow, ink-blue the only accent. The dialog
+   is deliberately narrow: it asks one question about one page. */
+
+.dialog {
+  width: min(420px, calc(100% - 32px));
+  margin: 20vh auto auto;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--ivory);
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --near-black at low opacity */
+  color: var(--near-black);
+}
+
+/* The UA hides a closed dialog; the author `margin`/`padding` above would
+   otherwise win and leave it in the layout intercepting clicks. */
+.dialog:not([open]) {
+  display: none;
+}
+
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--near-black) 32%, transparent);
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--near-black);
+}
+
+.body {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--olive);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* The primary variant (DESIGN.md) styled here because only the secondary ships
+   as a shared utility - the tour's precedent. */
+.replace {
+  padding: 8px 16px;
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  background: var(--brand);
+  color: var(--ivory);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.replace:hover {
+  background: var(--brand-light);
+  transform: translateY(-1px);
+}

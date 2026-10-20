@@ -2720,10 +2720,9 @@ describe('reminders from the calendar (add-reminders)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('removes a reminder from the day menu and keeps the record', async () => {
+  it('asks before a day-menu choice replaces an existing reminder', async () => {
     const tree = buildTree({
       pages: { 'Take pills.md': 'pills\n' },
-      journals: { '2026-09-15.md': 'took them #[[Take pills]]' },
       '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
     })
     render(<App />)
@@ -2732,15 +2731,51 @@ describe('reminders from the calendar (add-reminders)', () => {
     fireEvent.click(filesSection().getByRole('button', { name: 'Take pills' }))
     await waitFor(() => expect(screen.getByTitle('pages/Take pills.md')).toBeTruthy())
 
-    fireEvent.contextMenu(dayCell(new Date(2026, 8, 15)))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+    // The day menu chooses only; it never removes.
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
 
+    // The choice waits on a confirmation that names both schedules.
+    const dialog = await screen.findByRole('dialog', { name: 'Replace reminder?' })
+    expect(dialog.textContent).toContain('every day from September 15, 2026')
+    expect(dialog.textContent).toContain('every year from September 20, 2026')
+
+    // Cancelling writes nothing: the daily rule is still the page's rule.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog', { name: 'Replace reminder?' })).toBeNull()
+    expect(await store.read('.folio/reminders.md')).toContain('- daily 2026-09-15 #[[Take pills]]')
+
+    // Confirming replaces it with the chosen rule.
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }))
     await waitFor(async () => {
-      const rules = await store.read('.folio/reminders.md')
-      expect(rules).not.toContain('daily')
-      expect(rules).toContain('# Reminders')
+      expect(await store.read('.folio/reminders.md')).toContain(
+        '- yearly 2026-09-20 #[[Take pills]]',
+      )
     })
-    expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
+    expect(await store.read('.folio/reminders.md')).not.toContain('- daily')
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the rule when the replacement is dismissed with Escape', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n' },
+      '.folio': { 'reminders.md': '- weekly 2026-09-09 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+    fireEvent.click(filesSection().getByRole('button', { name: 'Take pills' }))
+    await waitFor(() => expect(screen.getByTitle('pages/Take pills.md')).toBeTruthy())
+
+    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every month' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Replace reminder?' })
+    fireEvent(dialog, new Event('cancel'))
+    expect(screen.queryByRole('dialog', { name: 'Replace reminder?' })).toBeNull()
+    expect(await store.read('.folio/reminders.md')).toContain('- weekly 2026-09-09 #[[Take pills]]')
     vi.unstubAllGlobals()
   })
 

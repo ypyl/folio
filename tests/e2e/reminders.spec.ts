@@ -3,11 +3,12 @@ import { editor, installVaultPicker, openVault, seedVault } from './helpers/vaul
 
 // add-reminders (remind-from-the-calendar): set a reminder for the open page
 // from a calendar day's menu, see it materialize into the day's note on open,
-// and remove the rule while the written line stays. Real Chromium against the
-// origin private file system; only the OS folder dialog is replaced
+// replace it through the confirmation, and remove it from the page's row menu
+// while the written line stays (confirm-replacing-a-reminder). Real Chromium
+// against the origin private file system; only the OS folder dialog is replaced
 // (tests/e2e/helpers/vault.ts).
 
-test('sets, materializes, and removes a reminder from the calendar', async ({ page }) => {
+test('sets, replaces, materializes, and removes a reminder', async ({ page }) => {
   await installVaultPicker(page)
   await page.goto('/')
   await seedVault(page, { 'pages/Ana.md': 'Ana\n' })
@@ -30,26 +31,42 @@ test('sets, materializes, and removes a reminder from the calendar', async ({ pa
   await todayCell.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Every day' }).click()
 
-  // The open page now has a rule, so the day menu offers removal.
+  // The day menu chooses recurrences only: no removal item, and the items stay
+  // stacked in one column under the header, not inline.
   await todayCell.click({ button: 'right' })
-  await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toBeVisible()
-  // The items stay stacked in one column under the header, not inline.
+  expect(await page.getByRole('menuitem').count()).toBe(5)
+  await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toHaveCount(0)
   const tops = await page
     .getByRole('menuitem')
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)))
   expect(new Set(tops).size).toBe(tops.length)
   expect(tops).toEqual([...tops].sort((a, b) => a - b))
+
+  // Choosing another recurrence asks first; cancelling keeps the daily rule.
+  await page.getByRole('menuitem', { name: 'Every month' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Replace reminder?' })
+  await expect(dialog).toContainText('every day from')
+  await expect(dialog).toContainText('every month from')
   await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
 
   // Opening today's journal materializes the reminder line into the note.
   await page.getByRole('button', { name: 'Today' }).click()
   await expect(editor(page)).toContainText('#Ana')
 
-  // Removing the rule clears the schedule; the written line stays.
+  // Confirming a replacement writes the chosen schedule.
   await files.getByRole('button', { name: 'Ana', exact: true }).click()
   await todayCell.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Every week' }).click()
+  await page.getByRole('button', { name: 'Replace' }).click()
+  await expect(page.getByRole('dialog', { name: 'Replace reminder?' })).toHaveCount(0)
+
+  // Removing the rule from the page's row menu clears the schedule; the written
+  // line stays.
+  const row = files.getByRole('button', { name: 'Ana', exact: true })
+  await row.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Remove reminder' }).click()
-  await todayCell.click({ button: 'right' })
+  await row.click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Today' }).click()
   await expect(editor(page)).toContainText('#Ana')

@@ -809,17 +809,21 @@ describe('Sidebar day menu (add-reminders)', () => {
         onSelect={() => {}}
         hasVault
         reminderTarget="Ana"
-        hasReminder
         remindersEnabled
         today="2026-09-06"
         onRemind={onRemind}
-        onRemoveReminder={vi.fn()}
       />,
     )
     fireEvent.contextMenu(dayCell())
     expect(screen.getByRole('menu')).toBeTruthy()
     expect(within(screen.getByRole('menu')).getByRole('group', { name: 'Reminder' })).toBeTruthy()
-    expect(screen.getByRole('menuitem', { name: 'Remove reminder' })).toBeTruthy()
+    // The day menu chooses a recurrence and nothing else: removal lives on the
+    // page's row menu (confirm-replacing-a-reminder).
+    expect(
+      within(screen.getByRole('menu'))
+        .getAllByRole('menuitem')
+        .map((b) => b.textContent),
+    ).toEqual(['Once, on this day', 'Every day', 'Every week', 'Every month', 'Every year'])
     fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
     expect(onRemind).toHaveBeenCalledWith('2026-09-06', 'yearly')
   })
@@ -885,7 +889,6 @@ describe('Sidebar day menu feature gate (add-prerelease-mode)', () => {
         onSelect={() => {}}
         hasVault
         reminderTarget="Ana"
-        hasReminder
         remindersEnabled={false}
         onRemind={vi.fn()}
       />,
@@ -895,33 +898,9 @@ describe('Sidebar day menu feature gate (add-prerelease-mode)', () => {
   })
 })
 
-// disable-once-for-past-days: the past costs the menu only its once item, so
-// removal and the anchor metadata of an existing rule still work there.
+// disable-once-for-past-days: the past costs the menu only its once item.
 describe('Sidebar day menu on a past day (disable-once-for-past-days)', () => {
   const pastCell = () => screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) })
-
-  it('removes a page reminder from a past day', () => {
-    const onRemoveReminder = vi.fn()
-    render(
-      <Sidebar
-        rows={[pageRow('pages/Ana.md', 'Ana')]}
-        journalEntries={[journal]}
-        onOpenAsset={() => {}}
-        activePath={journal.path}
-        onSelect={() => {}}
-        hasVault
-        reminderTarget="Ana"
-        hasReminder
-        remindersEnabled
-        today="2026-09-15"
-        onRemind={vi.fn()}
-        onRemoveReminder={onRemoveReminder}
-      />,
-    )
-    fireEvent.contextMenu(pastCell())
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
-    expect(onRemoveReminder).toHaveBeenCalledTimes(1)
-  })
 
   it('keeps Once available on today', () => {
     render(

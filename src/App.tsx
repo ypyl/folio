@@ -7,6 +7,7 @@ import { FolderRail } from './components/FolderRail'
 import { PaneCollapseToggle } from './components/PaneCollapseToggle'
 import { SearchSpotlight } from './components/SearchSpotlight'
 import { SearchResultsView } from './components/SearchResultsView'
+import { ConfirmReminderReplace } from './components/ConfirmReminderReplace'
 import { StatusBar } from './components/StatusBar'
 import { Tour } from './components/Tour'
 import { PresentationView } from './components/PresentationView'
@@ -864,9 +865,18 @@ function App() {
     mode === 'page' && activePath !== null && kindOf(activePath) === 'page'
       ? (graph?.pages.get(activePath)?.title ?? stem(activePath))
       : null
-  const hasReminder =
-    reminderTarget !== null &&
-    reminders.some((r) => r.target.toLowerCase() === reminderTarget.toLowerCase())
+  // The open page's rule, if it has one (confirm-replacing-a-reminder): a page has
+  // one reminder, so a second choice would delete the first and has to be
+  // confirmed before it is written.
+  const openPageRule =
+    reminderTarget === null
+      ? undefined
+      : reminders.find((r) => r.target.toLowerCase() === reminderTarget.toLowerCase())
+  // A day-menu choice waiting for that confirmation.
+  const [pendingReminder, setPendingReminder] = useState<{
+    anchor: string
+    recurrence: Recurrence
+  } | null>(null)
   // The pages that hold a rule, by lowercased name
   // (remove-reminder-from-the-page-row): the sidebar's row menu reads this to
   // offer its removal item. Memoized on the rules' own identity, so a row menu
@@ -887,9 +897,10 @@ function App() {
     syncAppBadge(openDayReminders)
   }, [openDayReminders])
 
-  // Set or replace the open page's one reminder, anchored on the clicked day
-  // (design D2): a second choice replaces the first.
-  const handleRemind = useCallback(
+  // Write the open page's one reminder, anchored on the clicked day (design D2).
+  // A page has one rule, so a second write replaces the first; the request below
+  // makes the user confirm that before this runs.
+  const writeReminder = useCallback(
     (date: string, recurrence: Recurrence) => {
       if (reminderTarget === null || !isReferenceable(reminderTarget)) return
       const rule: ReminderRule = { recurrence, anchor: date, target: reminderTarget }
@@ -902,9 +913,29 @@ function App() {
     [reminderTarget, reminders, saveReminders],
   )
 
+  // A day-menu choice (confirm-replacing-a-reminder): ask before it deletes a rule
+  // the page already has, and write straight through when there is none.
+  const handleRemind = useCallback(
+    (date: string, recurrence: Recurrence) => {
+      if (reminderTarget === null || !isReferenceable(reminderTarget)) return
+      if (openPageRule !== undefined) {
+        setPendingReminder({ anchor: date, recurrence })
+        return
+      }
+      writeReminder(date, recurrence)
+    },
+    [reminderTarget, openPageRule, writeReminder],
+  )
+
+  const confirmReminderReplace = useCallback(() => {
+    if (pendingReminder !== null) {
+      writeReminder(pendingReminder.anchor, pendingReminder.recurrence)
+    }
+    setPendingReminder(null)
+  }, [pendingReminder, writeReminder])
+
   // Remove one page's rule (design D10): the page and any written lines stay.
-  // The day menu passes the open page's name and a row's menu passes its own, so
-  // both routes go through this one filter and cannot drift.
+  // The page's own row menu is the only route (confirm-replacing-a-reminder).
   const removeReminderFor = useCallback(
     (target: string) => {
       const name = target.toLowerCase()
@@ -912,10 +943,6 @@ function App() {
     },
     [reminders, saveReminders],
   )
-
-  const handleRemoveReminder = useCallback(() => {
-    if (reminderTarget !== null) removeReminderFor(reminderTarget)
-  }, [reminderTarget, removeReminderFor])
 
   // Remove the rule of the page a row belongs to, whether or not it is open
   // (remove-reminder-from-the-page-row). The row's title resolves the same way
@@ -1132,11 +1159,9 @@ function App() {
             onFavorite={handleFavorite}
             onPresent={handlePresent}
             reminderTarget={reminderTarget}
-            hasReminder={hasReminder}
             reminderTargets={reminderTargets}
             remindersEnabled={remindersEnabled}
             onRemind={handleRemind}
-            onRemoveReminder={handleRemoveReminder}
             onRemoveReminderFor={handleRemoveReminderFor}
             hasVault={graph !== null}
             loading={indexing}
@@ -1306,6 +1331,18 @@ function App() {
         onQueryResult={handleQueryResult}
         onSeeAll={handleOpenResults}
       />
+      {/* The replacement confirmation (confirm-replacing-a-reminder): a page has
+          one reminder, so a day-menu choice that would replace an existing rule
+          waits here until the user confirms it. */}
+      {pendingReminder !== null && openPageRule !== undefined && reminderTarget !== null ? (
+        <ConfirmReminderReplace
+          page={reminderTarget}
+          from={openPageRule}
+          to={pendingReminder}
+          onCancel={() => setPendingReminder(null)}
+          onConfirm={confirmReminderReplace}
+        />
+      ) : null}
       {/* The app tour (add-app-tour): a modal overlay over the shell while
           open. Closing is a state flip, so nothing about the shell changes. */}
       <Tour open={tourOpen} onClose={() => setTourOpen(false)} />

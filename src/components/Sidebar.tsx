@@ -20,6 +20,7 @@ import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
 import { localDayString } from '../vault/index'
 import type { Recurrence } from '../vault/reminders'
+import { RECURRENCES, RECURRENCE_LABELS } from './recurrences'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
@@ -112,12 +113,10 @@ export const Sidebar = memo(
       onFavorite,
       onPresent,
       reminderTarget = null,
-      hasReminder = false,
       reminderTargets,
       remindersEnabled = false,
       today = localDayString(new Date()),
       onRemind,
-      onRemoveReminder,
       onRemoveReminderFor,
       hasVault,
       loading = false,
@@ -147,8 +146,6 @@ export const Sidebar = memo(
        *  (add-reminders). Null when no page is open or a board is open, which
        *  makes the day menu offer no reminder items. */
       reminderTarget?: string | null
-      /** The open page already has a reminder rule (add-reminders). */
-      hasReminder?: boolean
       /** Every page that holds a rule, by lowercased page name
        *  (remove-reminder-from-the-page-row). App memoizes it on the rules, so a
        *  page row's menu answers "has a reminder" with one lookup. */
@@ -159,10 +156,10 @@ export const Sidebar = memo(
       /** The local day as `YYYY-MM-DD`. A day before it offers no reminder
        *  items (disallow-past-reminder-days); a test can pin it. */
       today?: string
-      /** Set a reminder for the open page, anchored on `date` (add-reminders). */
+      /** Set a reminder for the open page, anchored on `date` (add-reminders).
+       *  App writes it immediately, or asks before replacing an existing rule
+       *  (confirm-replacing-a-reminder). */
       onRemind?: (date: string, recurrence: Recurrence) => void
-      /** Remove the open page's reminder rule (add-reminders). */
-      onRemoveReminder?: () => void
       /** Remove the rule of the page a row belongs to
        *  (remove-reminder-from-the-page-row), whether or not it is open. */
       onRemoveReminderFor?: (path: string) => void
@@ -538,11 +535,13 @@ export const Sidebar = memo(
           />
         ) : null}
         {/* The journal day's context menu (add-reminders): the reminder items
-          act on the open page, anchored on the clicked day. A once reminder is a
-          dead one-off before today, so that item alone is shown but unavailable
-          there (disable-once-for-past-days); the recurrences match from their
-          anchor onward, so they stay available on any day. `YYYY-MM-DD` is
-          zero-padded, so a string comparison orders the days. */}
+          act on the open page, anchored on the clicked day, and only choose a
+          recurrence - it is not where a reminder is removed
+          (confirm-replacing-a-reminder). A once reminder is a dead one-off
+          before today, so that item alone is shown but unavailable there
+          (disable-once-for-past-days); the recurrences match from their anchor
+          onward, so they stay available on any day. `YYYY-MM-DD` is zero-padded,
+          so a string comparison orders the days. */}
         {dayMenu !== null ? (
           <RowContextMenu
             x={dayMenu.x}
@@ -550,20 +549,11 @@ export const Sidebar = memo(
             restoreFocusTo={dayMenu.trigger}
             onClose={() => setDayMenu(null)}
             heading="Reminder"
-            items={[
-              {
-                label: 'Once, on this day',
-                onSelect: () => onRemind?.(dayMenu.date, 'once'),
-                disabled: dayMenu.date < today,
-              },
-              { label: 'Every day', onSelect: () => onRemind?.(dayMenu.date, 'daily') },
-              { label: 'Every week', onSelect: () => onRemind?.(dayMenu.date, 'weekly') },
-              { label: 'Every month', onSelect: () => onRemind?.(dayMenu.date, 'monthly') },
-              { label: 'Every year', onSelect: () => onRemind?.(dayMenu.date, 'yearly') },
-              ...(hasReminder
-                ? [{ label: 'Remove reminder', onSelect: () => onRemoveReminder?.() }]
-                : []),
-            ]}
+            items={RECURRENCES.map((recurrence) => ({
+              label: RECURRENCE_LABELS[recurrence],
+              onSelect: () => onRemind?.(dayMenu.date, recurrence),
+              disabled: recurrence === 'once' && dayMenu.date < today,
+            }))}
           />
         ) : null}
       </aside>
