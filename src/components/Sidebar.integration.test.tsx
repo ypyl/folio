@@ -674,50 +674,74 @@ describe('page-row context menu (add-row-context-menu)', () => {
   })
 
   // remove-reminder-from-the-page-row: the reminder item sits between the
-  // favorite item and Present, and only a page that holds a rule gets it.
-  it('offers Remove reminder for a page that holds a rule, after the favorite item', () => {
+  // favorite item and Present, and only a page that holds a rule gets it. It
+  // names the schedule it would delete (name-the-schedule-in-remove-reminder).
+  const rules = (
+    entries: [
+      string,
+      { recurrence: 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly'; anchor: string },
+    ][],
+  ) => new Map(entries)
+
+  it('offers a labelled Remove reminder for a page that holds a rule', () => {
     const onRemoveReminderFor = vi.fn()
     list({
       remindersEnabled: true,
-      reminderTargets: new Set(['alpha']),
+      reminderRules: rules([['alpha', { recurrence: 'daily', anchor: '2026-10-06' }]]),
       onRemoveReminderFor,
     })
 
     rightClick('Alpha')
     expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
       'Favorite',
-      'Remove reminder',
+      'Remove reminder (every day from October 6, 2026)',
     ])
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Remove reminder/ }))
     expect(onRemoveReminderFor).toHaveBeenCalledWith('a.md')
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('names a one-off reminder by its day', () => {
+    list({
+      remindersEnabled: true,
+      reminderRules: rules([['alpha', { recurrence: 'once', anchor: '2026-10-20' }]]),
+      onRemoveReminderFor: vi.fn(),
+    })
+    rightClick('Alpha')
+    expect(
+      screen.getByRole('menuitem', { name: 'Remove reminder (once, on October 20, 2026)' }),
+    ).toBeTruthy()
   })
 
   it('offers no Remove reminder for a page without a rule', () => {
     list({
       remindersEnabled: true,
-      reminderTargets: new Set(['somebody-else']),
+      reminderRules: rules([['somebody-else', { recurrence: 'daily', anchor: '2026-10-06' }]]),
       onRemoveReminderFor: vi.fn(),
     })
     rightClick('Alpha')
-    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /^Remove reminder/ })).toBeNull()
   })
 
   it('offers no Remove reminder while the reminders feature is off', () => {
     list({
       remindersEnabled: false,
-      reminderTargets: new Set(['alpha']),
+      reminderRules: rules([['alpha', { recurrence: 'daily', anchor: '2026-10-06' }]]),
       onRemoveReminderFor: vi.fn(),
     })
     rightClick('Alpha')
-    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /^Remove reminder/ })).toBeNull()
   })
 
   it('does not open a page when removing its reminder', () => {
     const onSelect = vi.fn()
-    list({ remindersEnabled: true, reminderTargets: new Set(['alpha']), onSelect })
+    list({
+      remindersEnabled: true,
+      reminderRules: rules([['alpha', { recurrence: 'daily', anchor: '2026-10-06' }]]),
+      onSelect,
+    })
     rightClick('Alpha')
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Remove reminder/ }))
     expect(onSelect).not.toHaveBeenCalled()
   })
 })

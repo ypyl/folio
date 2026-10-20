@@ -54,7 +54,8 @@ for a day that has already passed, since it could never fire; the recurrences
 stay available, because they match from their anchor onward. A page has one
 reminder: choosing another for a page that already has one asks first, then
 replaces it. To clear a page's reminder, right-click its row in the Files
-listing: `Remove reminder` sits between `Favorite` and `Present`.
+listing: the removal item sits between `Favorite` and `Present` and names the
+schedule it deletes, as in `Remove reminder (every day from October 6, 2026)`.
 
 The rule lives in `.folio/reminders.md`:
 

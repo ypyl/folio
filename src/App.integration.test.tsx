@@ -2779,7 +2779,7 @@ describe('reminders from the calendar (add-reminders)', () => {
 
     // The day menu chooses only; it never removes.
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
-    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /^Remove reminder/ })).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
 
     // The choice waits on a confirmation that names both schedules.
@@ -2839,7 +2839,11 @@ describe('reminders from the calendar (add-reminders)', () => {
 
     // The row's own menu removes its page's rule, and the open page is not it.
     fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+    // The item names the schedule it would delete.
+    expect(
+      screen.getByRole('menuitem', { name: 'Remove reminder (every day from September 15, 2026)' }),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Remove reminder/ }))
 
     await waitFor(async () => {
       const rules = await store.read('.folio/reminders.md')
@@ -2866,13 +2870,13 @@ describe('reminders from the calendar (add-reminders)', () => {
     // The row menu still opens for favorites; it just carries no reminder item.
     fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
     expect(screen.getByRole('menu')).toBeTruthy()
-    expect(screen.queryByRole('menuitem', { name: 'Remove reminder' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /^Remove reminder/ })).toBeNull()
 
     // The rule survives untouched: turning the feature on still fires it.
     expect(await store.read('.folio/reminders.md')).toContain('#[[Take pills]]')
     fireEvent.click(screen.getByRole('button', { name: 'Prerelease features' }))
     fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
-    expect(screen.getByRole('menuitem', { name: 'Remove reminder' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /^Remove reminder/ })).toBeTruthy()
     fireEvent.click(dayCell(new Date(2026, 8, 16)))
     await waitFor(
       async () => {

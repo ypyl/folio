@@ -20,7 +20,7 @@ import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
 import { localDayString } from '../vault/index'
 import type { Recurrence } from '../vault/reminders'
-import { RECURRENCES, RECURRENCE_LABELS } from './recurrences'
+import { describeSchedule, RECURRENCES, RECURRENCE_LABELS } from './recurrences'
 import { writeDragRef } from './dragRefs'
 import styles from './Sidebar.module.css'
 
@@ -113,7 +113,7 @@ export const Sidebar = memo(
       onFavorite,
       onPresent,
       reminderTarget = null,
-      reminderTargets,
+      reminderRules,
       remindersEnabled = false,
       today = localDayString(new Date()),
       onRemind,
@@ -146,10 +146,11 @@ export const Sidebar = memo(
        *  (add-reminders). Null when no page is open or a board is open, which
        *  makes the day menu offer no reminder items. */
       reminderTarget?: string | null
-      /** Every page that holds a rule, by lowercased page name
+      /** Every rule, by its page's lowercased name
        *  (remove-reminder-from-the-page-row). App memoizes it on the rules, so a
-       *  page row's menu answers "has a reminder" with one lookup. */
-      reminderTargets?: ReadonlySet<string>
+       *  page row's menu answers "has a reminder" and names the schedule it would
+       *  delete with one lookup (name-the-schedule-in-remove-reminder). */
+      reminderRules?: ReadonlyMap<string, { recurrence: Recurrence; anchor: string }>
       /** The effective reminders gate: the build flag or prerelease mode
        *  (add-prerelease-mode). App computes it; the sidebar only reads it. */
       remindersEnabled?: boolean
@@ -451,14 +452,15 @@ export const Sidebar = memo(
 
     useImperativeHandle(ref, () => ({ revealActive }), [revealActive])
 
-    // Whether the menu's row page already holds a rule
-    // (remove-reminder-from-the-page-row): the item is offered only then, and
-    // only while the feature is on, so a disabled build keeps the two-item menu.
-    const menuRowHasReminder =
-      menuRow !== undefined &&
-      menuRow.kind === 'page' &&
-      remindersEnabled &&
-      (reminderTargets?.has(menuRow.label.toLowerCase()) ?? false)
+    // The menu's row page rule, if it has one (remove-reminder-from-the-page-row):
+    // the removal item is offered only then, and only while the feature is on, so
+    // a disabled build keeps the two-item menu. The rule also names the schedule
+    // the item deletes, in the words the replacement dialog uses
+    // (name-the-schedule-in-remove-reminder).
+    const menuRowRule =
+      menuRow !== undefined && menuRow.kind === 'page' && remindersEnabled
+        ? reminderRules?.get(menuRow.label.toLowerCase())
+        : undefined
 
     return (
       <aside
@@ -525,8 +527,13 @@ export const Sidebar = memo(
                 label: menuRow?.pinned ? 'Unfavorite' : 'Favorite',
                 onSelect: () => onFavorite?.(menu.path),
               },
-              ...(menuRowHasReminder
-                ? [{ label: 'Remove reminder', onSelect: () => onRemoveReminderFor?.(menu.path) }]
+              ...(menuRowRule !== undefined
+                ? [
+                    {
+                      label: `Remove reminder (${describeSchedule(menuRowRule)})`,
+                      onSelect: () => onRemoveReminderFor?.(menu.path),
+                    },
+                  ]
                 : []),
               ...(PRESENT_ENABLED
                 ? [{ label: 'Present', onSelect: () => onPresent?.(menu.path) }]

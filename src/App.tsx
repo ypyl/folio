@@ -844,10 +844,18 @@ function App() {
   } | null>(null)
   // The pages that hold a rule, by lowercased name
   // (remove-reminder-from-the-page-row): the sidebar's row menu reads this to
-  // offer its removal item. Memoized on the rules' own identity, so a row menu
-  // answers with one set lookup and no scan, and a keystroke rebuilds nothing.
-  const reminderTargets = useMemo(
-    () => new Set(reminders.map((rule) => rule.target.toLowerCase())),
+  // offer its removal item, now named with the schedule it deletes
+  // (name-the-schedule-in-remove-reminder). Memoized on the rules' own identity,
+  // so a row menu answers with one map lookup and no scan, and a keystroke
+  // rebuilds nothing.
+  const reminderRules = useMemo(
+    () =>
+      new Map(
+        reminders.map((rule) => [
+          rule.target.toLowerCase(),
+          { recurrence: rule.recurrence, anchor: rule.anchor },
+        ]),
+      ),
     [reminders],
   )
 
@@ -1188,7 +1196,7 @@ function App() {
             onFavorite={handleFavorite}
             onPresent={handlePresent}
             reminderTarget={reminderTarget}
-            reminderTargets={reminderTargets}
+            reminderRules={reminderRules}
             remindersEnabled={remindersEnabled}
             onRemind={handleRemind}
             onRemoveReminderFor={handleRemoveReminderFor}
