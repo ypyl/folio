@@ -95,11 +95,11 @@ extra control. Unfavorited rows SHALL render with the normal row style.
 
 A page row in the Files listing SHALL open a menu when the user invokes the
 context-menu gesture on it — a pointer right-click, or the keyboard gesture for
-a context menu while the row has focus. The menu SHALL hold exactly two items:
-a favorite item labelled "Favorite" or "Unfavorite" to match the state, and a
-"Present" item. The menu SHALL open for page rows only: a board row, an asset
-row, and a journal day cell SHALL have no menu. The row SHALL carry no visible
-trigger for it.
+a context menu while the row has focus. The menu SHALL hold the favorite item
+labelled "Favorite" or "Unfavorite" to match the state, a `Remove reminder` item
+when the row's page has a reminder rule, and a "Present" item, in that order. The
+menu SHALL open for page rows only: a board row, an asset row, and a journal day
+cell SHALL have no menu. The row SHALL carry no visible trigger for it.
 
 #### Scenario: Right-clicking a page row opens the menu
 
@@ -122,6 +122,13 @@ trigger for it.
 
 - **WHEN** the menu opens for a page that is not a favorite
 - **THEN** it holds a "Favorite" item and a "Present" item, in that order
+
+#### Scenario: The menu names the reminder item for a page with a reminder
+
+- **GIVEN** a page whose reminder rule exists and the reminders feature is on
+- **WHEN** the user opens that page row's menu
+- **THEN** it holds a "Remove reminder" item between the favorite item and
+  "Present"
 
 #### Scenario: Activating Favorite toggles the state
 
