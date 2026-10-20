@@ -277,12 +277,12 @@ export const Sidebar = memo(
       })
     }
 
-    // Open the day's menu only when the reminders feature is on, a page is open
-    // to remind about, and the day is today or later; otherwise the day cell
-    // keeps the browser's own menu (no reminder items). `YYYY-MM-DD` is
-    // zero-padded, so a string comparison orders the days.
+    // Open the day's menu whenever the reminders feature is on and a page is open
+    // to remind about; otherwise the day cell keeps the browser's own menu (no
+    // reminder items). Any day opens it (disable-once-for-past-days); the only
+    // thing the past takes away is the `Once, on this day` item below.
     const openDayMenu = (e: ReactMouseEvent<HTMLButtonElement>, date: string) => {
-      if (!remindersEnabled || reminderTarget === null || date < today) return
+      if (!remindersEnabled || reminderTarget === null) return
       e.preventDefault()
       const trigger = e.currentTarget
       const rect = trigger.getBoundingClientRect()
@@ -538,7 +538,11 @@ export const Sidebar = memo(
           />
         ) : null}
         {/* The journal day's context menu (add-reminders): the reminder items
-          act on the open page, anchored on the clicked day. */}
+          act on the open page, anchored on the clicked day. A once reminder is a
+          dead one-off before today, so that item alone is shown but unavailable
+          there (disable-once-for-past-days); the recurrences match from their
+          anchor onward, so they stay available on any day. `YYYY-MM-DD` is
+          zero-padded, so a string comparison orders the days. */}
         {dayMenu !== null ? (
           <RowContextMenu
             x={dayMenu.x}
@@ -547,7 +551,11 @@ export const Sidebar = memo(
             onClose={() => setDayMenu(null)}
             heading="Reminder"
             items={[
-              { label: 'Once, on this day', onSelect: () => onRemind?.(dayMenu.date, 'once') },
+              {
+                label: 'Once, on this day',
+                onSelect: () => onRemind?.(dayMenu.date, 'once'),
+                disabled: dayMenu.date < today,
+              },
               { label: 'Every day', onSelect: () => onRemind?.(dayMenu.date, 'daily') },
               { label: 'Every week', onSelect: () => onRemind?.(dayMenu.date, 'weekly') },
               { label: 'Every month', onSelect: () => onRemind?.(dayMenu.date, 'monthly') },

@@ -112,3 +112,37 @@ describe('RowContextMenu heading (add-reminder-menu-heading)', () => {
     expect(screen.queryByRole('group')).toBeNull()
   })
 })
+
+// A shown-but-unavailable item (disable-once-for-past-days): the `Once, on this
+// day` reminder on a past day. It keeps its place, the platform refuses it, and
+// the menu's own focus movement steps over it.
+describe('RowContextMenu disabled item (disable-once-for-past-days)', () => {
+  const dayItems = (onOnce = vi.fn(), onDaily = vi.fn()): RowMenuItem[] => [
+    { label: 'Once, on this day', onSelect: onOnce, disabled: true },
+    { label: 'Every day', onSelect: onDaily },
+  ]
+
+  it('renders it in place, disabled, and focuses the first available item', () => {
+    open({ items: dayItems() })
+    const menu = screen.getByRole('menu')
+    const [once, daily] = within(menu).getAllByRole('menuitem')
+    expect((once as HTMLButtonElement).disabled).toBe(true)
+    expect((daily as HTMLButtonElement).disabled).toBe(false)
+    expect(document.activeElement).toBe(daily)
+  })
+
+  it('leaves it out of the arrow-key and Home/End sequence', () => {
+    open({ items: dayItems() })
+    const menu = screen.getByRole('menu')
+    const daily = within(menu).getByRole('menuitem', { name: 'Every day' })
+    for (const key of ['ArrowUp', 'ArrowDown', 'Home', 'End']) {
+      fireEvent.keyDown(menu, { key })
+      expect(document.activeElement).toBe(daily)
+    }
+  })
+
+  it('focuses the menu box itself when every item is disabled', () => {
+    open({ items: [{ label: 'Once, on this day', onSelect: vi.fn(), disabled: true }] })
+    expect(document.activeElement).toBe(screen.getByRole('menu'))
+  })
+})

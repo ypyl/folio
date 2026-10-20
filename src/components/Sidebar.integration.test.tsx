@@ -824,7 +824,8 @@ describe('Sidebar day menu (add-reminders)', () => {
     expect(onRemind).toHaveBeenCalledWith('2026-09-06', 'yearly')
   })
 
-  it('offers no day menu for a day before today', () => {
+  it('offers the recurrences on a past day with only Once unavailable', () => {
+    const onRemind = vi.fn()
     render(
       <Sidebar
         rows={[pageRow('pages/Ana.md', 'Ana')]}
@@ -834,14 +835,25 @@ describe('Sidebar day menu (add-reminders)', () => {
         onSelect={() => {}}
         hasVault
         reminderTarget="Ana"
-        hasReminder
         remindersEnabled
         today="2026-09-15"
-        onRemind={vi.fn()}
+        onRemind={onRemind}
       />,
     )
+
+    // The 6th is past: the menu opens, and only the once item is unavailable.
     fireEvent.contextMenu(dayCell())
-    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.getByRole('menu')).toBeTruthy()
+    const once = screen.getByRole('menuitem', { name: 'Once, on this day' }) as HTMLButtonElement
+    expect(once.disabled).toBe(true)
+    for (const name of ['Every day', 'Every week', 'Every month', 'Every year']) {
+      const item = screen.getByRole('menuitem', { name }) as HTMLButtonElement
+      expect(item.disabled).toBe(false)
+    }
+
+    // A recurrence still anchors on the past day.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every week' }))
+    expect(onRemind).toHaveBeenCalledWith('2026-09-06', 'weekly')
   })
 
   it('offers no day menu when no page is open to remind about', () => {
@@ -880,5 +892,54 @@ describe('Sidebar day menu feature gate (add-prerelease-mode)', () => {
     )
     fireEvent.contextMenu(screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) }))
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+// disable-once-for-past-days: the past costs the menu only its once item, so
+// removal and the anchor metadata of an existing rule still work there.
+describe('Sidebar day menu on a past day (disable-once-for-past-days)', () => {
+  const pastCell = () => screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) })
+
+  it('removes a page reminder from a past day', () => {
+    const onRemoveReminder = vi.fn()
+    render(
+      <Sidebar
+        rows={[pageRow('pages/Ana.md', 'Ana')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={journal.path}
+        onSelect={() => {}}
+        hasVault
+        reminderTarget="Ana"
+        hasReminder
+        remindersEnabled
+        today="2026-09-15"
+        onRemind={vi.fn()}
+        onRemoveReminder={onRemoveReminder}
+      />,
+    )
+    fireEvent.contextMenu(pastCell())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove reminder' }))
+    expect(onRemoveReminder).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps Once available on today', () => {
+    render(
+      <Sidebar
+        rows={[pageRow('pages/Ana.md', 'Ana')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={journal.path}
+        onSelect={() => {}}
+        hasVault
+        reminderTarget="Ana"
+        remindersEnabled
+        today="2026-09-06"
+        onRemind={vi.fn()}
+      />,
+    )
+    fireEvent.contextMenu(pastCell())
+    const once = screen.getByRole('menuitem', { name: 'Once, on this day' }) as HTMLButtonElement
+    expect(once.disabled).toBe(false)
   })
 })

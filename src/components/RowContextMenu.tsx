@@ -15,6 +15,10 @@ import styles from './RowContextMenu.module.css'
 export type RowMenuItem = {
   label: string
   onSelect: () => void
+  /** Shown but not activatable (disable-once-for-past-days): the item keeps its
+   *  place, refuses pointer and keyboard activation, and is stepped over by the
+   *  menu's own focus movement. */
+  disabled?: boolean
 }
 
 /** Keep the box this far inside every viewport edge when clamping. */
@@ -45,9 +49,18 @@ export function RowContextMenu({
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ left: x, top: y })
 
+  // The items the user can act on. A disabled item takes no focus and no
+  // keypress, so every movement below is computed over this list, and a menu
+  // whose items are all disabled still takes focus itself (disable-once-for-
+  // past-days).
+  const available = () => [
+    ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []),
+  ]
+
   // Measure once, then shift the box back inside the viewport where it would
-  // overflow an edge, and put focus on the first item so the menu opens
-  // keyboard-operable however it was invoked.
+  // overflow an edge, and put focus on the first available item so the menu opens
+  // keyboard-operable however it was invoked. A disabled first item does not
+  // swallow that focus.
   useLayoutEffect(() => {
     const el = menuRef.current
     if (!el) return
@@ -56,7 +69,9 @@ export function RowContextMenu({
       left: Math.max(VIEWPORT_MARGIN, Math.min(x, window.innerWidth - width - VIEWPORT_MARGIN)),
       top: Math.max(VIEWPORT_MARGIN, Math.min(y, window.innerHeight - height - VIEWPORT_MARGIN)),
     })
-    el.querySelector('button')?.focus()
+    const first = el.querySelector<HTMLButtonElement>('button:not(:disabled)')
+    if (first) first.focus()
+    else el.focus()
   }, [x, y])
 
   // Dismiss on a pointer press outside the box, on any scroll (the listing
@@ -89,14 +104,14 @@ export function RowContextMenu({
   )
 
   const move = (to: number) => {
-    const buttons = [...(menuRef.current?.querySelectorAll('button') ?? [])]
+    const buttons = available()
     buttons[Math.max(0, Math.min(to, buttons.length - 1))]?.focus()
   }
 
-  // Arrow keys move between items without wrapping, and Home/End jump to the
-  // ends. Enter and Space need no handling: the items are buttons.
+  // Arrow keys move between available items without wrapping, and Home/End jump
+  // to the ends. Enter and Space need no handling: the items are buttons.
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    const buttons = [...(menuRef.current?.querySelectorAll('button') ?? [])]
+    const buttons = available()
     const current = buttons.indexOf(document.activeElement as HTMLButtonElement)
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -122,6 +137,7 @@ export function RowContextMenu({
       type="button"
       role="menuitem"
       className={styles.item}
+      disabled={item.disabled}
       onClick={() => {
         item.onSelect()
         onClose()
@@ -137,6 +153,7 @@ export function RowContextMenu({
       role="menu"
       className={styles.menu}
       style={{ left: pos.left, top: pos.top }}
+      tabIndex={-1}
       onKeyDown={onKeyDown}
     >
       {heading === undefined ? (

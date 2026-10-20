@@ -32,6 +32,15 @@
   background: var(--warm-sand);
 }
 
+/* An unavailable item (disable-once-for-past-days) keeps its place and dims to
+   the tertiary text tone; DESIGN.md's disabled convention is a dimmed control,
+   not a hidden one. It gets no hover fill, because a press does nothing. */
+.item:disabled {
+  color: var(--stone);
+  background: none;
+  cursor: default;
+}
+
 /* Keyboard focus is visible (ui-shell spec): the same soft fill the pointer
    hover gets, plus an ink-blue ring. */
 .item:focus-visible {

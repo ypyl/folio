@@ -2653,15 +2653,24 @@ describe('reminders from the calendar (add-reminders)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('offers no day menu for a day before today', async () => {
+  it('offers the day menu on a past day with only Once unavailable', async () => {
     render(<App />)
-    await openFixture()
+    const tree = await openFixture()
+    const store = storageOf(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
 
     // Today is frozen at 2026-09-15; the 14th is past.
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 14)))
-    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.getByRole('menu')).toBeTruthy()
+    const once = screen.getByRole('menuitem', { name: 'Once, on this day' }) as HTMLButtonElement
+    expect(once.disabled).toBe(true)
+
+    // A recurrence still anchors on that day and writes its rule there.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every month' }))
+    await waitFor(async () => {
+      expect(await store.read('.folio/reminders.md')).toContain('- monthly 2026-09-14 #[[Welcome]]')
+    })
     vi.unstubAllGlobals()
   })
 
