@@ -530,7 +530,8 @@ export const Sidebar = memo(
               ...(menuRowRule !== undefined
                 ? [
                     {
-                      label: `Remove reminder (${describeSchedule(menuRowRule)})`,
+                      label: 'Remove reminder',
+                      description: describeSchedule(menuRowRule),
                       onSelect: () => onRemoveReminderFor?.(menu.path),
                     },
                   ]

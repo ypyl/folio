@@ -692,11 +692,18 @@ describe('page-row context menu (add-row-context-menu)', () => {
     })
 
     rightClick('Alpha')
+    // The action's name is the label; the schedule is a caption beneath it and
+    // the item's accessible description (show-the-schedule-under-remove-reminder).
+    const item = screen.getByRole('menuitem', { name: 'Remove reminder' })
+    expect(within(item).getByText('every day from October 6, 2026')).toBeTruthy()
+    expect(item.getAttribute('aria-describedby')).toBe(
+      within(item).getByText('every day from October 6, 2026').id,
+    )
     expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
       'Favorite',
-      'Remove reminder (every day from October 6, 2026)',
+      'Remove reminderevery day from October 6, 2026',
     ])
-    fireEvent.click(screen.getByRole('menuitem', { name: /^Remove reminder/ }))
+    fireEvent.click(item)
     expect(onRemoveReminderFor).toHaveBeenCalledWith('a.md')
     expect(screen.queryByRole('menu')).toBeNull()
   })
@@ -708,9 +715,8 @@ describe('page-row context menu (add-row-context-menu)', () => {
       onRemoveReminderFor: vi.fn(),
     })
     rightClick('Alpha')
-    expect(
-      screen.getByRole('menuitem', { name: 'Remove reminder (once, on October 20, 2026)' }),
-    ).toBeTruthy()
+    const item = screen.getByRole('menuitem', { name: 'Remove reminder' })
+    expect(within(item).getByText('once, on October 20, 2026')).toBeTruthy()
   })
 
   it('offers no Remove reminder for a page without a rule', () => {

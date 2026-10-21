@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import styles from './RowContextMenu.module.css'
 
@@ -11,10 +11,14 @@ import styles from './RowContextMenu.module.css'
 // has no transformed ancestor).
 
 /** One action in the menu. The label is both the visible text and the
- *  accessible name — the two items are literal strings, so they are the same. */
+ *  accessible name; an optional description is a smaller muted line under it and
+ *  the item's accessible description, never part of its name
+ *  (show-the-schedule-under-remove-reminder). */
 export type RowMenuItem = {
   label: string
   onSelect: () => void
+  /** A detail shown beneath the label, e.g. the schedule a removal deletes. */
+  description?: string
   /** Shown but not activatable (disable-once-for-past-days): the item keeps its
    *  place, refuses pointer and keyboard activation, and is stepped over by the
    *  menu's own focus movement. */
@@ -48,6 +52,9 @@ export function RowContextMenu({
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ left: x, top: y })
+  // One id stem for the items' description lines: `aria-describedby` needs a
+  // document-unique reference per item.
+  const idBase = useId()
 
   // The items the user can act on. A disabled item takes no focus and no
   // keypress, so every movement below is computed over this list, and a menu
@@ -131,21 +138,33 @@ export function RowContextMenu({
     }
   }
 
-  const list = items.map((item) => (
-    <button
-      key={item.label}
-      type="button"
-      role="menuitem"
-      className={styles.item}
-      disabled={item.disabled}
-      onClick={() => {
-        item.onSelect()
-        onClose()
-      }}
-    >
-      {item.label}
-    </button>
-  ))
+  const list = items.map((item, index) => {
+    const descriptionId = `${idBase}-${index}-description`
+    return (
+      <button
+        key={item.label}
+        type="button"
+        role="menuitem"
+        className={styles.item}
+        disabled={item.disabled}
+        aria-describedby={item.description === undefined ? undefined : descriptionId}
+        onClick={() => {
+          item.onSelect()
+          onClose()
+        }}
+      >
+        <span className={styles.label}>{item.label}</span>
+        {item.description !== undefined ? (
+          // Hidden from the name computation (the label is the name) but present
+          // for `aria-describedby`, which reads a description even from a node
+          // marked aria-hidden.
+          <span id={descriptionId} className={styles.description} aria-hidden="true">
+            {item.description}
+          </span>
+        ) : null}
+      </button>
+    )
+  })
 
   return (
     <div

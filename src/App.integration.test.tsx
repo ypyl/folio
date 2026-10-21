@@ -2839,11 +2839,10 @@ describe('reminders from the calendar (add-reminders)', () => {
 
     // The row's own menu removes its page's rule, and the open page is not it.
     fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
-    // The item names the schedule it would delete.
-    expect(
-      screen.getByRole('menuitem', { name: 'Remove reminder (every day from September 15, 2026)' }),
-    ).toBeTruthy()
-    fireEvent.click(screen.getByRole('menuitem', { name: /^Remove reminder/ }))
+    // The item is the action, with the schedule it would delete as its caption.
+    const removal = screen.getByRole('menuitem', { name: 'Remove reminder' })
+    expect(within(removal).getByText('every day from September 15, 2026')).toBeTruthy()
+    fireEvent.click(removal)
 
     await waitFor(async () => {
       const rules = await store.read('.folio/reminders.md')

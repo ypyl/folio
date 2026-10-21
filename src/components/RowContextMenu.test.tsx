@@ -146,3 +146,41 @@ describe('RowContextMenu disabled item (disable-once-for-past-days)', () => {
     expect(document.activeElement).toBe(screen.getByRole('menu'))
   })
 })
+
+// A described item (show-the-schedule-under-remove-reminder): the label is the
+// action and its name; the detail is a caption beneath it, read as the item's
+// accessible description rather than folded into the name.
+describe('RowContextMenu item description (show-the-schedule-under-remove-reminder)', () => {
+  const described = (description?: string) => {
+    const onSelect = vi.fn()
+    open({
+      items: [
+        { label: 'Remove reminder', onSelect, description },
+        { label: 'Present', onSelect: vi.fn() },
+      ],
+    })
+    return { onSelect }
+  }
+
+  it('renders the description under the label and keeps the name', () => {
+    described('every year from October 19, 2026')
+    const item = screen.getByRole('menuitem', { name: 'Remove reminder' })
+    expect(within(item).getByText('every year from October 19, 2026')).toBeTruthy()
+    expect(item.getAttribute('aria-describedby')).toBe(
+      within(item).getByText('every year from October 19, 2026').id,
+    )
+  })
+
+  it('renders no description line when the item has none', () => {
+    described()
+    const item = screen.getByRole('menuitem', { name: 'Remove reminder' })
+    expect(item.querySelectorAll('[aria-describedby]')).toHaveLength(0)
+    expect(item.children).toHaveLength(1)
+  })
+
+  it('still runs the item when its description is activated', () => {
+    const { onSelect } = described('every year from October 19, 2026')
+    fireEvent.click(screen.getByText('every year from October 19, 2026'))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+})

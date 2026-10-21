@@ -35,7 +35,7 @@ test('sets, replaces, materializes, and removes a reminder', async ({ page }) =>
   // stacked in one column under the header, not inline.
   await todayCell.click({ button: 'right' })
   expect(await page.getByRole('menuitem').count()).toBe(5)
-  await expect(page.getByRole('menuitem', { name: /^Remove reminder/ })).toHaveCount(0)
+  await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toHaveCount(0)
   const tops = await page
     .getByRole('menuitem')
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)))
@@ -62,15 +62,14 @@ test('sets, replaces, materializes, and removes a reminder', async ({ page }) =>
   await expect(page.getByRole('dialog', { name: 'Replace reminder?' })).toHaveCount(0)
 
   // Removing the rule from the page's row menu clears the schedule; the written
-  // line stays. The item names the schedule it deletes.
+  // line stays. The item is the action, with the schedule beneath it as a caption.
   const row = files.getByRole('button', { name: 'Ana', exact: true })
   await row.click({ button: 'right' })
-  await expect(
-    page.getByRole('menuitem', { name: /^Remove reminder \(every week from/ }),
-  ).toHaveCount(1)
-  await page.getByRole('menuitem', { name: /^Remove reminder/ }).click()
+  const removal = page.getByRole('menuitem', { name: 'Remove reminder' })
+  await expect(removal).toContainText('every week from')
+  await removal.click()
   await row.click({ button: 'right' })
-  await expect(page.getByRole('menuitem', { name: /^Remove reminder/ })).toHaveCount(0)
+  await expect(page.getByRole('menuitem', { name: 'Remove reminder' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Today' }).click()
   await expect(editor(page)).toContainText('#Ana')
 })
