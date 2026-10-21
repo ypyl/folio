@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { useEffect, type ReactNode } from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { BoardView } from './boardView'
 
 // The board host is mocked away in every App test, so nothing exercised the
@@ -51,6 +51,15 @@ const change = (elements: { id: string; version?: number }[], tool: string) => {
   onChange(elements, { activeTool: { type: tool } }, {})
 }
 
+// The mock captures its props in an effect, so the element can be in the DOM a
+// commit before its props land. Waiting for the mount, not just the element,
+// keeps the reads below off that race.
+async function mountedProps() {
+  await screen.findByTestId('excalidraw')
+  await waitFor(() => expect(excalidraw.props).not.toBeNull())
+  return excalidraw.props!
+}
+
 beforeEach(() => {
   serializeAsJSON.mockClear()
   excalidraw.props = null
@@ -76,20 +85,20 @@ describe('BoardView', () => {
         onChange={() => {}}
       />,
     )
-    await screen.findByTestId('excalidraw')
-    const initialData = excalidraw.props!.initialData as {
+    const initialData = (await mountedProps()).initialData as {
       elements: unknown[]
       appState: Record<string, unknown>
     }
     expect(initialData.elements).toEqual([{ id: 'a' }])
     expect(initialData.appState.viewBackgroundColor).toBe('#fffce8')
-    expect(screen.getByTestId('main-menu')).toBeTruthy()
+    screen.getByTestId('main-menu')
   })
 
   it('opens a blank board on the app parchment background', async () => {
     render(<BoardView initialScene="" boardToken={null} onChange={() => {}} />)
-    await screen.findByTestId('excalidraw')
-    const initialData = excalidraw.props!.initialData as { appState: Record<string, unknown> }
+    const initialData = (await mountedProps()).initialData as {
+      appState: Record<string, unknown>
+    }
     expect(initialData.appState.viewBackgroundColor).toBe('#f5f4ed')
   })
 
@@ -97,7 +106,7 @@ describe('BoardView', () => {
     const { container } = render(
       <BoardView initialScene="" boardToken={null} onChange={() => {}} />,
     )
-    await screen.findByTestId('excalidraw')
+    await mountedProps()
     const host = container.querySelector('[data-board-host]') as HTMLElement
 
     // The mount's own load is the first emit: it sets the baseline, no save.
@@ -120,7 +129,7 @@ describe('BoardView', () => {
     const { container } = render(
       <BoardView initialScene="" boardToken="#![[Architecture]]" onChange={() => {}} />,
     )
-    await screen.findByTestId('excalidraw')
+    await mountedProps()
     const note = container.querySelector('[data-board-note]')
     expect(note?.textContent).toContain('#![[Architecture]]')
 
@@ -143,7 +152,7 @@ describe('BoardView', () => {
         onChange={() => {}}
       />,
     )
-    await screen.findByTestId('excalidraw')
+    await mountedProps()
     expect(container.querySelector('[data-board-note]')).toBeNull()
   })
 
@@ -151,7 +160,7 @@ describe('BoardView', () => {
     const { container } = render(
       <BoardView initialScene="" boardToken={null} onChange={() => {}} />,
     )
-    await screen.findByTestId('excalidraw')
+    await mountedProps()
     const note = container.querySelector('[data-board-note]')
     expect(note?.textContent).toContain('#! token')
     expect(note?.textContent).not.toContain('#![')
