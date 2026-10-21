@@ -249,16 +249,27 @@ describe('JournalCalendar day locate (focus-the-journal-day-in-the-calendar)', (
     expect(document.activeElement).toBe(byDate('September 6, 2026'))
   })
 
-  it('applies a request that arrives while it is not shown yet', () => {
-    // The Journal section renders a skeleton while the index builds, so the
-    // calendar mounts with the request already waiting.
-    render(grid({ date: '2026-09-06', tick: 1 }))
-    expect(document.activeElement).toBe(byDate('September 6, 2026'))
+  it('does not replay the last request when it mounts again', () => {
+    // The request is the sidebar's state, so it outlives the calendar: a folder
+    // switch unmounts it behind the loading skeleton, and it mounts again with
+    // that request still waiting. A mount is not a new request.
+    const locate = { date: '2026-03-15', tick: 1 }
+    const first = render(grid())
+    first.rerender(grid(locate))
+    expect(screen.getByText('March 2026')).toBeTruthy()
+    first.unmount()
+
+    render(grid(locate))
+
+    // The grid seeds from the open day again and focus stays where it was.
+    expect(screen.getByText('September 2026')).toBeTruthy()
+    expect(document.activeElement).toBe(document.body)
   })
 
   it('does not move focus again for the same request', () => {
     const locate = { date: '2026-09-06', tick: 1 }
-    const { rerender } = render(grid(locate))
+    const { rerender } = render(grid())
+    rerender(grid(locate))
     const previous = screen.getByRole('button', { name: 'Previous month' })
     previous.focus()
 

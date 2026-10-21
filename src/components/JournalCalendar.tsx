@@ -110,8 +110,14 @@ export function JournalCalendar({
   // ref carries the day across that commit. The request's identity is the only
   // trigger, so an unrelated re-render never moves focus back.
   const pendingFocus = useRef<string | null>(null)
+  // The request is the sidebar's state, so it outlives this component: a folder
+  // switch unmounts the calendar behind the loading skeleton and mounts it
+  // again with the last request still waiting. Only a request that changed
+  // since this mount acts, so a mount seeds from the open day instead.
+  const applied = useRef(locate)
   useEffect(() => {
-    if (!locate) return
+    if (!locate || locate === applied.current) return
+    applied.current = locate
     pendingFocus.current = locate.date
     // oxlint-disable-next-line react/set-state-in-effect
     setView(monthOf(locate.date))
