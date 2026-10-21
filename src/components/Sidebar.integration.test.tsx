@@ -58,7 +58,7 @@ afterEach(() => {
 describe('Sidebar', () => {
   it('renders two sections and the listing rows when loaded', () => {
     sidebar(false)
-    expect(screen.getByRole('button', { name: 'notes' })).toBeTruthy()
+    screen.getByRole('button', { name: 'notes' })
     const summaries = [...screen.getByRole('complementary').querySelectorAll('summary')].map(
       (s) => s.textContent,
     )
@@ -94,7 +94,7 @@ describe('Sidebar', () => {
         loading={false}
       />,
     )
-    expect(screen.getByRole('button', { name: 'notes' })).toBeTruthy()
+    screen.getByRole('button', { name: 'notes' })
   })
 })
 
@@ -110,14 +110,14 @@ describe('Sidebar calendar re-anchor (move-nav-controls-to-status-bar)', () => {
       hasVault: true,
     }
     const { rerender } = render(<Sidebar {...base} />)
-    expect(screen.getByText(monthLabel(new Date()))).toBeTruthy()
+    screen.getByText(monthLabel(new Date()))
     // Browse away: view-only movement, since the open day did not change.
     fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
-    expect(screen.getByText(monthLabel(shiftMonth(new Date(), 1)))).toBeTruthy()
+    screen.getByText(monthLabel(shiftMonth(new Date(), 1)))
     // The open day never changed, so only the tick can bring the grid back to
     // the current day's month (move-nav-controls-to-status-bar).
     rerender(<Sidebar {...base} todayTick={1} />)
-    expect(screen.getByText(monthLabel(new Date()))).toBeTruthy()
+    screen.getByText(monthLabel(new Date()))
   })
 
   it('holds no navigation controls in the sidebar', () => {
@@ -613,7 +613,7 @@ describe('page-row context menu (add-row-context-menu)', () => {
   it('opens on a page row with Favorite, and no Present row', () => {
     list()
     rightClick('Alpha')
-    expect(screen.getByRole('menu')).toBeTruthy()
+    screen.getByRole('menu')
     // Presenting is disabled for now (swap-editor-to-codemirror-live-preview).
     expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['Favorite'])
   })
@@ -670,7 +670,7 @@ describe('page-row context menu (add-row-context-menu)', () => {
       />,
     )
     rightClick('Alpha')
-    expect(screen.getByRole('menuitem', { name: 'Unfavorite' })).toBeTruthy()
+    screen.getByRole('menuitem', { name: 'Unfavorite' })
   })
 
   // remove-reminder-from-the-page-row: the reminder item sits between the
@@ -911,7 +911,7 @@ describe('Sidebar day menu (add-reminders)', () => {
       />,
     )
     fireEvent.contextMenu(dayCell())
-    expect(screen.getByRole('menu')).toBeTruthy()
+    screen.getByRole('menu')
     expect(within(screen.getByRole('menu')).getByRole('group', { name: 'Reminder' })).toBeTruthy()
     // The day menu chooses a recurrence and nothing else: removal lives on the
     // page's row menu (confirm-replacing-a-reminder).
@@ -943,7 +943,7 @@ describe('Sidebar day menu (add-reminders)', () => {
 
     // The 6th is past: the menu opens, and only the once item is unavailable.
     fireEvent.contextMenu(dayCell())
-    expect(screen.getByRole('menu')).toBeTruthy()
+    screen.getByRole('menu')
     const once = screen.getByRole('menuitem', { name: 'Once, on this day' }) as HTMLButtonElement
     expect(once.disabled).toBe(true)
     for (const name of ['Every day', 'Every week', 'Every month', 'Every year']) {

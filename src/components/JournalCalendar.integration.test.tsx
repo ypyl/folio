@@ -91,7 +91,7 @@ describe('JournalCalendar grid', () => {
   it('shows the current month when no day is open', () => {
     render(<JournalCalendar journalEntries={[]} activePath={null} onSelect={vi.fn()} />)
     const now = new Date()
-    expect(screen.getByText(`${MONTHS[now.getMonth()]} ${now.getFullYear()}`)).toBeTruthy()
+    screen.getByText(`${MONTHS[now.getMonth()]} ${now.getFullYear()}`)
   })
 
   it("opens on the open day's month and follows it across selections", () => {
@@ -102,7 +102,7 @@ describe('JournalCalendar grid', () => {
         onSelect={vi.fn()}
       />,
     )
-    expect(screen.getByText('August 2026')).toBeTruthy()
+    screen.getByText('August 2026')
     rerender(
       <JournalCalendar
         journalEntries={[]}
@@ -110,7 +110,7 @@ describe('JournalCalendar grid', () => {
         onSelect={vi.fn()}
       />,
     )
-    expect(screen.getByText('September 2026')).toBeTruthy()
+    screen.getByText('September 2026')
   })
 
   it('clicking a day navigates to journals/YYYY-MM-DD.md', () => {
@@ -141,7 +141,7 @@ describe('JournalCalendar grid', () => {
         onSelect={onSelect}
       />,
     )
-    expect(screen.getByText('August 2026')).toBeTruthy()
+    screen.getByText('August 2026')
   })
 
   it('chevrons browse months without opening a day (D2)', () => {
@@ -151,7 +151,7 @@ describe('JournalCalendar grid', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
     fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
-    expect(screen.getByText(monthLabel(shiftDate(new Date(), 1)))).toBeTruthy()
+    screen.getByText(monthLabel(shiftDate(new Date(), 1)))
     // View-only movement: no day is opened, and the grid stays on the month
     // the chevrons browsed to rather than snapping back to the open day.
     expect(onSelect).not.toHaveBeenCalled()
@@ -168,16 +168,16 @@ describe('JournalCalendar grid', () => {
         onSelect={onSelect}
       />,
     )
-    expect(screen.getByText('September 2026')).toBeTruthy()
+    screen.getByText('September 2026')
     // Browse away to August without opening anything.
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
-    expect(screen.getByText('August 2026')).toBeTruthy()
+    screen.getByText('August 2026')
     expect(onSelect).not.toHaveBeenCalled()
     // Click a September day from August's trailing cells: it opens and the
     // grid lands back on September.
     fireEvent.click(screen.getByRole('button', { name: 'September 5, 2026' }))
     expect(onSelect).toHaveBeenCalledWith('journals/2026-09-05.md')
-    expect(screen.getByText('September 2026')).toBeTruthy()
+    screen.getByText('September 2026')
   })
 })
 
@@ -239,12 +239,12 @@ describe('JournalCalendar day locate (focus-the-journal-day-in-the-calendar)', (
     const { rerender } = render(grid())
     // Browse away: the open day's month is gone from the grid entirely.
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
-    expect(screen.getByText('August 2026')).toBeTruthy()
+    screen.getByText('August 2026')
     expect(screen.queryByRole('button', { name: 'September 6, 2026' })).toBeNull()
 
     rerender(grid({ date: '2026-09-06', tick: 1 }))
 
-    expect(screen.getByText('September 2026')).toBeTruthy()
+    screen.getByText('September 2026')
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
     expect(document.activeElement).toBe(byDate('September 6, 2026'))
   })
@@ -256,13 +256,13 @@ describe('JournalCalendar day locate (focus-the-journal-day-in-the-calendar)', (
     const locate = { date: '2026-03-15', tick: 1 }
     const first = render(grid())
     first.rerender(grid(locate))
-    expect(screen.getByText('March 2026')).toBeTruthy()
+    screen.getByText('March 2026')
     first.unmount()
 
     render(grid(locate))
 
     // The grid seeds from the open day again and focus stays where it was.
-    expect(screen.getByText('September 2026')).toBeTruthy()
+    screen.getByText('September 2026')
     expect(document.activeElement).toBe(document.body)
   })
 

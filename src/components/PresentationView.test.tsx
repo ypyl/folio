@@ -42,10 +42,10 @@ describe('PresentationView (add-presentations)', () => {
   it('moves with the on-screen controls and reports position', () => {
     render(<PresentationView slides={slides} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Next slide' }))
-    expect(screen.getByText('2 / 3')).toBeTruthy()
+    screen.getByText('2 / 3')
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('2')
     fireEvent.click(screen.getByRole('button', { name: 'Previous slide' }))
-    expect(screen.getByText('1 / 3')).toBeTruthy()
+    screen.getByText('1 / 3')
   })
 
   it('leaves through the close control', () => {
@@ -69,19 +69,19 @@ describe('PresentationView (add-presentations)', () => {
     render(<PresentationView slides={slides} onClose={() => {}} />)
     const dialog = screen.getByRole('dialog', { name: 'Presentation' })
     fireEvent.keyDown(dialog, { key: 'ArrowRight' })
-    expect(screen.getByText('2 / 3')).toBeTruthy()
+    screen.getByText('2 / 3')
     fireEvent.keyDown(dialog, { key: 'ArrowLeft' })
-    expect(screen.getByText('1 / 3')).toBeTruthy()
+    screen.getByText('1 / 3')
     // At the first slide, backward does nothing.
     fireEvent.keyDown(dialog, { key: 'ArrowLeft' })
-    expect(screen.getByText('1 / 3')).toBeTruthy()
+    screen.getByText('1 / 3')
     // End jumps to the last, Home back to the first, and End does not wrap.
     fireEvent.keyDown(dialog, { key: 'End' })
-    expect(screen.getByText('3 / 3')).toBeTruthy()
+    screen.getByText('3 / 3')
     fireEvent.keyDown(dialog, { key: 'ArrowRight' })
-    expect(screen.getByText('3 / 3')).toBeTruthy()
+    screen.getByText('3 / 3')
     fireEvent.keyDown(dialog, { key: 'Home' })
-    expect(screen.getByText('1 / 3')).toBeTruthy()
+    screen.getByText('1 / 3')
   })
 
   it('toggles fullscreen on F without leaving the deck', () => {
@@ -92,7 +92,7 @@ describe('PresentationView (add-presentations)', () => {
     fireEvent.keyDown(dialog, { key: 'f' })
     expect(request).toHaveBeenCalled()
     // Still present and navigable.
-    expect(screen.getByText('1 / 3')).toBeTruthy()
+    screen.getByText('1 / 3')
   })
 
   it('stays usable when the browser refuses fullscreen', () => {
@@ -100,7 +100,7 @@ describe('PresentationView (add-presentations)', () => {
     const dialog = screen.getByRole('dialog', { name: 'Presentation' }) as HTMLDialogElement
     dialog.requestFullscreen = vi.fn().mockRejectedValue(new Error('refused'))
     fireEvent.keyDown(dialog, { key: 'f' })
-    expect(screen.getByText('1 / 3')).toBeTruthy()
+    screen.getByText('1 / 3')
   })
 
   it('resolves vault images and releases them on close', async () => {

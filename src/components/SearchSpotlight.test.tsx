@@ -129,13 +129,13 @@ describe('SearchSpotlight rendering (search spec: groups, labels, snippets)', ()
     expect(within(listbox()).getByText('Pages')).toBeTruthy()
     expect(within(listbox()).getByText('Journal')).toBeTruthy()
     expect(options()).toHaveLength(2)
-    expect(screen.getByText('Welcome')).toBeTruthy()
+    screen.getByText('Welcome')
   })
 
   it('labels journal days with their pretty date, not the raw stem', async () => {
     renderSpotlight({ docs: [journal('journals/2026-09-02.md', 'docker body')] })
     await type('docker')
-    expect(screen.getByText('September 2, 2026')).toBeTruthy()
+    screen.getByText('September 2, 2026')
     expect(screen.queryByText('2026-09-02')).toBeNull()
   })
 
@@ -150,7 +150,7 @@ describe('SearchSpotlight rendering (search spec: groups, labels, snippets)', ()
   it('shows an empty state when nothing matches', async () => {
     renderSpotlight({ docs: [page('Welcome.md', 'hello')] })
     fireEvent.change(input(), { target: { value: 'xyzzy' } })
-    await waitFor(() => expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy())
+    await waitFor(() => screen.getByText('No matches for \u201Cxyzzy\u201D.'))
   })
 
   it('deploys a short query that matches a whole word', async () => {
@@ -174,19 +174,19 @@ describe('SearchSpotlight rendering (search spec: groups, labels, snippets)', ()
     renderSpotlight({ docs })
     await type('docker')
     expect(options()).toHaveLength(20)
-    expect(screen.getByRole('button', { name: 'See all 23 results' })).toBeTruthy()
+    screen.getByRole('button', { name: 'See all 23 results' })
   })
 
   it('shows the see-all row whenever a query matches', async () => {
     renderSpotlight({ docs: [page('Alpha.md', 'docker one'), page('Beta.md', 'docker two')] })
     await type('docker')
-    expect(screen.getByRole('button', { name: 'See all 2 results' })).toBeTruthy()
+    screen.getByRole('button', { name: 'See all 2 results' })
   })
 
   it('hides the see-all row when nothing matches', async () => {
     renderSpotlight({ docs: [page('Welcome.md', 'hello')] })
     fireEvent.change(input(), { target: { value: 'xyzzy' } })
-    await waitFor(() => expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy())
+    await waitFor(() => screen.getByText('No matches for \u201Cxyzzy\u201D.'))
     expect(screen.queryByRole('button', { name: /See all/ })).toBeNull()
   })
 
@@ -202,8 +202,8 @@ describe('SearchSpotlight action flow (search spec: debounce, outside click, cle
     renderSpotlight({ docs: [page('Welcome.md', 'docker here')] })
     fireEvent.change(input(), { target: { value: 'doc' } })
     expect(screen.queryByRole('listbox')).toBeNull()
-    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy())
-    expect(screen.getByText('Welcome')).toBeTruthy()
+    await waitFor(() => screen.getByRole('listbox'))
+    screen.getByText('Welcome')
   })
 
   it('closes on a backdrop click keeping the query; reopening restores results', async () => {
@@ -215,7 +215,7 @@ describe('SearchSpotlight action flow (search spec: debounce, outside click, cle
     expect(screen.queryByRole('textbox', { name: 'Search notes' })).toBeNull()
 
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
-    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy())
+    await waitFor(() => screen.getByRole('listbox'))
     expect((input() as HTMLInputElement).value).toBe('docker')
   })
 
@@ -247,7 +247,7 @@ describe('SearchSpotlight action flow (search spec: debounce, outside click, cle
     await type('docker')
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
     expect((input() as HTMLInputElement).value).toBe('')
-    expect(screen.getByRole('listbox', { name: 'Search operators' })).toBeTruthy()
+    screen.getByRole('listbox', { name: 'Search operators' })
     expect(document.activeElement).toBe(input())
   })
 
@@ -387,7 +387,7 @@ describe('SearchSpotlight asset results (search-assets-by-name)', () => {
     renderSpotlight({ docs: [asset('assets/2026/q3-report.pdf')] })
     await type('q3-report')
     expect(within(listbox()).getByText('Assets')).toBeTruthy()
-    expect(screen.getByText('2026/q3-report.pdf')).toBeTruthy()
+    screen.getByText('2026/q3-report.pdf')
   })
 
   it('shows no snippet for a file row', async () => {

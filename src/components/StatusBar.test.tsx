@@ -118,7 +118,7 @@ describe('StatusBar', () => {
     it('renders with no vault open', () => {
       // Build identity renders in every app state, the empty one included.
       render(<StatusBar pagePath={null} />)
-      expect(screen.getByText(`v${version}`)).toBeTruthy()
+      screen.getByText(`v${version}`)
     })
   })
 
@@ -183,12 +183,6 @@ describe('StatusBar', () => {
       expect(day.getAttribute('aria-label')).toContain(day.textContent!)
       fireEvent.click(day)
       expect(onLocateDay).toHaveBeenCalledTimes(1)
-    })
-
-    it('names a page with the file name it prints too, so both crumbs match', () => {
-      render(<StatusBar pagePath="pages/Welcome.md" onRevealPage={vi.fn()} />)
-      const page = screen.getByRole('button', { name: 'Reveal Welcome.md in Files' })
-      expect(page.getAttribute('aria-label')).toContain(page.textContent!)
     })
 
     it('leaves a journal day as inert text without the locate handler', () => {

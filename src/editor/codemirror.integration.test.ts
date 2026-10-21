@@ -1115,7 +1115,7 @@ describe('every located block is framed', () => {
     expect(el.textContent).toBe('# dogBodyMore dog')
   })
 
-  it('ignores an index the document does not hold', async () => {
+  it('frames only the indices the document holds', async () => {
     const el = await open('# dog\n\nBody\n')
     adapter?.highlightBlocks([0, 9])
     expect(framedLines(el)).toEqual(['# dog'])

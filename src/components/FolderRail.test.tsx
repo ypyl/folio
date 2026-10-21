@@ -38,23 +38,23 @@ function railProps(overrides: Partial<RailProps> = {}): RailProps {
 describe('FolderRail', () => {
   it('renders the brand and search trigger while restoring, but no entries', () => {
     render(<FolderRail {...railProps({ status: 'restoring', searchDisabled: true })} />)
-    expect(screen.getByRole('button', { name: 'Folio, go home' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Folio, go home' })
+    screen.getByRole('button', { name: 'Open search' })
     expect(screen.queryByRole('button', { name: 'Add folder' })).toBeNull()
   })
 
   it('renders the brand and search trigger in every state', () => {
     const { rerender } = render(<FolderRail {...railProps({ onAdd: vi.fn() })} />)
-    expect(screen.getByRole('button', { name: 'Folio, go home' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Folio, go home' })
+    screen.getByRole('button', { name: 'Open search' })
 
     rerender(
       <FolderRail
         {...railProps({ folders: [folder('Work', 'granted', 'a')], searchDisabled: true })}
       />,
     )
-    expect(screen.getByRole('button', { name: 'Folio, go home' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Folio, go home' })
+    screen.getByRole('button', { name: 'Open search' })
   })
 
   it('fires home on the brand and opens search from the trigger', () => {
@@ -79,9 +79,9 @@ describe('FolderRail', () => {
   it('renders the add button and one avatar per folder', () => {
     const folders = [folder('Work', 'granted', 'a'), folder('Home', 'granted', 'b')]
     render(<FolderRail {...railProps({ folders, activeId: 'b', onAdd: vi.fn() })} />)
-    expect(screen.getByRole('button', { name: 'Add folder' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open folder Work' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open folder Home' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Add folder' })
+    screen.getByRole('button', { name: 'Open folder Work' })
+    screen.getByRole('button', { name: 'Open folder Home' })
   })
 
   it('renders the add button only when the browser can open folders', () => {
@@ -89,8 +89,8 @@ describe('FolderRail', () => {
     render(<FolderRail {...railProps({ folders })} />)
     expect(screen.queryByRole('button', { name: 'Add folder' })).toBeNull()
     // The column and its entries stay: only the add control is gated.
-    expect(screen.getByRole('navigation', { name: 'Open folders' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open folder Work' })).toBeTruthy()
+    screen.getByRole('navigation', { name: 'Open folders' })
+    screen.getByRole('button', { name: 'Open folder Work' })
   })
 
   it('marks the active folder and fires activate on click', () => {
@@ -174,8 +174,8 @@ describe('FolderRail', () => {
         {...railProps({ folders, activeId: 'a', onAdd: vi.fn(), onActivate, onClose })}
       />,
     )
-    expect(screen.getByRole('button', { name: 'Close folder Work' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Close folder Home' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Close folder Work' })
+    screen.getByRole('button', { name: 'Close folder Home' })
     fireEvent.click(screen.getByRole('button', { name: 'Close folder Home' }))
     expect(onClose).toHaveBeenCalledWith('b')
     expect(onActivate).not.toHaveBeenCalled()
@@ -190,7 +190,7 @@ describe('FolderRail', () => {
         {...railProps({ folders, activeId: 'a', onAdd: vi.fn(), onActivate, onClose })}
       />,
     )
-    expect(screen.getByRole('button', { name: 'Close folder Work' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Close folder Work' })
     fireEvent.click(screen.getByRole('button', { name: 'Close folder Work' }))
     expect(onClose).toHaveBeenCalledWith('a')
     expect(onActivate).not.toHaveBeenCalled()
@@ -199,7 +199,7 @@ describe('FolderRail', () => {
   it('shows a close control on pending entries too', () => {
     const folders = [folder('Work', 'prompt', 'a')]
     render(<FolderRail {...railProps({ folders, onAdd: vi.fn() })} />)
-    expect(screen.getByRole('button', { name: 'Close folder Work' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Close folder Work' })
   })
 })
 

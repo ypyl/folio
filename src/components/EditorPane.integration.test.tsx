@@ -429,11 +429,11 @@ describe('EditorPane', () => {
       const { rerender } = render(
         <EditorPane page={null} emptyHint="notes" initialContent="" onChange={() => {}} />,
       )
-      expect(screen.getByText('Your notes appear here.')).toBeTruthy()
+      screen.getByText('Your notes appear here.')
       rerender(
         <EditorPane page={null} emptyHint="open-folder" initialContent="" onChange={() => {}} />,
       )
-      expect(screen.getByText('Open a folder to begin.')).toBeTruthy()
+      screen.getByText('Open a folder to begin.')
       expect(instances.list).toHaveLength(0)
     } finally {
       vi.unstubAllGlobals()
@@ -451,11 +451,9 @@ describe('EditorPane', () => {
     )
     // The requirement replaces the instruction: "open a folder" is not
     // something this browser can do (warn-unsupported-browser).
-    expect(
-      screen.getByText(
-        'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
-      ),
-    ).toBeTruthy()
+    screen.getByText(
+      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
+    )
     expect(screen.queryByText('Open a folder to begin.')).toBeNull()
     // The mark stays decorative and the screen stays control-free.
     expect(screen.getByRole('main').querySelector('[aria-hidden="true"]')).not.toBeNull()
@@ -475,8 +473,8 @@ describe('EditorPane', () => {
           brandAction={<button type="button">Import from Logseq</button>}
         />,
       )
-      expect(screen.getByText('Open a folder to begin.')).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Import from Logseq' })).toBeTruthy()
+      screen.getByText('Open a folder to begin.')
+      screen.getByRole('button', { name: 'Import from Logseq' })
     } finally {
       vi.unstubAllGlobals()
     }
@@ -493,8 +491,8 @@ describe('EditorPane', () => {
         onTour={onTour}
       />,
     )
-    expect(screen.getByText(/Folio is a local-first notes app/)).toBeTruthy()
-    expect(screen.getByText(/Pages and journals are plain Markdown/)).toBeTruthy()
+    screen.getByText(/Folio is a local-first notes app/)
+    screen.getByText(/Pages and journals are plain Markdown/)
     fireEvent.click(screen.getByRole('button', { name: 'Take the tour' }))
     expect(onTour).toHaveBeenCalledTimes(1)
   })
@@ -519,7 +517,7 @@ describe('EditorPane', () => {
     expect(link.getAttribute('href')).toBe('https://github.com/ypyl/folio')
     expect(link.getAttribute('target')).toBe('_blank')
     // add-issue-report-note: the link sits in a line saying where issues go.
-    expect(screen.getByText(/Found a bug or have a feature request\?/)).toBeTruthy()
+    screen.getByText(/Found a bug or have a feature request\?/)
   })
 
   it('shows the loading state instead of the empty hint while the index builds', async () => {

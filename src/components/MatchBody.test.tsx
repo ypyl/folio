@@ -48,7 +48,7 @@ describe('MatchBody', () => {
     const text = spread(5)
     render(<MatchBody result={result(text, { ranges: exactRanges(text, 'dog') })} limit={2} />)
     expect(marks()).toHaveLength(2)
-    expect(screen.getByText('+3 more on this page')).toBeTruthy()
+    screen.getByText('+3 more on this page')
   })
 
   it('shows every occurrence a snippet covers, none cut off', () => {
@@ -67,7 +67,7 @@ describe('MatchBody', () => {
 
   it('falls back to the opening lines when nothing matches in text', () => {
     render(<MatchBody result={result('opening line\nsecond\nthird\nfourth')} limit={2} />)
-    expect(screen.getByText(/opening line/)).toBeTruthy()
+    screen.getByText(/opening line/)
     expect(screen.queryByText(/more on this page/)).toBeNull()
   })
 

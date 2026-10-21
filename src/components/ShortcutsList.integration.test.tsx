@@ -29,7 +29,7 @@ describe('ShortcutsList', () => {
   it('renders both group labels', () => {
     renderList()
     for (const group of SHORTCUT_GROUPS) {
-      expect(screen.getByText(group.heading)).toBeTruthy()
+      screen.getByText(group.heading)
     }
   })
 
@@ -41,7 +41,7 @@ describe('ShortcutsList', () => {
       />,
     )
     for (const item of items) {
-      expect(screen.getByText(item.label)).toBeTruthy()
+      screen.getByText(item.label)
     }
     // One chip per listed key, and the tokens render through displayKeys.
     const chips = container.querySelectorAll('kbd')
@@ -73,14 +73,14 @@ describe('ShortcutsList', () => {
 
   it('names each control by its action and its keys', () => {
     renderList()
-    expect(screen.getByRole('button', { name: 'Undo Ctrl+Z' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Undo Ctrl+Z' })
     // A two-chord row yields two distinctly named controls.
-    expect(screen.getByRole('button', { name: 'Redo Ctrl+Y' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Redo Shift+Ctrl+Z' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open reference Ctrl+Enter' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Back Ctrl+[' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Forward Ctrl+]' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Search notes Ctrl+K' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Redo Ctrl+Y' })
+    screen.getByRole('button', { name: 'Redo Shift+Ctrl+Z' })
+    screen.getByRole('button', { name: 'Open reference Ctrl+Enter' })
+    screen.getByRole('button', { name: 'Back Ctrl+[' })
+    screen.getByRole('button', { name: 'Forward Ctrl+]' })
+    screen.getByRole('button', { name: 'Search notes Ctrl+K' })
   })
 
   // jsdom resolves no stylesheets, so this is a structural guard rather than a
@@ -134,7 +134,7 @@ describe('ShortcutsList', () => {
       (screen.getByRole('button', { name: 'Search notes Ctrl+K' }) as HTMLButtonElement).disabled,
     ).toBe(false)
     // Disabled rows stay listed: the reference is present in every state.
-    for (const item of interactiveItems) expect(screen.getByText(item.label)).toBeTruthy()
+    for (const item of interactiveItems) screen.getByText(item.label)
   })
 
   it('lists only real shortcuts — links and strikethrough have no keymap', () => {

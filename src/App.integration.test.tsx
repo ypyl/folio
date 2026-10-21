@@ -7,7 +7,7 @@ import railStyles from './components/FolderRail.module.css'
 import metaStyles from './components/MetaPanel.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
-import { dayLabel } from './components/months'
+import { dayLabel, monthYearLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 import { COMPACT_QUERY } from './compact'
@@ -256,14 +256,14 @@ describe('application shell', () => {
     vi.stubGlobal('showDirectoryPicker', vi.fn())
     try {
       render(<App />)
-      expect(screen.getByRole('button', { name: 'Folio, go home' })).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
-      expect(screen.getByText('Journal')).toBeTruthy()
-      expect(screen.getByText('Files')).toBeTruthy()
-      expect(screen.getByText('Links')).toBeTruthy()
+      screen.getByRole('button', { name: 'Folio, go home' })
+      screen.getByRole('button', { name: 'Open search' })
+      screen.getByText('Journal')
+      screen.getByText('Files')
+      screen.getByText('Links')
       // Restore resolves async; once no folder is present the hint settles.
-      expect(await screen.findByText('Open a folder to begin.')).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Add folder' })).toBeTruthy()
+      await screen.findByText('Open a folder to begin.')
+      screen.getByRole('button', { name: 'Add folder' })
     } finally {
       vi.unstubAllGlobals()
     }
@@ -274,17 +274,15 @@ describe('application shell', () => {
     // Safari case (warn-unsupported-browser).
     expect('showDirectoryPicker' in window).toBe(false)
     render(<App />)
-    expect(
-      await screen.findByText(
-        'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
-      ),
-    ).toBeTruthy()
+    await screen.findByText(
+      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
+    )
     // No control promises the action the browser cannot perform, and the
     // instruction it replaces is gone.
     expect(screen.queryByRole('button', { name: 'Add folder' })).toBeNull()
     expect(screen.queryByText('Open a folder to begin.')).toBeNull()
     // The rail keeps its column so the shell's panes stay aligned.
-    expect(screen.getByRole('navigation', { name: 'Open folders' })).toBeTruthy()
+    screen.getByRole('navigation', { name: 'Open folders' })
   })
 })
 
@@ -303,15 +301,15 @@ describe('the brand screen introduction (add-landing-page-info)', () => {
     render(<App />)
     await screen.findByText('Open a folder to begin.')
 
-    expect(screen.getByText(/Folio is a local-first notes app/)).toBeTruthy()
-    expect(screen.getByText(/Pages and journals are plain Markdown/)).toBeTruthy()
+    screen.getByText(/Folio is a local-first notes app/)
+    screen.getByText(/Pages and journals are plain Markdown/)
     // add-issue-report-note: the repository area says where issues go.
-    expect(screen.getByText(/Found a bug or have a feature request\?/)).toBeTruthy()
+    screen.getByText(/Found a bug or have a feature request\?/)
 
     // The brand screen is a second tour entry point, alongside the rail's:
     // both open the one tour.
     fireEvent.click(brandTour())
-    expect(screen.getByRole('dialog', { name: 'App tour' })).toBeTruthy()
+    screen.getByRole('dialog', { name: 'App tour' })
   })
 })
 
@@ -319,11 +317,11 @@ describe('navigation over the real index', () => {
   it('lists vault pages and journal entries from the open folder', async () => {
     render(<App />)
     await openFixture()
-    expect(await screen.findByRole('button', { name: 'Welcome' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Reading' })).toBeTruthy()
+    await screen.findByRole('button', { name: 'Welcome' })
+    screen.getByRole('button', { name: 'Reading' })
     // Journal days appear as marked calendar cells, not rows.
-    expect(screen.getByRole('button', { name: 'September 2, 2026' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'September 4, 2026' })).toBeTruthy()
+    screen.getByRole('button', { name: 'September 2, 2026' })
+    screen.getByRole('button', { name: 'September 4, 2026' })
     vi.unstubAllGlobals()
   })
 
@@ -349,7 +347,7 @@ describe('navigation over the real index', () => {
   it('lists the live file count in the status bar', async () => {
     render(<App />)
     await openFixture()
-    expect(await screen.findByTitle('notes (8 files)')).toBeTruthy()
+    await screen.findByTitle('notes (8 files)')
     vi.unstubAllGlobals()
   })
 
@@ -610,7 +608,7 @@ describe('navigation over the real index', () => {
     // the meta panel falls back to its placeholder copy (indexing-loading-
     // state only swaps in skeleton rows while a folder's index builds).
     fireEvent.click(screen.getByRole('button', { name: 'Folio, go home' }))
-    expect(await screen.findByText('Links appear once a page is open.')).toBeTruthy()
+    await screen.findByText('Links appear once a page is open.')
     vi.unstubAllGlobals()
   })
 
@@ -668,7 +666,7 @@ describe('auto-save (page-editing spec)', () => {
       .mockRejectedValueOnce(new DOMException('denied', 'SecurityError'))
 
     editor().emitChange('first edit')
-    expect(await screen.findByText('Save failed', {}, { timeout: 3000 })).toBeTruthy()
+    await screen.findByText('Save failed', {}, { timeout: 3000 })
     expect(editor()).toBeTruthy()
 
     spy.mockRestore()
@@ -1010,7 +1008,7 @@ describe('folder rail flow', () => {
     vi.stubGlobal('showDirectoryPicker', vi.fn())
     try {
       render(<App />)
-      expect(await screen.findByRole('button', { name: 'Add folder' })).toBeTruthy()
+      await screen.findByRole('button', { name: 'Add folder' })
     } finally {
       vi.unstubAllGlobals()
     }
@@ -1037,7 +1035,7 @@ describe('folder rail flow', () => {
 
     // Adding a second folder is not a switch either.
     fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
-    expect(await screen.findByRole('button', { name: 'b' })).toBeTruthy()
+    await screen.findByRole('button', { name: 'b' })
 
     // Switching to a different folder resets the open page to the new
     // folder's today journal (journal-home) — blank here, since Home has no
@@ -1287,7 +1285,7 @@ describe('search results view (search-results-view spec)', () => {
     await waitFor(() => expect(seeAll()).toBeTruthy())
     fireEvent.click(seeAll())
     // Page metadata is page-scoped: empty placeholders while browsing.
-    expect(screen.getByText('Links appear once a page is open.')).toBeTruthy()
+    screen.getByText('Links appear once a page is open.')
     vi.unstubAllGlobals()
   })
 
@@ -1338,7 +1336,7 @@ describe('search results view (search-results-view spec)', () => {
     await waitFor(() => expect(editor()).not.toBe(previous))
     expect(editor().setContents[0]).toBe('\n')
     expect(within(pane()).queryByText('Your notes appear here.')).toBeNull()
-    expect(screen.getByText('No matches for \u201Cxyzzy\u201D.')).toBeTruthy()
+    screen.getByText('No matches for \u201Cxyzzy\u201D.')
     vi.unstubAllGlobals()
   })
 
@@ -1553,7 +1551,7 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
     expect(control('Forward Ctrl+]').disabled).toBe(true)
 
     fireEvent.click(control('Back Ctrl+['))
-    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
+    await waitFor(() => screen.getByTitle(todayPath))
     expect(control('Forward Ctrl+]').disabled).toBe(false)
     vi.unstubAllGlobals()
   })
@@ -1648,13 +1646,13 @@ describe('history navigation (add-history-navigation spec)', () => {
     await openFixture()
     const todayPath = `journals/${localDayString(new Date())}.md`
     fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
     fireEvent.keyDown(document, { key: '[', ctrlKey: true })
-    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
+    await waitFor(() => screen.getByTitle(todayPath))
 
     // The trail is back at its start, so the chord leaves the open page alone.
     fireEvent.keyDown(document, { key: '[', ctrlKey: true })
-    expect(screen.getByTitle(todayPath)).toBeTruthy()
+    screen.getByTitle(todayPath)
     vi.unstubAllGlobals()
   })
 
@@ -1748,7 +1746,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     await act(async () => {
       editor().emitChange('a keystroke')
     })
-    expect(screen.getByRole('status')).toBeTruthy()
+    screen.getByRole('status')
     expect(dayLabelCalls.count).toBe(before)
 
     // A navigation does change what the sidebar shows, so it re-renders.
@@ -1768,7 +1766,7 @@ describe('history navigation (add-history-navigation spec)', () => {
       clientX: 40,
       clientY: 40,
     })
-    expect(screen.getByRole('menu')).toBeTruthy()
+    screen.getByRole('menu')
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
     expect(screen.queryByRole('menu')).toBeNull()
 
@@ -1790,10 +1788,10 @@ describe('history navigation (add-history-navigation spec)', () => {
     const todayPath = `journals/${localDayString(today)}.md`
     // Leave today's journal for a page, so the control has to bring it back.
     fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     fireEvent.click(screen.getByRole('button', { name: 'Today' }))
-    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
+    await waitFor(() => screen.getByTitle(todayPath))
     // The open day is marked in the calendar, and the open was recorded like
     // any other navigation: Back lands on the page it displaced.
     expect(screen.getByRole('button', { name: dayLabel(today) }).getAttribute('aria-current')).toBe(
@@ -1851,7 +1849,7 @@ describe('search over the vault assets (search-assets-by-name)', () => {
     render(<App />)
     await openFixture(tree)
     fireEvent.change(search(), { target: { value: 'confidential' } })
-    await waitFor(() => expect(screen.getByText(/No matches for/)).toBeTruthy())
+    await waitFor(() => screen.getByText(/No matches for/))
     vi.unstubAllGlobals()
   })
 
@@ -1874,7 +1872,7 @@ describe('search over the vault assets (search-assets-by-name)', () => {
     fireEvent.click(within(view).getByRole('button', { name: /q3-report\.pdf/ }))
     await waitFor(() => expect(opened).toHaveBeenCalledTimes(1))
     // The view is still there: nothing navigated, so there is no page to return to.
-    expect(screen.getByRole('main', { name: 'Search results' })).toBeTruthy()
+    screen.getByRole('main', { name: 'Search results' })
     vi.unstubAllGlobals()
   })
 })
@@ -1899,7 +1897,7 @@ describe('whiteboards (add-whiteboards)', () => {
 
     // Back returns to the page that referenced it (the trail recorded the board).
     fireEvent.click(screen.getByRole('button', { name: 'Back' }))
-    await waitFor(() => expect(screen.getByRole('main')).toBeTruthy())
+    await waitFor(() => screen.getByRole('main'))
   })
 
   it('lists a board in the sidebar and opens it', async () => {
@@ -1911,7 +1909,7 @@ describe('whiteboards (add-whiteboards)', () => {
     })
     await openFixture(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Migration.excalidraw' }))
-    expect(await screen.findByTestId('board-view')).toBeTruthy()
+    await screen.findByTestId('board-view')
   })
 
   it('passes the open board its canonical reference token for the blank note', async () => {
@@ -2006,7 +2004,7 @@ describe('board references in the meta panel (board-references-in-panel)', () =>
     expect(row.className).not.toContain('dimmed')
 
     fireEvent.click(row)
-    expect(await screen.findByTestId('board-view')).toBeTruthy()
+    await screen.findByTestId('board-view')
   })
 
   it('lists one row when a token and a path link name one board', async () => {
@@ -2068,7 +2066,7 @@ describe('collapsible sidebars (add-collapsible-sidebars spec)', () => {
     fireEvent.click(expanded)
     expect(pane.className).not.toContain(sidebarStyles.collapsed)
     expect(rail.className).not.toContain(railStyles.collapsed)
-    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Open search' })
     expect(
       screen
         .getByRole('button', { name: 'Collapse left navigation' })
@@ -2124,7 +2122,7 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     render(<App />)
     await openFixture()
     fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     fireEvent.click(revealButton('Welcome.md'))
 
@@ -2143,7 +2141,7 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     render(<App />)
     await openFixture()
     fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse left navigation' }))
     const pane = document.getElementById('sidebar-pane') as HTMLElement
@@ -2163,7 +2161,7 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     render(<App />)
     await openFixture()
     fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     const files = (screen.getByText('Files') as HTMLElement).closest(
       'details',
@@ -2202,7 +2200,7 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     fireEvent.click(revealButton('Welcome.md'))
 
     // Same page open, same editor seeding, no file materialized.
-    expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy()
+    screen.getByTitle('pages/Welcome.md')
     expect(editor().setContents[0]).toContain('This is Folio')
     expect((tree.children.get('pages') as FakeDirectoryHandle).children.size).toBe(pagesBefore)
     vi.unstubAllGlobals()
@@ -2272,7 +2270,7 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     await act(async () => {
       editor().emitChange('a keystroke')
     })
-    expect(screen.getByRole('status')).toBeTruthy()
+    screen.getByRole('status')
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
     expect(dayLabelCalls.count).toBe(before)
     expect(document.activeElement).toBe(filesSection().getByRole('button', { name: 'Welcome' }))
@@ -2311,7 +2309,7 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
   it("locates the open day's cell from the status bar", async () => {
     render(<App />)
     await openFixture()
-    await waitFor(() => expect(screen.getByTitle(todayPath())).toBeTruthy())
+    await waitFor(() => screen.getByTitle(todayPath()))
 
     // Browse the calendar away from the open day's month: the cell is not even
     // rendered any more.
@@ -2321,7 +2319,8 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
     fireEvent.click(dayCrumb())
 
     // Back on the day's month, scrolled to, and holding the focus.
-    expect(todayCell().classList.contains(styles.dimmed)).toBe(false)
+    const now = new Date()
+    screen.getByText(monthYearLabel(now.getFullYear(), now.getMonth()))
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
     expect(document.activeElement).toBe(todayCell())
   })
@@ -2329,7 +2328,7 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
   it('unfolds a folded left navigation before locating the day', async () => {
     render(<App />)
     await openFixture()
-    await waitFor(() => expect(screen.getByTitle(todayPath())).toBeTruthy())
+    await waitFor(() => screen.getByTitle(todayPath()))
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse left navigation' }))
     const pane = document.getElementById('sidebar-pane') as HTMLElement
@@ -2344,7 +2343,7 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
   it('changes nothing but where the calendar looks', async () => {
     render(<App />)
     const tree = await openFixture()
-    await waitFor(() => expect(screen.getByTitle(todayPath())).toBeTruthy())
+    await waitFor(() => screen.getByTitle(todayPath()))
     await act(async () => {
       editor().emitChange('half a thought')
     })
@@ -2354,7 +2353,7 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
 
     // The same day is open, its unsaved text is intact, and locating it wrote
     // nothing: the day had no file and still has none.
-    expect(screen.getByTitle(todayPath())).toBeTruthy()
+    screen.getByTitle(todayPath())
     expect(editor().content).toBe('half a thought')
     const journals = tree.children.get('journals') as FakeDirectoryHandle
     expect(journals.children.has(`${todayDate()}.md`)).toBe(false)
@@ -2369,7 +2368,7 @@ describe('logseq import', () => {
     vi.stubGlobal('showDirectoryPicker', undefined)
     try {
       render(<App />)
-      expect(await screen.findByText(/Chromium-based browser/)).toBeTruthy()
+      await screen.findByText(/Chromium-based browser/)
       expect(screen.queryByRole('button', { name: 'Import from Logseq' })).toBeNull()
     } finally {
       vi.unstubAllGlobals()
@@ -2396,7 +2395,7 @@ describe('logseq import', () => {
 
       // The result summary lands, and the destination now holds the translated
       // files under Folio paths.
-      expect(await screen.findByText('Import complete')).toBeTruthy()
+      await screen.findByText('Import complete')
       const pages = dest.children.get('pages') as FakeDirectoryHandle
       const journals = dest.children.get('journals') as FakeDirectoryHandle
       const assets = dest.children.get('assets') as FakeDirectoryHandle
@@ -2406,7 +2405,7 @@ describe('logseq import', () => {
 
       // Continuing opens the imported destination as the active vault.
       fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await waitFor(() => expect(screen.getByText('Roadmap')).toBeTruthy())
+      await waitFor(() => screen.getByText('Roadmap'))
     } finally {
       vi.unstubAllGlobals()
     }
@@ -2492,11 +2491,11 @@ describe('the app tour (add-app-tour spec)', () => {
     render(<App />)
     await openFixture()
     fireEvent.click(tourControl())
-    expect(screen.getByRole('dialog', { name: 'App tour' })).toBeTruthy()
+    screen.getByRole('dialog', { name: 'App tour' })
 
     searchInput()
     expect(screen.queryByRole('dialog', { name: 'App tour' })).toBeNull()
-    expect(screen.getByLabelText('Search notes')).toBeTruthy()
+    screen.getByLabelText('Search notes')
   })
 
   it('drops the editor hook while the results view owns the main slot', async () => {
@@ -2719,7 +2718,7 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
     // The introduction still shows; only the tour reference goes, because the
     // tour does not exist on the compact shell (add-landing-page-info).
-    expect(screen.getByText(/Folio is a local-first notes app/)).toBeTruthy()
+    screen.getByText(/Folio is a local-first notes app/)
   })
 
   it('leaves the wide composition alone', async () => {
@@ -2759,7 +2758,7 @@ describe('reminders from the calendar (add-reminders)', () => {
     const tree = await openFixture()
     const store = storageOf(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Every year' }))
@@ -2804,11 +2803,11 @@ describe('reminders from the calendar (add-reminders)', () => {
     const tree = await openFixture()
     const store = storageOf(tree)
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     // Today is frozen at 2026-09-15; the 14th is past.
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 14)))
-    expect(screen.getByRole('menu')).toBeTruthy()
+    screen.getByRole('menu')
     const once = screen.getByRole('menuitem', { name: 'Once, on this day' }) as HTMLButtonElement
     expect(once.disabled).toBe(true)
 
@@ -2825,7 +2824,7 @@ describe('reminders from the calendar (add-reminders)', () => {
     render(<App />)
     await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     // Off by default: no day menu.
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
@@ -2834,8 +2833,8 @@ describe('reminders from the calendar (add-reminders)', () => {
     // Turn prerelease mode on from the rail; the day menu then offers reminders.
     fireEvent.click(screen.getByRole('button', { name: 'Prerelease features' }))
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
-    expect(screen.getByRole('menu')).toBeTruthy()
-    expect(screen.getByRole('menuitem', { name: 'Every year' })).toBeTruthy()
+    screen.getByRole('menu')
+    screen.getByRole('menuitem', { name: 'Every year' })
     vi.unstubAllGlobals()
   })
 
@@ -2859,9 +2858,9 @@ describe('reminders from the calendar (add-reminders)', () => {
 
     // Reopening the day adds nothing.
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
     fireEvent.click(screen.getByRole('button', { name: 'Today' }))
-    await waitFor(() => expect(screen.getByTitle(today)).toBeTruthy())
+    await waitFor(() => screen.getByTitle(today))
     expect((await store.read(today)).match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
     vi.unstubAllGlobals()
   })
@@ -2875,7 +2874,7 @@ describe('reminders from the calendar (add-reminders)', () => {
     await openFixture(tree)
     const store = storageOf(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Take pills' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Take pills.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Take pills.md'))
 
     // The day menu chooses only; it never removes.
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
@@ -2914,7 +2913,7 @@ describe('reminders from the calendar (add-reminders)', () => {
     await openFixture(tree)
     const store = storageOf(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Take pills' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Take pills.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Take pills.md'))
 
     fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Every month' }))
@@ -2935,7 +2934,7 @@ describe('reminders from the calendar (add-reminders)', () => {
     await openFixture(tree)
     const store = storageOf(tree)
     fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
-    await waitFor(() => expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy())
+    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
 
     // The row's own menu removes its page's rule, and the open page is not it.
     fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
@@ -2950,7 +2949,7 @@ describe('reminders from the calendar (add-reminders)', () => {
       expect(rules).toContain('# Reminders')
     })
     // Nothing else moves: the open page, the page itself, and the written day.
-    expect(screen.getByTitle('pages/Welcome.md')).toBeTruthy()
+    screen.getByTitle('pages/Welcome.md')
     await expect(store.read('pages/Take pills.md')).resolves.toBeDefined()
     expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
     vi.unstubAllGlobals()
@@ -2968,14 +2967,14 @@ describe('reminders from the calendar (add-reminders)', () => {
 
     // The row menu still opens for favorites; it just carries no reminder item.
     fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
-    expect(screen.getByRole('menu')).toBeTruthy()
+    screen.getByRole('menu')
     expect(screen.queryByRole('menuitem', { name: /^Remove reminder/ })).toBeNull()
 
     // The rule survives untouched: turning the feature on still fires it.
     expect(await store.read('.folio/reminders.md')).toContain('#[[Take pills]]')
     fireEvent.click(screen.getByRole('button', { name: 'Prerelease features' }))
     fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
-    expect(screen.getByRole('menuitem', { name: /^Remove reminder/ })).toBeTruthy()
+    screen.getByRole('menuitem', { name: /^Remove reminder/ })
     fireEvent.click(dayCell(new Date(2026, 8, 16)))
     await waitFor(
       async () => {

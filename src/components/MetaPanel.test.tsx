@@ -374,7 +374,7 @@ describe('MetaPanel', () => {
       />,
     )
     expect(screen.queryByText('Contents')).toBeNull()
-    expect(screen.getByText('Referenced by')).toBeTruthy()
+    screen.getByText('Referenced by')
   })
 
   it('puts the collapsed Links section directly above the shortcuts row', () => {
