@@ -76,7 +76,10 @@ test("a journal day's name locates the day in the calendar", async ({ page }) =>
   await seedVault(page, { [todayJournalPath()]: 'Started the day in the journal.' })
   await openVault(page)
 
-  // The long date the calendar's own cells carry, in the browser's pinned zone.
+  // The day's file name, which is what the crumb prints and says
+  // (name-the-crumb-with-what-it-shows), and the long date the calendar's own
+  // cells carry, in the browser's pinned zone.
+  const dayFile = todayJournalPath().split('/')[1]
   const dayLabel = new Intl.DateTimeFormat('en-US', {
     month: 'long',
     day: 'numeric',
@@ -93,7 +96,7 @@ test("a journal day's name locates the day in the calendar", async ({ page }) =>
   await page.getByRole('button', { name: 'Previous month' }).click()
   await expect(dayCell).toHaveCount(0)
 
-  await page.getByRole('button', { name: `Show ${dayLabel} in the Journal calendar` }).click()
+  await page.getByRole('button', { name: `Show ${dayFile} in the Journal calendar` }).click()
 
   // The grid is back on the day's month, and the cell holds the focus.
   await expect(dayCell).toBeVisible()

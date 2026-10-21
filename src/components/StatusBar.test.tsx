@@ -171,23 +171,24 @@ describe('StatusBar', () => {
   })
 
   describe('journal-day locate (focus-the-journal-day-in-the-calendar)', () => {
-    it('renders a journal day as a control named for the day and the action', () => {
-      const onActivate = vi.fn()
-      render(
-        <StatusBar
-          pagePath="journals/2026-10-21.md"
-          locateDay={{ date: '2026-10-21', onActivate }}
-        />,
-      )
-      // The crumb text stays the file name; the accessible name speaks in the
-      // calendar's own words, so the control reads the same as the cell it
-      // moves to.
+    it('names a journal day with the file name it prints and the action', () => {
+      const onLocateDay = vi.fn()
+      render(<StatusBar pagePath="journals/2026-10-21.md" onLocateDay={onLocateDay} />)
+      // The name carries the text on the crumb, so what is written on it is what
+      // is said to activate it (name-the-crumb-with-what-it-shows).
       const day = screen.getByRole('button', {
-        name: 'Show October 21, 2026 in the Journal calendar',
+        name: 'Show 2026-10-21.md in the Journal calendar',
       })
       expect(day.textContent).toBe('2026-10-21.md')
+      expect(day.getAttribute('aria-label')).toContain(day.textContent!)
       fireEvent.click(day)
-      expect(onActivate).toHaveBeenCalledTimes(1)
+      expect(onLocateDay).toHaveBeenCalledTimes(1)
+    })
+
+    it('names a page with the file name it prints too, so both crumbs match', () => {
+      render(<StatusBar pagePath="pages/Welcome.md" onRevealPage={vi.fn()} />)
+      const page = screen.getByRole('button', { name: 'Reveal Welcome.md in Files' })
+      expect(page.getAttribute('aria-label')).toContain(page.textContent!)
     })
 
     it('leaves a journal day as inert text without the locate handler', () => {

@@ -2,7 +2,6 @@ import { Fragment } from 'react'
 import { version } from '../../package.json'
 import type { CompactView } from '../compact'
 import type { DraftStatus } from '../editor/drafts'
-import { dateLabel } from './months'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
@@ -14,8 +13,10 @@ import styles from './StatusBar.module.css'
 // navigation controls and the open item's name are its only controls: a page's
 // name reveals its row in the Files listing (reveal-open-page-in-files) and a
 // journal day's locates the day in the Journal calendar
-// (focus-the-journal-day-in-the-calendar), while the directory crumbs and the
-// other groups stay display-only. The question-mark help button and its modal
+// (focus-the-journal-day-in-the-calendar). Either name spells the file name the
+// crumb prints, so what is written on it is what a person says to activate it
+// (name-the-crumb-with-what-it-shows), while the directory crumbs and the other
+// groups stay display-only. The question-mark help button and its modal
 // lived here until move-help-to-right-panel moved the reference into the right
 // panel, and the pin star lived here until add-row-context-menu moved
 // favoriting to a page row's context menu.
@@ -100,7 +101,7 @@ export function StatusBar({
   canToday = false,
   onToday,
   onRevealPage,
-  locateDay,
+  onLocateDay,
   compact = false,
   view,
   onShowView,
@@ -132,11 +133,11 @@ export function StatusBar({
    *  inert text, which is what the absence of this prop means. */
   onRevealPage?: () => void
   /** Locate the open journal day in the Journal calendar
-   *  (focus-the-journal-day-in-the-calendar): the day's date as `YYYY-MM-DD` and
-   *  the handler that shows and focuses its cell. App passes both halves for a
-   *  journal day and omits the prop otherwise, so a page's crumb and a day's are
-   *  never both controls. */
-  locateDay?: { date: string; onActivate: () => void }
+   *  (focus-the-journal-day-in-the-calendar): shows the left navigation and the
+   *  Journal section, moves the calendar to the day's month, and places focus on
+   *  the day's cell. App supplies it for a journal day and omits it otherwise, so
+   *  a page's crumb and a day's are never both controls. */
+  onLocateDay?: () => void
   /** The compact shell (add-compact-mobile-shell): the bar is its app bar, so
    *  it carries the two view controls and drops what a phone-width row cannot
    *  hold. Absent on a wide window, where the bar's controls are Back, Forward,
@@ -234,21 +235,23 @@ export function StatusBar({
           </>
         )}
         {segments.length > 0 &&
-          (onRevealPage || locateDay ? (
+          (onRevealPage || onLocateDay ? (
             // The open item's name is the bar's one non-navigation control: a
             // page's reveals its row in Files and does nothing else
             // (reveal-open-page-in-files); a journal day's locates the day in
             // the calendar and does nothing else
-            // (focus-the-journal-day-in-the-calendar).
+            // (focus-the-journal-day-in-the-calendar). Either name carries the
+            // text the crumb prints, so what is on screen is what is said to
+            // activate it (name-the-crumb-with-what-it-shows).
             <button
               type="button"
               className={`${styles.crumbLast} ${styles.crumbReveal}`}
               aria-label={
-                locateDay
-                  ? `Show ${dateLabel(locateDay.date)} in the Journal calendar`
+                onLocateDay
+                  ? `Show ${segments[segments.length - 1]} in the Journal calendar`
                   : `Reveal ${segments[segments.length - 1]} in Files`
               }
-              onClick={locateDay ? locateDay.onActivate : onRevealPage}
+              onClick={onLocateDay ?? onRevealPage}
             >
               {segments[segments.length - 1]}
             </button>

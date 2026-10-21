@@ -1371,9 +1371,7 @@ function App() {
         canToday={graph !== null}
         onToday={handleToday}
         onRevealPage={canRevealPage ? handleRevealPage : undefined}
-        locateDay={
-          journalDay !== null ? { date: journalDay, onActivate: handleLocateDay } : undefined
-        }
+        onLocateDay={journalDay !== null ? handleLocateDay : undefined}
       />
       {/* Search spotlight (replace-header-with-spotlight): a modal overlay in
           every app state. Keyed on the folder so a switch remounts it and

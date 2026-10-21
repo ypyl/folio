@@ -7,7 +7,7 @@ import railStyles from './components/FolderRail.module.css'
 import metaStyles from './components/MetaPanel.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
-import { dateLabel, dayLabel } from './components/months'
+import { dayLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 import { COMPACT_QUERY } from './compact'
@@ -2304,9 +2304,9 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
 
   const todayDate = () => localDayString(new Date())
   const todayPath = () => `journals/${todayDate()}.md`
-  const todayCell = () => screen.getByRole('button', { name: dateLabel(todayDate()) })
+  const todayCell = () => screen.getByRole('button', { name: dayLabel(new Date()) })
   const dayCrumb = () =>
-    screen.getByRole('button', { name: `Show ${dateLabel(todayDate())} in the Journal calendar` })
+    screen.getByRole('button', { name: `Show ${todayDate()}.md in the Journal calendar` })
 
   it("locates the open day's cell from the status bar", async () => {
     render(<App />)
@@ -2316,7 +2316,7 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
     // Browse the calendar away from the open day's month: the cell is not even
     // rendered any more.
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
-    expect(screen.queryByRole('button', { name: dateLabel(todayDate()) })).toBeNull()
+    expect(screen.queryByRole('button', { name: dayLabel(new Date()) })).toBeNull()
 
     fireEvent.click(dayCrumb())
 
@@ -2586,12 +2586,14 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
       // The day's crumb is the standard way back to the calendar on a phone:
       // the navigation view appears, then the cell takes focus.
       fireEvent.click(
-        screen.getByRole('button', { name: `Show ${dateLabel(date)} in the Journal calendar` }),
+        screen.getByRole('button', { name: `Show ${date}.md in the Journal calendar` }),
       )
 
       await waitFor(() => expect(shownView()).toBe('nav'))
       await waitFor(() =>
-        expect(document.activeElement).toBe(screen.getByRole('button', { name: dateLabel(date) })),
+        expect(document.activeElement).toBe(
+          screen.getByRole('button', { name: dayLabel(new Date()) }),
+        ),
       )
     } finally {
       Reflect.deleteProperty(Element.prototype, 'scrollIntoView')

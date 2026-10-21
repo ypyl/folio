@@ -24,8 +24,8 @@ export function monthYearLabel(year: number, month: number): string {
 }
 
 /** "September 2, 2026" for a journal day as `YYYY-MM-DD`, the label the
- *  calendar's cells, the day menu, and the status bar's day crumb carry. */
-export function dateLabel(date: string): string {
+ *  calendar's cells and the day menu carry. */
+function dateLabel(date: string): string {
   const [y, m, d] = date.split('-').map(Number)
   return dayLabel(new Date(y, m - 1, d))
 }
