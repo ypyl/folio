@@ -257,3 +257,94 @@ describe('useIndex pins (add-pinned-pages)', () => {
     expect(await result.current.togglePin('pages/a.md')).toBe(false)
   })
 })
+
+// The lost-replacement bug: two publishes race on one index, and the one that
+// read first put its own reminders back over a rule the user had just set. Both
+// directions are pinned here, because either can drop the user's choice.
+describe('a publish that raced another (lost-replacement)', () => {
+  const DAILY = { recurrence: 'daily' as const, anchor: '2026-09-02', target: 'Ana' }
+  const WEEKLY = { recurrence: 'weekly' as const, anchor: '2026-09-02', target: 'Ana' }
+  const treeWithDaily = () =>
+    buildTree({
+      pages: { 'a.md': 'a' },
+      journals: { '2026-09-02.md': 'the day' },
+      '.folio': { 'reminders.md': '- daily 2026-09-02 #[[Ana]]\n' },
+    })
+
+  it('keeps a replacement when a page save lands after it', async () => {
+    const tree = treeWithDaily()
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.reminders).toEqual([DAILY]))
+
+    // Hold the page's own file write, so the save is in flight across the
+    // replacement, the way materializing a reminder line is while the user
+    // confirms another recurrence.
+    const realWrite = storage.write.bind(storage)
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.spyOn(storage, 'write').mockImplementation(async (path, content) => {
+      if (path === 'journals/2026-09-02.md') await gate
+      return realWrite(path, content)
+    })
+
+    let saving: Promise<boolean> = Promise.resolve(false)
+    await act(async () => {
+      saving = result.current.savePage('journals/2026-09-02.md', 'the day\n\n#Ana\n')
+    })
+    await act(async () => {
+      await result.current.saveReminders([WEEKLY])
+    })
+    expect(result.current.reminders).toEqual([WEEKLY])
+
+    await act(async () => {
+      release()
+      await saving
+    })
+    // The page save landed, and the rule the user chose is still the one shown.
+    expect(result.current.reminders).toEqual([WEEKLY])
+    expect(result.current.graph?.pages.get('journals/2026-09-02.md')?.content).toContain('#Ana')
+  })
+
+  it('drops a refresh that started before a replacement landed', async () => {
+    const tree = treeWithDaily()
+    const storage = vault(tree)
+    const { result } = renderHook(() => useIndex(storage))
+    await waitFor(() => expect(result.current.reminders).toEqual([DAILY]))
+
+    // Hold the refresh on the meta file's stat, with the pre-replacement mtime
+    // it read first: everything it is about to build comes from before the
+    // replacement below. Only the first call is held, so the replacement's own
+    // stat (it heals that mtime) runs straight through.
+    const realStat = storage.stat.bind(storage)
+    let held = false
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.spyOn(storage, 'stat').mockImplementation(async (path) => {
+      const value = await realStat(path)
+      if (path === '.folio/reminders.md' && !held) {
+        held = true
+        await gate
+      }
+      return value
+    })
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await act(async () => {
+      await result.current.saveReminders([WEEKLY])
+    })
+
+    await act(async () => {
+      release()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    // The refresh published nothing: the pre-replacement rules never came back.
+    expect(result.current.reminders).toEqual([WEEKLY])
+  })
+})
