@@ -564,8 +564,10 @@ and then reveal the new row. Activating a journal day's crumb SHALL show the lef
 navigation the same way, open the Journal section if collapsed, move the calendar
 to the day's month, scroll that day's cell into view, and move keyboard focus to
 the cell. Locating a journal day SHALL NOT open a day, navigate, or write to the
-vault. Each control SHALL be named for the item it locates and the action it
-performs, reachable and activatable by keyboard, and show visible focus. Apart
+vault. Each control SHALL be named with the text it displays, the action it
+performs, and the surface it locates, so that what is written on the crumb is
+what a person says to activate it; it SHALL be reachable and activatable by
+keyboard and show visible focus. Apart
 from what locating itself changes, activating a crumb SHALL change nothing else:
 it SHALL NOT navigate, change the open page or its content, change the listing's
 order or any other section's state, or write to the vault. For a board, an asset,
@@ -659,6 +661,14 @@ directory crumbs SHALL always stay non-interactive.
 - **WHEN** the user activates the status bar's file-name crumb
 - **THEN** the open day, its content, and its place in the trail are unchanged,
   nothing is written to the vault, and no other day is opened
+
+#### Scenario: A crumb is named with the text it shows
+
+- **GIVEN** a page is open, and separately a journal day is open
+- **WHEN** the user reads the status bar's file-name crumb with a screen reader,
+  or names it by voice
+- **THEN** its accessible name contains the text the crumb displays and names the
+  surface activating it locates
 
 #### Scenario: A board's or an asset's crumb is not a control
 
