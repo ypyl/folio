@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FileSystemVaultStorage, pickVaultFolder } from './fs'
+import { isPagePath } from './index'
 import {
   clearLastActiveId,
   clearVaultHandle,
@@ -32,7 +33,9 @@ export interface VaultFolder {
   handle: FileSystemDirectoryHandle
   permission: PermissionState
   storage?: FileSystemVaultStorage
-  fileCount?: number
+  /** The folder's notes, by the index's own rule (isPagePath), so the number the
+   *  bar shows before the index lands is the number it shows after. */
+  noteCount?: number
 }
 
 export function useVault() {
@@ -67,9 +70,9 @@ export function useVault() {
     const target = folders.find((f) => f.id === id)
     if (!target) return
     if (target.permission === 'granted') {
-      if (target.fileCount === undefined && target.storage) {
-        const fileCount = (await target.storage.list('')).length
-        upsert(setFolders, { ...target, fileCount })
+      if (target.noteCount === undefined && target.storage) {
+        const noteCount = await countNotes(target.storage)
+        upsert(setFolders, { ...target, noteCount })
       }
       await makeActive(id)
       return
@@ -81,7 +84,7 @@ export function useVault() {
         ...target,
         permission: granted,
         storage: open.storage,
-        fileCount: open.fileCount,
+        noteCount: open.noteCount,
       })
       await makeActive(id)
       return
@@ -138,7 +141,7 @@ export function useVault() {
       handle,
       permission: 'granted',
       storage: open.storage,
-      fileCount: open.fileCount,
+      noteCount: open.noteCount,
     })
     await makeActive(id)
   }
@@ -163,7 +166,7 @@ export function useVault() {
       handle,
       permission: 'granted',
       storage: open.storage,
-      fileCount: open.fileCount,
+      noteCount: open.noteCount,
     })
     await makeActive(id)
   }
@@ -211,7 +214,7 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
     restored.find((f) => f.permission === 'granted') ??
     null
   if (active?.storage) {
-    active.fileCount = (await active.storage.list('')).length
+    active.noteCount = await countNotes(active.storage)
   }
   return [restored, active?.id ?? null]
 }
@@ -229,10 +232,16 @@ async function isSameHandle(
   }
 }
 
+/** How many notes the folder holds: the listing filtered by the index's own
+ *  rule, so a pre-index count and the index's page count agree (this change's
+ *  D1). Assets, boards, and `.folio` state are not notes. */
+async function countNotes(storage: FileSystemVaultStorage): Promise<number> {
+  return (await storage.list('')).filter(isPagePath).length
+}
+
 async function openVault(handle: FileSystemDirectoryHandle) {
   const storage = new FileSystemVaultStorage(handle)
-  const files = await storage.list('')
-  return { storage, fileCount: files.length }
+  return { storage, noteCount: await countNotes(storage) }
 }
 
 /** A permission request's outcome, or 'denied' when the browser throws

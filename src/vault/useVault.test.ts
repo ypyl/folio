@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import { useVault } from './useVault'
 import { buildTree, type FakeDirectoryHandle } from './fakeHandle'
+import { buildIndex } from './index'
 
 // 1.3: in-memory registry stub for handleStore — hook tests never touch IDB.
 const store = vi.hoisted(() => {
@@ -39,7 +40,15 @@ const store = vi.hoisted(() => {
 
 vi.mock('./handleStore', () => store)
 
-const TREE = { 'welcome.md': '# Welcome', 'tags.md': '#tag' }
+// Notes, by the index's rule (isPagePath), plus what a folder also holds and the
+// count must leave out (count-the-folders-notes-in-the-status-bar).
+const TREE = {
+  pages: { 'welcome.md': '# Welcome', 'tags.md': '#tag' },
+  journals: { '2026-10-21.md': 'today' },
+  assets: { 'chart.png': 'binary' },
+  boards: { 'Plan.excalidraw': '{}' },
+  '.folio': { 'reminders.md': '# nothing' },
+}
 
 let uid = 0
 function fake(name: string, permission: PermissionState): FakeDirectoryHandle {
@@ -66,7 +75,7 @@ describe('boot restore', () => {
     expect(result.current.activeId).toBe('home')
     const active = result.current.folders.find((f) => f.id === 'home')!
     expect(active.storage).toBeTruthy()
-    expect(active.fileCount).toBe(2)
+    expect(active.noteCount).toBe(3)
   })
 
   it('lists a count only for the active folder at boot', async () => {
@@ -77,8 +86,8 @@ describe('boot restore', () => {
     await waitFor(() => expect(result.current.status).toBe('ready'))
     const work = result.current.folders.find((f) => f.name === 'work')!
     const home = result.current.folders.find((f) => f.name === 'home')!
-    expect(work.fileCount).toBeUndefined()
-    expect(home.fileCount).toBe(2)
+    expect(work.noteCount).toBeUndefined()
+    expect(home.noteCount).toBe(3)
   })
 
   it('holds a pending folder without storage, not active', async () => {
@@ -98,6 +107,20 @@ describe('boot restore', () => {
     const { result } = renderHook(() => useVault())
     await waitFor(() => expect(result.current.status).toBe('ready'))
     expect(result.current.folders.map((f) => f.name)).toEqual(['alive'])
+  })
+
+  it('counts notes, not everything the folder holds', async () => {
+    store.seed('home', 'granted')
+    store.setLastActiveId('home')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    const active = result.current.folders.find((f) => f.name === 'home')!
+    // Three notes; the asset, the board, and .folio state are not counted.
+    expect(active.noteCount).toBe(3)
+    // And it is the number the index itself reports once it lands, so the bar's
+    // count cannot move as the app opens.
+    const graph = await buildIndex(active.storage!)
+    expect(active.noteCount).toBe(graph.graph.pages.size)
   })
 
   it('stays ready with no stored folders', async () => {
@@ -120,7 +143,7 @@ describe('activate', () => {
     expect(result.current.activeId).toBe(home.id)
     expect(store.lastActiveId()).toBe(home.id)
     // the newly active folder got its count on switch
-    expect(result.current.folders.find((f) => f.id === home.id)!.fileCount).toBe(2)
+    expect(result.current.folders.find((f) => f.id === home.id)!.noteCount).toBe(3)
   })
 
   it('reconnects a pending folder on click without re-picking', async () => {

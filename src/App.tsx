@@ -1360,10 +1360,11 @@ function App() {
         compact={compact}
         view={compactView}
         onShowView={toggleCompactView}
-        // The active vault's name and live index-based file count; falls
-        // back to the open-time snapshot while the index builds (design D6).
+        // The active vault's name and the notes it holds: the index's page
+        // count once it lands, and the folder's own count of notes by the same
+        // rule before that (count-the-folders-notes-in-the-status-bar).
         vaultName={activeFolder?.storage ? activeFolder.name : undefined}
-        fileCount={graph ? graph.pages.size : activeFolder?.fileCount}
+        noteCount={graph ? graph.pages.size : activeFolder?.noteCount}
         canBack={canBack}
         canForward={canForward}
         onBack={handleBack}

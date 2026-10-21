@@ -88,9 +88,9 @@ describe('StatusBar', () => {
   })
 
   describe('vault group', () => {
-    it('shows the vault name and file count as display-only text', () => {
-      const { container } = render(<StatusBar pagePath="a.md" vaultName="notes" fileCount={12} />)
-      const status = screen.getByTitle('notes (12 files)')
+    it('shows the vault name and its note count as display-only text', () => {
+      const { container } = render(<StatusBar pagePath="a.md" vaultName="notes" noteCount={12} />)
+      const status = screen.getByTitle('notes (12 notes)')
       expect(status.textContent).toContain('notes')
       expect(status.textContent).toContain('· 12')
       // Display-only: no folder button, no controls on the vault text.
@@ -105,7 +105,7 @@ describe('StatusBar', () => {
 
   describe('version badge (version-in-status-bar)', () => {
     it('shows the running version beside the vault file count', () => {
-      const { container } = render(<StatusBar pagePath="a.md" vaultName="notes" fileCount={12} />)
+      const { container } = render(<StatusBar pagePath="a.md" vaultName="notes" noteCount={12} />)
       const badge = screen.getByText(`v${version}`)
       expect(badge.tagName).toBe('SPAN')
       // Beside the count: the vault group comes first, the badge at the trailing
@@ -126,7 +126,7 @@ describe('StatusBar', () => {
     it('holds no help button in any state', () => {
       const { container, rerender } = render(<StatusBar pagePath={null} />)
       expect(container.querySelector('button')).toBeNull()
-      rerender(<StatusBar pagePath="a.md" saveState="saving" vaultName="notes" fileCount={1} />)
+      rerender(<StatusBar pagePath="a.md" saveState="saving" vaultName="notes" noteCount={1} />)
       expect(container.querySelector('button')).toBeNull()
     })
   })
@@ -156,7 +156,7 @@ describe('StatusBar', () => {
           pagePath="notes/Deep/2026.md"
           saveState="saving"
           vaultName="notes"
-          fileCount={3}
+          noteCount={3}
           onRevealPage={onRevealPage}
         />,
       )
@@ -202,7 +202,7 @@ describe('StatusBar', () => {
   describe('the bar performs no actions', () => {
     it('exposes no control of its own', () => {
       const { container } = render(
-        <StatusBar pagePath="notes/a.md" saveState="saving" vaultName="notes" fileCount={3} />,
+        <StatusBar pagePath="notes/a.md" saveState="saving" vaultName="notes" noteCount={3} />,
       )
       // Breadcrumb segments and the vault text are not interactive, and the
       // bar now renders no control of its own when App supplies no navigation
@@ -376,7 +376,7 @@ describe('StatusBar', () => {
 
     it('drops the folder statistics and the version a wide bar shows', () => {
       const { container } = render(
-        <StatusBar pagePath="a.md" vaultName="notes" fileCount={12} compact />,
+        <StatusBar pagePath="a.md" vaultName="notes" noteCount={12} compact />,
       )
       // The group is not rendered at all on compact, not merely emptied: an
       // empty box would still carry the auto margin that pins it right and
@@ -388,7 +388,7 @@ describe('StatusBar', () => {
         within(container.querySelector('footer') as HTMLElement).queryByText(`v${version}`),
       ).toBeNull()
       // The wide bar keeps both.
-      const wide = render(<StatusBar pagePath="a.md" vaultName="notes" fileCount={12} />)
+      const wide = render(<StatusBar pagePath="a.md" vaultName="notes" noteCount={12} />)
       expect(wide.container.querySelector(`.${styles.vaultStatus}`)).toBeTruthy()
       expect(wide.container.querySelector(`.${styles.version}`)).toBeTruthy()
     })

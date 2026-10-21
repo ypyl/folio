@@ -7,7 +7,7 @@ import styles from './StatusBar.module.css'
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
 // thin bar below the workspace leading with the session navigation — Back,
 // Forward, and Today (move-nav-controls-to-status-bar) — then the open page's
-// file path, the save/indexing status, and the active vault's name and file
+// file path, the save/indexing status, and the active vault's name and note
 // count (right). The bar sits outside all pane scroll regions, so its content
 // never scrolls. Groups empty when their content has no source. The three
 // navigation controls and the open item's name are its only controls: a page's
@@ -93,7 +93,7 @@ export function StatusBar({
   newPage = false,
   indexing = false,
   vaultName,
-  fileCount,
+  noteCount,
   canBack = false,
   canForward = false,
   onBack,
@@ -114,7 +114,9 @@ export function StatusBar({
   /** The active folder's index is building (indexing-loading-state). */
   indexing?: boolean
   vaultName?: string
-  fileCount?: number
+  /** How many notes the active folder holds (the index's page count, or the
+   *  folder's own count by the same rule while the index builds). */
+  noteCount?: number
   /** The trail has an entry before/after the open page; the Back and Forward
    *  controls lead the bar (move-nav-controls-to-status-bar). */
   canBack?: boolean
@@ -288,16 +290,16 @@ export function StatusBar({
           the control sat short of the bar's trailing edge. */}
       {!compact && (
         <div className={styles.vault}>
-          {vaultName !== undefined && fileCount !== undefined ? (
-            <span className={styles.vaultStatus} title={`${vaultName} (${fileCount} files)`}>
+          {vaultName !== undefined && noteCount !== undefined ? (
+            <span className={styles.vaultStatus} title={`${vaultName} (${noteCount} notes)`}>
               <span className={styles.vaultName}>{vaultName}</span>
-              <span className={styles.vaultCount}>· {fileCount}</span>
+              <span className={styles.vaultCount}>· {noteCount}</span>
             </span>
           ) : null}
         </div>
       )}
       {/* The running version (version-in-status-bar): build identity at the
-          bar's trailing edge, beside the vault's file count. A sibling of the
+          bar's trailing edge, beside the vault's note count. A sibling of the
           vault group rather than a child, so the group stays empty when no
           folder is active. */}
       {!compact && <span className={styles.version}>{`v${version}`}</span>}

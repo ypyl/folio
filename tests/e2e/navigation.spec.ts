@@ -102,3 +102,36 @@ test("a journal day's name locates the day in the calendar", async ({ page }) =>
   await expect(dayCell).toBeVisible()
   await expect(dayCell).toBeFocused()
 })
+
+// openspec/specs/workspace: the bar's count is the folder's notes, not every
+// file it holds (count-the-folders-notes-in-the-status-bar). The vault is
+// seeded through the real origin private file system with an asset and a board
+// beside the notes, and enough notes that the index is still building when the
+// bar first shows the count, so the pre-index number is read and compared with
+// the settled one.
+test('the status bar counts the notes, not the assets and boards', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  const notes: Record<string, string> = {}
+  for (let i = 0; i < 200; i++) notes[`pages/Note ${i}.md`] = `Note ${i}
+`
+  await seedVault(page, {
+    ...notes,
+    [todayJournalPath()]: 'Started the day.',
+    'assets/chart.png': 'not really a png',
+    'boards/Plan.excalidraw': '{}',
+  })
+  await openVault(page)
+
+  // The bar's count while the index builds: 201 notes, not the 203 files.
+  const vault = page.getByTitle(/notes\)$/)
+  await expect(vault).toBeVisible()
+  const whileIndexing = await vault.getAttribute('title')
+
+  // The index lands, and the count is the number it already showed.
+  await expect(page.getByRole('button', { name: 'Note 199', exact: true })).toBeVisible()
+  expect(await vault.getAttribute('title')).toBe(whileIndexing)
+  // 200 pages and today's journal; the asset and the board are not counted. The
+  // private file system's root has no name, so only the count is asserted.
+  expect(whileIndexing).toContain('(201 notes)')
+})

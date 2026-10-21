@@ -344,10 +344,19 @@ describe('navigation over the real index', () => {
     vi.unstubAllGlobals()
   })
 
-  it('lists the live file count in the status bar', async () => {
+  it("counts the folder's notes, not everything the folder holds", async () => {
     render(<App />)
-    await openFixture()
-    await screen.findByTitle('notes (8 files)')
+    // Assets and boards are files, not notes: the count leaves them out, and it
+    // is the same number the pre-index count reports
+    // (count-the-folders-notes-in-the-status-bar).
+    await openFixture(
+      buildTree({
+        ...FIXTURE,
+        assets: { 'chart.png': 'binary' },
+        boards: { 'Plan.excalidraw': '{}' },
+      }),
+    )
+    await screen.findByTitle('notes (8 notes)')
     vi.unstubAllGlobals()
   })
 
