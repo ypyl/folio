@@ -86,6 +86,10 @@ test("a journal day's name locates the day in the calendar", async ({ page }) =>
   await expect(dayCell).toBeVisible()
 
   // Browse the calendar away from the day's month, so its cell is not rendered.
+  // Two months back, not one: the grid is a fixed 42 cells, so the previous
+  // month's grid still carries the current month's first days, and on days 1
+  // to 13 the cell would still be there.
+  await page.getByRole('button', { name: 'Previous month' }).click()
   await page.getByRole('button', { name: 'Previous month' }).click()
   await expect(dayCell).toHaveCount(0)
 
