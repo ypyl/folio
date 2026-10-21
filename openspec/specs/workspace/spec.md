@@ -470,10 +470,10 @@ search results, on an open board, and on the no-folder state. It SHALL lead with
 Back, Forward, and Today in that order, then show a status group holding the
 save-state text and the loading label. At viewports wider than the compact
 breakpoint it SHALL also show the open item's file path as a breadcrumb and, at
-its trailing edge, the active folder's name and file count with the running
-version beside them as non-interactive text. At or below the compact breakpoint
+its trailing edge, the active folder's name and how many notes it holds, with
+the running version beside them as non-interactive text. At or below the compact breakpoint
 it SHALL show the open item's name instead of the path, and SHALL show neither
-the folder's name, nor its file count, nor the version. Back and Forward SHALL
+the folder's name, nor its note count, nor the version. Back and Forward SHALL
 be the trail controls, each disabled when there is nowhere to step. Activating
 Today SHALL open the current day's journal exactly as choosing a calendar day
 does, creating nothing on open, and SHALL be disabled while no folder is usable.
@@ -509,15 +509,28 @@ app's recede tint as its background.
 
 - **GIVEN** a viewport wider than the compact breakpoint
 - **WHEN** the shell renders in any state
-- **THEN** it shows the version beside the folder's name and file count, as
+- **THEN** it shows the version beside the folder's name and its note count, as
   non-interactive text
+
+#### Scenario: The note count is the same before and after the index lands
+
+- **GIVEN** a folder that holds notes, and an index that is still building
+- **WHEN** the bar first renders and again once the index lands
+- **THEN** the count beside the folder's name is the same number both times
+
+#### Scenario: The note count leaves out what the folder holds besides notes
+
+- **GIVEN** a folder holding notes, an image asset, a board, and its `.folio`
+  state
+- **WHEN** the bar renders its folder group
+- **THEN** the count is the number of notes alone
 
 #### Scenario: The compact bar drops the folder statistics
 
 - **GIVEN** a viewport at or below the compact breakpoint and a page open
 - **WHEN** the shell renders
 - **THEN** the bar shows the page's name and shows neither the folder's name,
-  nor its file count, nor the version, and it is not a scrolling row
+  nor its note count, nor the version, and it is not a scrolling row
 
 #### Scenario: The bar stays put while panes scroll
 

@@ -70,7 +70,7 @@ app's recede tint as its background.
 - **GIVEN** a viewport at or below the compact breakpoint and a page open
 - **WHEN** the shell renders
 - **THEN** the bar shows the page's name and shows neither the folder's name,
-  nor its file count, nor the version, and it is not a scrolling row
+  nor its note count, nor the version, and it is not a scrolling row
 
 #### Scenario: The bar stays put while panes scroll
 
