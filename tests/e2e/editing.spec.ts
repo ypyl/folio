@@ -159,3 +159,30 @@ test('a vault image resolves as it scrolls into view', async ({ page }) => {
       .toBe(true)
   }
 })
+
+// openspec/specs/editing: a drag across code is visible. The editor paints the
+// selection into a layer of its own, and a code surface (a block's panel, an
+// inline pill) is an opaque fill over the text, so a layer behind the content
+// left the selection hidden there. The theme lifts it above the text and
+// multiplies it in, which is what this pins.
+test('a selection inside a code block is visible', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, { 'pages/Notes.md': 'Above.\n\n```js\nconst a = 1\n```\n' })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Notes' }).click()
+
+  const codeLine = page.locator('.folio-cm-code', { hasText: 'const a = 1' })
+  await codeLine.click()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Shift+End')
+
+  const layer = page.locator('.cm-selectionLayer')
+  await expect(layer).toHaveCount(1)
+  await expect
+    .poll(() => layer.evaluate((el) => getComputedStyle(el).mixBlendMode))
+    .toBe('multiply')
+  await expect
+    .poll(() => layer.evaluate((el) => getComputedStyle(el).zIndex))
+    .toBe('2')
+})

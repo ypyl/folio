@@ -955,6 +955,13 @@ const folioTheme = EditorView.theme({
   '.cm-line': { padding: '0' },
   '.cm-cursor': { borderLeftColor: '#141413' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: '#dcdbd2' },
+  // The selection is lifted above the text and multiplied into it. CodeMirror
+  // paints it into a layer behind the content by default, where an opaque fill
+  // over the text — a code block's panel, an inline code pill — hides it, so a
+  // drag across code showed no selection at all. Above the text the tint reads
+  // over every surface, and the multiply keeps the ink legible under it. The
+  // layer carries its own inline depth, which only `!important` outranks.
+  '.cm-selectionLayer': { zIndex: '2 !important', mixBlendMode: 'multiply' },
   '.folio-cm-heading': { fontSize: '1.15em', letterSpacing: '-0.01em' },
   '.folio-cm-url': { color: '#1B365D' }, // --brand: a bare URL reads as a link
   '.folio-cm-marker': { color: '#a8a7a0' },
