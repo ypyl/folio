@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { createRef, type Ref } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar, type SidebarHandle, type SidebarRow } from './Sidebar'
@@ -822,6 +822,72 @@ describe('Sidebar reveal (reveal-open-page-in-files)', () => {
     expect(() => ref.current!.revealActive()).not.toThrow()
     expect(scrollIntoView).not.toHaveBeenCalled()
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Alpha' }))
+  })
+})
+
+// Locating a day in the calendar (focus-the-journal-day-in-the-calendar): the
+// sidebar opens the Journal section and hands the day to the calendar, which
+// does the re-anchor and the focus. A closed section renders nothing focusable,
+// so the open has to land before the request does.
+describe('Sidebar day locate (focus-the-journal-day-in-the-calendar)', () => {
+  const scrollIntoView = vi.fn()
+
+  // jsdom ships no scrollIntoView, so the test defines the seam the browser
+  // provides; focus works in both.
+  beforeEach(() => {
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+      writable: true,
+    })
+  })
+  afterEach(() => {
+    scrollIntoView.mockClear()
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+
+  const today = () => localDayString(new Date())
+  const todayPath = () => `journals/${today()}.md`
+  const todayCell = () => screen.getByRole('button', { name: dayLabel(new Date()) })
+  const journalSection = () =>
+    (screen.getByText('Journal') as HTMLElement).closest('details') as HTMLDetailsElement
+  const calendar = (ref: Ref<SidebarHandle>) =>
+    render(
+      <Sidebar
+        ref={ref}
+        rows={[pageRow('pages/Alpha.md', 'Alpha')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={todayPath()}
+        onSelect={() => {}}
+        hasVault
+      />,
+    )
+
+  it('opens a collapsed Journal section and focuses the day', () => {
+    const ref = createRef<SidebarHandle>()
+    calendar(ref)
+    journalSection().open = false
+
+    // The locate is an imperative call that updates the pane's state, so it runs
+    // inside act, the way App's click runs inside a React event.
+    act(() => ref.current!.locateDay(today()))
+
+    expect(journalSection().open).toBe(true)
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    expect(document.activeElement).toBe(todayCell())
+  })
+
+  it('focuses the same day again when it is located twice', () => {
+    const ref = createRef<SidebarHandle>()
+    calendar(ref)
+    act(() => ref.current!.locateDay(today()))
+    const away = screen.getByRole('button', { name: 'Next month' })
+    away.focus()
+
+    act(() => ref.current!.locateDay(today()))
+
+    expect(document.activeElement).toBe(todayCell())
   })
 })
 

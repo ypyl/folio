@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import type { Page } from '../page'
 import { journalDate, localDayString } from '../vault/index'
 import { dayLabel, monthYearLabel } from './months'
@@ -41,7 +41,9 @@ function cellsFor(year: number, month: number): DayCell[] {
  *  seeded from and re-anchored to the open day; chevrons browse freely
  *  without opening a day. The Today control lives in the sidebar's navigation
  *  row (move-today-into-nav-controls), which bumps `todayTick` so the grid
- *  still re-anchors to the current day when that day is already open. */
+ *  still re-anchors to the current day when that day is already open, and a
+ *  `locate` request (focus-the-journal-day-in-the-calendar) re-anchors from
+ *  outside and focuses the day. */
 export function JournalCalendar({
   journalEntries,
   activePath,
@@ -49,6 +51,7 @@ export function JournalCalendar({
   onDayContextMenu,
   today = localDayString(new Date()),
   todayTick = 0,
+  locate = null,
 }: {
   journalEntries: Page[]
   activePath: string | null
@@ -63,12 +66,20 @@ export function JournalCalendar({
   /** Bumped when the navigation row's Today control is activated; only a
    *  reason to re-run the re-anchor effect below. */
   todayTick?: number
+  /** A request to locate a day (focus-the-journal-day-in-the-calendar): the
+   *  day's date as `YYYY-MM-DD` and a counter, so activating the same day twice
+   *  acts twice. A new request moves the shown month to that day, scrolls its
+   *  cell into view, and focuses it. Requests come from the status bar's day
+   *  crumb through Sidebar, which owns opening the section. */
+  locate?: { date: string; tick: number } | null
 }) {
   const existing = new Set<string>()
   for (const page of journalEntries) {
     const date = journalDate(page.path)
     if (date) existing.add(date)
   }
+
+  const gridRef = useRef<HTMLDivElement | null>(null)
 
   const activeDate = activePath ? journalDate(activePath) : null
   const [view, setView] = useState(() => monthOf(activeDate ?? today))
@@ -91,6 +102,34 @@ export function JournalCalendar({
     onSelect(`journals/${date}.md`)
     setView(monthOf(date))
   }
+
+  // A locate request is the same "show me this day" from outside the calendar:
+  // it re-anchors the shown month and puts focus on the cell. The re-anchor is
+  // one commit and the focus the next, because a day outside the shown month's
+  // 42-cell grid has no cell to focus until the month has moved; the pending
+  // ref carries the day across that commit. The request's identity is the only
+  // trigger, so an unrelated re-render never moves focus back.
+  const pendingFocus = useRef<string | null>(null)
+  useEffect(() => {
+    if (!locate) return
+    pendingFocus.current = locate.date
+    // oxlint-disable-next-line react/set-state-in-effect
+    setView(monthOf(locate.date))
+  }, [locate])
+
+  // Runs after every commit and does nothing unless a locate is waiting for its
+  // cell. The grid is keyed by date, so a day that is in the shown month keeps
+  // the same element across the re-anchor and keeps the focus.
+  useEffect(() => {
+    const date = pendingFocus.current
+    if (date === null) return
+    const cell = gridRef.current?.querySelector<HTMLElement>(`[data-date="${date}"]`)
+    if (!cell) return
+    pendingFocus.current = null
+    // jsdom has no scrollIntoView; the browser does, and focus works in both.
+    cell.scrollIntoView?.({ block: 'nearest' })
+    cell.focus()
+  })
 
   const cells = cellsFor(view.year, view.month)
 
@@ -125,7 +164,7 @@ export function JournalCalendar({
           </span>
         ))}
       </div>
-      <div className={styles.grid}>
+      <div className={styles.grid} ref={gridRef}>
         {cells.map((cell) => {
           const classes = [styles.day]
           if (!cell.inMonth) classes.push(styles.dimmed)
@@ -139,6 +178,7 @@ export function JournalCalendar({
               className={classes.join(' ')}
               aria-label={cell.label}
               aria-current={cell.date === activeDate ? 'date' : undefined}
+              data-date={cell.date}
               onClick={() => openDay(cell.date)}
               onContextMenu={(e) => onDayContextMenu?.(e, cell.date)}
             >

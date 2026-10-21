@@ -1002,8 +1002,10 @@ function App() {
   )
 
   // The status bar offers the reveal (reveal-open-page-in-files) for any open
-  // page: a board's and a journal day's breadcrumb stay inert text. Memoized on
-  // the path's kind, so it costs nothing per keystroke.
+  // page: a board's and an asset's breadcrumb stay inert text, and a journal
+  // day's locates the day in the calendar instead
+  // (focus-the-journal-day-in-the-calendar). Memoized on the path's kind, so it
+  // costs nothing per keystroke.
   const canRevealPage = useMemo(
     () => mode === 'page' && activePath !== null && kindOf(activePath) === 'page',
     [mode, activePath],
@@ -1018,19 +1020,20 @@ function App() {
   )
 
   // Reveal the open page's row in the Files listing (reveal-open-page-in-files,
-  // ui-shell spec, reveal-a-page-that-has-no-file). The status bar offers this
-  // for any open page; the sidebar performs it. A folded left pane is
-  // display: none, so nothing inside it can take focus: unfold first, then
-  // reveal after the commit that expanded it. A page with no file has no row, so
-  // the reveal creates it first — the one write a page with a file never sees.
-  // On the compact shell the listing is a view of its own rather than a folded
-  // pane, and the same two-step applies to it.
+  // ui-shell spec, reveal-a-page-that-has-no-file), or locate the open journal
+  // day in its calendar (focus-the-journal-day-in-the-calendar). The status bar
+  // offers both; the sidebar performs them. A folded left pane is display: none,
+  // so nothing inside it can take focus: unfold first, then reveal or locate
+  // after the commit that expanded it. A page with no file has no row, so the
+  // reveal creates it first — the one write a page with a file never sees. On
+  // the compact shell the listing and the calendar are a view of their own
+  // rather than a folded pane, and the same two-step applies to it.
   const sidebarRef = useRef<SidebarHandle | null>(null)
-  const pendingReveal = useRef(false)
+  const pendingLocate = useRef<null | { kind: 'page' } | { kind: 'day'; date: string }>(null)
 
   const handleRevealPage = useCallback(() => {
     if (activePath === null) return
-    pendingReveal.current = true
+    pendingLocate.current = { kind: 'page' }
     // A page with no file has no row to reveal: write it the way its first save
     // would, with what the editor shows (empty for a page just opened from a
     // reference), and let the effect below reveal the row the write creates.
@@ -1049,7 +1052,7 @@ function App() {
       return
     }
     if (hasPageRow) {
-      pendingReveal.current = false
+      pendingLocate.current = null
       sidebarRef.current?.revealActive()
     }
   }, [
@@ -1064,14 +1067,36 @@ function App() {
     showCompactView,
   ])
 
+  // Locate the open journal day in the Journal calendar
+  // (focus-the-journal-day-in-the-calendar). Same two-step as the page reveal,
+  // and nothing to write: the day's cell is in the grid the vault already
+  // indexed, or nowhere when the index is still building, which the request
+  // waits out.
+  const handleLocateDay = useCallback(() => {
+    if (journalDay === null) return
+    pendingLocate.current = { kind: 'day', date: journalDay }
+    if (compact && compactView !== 'nav') {
+      showCompactView('nav')
+      return
+    }
+    if (!compact && leftCollapsed) {
+      setLeftCollapsed(false)
+      return
+    }
+    pendingLocate.current = null
+    sidebarRef.current?.locateDay(journalDay)
+  }, [compact, compactView, journalDay, leftCollapsed, showCompactView])
+
   useEffect(() => {
-    if (!pendingReveal.current) return
+    const pending = pendingLocate.current
+    if (!pending) return
     if (!compact && leftCollapsed) return
     if (compact && compactView !== 'nav') return
-    // The row may be the one the reveal itself just created.
-    if (!hasPageRow) return
-    pendingReveal.current = false
-    sidebarRef.current?.revealActive()
+    // A page's row may be the one the reveal itself just created.
+    if (pending.kind === 'page' && !hasPageRow) return
+    pendingLocate.current = null
+    if (pending.kind === 'page') sidebarRef.current?.revealActive()
+    else sidebarRef.current?.locateDay(pending.date)
   }, [compact, compactView, hasPageRow, leftCollapsed])
 
   // Loading state (indexing-loading-state): while an active folder with
@@ -1346,6 +1371,9 @@ function App() {
         canToday={graph !== null}
         onToday={handleToday}
         onRevealPage={canRevealPage ? handleRevealPage : undefined}
+        locateDay={
+          journalDay !== null ? { date: journalDay, onActivate: handleLocateDay } : undefined
+        }
       />
       {/* Search spotlight (replace-header-with-spotlight): a modal overlay in
           every app state. Keyed on the folder so a switch remounts it and

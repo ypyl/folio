@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { version } from '../../package.json'
 import type { CompactView } from '../compact'
 import type { DraftStatus } from '../editor/drafts'
+import { dateLabel } from './months'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
@@ -10,13 +11,14 @@ import styles from './StatusBar.module.css'
 // file path, the save/indexing status, and the active vault's name and file
 // count (right). The bar sits outside all pane scroll regions, so its content
 // never scrolls. Groups empty when their content has no source. The three
-// navigation controls and the open page's name are its only controls: the name
-// reveals the page's row in the Files listing (reveal-open-page-in-files),
-// while the directory crumbs and the other groups stay display-only. The
-// question-mark help button and its modal lived here until
-// move-help-to-right-panel moved the reference into the right panel, and the
-// pin star lived here until add-row-context-menu moved favoriting to a page
-// row's context menu.
+// navigation controls and the open item's name are its only controls: a page's
+// name reveals its row in the Files listing (reveal-open-page-in-files) and a
+// journal day's locates the day in the Journal calendar
+// (focus-the-journal-day-in-the-calendar), while the directory crumbs and the
+// other groups stay display-only. The question-mark help button and its modal
+// lived here until move-help-to-right-panel moved the reference into the right
+// panel, and the pin star lived here until add-row-context-menu moved
+// favoriting to a page row's context menu.
 
 // A 24-viewBox chevron. aria-hidden: the control's accessible name says which
 // way it goes, so the glyph is decoration (the same rule the pin star follows).
@@ -98,6 +100,7 @@ export function StatusBar({
   canToday = false,
   onToday,
   onRevealPage,
+  locateDay,
   compact = false,
   view,
   onShowView,
@@ -123,11 +126,17 @@ export function StatusBar({
    *  an ordinary navigation. */
   onToday?: () => void
   /** Reveal the open page's row in the sidebar's Files listing
-   *  (reveal-open-page-in-files). App supplies it for any open page; a page with
-   *  no file yet is created by the reveal so it can have a row
+   *  (reveal-open-page-in-files). App supplies it for a page; a page with no file
+   *  yet is created by the reveal so it can have a row
    *  (reveal-a-page-that-has-no-file). A board, an asset, and a journal day keep
    *  inert text, which is what the absence of this prop means. */
   onRevealPage?: () => void
+  /** Locate the open journal day in the Journal calendar
+   *  (focus-the-journal-day-in-the-calendar): the day's date as `YYYY-MM-DD` and
+   *  the handler that shows and focuses its cell. App passes both halves for a
+   *  journal day and omits the prop otherwise, so a page's crumb and a day's are
+   *  never both controls. */
+  locateDay?: { date: string; onActivate: () => void }
   /** The compact shell (add-compact-mobile-shell): the bar is its app bar, so
    *  it carries the two view controls and drops what a phone-width row cannot
    *  hold. Absent on a wide window, where the bar's controls are Back, Forward,
@@ -225,15 +234,21 @@ export function StatusBar({
           </>
         )}
         {segments.length > 0 &&
-          (onRevealPage ? (
-            // The page name is the bar's one non-navigation control
-            // (reveal-open-page-in-files): activating it reveals the page's
-            // row in the Files listing and does nothing else.
+          (onRevealPage || locateDay ? (
+            // The open item's name is the bar's one non-navigation control: a
+            // page's reveals its row in Files and does nothing else
+            // (reveal-open-page-in-files); a journal day's locates the day in
+            // the calendar and does nothing else
+            // (focus-the-journal-day-in-the-calendar).
             <button
               type="button"
               className={`${styles.crumbLast} ${styles.crumbReveal}`}
-              aria-label={`Reveal ${segments[segments.length - 1]} in Files`}
-              onClick={onRevealPage}
+              aria-label={
+                locateDay
+                  ? `Show ${dateLabel(locateDay.date)} in the Journal calendar`
+                  : `Reveal ${segments[segments.length - 1]} in Files`
+              }
+              onClick={locateDay ? locateDay.onActivate : onRevealPage}
             >
               {segments[segments.length - 1]}
             </button>

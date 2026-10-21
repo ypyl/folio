@@ -66,3 +66,32 @@ test('the history chords step the trail with the caret in the editor', async ({ 
   await expect(historyRow.getByRole('button', { name: /^Back / })).toBeVisible()
   await expect(historyRow.getByRole('button', { name: /^Forward / })).toBeVisible()
 })
+
+// openspec/specs/workspace: the status bar's file name locates the open item in
+// the navigation (focus-the-journal-day-in-the-calendar). A journal day's crumb
+// brings the calendar back to the day's month and puts focus on its cell.
+test("a journal day's name locates the day in the calendar", async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, { [todayJournalPath()]: 'Started the day in the journal.' })
+  await openVault(page)
+
+  // The long date the calendar's own cells carry, in the browser's pinned zone.
+  const dayLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date())
+  const dayCell = page.getByRole('button', { name: dayLabel, exact: true })
+  await expect(dayCell).toBeVisible()
+
+  // Browse the calendar away from the day's month, so its cell is not rendered.
+  await page.getByRole('button', { name: 'Previous month' }).click()
+  await expect(dayCell).toHaveCount(0)
+
+  await page.getByRole('button', { name: `Show ${dayLabel} in the Journal calendar` }).click()
+
+  // The grid is back on the day's month, and the cell holds the focus.
+  await expect(dayCell).toBeVisible()
+  await expect(dayCell).toBeFocused()
+})

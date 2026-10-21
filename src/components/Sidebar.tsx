@@ -37,11 +37,13 @@ export type SidebarRow = {
   pinned?: boolean
 }
 
-/** The sidebar's imperative surface (the status-bar reveal requirement): App
- *  asks the listing to bring the open item's row into view and focus it, so the
- *  request reaches the pane without a prop that would re-render it. */
+/** The sidebar's imperative surface (the status-bar locate requirement): App
+ *  asks the listing to bring the open page's row into view and focus it, or the
+ *  calendar to show and focus the open day, so the request reaches the pane
+ *  without a prop that would re-render it. */
 export type SidebarHandle = {
   revealActive: () => void
+  locateDay: (date: string) => void
 }
 
 /** One listing's scroll geometry (add-history-navigation D5): what
@@ -186,6 +188,12 @@ export const Sidebar = memo(
     const asideRef = useRef<HTMLElement | null>(null)
     const bodyRef = useRef<HTMLDivElement | null>(null)
     const listRef = useRef<HTMLUListElement | null>(null)
+    const journalRef = useRef<HTMLDetailsElement | null>(null)
+    // A locate request on its way to the calendar (focus-the-journal-day-in-the-
+    // calendar). The counter makes a repeat request for the same day act again;
+    // the request is state rather than a direct call because the Journal section
+    // has to be open before anything inside it can take focus.
+    const [locate, setLocate] = useState<{ date: string; tick: number } | null>(null)
     const [view, setView] = useState<ListView>(UNMEASURED)
 
     const measure = useCallback(() => {
@@ -450,7 +458,19 @@ export const Sidebar = memo(
       row.focus()
     }, [])
 
-    useImperativeHandle(ref, () => ({ revealActive }), [revealActive])
+    // Show and focus the open day in the calendar (focus-the-journal-day-in-the-
+    // calendar). A closed `<details>` renders nothing focusable, and a child's
+    // effect runs before its parent's, so the section is opened here and the
+    // request is handed to the calendar on the next render, once it can take
+    // focus. The calendar owns the shown month and the cell; this only opens the
+    // way.
+    const locateDay = useCallback((date: string) => {
+      const section = journalRef.current
+      if (section && !section.open) section.open = true
+      setLocate((prev) => ({ date, tick: (prev?.tick ?? 0) + 1 }))
+    }, [])
+
+    useImperativeHandle(ref, () => ({ revealActive, locateDay }), [revealActive, locateDay])
 
     // The menu's row page rule, if it has one (remove-reminder-from-the-page-row):
     // the removal item is offered only then, and only while the feature is on, so
@@ -472,7 +492,7 @@ export const Sidebar = memo(
         {/* The session controls moved to the status bar
           (move-nav-controls-to-status-bar); the sidebar now leads with the
           Journal section. */}
-        <Accordion title="Journal" defaultOpen className={styles.sectionFixed}>
+        <Accordion title="Journal" defaultOpen className={styles.sectionFixed} ref={journalRef}>
           {/* The journal calendar owns the section (journal-calendar D1); it
             stays hidden until a vault is open (no-inert-grid rule). */}
           {loading
@@ -485,6 +505,7 @@ export const Sidebar = memo(
                   onDayContextMenu={openDayMenu}
                   today={today}
                   todayTick={todayTick}
+                  locate={locate}
                 />
               )}
         </Accordion>

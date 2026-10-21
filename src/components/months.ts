@@ -23,13 +23,19 @@ export function monthYearLabel(year: number, month: number): string {
   return MONTH_YEAR.format(new Date(year, month, 1))
 }
 
+/** "September 2, 2026" for a journal day as `YYYY-MM-DD`, the label the
+ *  calendar's cells, the day menu, and the status bar's day crumb carry. */
+export function dateLabel(date: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  return dayLabel(new Date(y, m - 1, d))
+}
+
 /** Pretty label for a journal-day path: "September 2, 2026". Non-date journal
  *  files fall back to the stem. */
 function journalLabel(path: string): string {
   const date = journalDate(path)
   if (!date) return stem(path)
-  const [y, m, d] = date.split('-').map(Number)
-  return dayLabel(new Date(y, m - 1, d))
+  return dateLabel(date)
 }
 
 /** Row label for a search result: the pretty journal day, else the title —

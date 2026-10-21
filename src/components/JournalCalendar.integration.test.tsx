@@ -209,6 +209,66 @@ function shiftDate(date: Date, months: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + months, 1)
 }
 
+describe('JournalCalendar day locate (focus-the-journal-day-in-the-calendar)', () => {
+  const scrollIntoView = vi.fn()
+
+  // jsdom ships no scrollIntoView, so the test defines the seam the browser
+  // provides; focus works in both.
+  beforeEach(() => {
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+      writable: true,
+    })
+  })
+  afterEach(() => {
+    scrollIntoView.mockClear()
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+
+  const grid = (locate?: { date: string; tick: number } | null) => (
+    <JournalCalendar
+      journalEntries={[]}
+      activePath="journals/2026-09-06.md"
+      onSelect={vi.fn()}
+      locate={locate}
+    />
+  )
+
+  it('re-anchors to the requested day and focuses its cell', () => {
+    const { rerender } = render(grid())
+    // Browse away: the open day's month is gone from the grid entirely.
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
+    expect(screen.getByText('August 2026')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'September 6, 2026' })).toBeNull()
+
+    rerender(grid({ date: '2026-09-06', tick: 1 }))
+
+    expect(screen.getByText('September 2026')).toBeTruthy()
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    expect(document.activeElement).toBe(byDate('September 6, 2026'))
+  })
+
+  it('applies a request that arrives while it is not shown yet', () => {
+    // The Journal section renders a skeleton while the index builds, so the
+    // calendar mounts with the request already waiting.
+    render(grid({ date: '2026-09-06', tick: 1 }))
+    expect(document.activeElement).toBe(byDate('September 6, 2026'))
+  })
+
+  it('does not move focus again for the same request', () => {
+    const locate = { date: '2026-09-06', tick: 1 }
+    const { rerender } = render(grid(locate))
+    const previous = screen.getByRole('button', { name: 'Previous month' })
+    previous.focus()
+
+    // A re-render with the same request is not a new request.
+    rerender(grid(locate))
+
+    expect(document.activeElement).toBe(previous)
+  })
+})
+
 describe('JournalCalendar day menu (add-reminders)', () => {
   it('reports a right-clicked day with its date', () => {
     const onDayContextMenu = vi.fn()

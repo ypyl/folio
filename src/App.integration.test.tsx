@@ -7,7 +7,7 @@ import railStyles from './components/FolderRail.module.css'
 import metaStyles from './components/MetaPanel.module.css'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './vault/fakeHandle'
 import { FileSystemVaultStorage } from './vault/fs'
-import { dayLabel } from './components/months'
+import { dateLabel, dayLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 import { COMPACT_QUERY } from './compact'
@@ -2177,17 +2177,6 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     vi.unstubAllGlobals()
   })
 
-  it("leaves a journal day's breadcrumb inert", async () => {
-    render(<App />)
-    await openFixture()
-    const todayPath = `journals/${localDayString(new Date())}.md`
-    await waitFor(() => expect(screen.getByTitle(todayPath)).toBeTruthy())
-    // The open item is a day, not a Files row, so the name gates off.
-    expect(screen.queryByRole('button', { name: /^Reveal / })).toBeNull()
-    expect(screen.getByTitle(todayPath).querySelector('button')).toBeNull()
-    vi.unstubAllGlobals()
-  })
-
   it("leaves a board's breadcrumb inert", async () => {
     boardInstances.list.length = 0
     render(<App />)
@@ -2288,6 +2277,87 @@ describe('revealing the open page in the Files listing (reveal-open-page-in-file
     expect(dayLabelCalls.count).toBe(before)
     expect(document.activeElement).toBe(filesSection().getByRole('button', { name: 'Welcome' }))
     vi.unstubAllGlobals()
+  })
+})
+
+// Locating the open journal day in its calendar
+// (focus-the-journal-day-in-the-calendar): the status bar's day crumb is the
+// trigger and the sidebar's calendar does the work — it moves to the day's
+// month and puts focus on the day's cell, opening nothing and writing nothing.
+describe('locating the open journal day in the calendar (focus-the-journal-day-in-the-calendar)', () => {
+  const scrollIntoView = vi.fn()
+
+  // jsdom ships no scrollIntoView, so the test defines the seam the browser
+  // provides; focus works in both.
+  beforeEach(() => {
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+      writable: true,
+    })
+  })
+  afterEach(() => {
+    scrollIntoView.mockClear()
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    vi.unstubAllGlobals()
+  })
+
+  const todayDate = () => localDayString(new Date())
+  const todayPath = () => `journals/${todayDate()}.md`
+  const todayCell = () => screen.getByRole('button', { name: dateLabel(todayDate()) })
+  const dayCrumb = () =>
+    screen.getByRole('button', { name: `Show ${dateLabel(todayDate())} in the Journal calendar` })
+
+  it("locates the open day's cell from the status bar", async () => {
+    render(<App />)
+    await openFixture()
+    await waitFor(() => expect(screen.getByTitle(todayPath())).toBeTruthy())
+
+    // Browse the calendar away from the open day's month: the cell is not even
+    // rendered any more.
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
+    expect(screen.queryByRole('button', { name: dateLabel(todayDate()) })).toBeNull()
+
+    fireEvent.click(dayCrumb())
+
+    // Back on the day's month, scrolled to, and holding the focus.
+    expect(todayCell().classList.contains(styles.dimmed)).toBe(false)
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    expect(document.activeElement).toBe(todayCell())
+  })
+
+  it('unfolds a folded left navigation before locating the day', async () => {
+    render(<App />)
+    await openFixture()
+    await waitFor(() => expect(screen.getByTitle(todayPath())).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse left navigation' }))
+    const pane = document.getElementById('sidebar-pane') as HTMLElement
+    expect(pane.className).toContain(sidebarStyles.collapsed)
+
+    fireEvent.click(dayCrumb())
+
+    await waitFor(() => expect(pane.className).not.toContain(sidebarStyles.collapsed))
+    await waitFor(() => expect(document.activeElement).toBe(todayCell()))
+  })
+
+  it('changes nothing but where the calendar looks', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    await waitFor(() => expect(screen.getByTitle(todayPath())).toBeTruthy())
+    await act(async () => {
+      editor().emitChange('half a thought')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
+
+    fireEvent.click(dayCrumb())
+
+    // The same day is open, its unsaved text is intact, and locating it wrote
+    // nothing: the day had no file and still has none.
+    expect(screen.getByTitle(todayPath())).toBeTruthy()
+    expect(editor().content).toBe('half a thought')
+    const journals = tree.children.get('journals') as FakeDirectoryHandle
+    expect(journals.children.has(`${todayDate()}.md`)).toBe(false)
   })
 })
 
@@ -2498,6 +2568,34 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     render(<App />)
     await openFixture()
     await waitFor(() => expect(shownView()).toBe('editor'))
+  })
+
+  it('locates the open journal day by showing the navigation view', async () => {
+    stubCompact()
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: vi.fn(),
+      configurable: true,
+      writable: true,
+    })
+    try {
+      render(<App />)
+      await openFixture()
+      await waitFor(() => expect(shownView()).toBe('editor'))
+      const date = localDayString(new Date())
+
+      // The day's crumb is the standard way back to the calendar on a phone:
+      // the navigation view appears, then the cell takes focus.
+      fireEvent.click(
+        screen.getByRole('button', { name: `Show ${dateLabel(date)} in the Journal calendar` }),
+      )
+
+      await waitFor(() => expect(shownView()).toBe('nav'))
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: dateLabel(date) })),
+      )
+    } finally {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    }
   })
 
   it('shows one view at a time from the app bar, and its own control returns', async () => {

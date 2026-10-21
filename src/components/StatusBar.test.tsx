@@ -7,9 +7,11 @@ import styles from './StatusBar.module.css'
 // App-level status frame (add-status-bar, ui-shell/page-editing specs): the
 // crumb and save-state scenarios moved here from the editor pane, plus the
 // indexing label, vault info, and the session navigation. Its controls are the
-// navigation controls (move-nav-controls-to-status-bar) and the open page's
-// name (reveal-open-page-in-files); the remaining groups are display-only. The
-// pin star was removed by add-row-context-menu.
+// navigation controls (move-nav-controls-to-status-bar) and the open item's
+// name — a page's reveals its Files row (reveal-open-page-in-files), a journal
+// day's locates the day in the calendar
+// (focus-the-journal-day-in-the-calendar); the remaining groups are
+// display-only. The pin star was removed by add-row-context-menu.
 
 describe('StatusBar', () => {
   describe('path group (file breadcrumb)', () => {
@@ -165,6 +167,40 @@ describe('StatusBar', () => {
       expect(buttons[0].textContent).toBe('2026.md')
       fireEvent.click(container.querySelector(`.${styles.crumbDirs}`) as HTMLElement)
       expect(onRevealPage).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('journal-day locate (focus-the-journal-day-in-the-calendar)', () => {
+    it('renders a journal day as a control named for the day and the action', () => {
+      const onActivate = vi.fn()
+      render(
+        <StatusBar
+          pagePath="journals/2026-10-21.md"
+          locateDay={{ date: '2026-10-21', onActivate }}
+        />,
+      )
+      // The crumb text stays the file name; the accessible name speaks in the
+      // calendar's own words, so the control reads the same as the cell it
+      // moves to.
+      const day = screen.getByRole('button', {
+        name: 'Show October 21, 2026 in the Journal calendar',
+      })
+      expect(day.textContent).toBe('2026-10-21.md')
+      fireEvent.click(day)
+      expect(onActivate).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves a journal day as inert text without the locate handler', () => {
+      const { container } = render(<StatusBar pagePath="journals/2026-10-21.md" />)
+      expect(screen.queryByRole('button')).toBeNull()
+      expect(container.querySelector(`.${styles.crumbLast}`)?.textContent).toBe('2026-10-21.md')
+    })
+
+    it("leaves a board's and an asset's name inert", () => {
+      render(<StatusBar pagePath="boards/Plan.excalidraw" />)
+      expect(screen.queryByRole('button')).toBeNull()
+      render(<StatusBar pagePath="assets/chart.png" />)
+      expect(screen.queryByRole('button')).toBeNull()
     })
   })
 
