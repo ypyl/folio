@@ -129,6 +129,32 @@ describe('MetaPanel', () => {
     expect(badge('migration.excalidraw')).toBe('b')
   })
 
+  // A mutual link is two rows - one per direction - so the path alone is not a
+  // stable key. React logs a duplicate-key warning and may reuse or drop a row.
+  it('lists a page that links both ways as two rows, without a duplicate key', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(
+        <MetaPanel
+          pageOpen
+          links={[backlinkRow('Beta.md'), row('Beta.md')]}
+          activePath={null}
+          onSelect={() => {}}
+          onOpenAsset={() => {}}
+          shortcuts={shortcuts}
+        />,
+      )
+      const list = meta().querySelector(`.${styles.list}`) as HTMLElement
+      expect([...list.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+        'inBeta',
+        'outBeta',
+      ])
+      expect(error.mock.calls.flat().join(' ')).not.toContain('same key')
+    } finally {
+      error.mockRestore()
+    }
+  })
+
   it('shows empty-state copy when the Links list has no rows', () => {
     render(
       <MetaPanel

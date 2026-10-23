@@ -57,7 +57,10 @@ function LinkList({
         const dimmed = row.kind !== 'asset' && !row.materialized
         return (
           <button
-            key={row.path}
+            // Keyed by direction as well as path: a page that references the
+            // open page and is referenced by it is two rows, one per direction,
+            // so the path alone repeats and React would warn about the duplicate.
+            key={`${row.badge}:${row.path}`}
             type="button"
             className={dimmed ? `${styles.row} ${styles.dimmed}` : styles.row}
             data-active={isActive || undefined}
