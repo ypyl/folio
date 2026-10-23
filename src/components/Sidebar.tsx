@@ -116,7 +116,6 @@ export const Sidebar = memo(
       onPresent,
       reminderTarget = null,
       reminderRules,
-      remindersEnabled = false,
       today = localDayString(new Date()),
       onRemind,
       onRemoveReminderFor,
@@ -153,9 +152,6 @@ export const Sidebar = memo(
        *  page row's menu answers "has a reminder" and names the schedule it would
        *  delete with one lookup (name-the-schedule-in-remove-reminder). */
       reminderRules?: ReadonlyMap<string, { recurrence: Recurrence; anchor: string }>
-      /** The effective reminders gate: the build flag or prerelease mode
-       *  (add-prerelease-mode). App computes it; the sidebar only reads it. */
-      remindersEnabled?: boolean
       /** The local day as `YYYY-MM-DD`. A day before it offers no reminder
        *  items (disallow-past-reminder-days); a test can pin it. */
       today?: string
@@ -283,12 +279,12 @@ export const Sidebar = memo(
       })
     }
 
-    // Open the day's menu whenever the reminders feature is on and a page is open
-    // to remind about; otherwise the day cell keeps the browser's own menu (no
-    // reminder items). Any day opens it (disable-once-for-past-days); the only
-    // thing the past takes away is the `Once, on this day` item below.
+    // Open the day's menu when a page is open to remind about; otherwise the day
+    // cell keeps the browser's own menu (no reminder items). Any day opens it
+    // (disable-once-for-past-days); the only thing the past takes away is the
+    // `Once, on this day` item below.
     const openDayMenu = (e: ReactMouseEvent<HTMLButtonElement>, date: string) => {
-      if (!remindersEnabled || reminderTarget === null) return
+      if (reminderTarget === null) return
       e.preventDefault()
       const trigger = e.currentTarget
       const rect = trigger.getBoundingClientRect()
@@ -307,6 +303,27 @@ export const Sidebar = memo(
     const badge = (kind: 'board' | 'asset') => (
       <span className={styles.badge} aria-hidden="true">
         {kind === 'board' ? 'b' : 'a'}
+      </span>
+    )
+
+    // A reminder marker (release-reminders): the row says a rule exists for this
+    // page, in the kind badge's treatment rather than a second colour (Kami
+    // rule, DESIGN.md). Presentational like the badge, so the row's accessible
+    // name stays the page's name; the same fact reaches assistive technology
+    // through the row menu's removal item, labelled with the schedule.
+    const reminderMark = () => (
+      <span className={styles.reminderMark} title="Has a reminder" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </svg>
       </span>
     )
 
@@ -344,6 +361,7 @@ export const Sidebar = memo(
               onClick={() => onSelect(row.path)}
             >
               <span className={styles.rowText}>{row.label}</span>
+              {reminderRules?.has(row.label.toLowerCase()) ? reminderMark() : null}
             </button>
           </li>
         )
@@ -473,12 +491,11 @@ export const Sidebar = memo(
     useImperativeHandle(ref, () => ({ revealActive, locateDay }), [revealActive, locateDay])
 
     // The menu's row page rule, if it has one (remove-reminder-from-the-page-row):
-    // the removal item is offered only then, and only while the feature is on, so
-    // a disabled build keeps the two-item menu. The rule also names the schedule
-    // the item deletes, in the words the replacement dialog uses
+    // the removal item is offered only then. The rule also names the schedule the
+    // item deletes, in the words the replacement dialog uses
     // (name-the-schedule-in-remove-reminder).
     const menuRowRule =
-      menuRow !== undefined && menuRow.kind === 'page' && remindersEnabled
+      menuRow !== undefined && menuRow.kind === 'page'
         ? reminderRules?.get(menuRow.label.toLowerCase())
         : undefined
 

@@ -11,7 +11,6 @@ import { dayLabel, monthYearLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 import { COMPACT_QUERY } from './compact'
-import { features } from './features'
 
 // jsdom 30 has no <dialog> modal API, so `showModal()` cannot open the
 // presentation dialog and role queries would treat it as hidden. Stub the two
@@ -137,13 +136,9 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 8, 15))
   localStorage.clear()
-  // The reminders tests exercise the enabled feature; the shipped build has it
-  // off (gate-reminders-behind-a-flag).
-  features.reminders = true
 })
 afterEach(() => {
   vi.useRealTimers()
-  features.reminders = false
   localStorage.clear()
 })
 
@@ -2789,24 +2784,6 @@ describe('reminders from the calendar (add-reminders)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('writes nothing and offers no day menu while the flag is off', async () => {
-    features.reminders = false
-    const tree = buildTree({
-      pages: { 'Welcome.md': 'hi' },
-      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
-    })
-    render(<App />)
-    await openFixture(tree)
-    const store = storageOf(tree)
-
-    // No day menu for the open page, and no materialization on open.
-    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
-    expect(screen.queryByRole('menu')).toBeNull()
-    await new Promise((resolve) => setTimeout(resolve, 1200))
-    await expect(store.read('journals/2026-09-15.md')).rejects.toThrow()
-    vi.unstubAllGlobals()
-  })
-
   it('offers the day menu on a past day with only Once unavailable', async () => {
     render(<App />)
     const tree = await openFixture()
@@ -2825,25 +2802,6 @@ describe('reminders from the calendar (add-reminders)', () => {
     await waitFor(async () => {
       expect(await store.read('.folio/reminders.md')).toContain('- monthly 2026-09-14 #[[Welcome]]')
     })
-    vi.unstubAllGlobals()
-  })
-
-  it('turns the reminder feature on from the rail in prerelease mode', async () => {
-    features.reminders = false
-    render(<App />)
-    await openFixture()
-    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    await waitFor(() => screen.getByTitle('pages/Welcome.md'))
-
-    // Off by default: no day menu.
-    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
-    expect(screen.queryByRole('menu')).toBeNull()
-
-    // Turn prerelease mode on from the rail; the day menu then offers reminders.
-    fireEvent.click(screen.getByRole('button', { name: 'Prerelease features' }))
-    fireEvent.contextMenu(dayCell(new Date(2026, 8, 20)))
-    screen.getByRole('menu')
-    screen.getByRole('menuitem', { name: 'Every year' })
     vi.unstubAllGlobals()
   })
 
@@ -2961,36 +2919,6 @@ describe('reminders from the calendar (add-reminders)', () => {
     screen.getByTitle('pages/Welcome.md')
     await expect(store.read('pages/Take pills.md')).resolves.toBeDefined()
     expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
-    vi.unstubAllGlobals()
-  })
-
-  it('offers no row removal while the flag is off, and keeps the rule', async () => {
-    features.reminders = false
-    const tree = buildTree({
-      pages: { 'Take pills.md': 'pills\n' },
-      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
-    })
-    render(<App />)
-    await openFixture(tree)
-    const store = storageOf(tree)
-
-    // The row menu still opens for favorites; it just carries no reminder item.
-    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
-    screen.getByRole('menu')
-    expect(screen.queryByRole('menuitem', { name: /^Remove reminder/ })).toBeNull()
-
-    // The rule survives untouched: turning the feature on still fires it.
-    expect(await store.read('.folio/reminders.md')).toContain('#[[Take pills]]')
-    fireEvent.click(screen.getByRole('button', { name: 'Prerelease features' }))
-    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Take pills' }))
-    screen.getByRole('menuitem', { name: /^Remove reminder/ })
-    fireEvent.click(dayCell(new Date(2026, 8, 16)))
-    await waitFor(
-      async () => {
-        expect(await store.read('journals/2026-09-16.md')).toContain('#[[Take pills]]')
-      },
-      { timeout: 3000 },
-    )
     vi.unstubAllGlobals()
   })
 })

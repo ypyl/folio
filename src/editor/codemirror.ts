@@ -1152,20 +1152,17 @@ export class CodeMirrorAdapter implements EditorAdapter {
     })
   }
 
-  /** Append at the document's end as a new block (add-reminders): a newline is
-   *  added first when the document does not already end one, so the inserted
-   *  text never glues itself onto the last line. */
+  /** Append at the document's end as a new block (release-reminders): a newline
+   *  is added first when the document does not already end one, so the inserted
+   *  text never glues itself onto the last line. The caret and the scroll
+   *  position stay where they were: opening a day must not move the reader, so
+   *  this is the one insert that never claims the selection. */
   appendMarkdown(markdown: string): void {
     const view = this.view
     if (!view) return
     const end = view.state.doc.length
     const prefix = end > 0 && view.state.doc.lineAt(end).length > 0 ? '\n' : ''
-    const insert = prefix + markdown
-    view.dispatch({
-      changes: { from: end, insert },
-      selection: { anchor: end + insert.length },
-      scrollIntoView: true,
-    })
+    view.dispatch({ changes: { from: end, insert: prefix + markdown } })
   }
 
   /** Frame each of `blocks` and scroll the first one's first line into view; an

@@ -686,7 +686,6 @@ describe('page-row context menu (add-row-context-menu)', () => {
   it('offers a labelled Remove reminder for a page that holds a rule', () => {
     const onRemoveReminderFor = vi.fn()
     list({
-      remindersEnabled: true,
       reminderRules: rules([['alpha', { recurrence: 'daily', anchor: '2026-10-06' }]]),
       onRemoveReminderFor,
     })
@@ -710,7 +709,6 @@ describe('page-row context menu (add-row-context-menu)', () => {
 
   it('names a one-off reminder by its day', () => {
     list({
-      remindersEnabled: true,
       reminderRules: rules([['alpha', { recurrence: 'once', anchor: '2026-10-20' }]]),
       onRemoveReminderFor: vi.fn(),
     })
@@ -719,20 +717,41 @@ describe('page-row context menu (add-row-context-menu)', () => {
     expect(within(item).getByText('once, on October 20, 2026')).toBeTruthy()
   })
 
-  it('offers no Remove reminder for a page without a rule', () => {
-    list({
-      remindersEnabled: true,
-      reminderRules: rules([['somebody-else', { recurrence: 'daily', anchor: '2026-10-06' }]]),
-      onRemoveReminderFor: vi.fn(),
-    })
-    rightClick('Alpha')
-    expect(screen.queryByRole('menuitem', { name: /^Remove reminder/ })).toBeNull()
+  // release-reminders: the listing answers "which pages have reminders?" without
+  // opening a menu, in the kind badge's treatment and without renaming the row.
+  it('marks a page row whose page has a rule', () => {
+    list({ reminderRules: rules([['alpha', { recurrence: 'daily', anchor: '2026-10-06' }]]) })
+    const row = screen.getByRole('button', { name: 'Alpha' })
+    const mark = row.querySelector(`.${styles.reminderMark}`)
+    expect(mark).toBeTruthy()
+    expect(mark?.getAttribute('aria-hidden')).toBe('true')
+    // Presentational: the row's name and its text are still the page's name.
+    expect(row.textContent).toBe('Alpha')
   })
 
-  it('offers no Remove reminder while the reminders feature is off', () => {
+  it('marks no row for a page without a rule', () => {
     list({
-      remindersEnabled: false,
-      reminderRules: rules([['alpha', { recurrence: 'daily', anchor: '2026-10-06' }]]),
+      reminderRules: rules([['somebody-else', { recurrence: 'daily', anchor: '2026-10-06' }]]),
+    })
+    expect(
+      screen.getByRole('button', { name: 'Alpha' }).querySelector(`.${styles.reminderMark}`),
+    ).toBeNull()
+  })
+
+  it('marks no board row, which cannot hold a rule', () => {
+    list({
+      reminderRules: rules([['diagram.excalidraw', { recurrence: 'daily', anchor: '2026-10-06' }]]),
+    })
+    expect(
+      screen
+        .getByRole('button', { name: 'Diagram.excalidraw' })
+        .querySelector(`.${styles.reminderMark}`),
+    ).toBeNull()
+  })
+
+  it('offers no Remove reminder for a page without a rule', () => {
+    list({
+      reminderRules: rules([['somebody-else', { recurrence: 'daily', anchor: '2026-10-06' }]]),
       onRemoveReminderFor: vi.fn(),
     })
     rightClick('Alpha')
@@ -742,7 +761,6 @@ describe('page-row context menu (add-row-context-menu)', () => {
   it('does not open a page when removing its reminder', () => {
     const onSelect = vi.fn()
     list({
-      remindersEnabled: true,
       reminderRules: rules([['alpha', { recurrence: 'daily', anchor: '2026-10-06' }]]),
       onSelect,
     })
@@ -905,7 +923,6 @@ describe('Sidebar day menu (add-reminders)', () => {
         onSelect={() => {}}
         hasVault
         reminderTarget="Ana"
-        remindersEnabled
         today="2026-09-06"
         onRemind={onRemind}
       />,
@@ -935,7 +952,6 @@ describe('Sidebar day menu (add-reminders)', () => {
         onSelect={() => {}}
         hasVault
         reminderTarget="Ana"
-        remindersEnabled
         today="2026-09-15"
         onRemind={onRemind}
       />,
@@ -965,31 +981,10 @@ describe('Sidebar day menu (add-reminders)', () => {
         activePath={journal.path}
         onSelect={() => {}}
         hasVault
-        remindersEnabled
         reminderTarget={null}
       />,
     )
     fireEvent.contextMenu(dayCell())
-    expect(screen.queryByRole('menu')).toBeNull()
-  })
-})
-
-describe('Sidebar day menu feature gate (add-prerelease-mode)', () => {
-  it('offers no day menu while the reminders gate is off', () => {
-    render(
-      <Sidebar
-        rows={[pageRow('pages/Ana.md', 'Ana')]}
-        journalEntries={[journal]}
-        onOpenAsset={() => {}}
-        activePath={journal.path}
-        onSelect={() => {}}
-        hasVault
-        reminderTarget="Ana"
-        remindersEnabled={false}
-        onRemind={vi.fn()}
-      />,
-    )
-    fireEvent.contextMenu(screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) }))
     expect(screen.queryByRole('menu')).toBeNull()
   })
 })
@@ -1008,7 +1003,6 @@ describe('Sidebar day menu on a past day (disable-once-for-past-days)', () => {
         onSelect={() => {}}
         hasVault
         reminderTarget="Ana"
-        remindersEnabled
         today="2026-09-06"
         onRemind={vi.fn()}
       />,

@@ -16,11 +16,10 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
 - Favorites, back/forward history, and a status bar: the open page's name in the bar reveals its row in Files, creating the page first when it has no file yet, and a journal day's name shows and focuses that day in the calendar
-- Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (off in the shipped build; see [Reminders](#reminders))
+- Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (see [Reminders](#reminders))
 - A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
-- Prerelease mode: a folder-rail toggle that enables features which ship behind a flag
 
 ## Searching
 
@@ -78,10 +77,10 @@ February 29 in a common year) fires nothing rather than moving to another day.
 The badge on the installed app's icon counts the open day's reminders. A reminder
 only surfaces while the app is open: there is no server to wake a closed tab.
 
-The feature is built but not yet exposed: it sits behind a flag and is off in the
-shipped build. Turn on **prerelease mode** with the flask control at the bottom
-of the folder rail to enable it, or set `VITE_REMINDERS=1` to turn it on for a
-run.
+The line is appended at the end of the day's note and the app leaves your caret
+and scroll position alone, so opening a long note still reads from where you left
+it. A page that holds a rule carries a small bell in the Files listing, in the
+same badge slot the board and file rows use for their kind letters.
 
 ## Cleaning up the vault
 

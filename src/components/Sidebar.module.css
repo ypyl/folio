@@ -159,6 +159,21 @@
 /* Kind badge (merge-sidebar-sections): a board's `b`, an asset's `a`, leading
    the label. A page — the default kind — carries none. Muted chip, so the
    badge never competes with the title. */
+/* The reminder marker (release-reminders): a quiet trailing glyph on a page row
+   whose page has a rule. No fill and no second colour: the kind badge already
+   owns the warm-sand chip, so the reminder reads as a status mark beside it. */
+.reminderMark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--stone);
+}
+
+.reminderMark svg {
+  width: 12px;
+  height: 12px;
+}
+
 .badge {
   flex: 0 0 auto;
   display: inline-flex;

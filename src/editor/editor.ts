@@ -44,9 +44,10 @@ export interface EditorAdapter {
    *  names no position the document can hold it at (ADR-0023). */
   insertMarkdown(markdown: string, point?: DropPoint): void
   /** Append Markdown at the end of the document, starting a new line when the
-   *  document does not already end one, and move the caret after it. Used by
-   *  the reminder list to record an occurrence on the open day (add-reminders)
-   *  without depending on where the caret happened to be. */
+   *  document does not already end one. Used to record a reminder's occurrence
+   *  on the open day (release-reminders) without depending on where the caret
+   *  happened to be. It leaves the caret and the scroll position alone: opening
+   *  a day must not move the reader (reminders spec). */
   appendMarkdown(markdown: string): void
   /** Frame each of `blocks` and scroll the first into view; an empty list
    *  clears the frames (frame-every-matching-block). A view operation: it never

@@ -19,10 +19,6 @@ interface FolderRailProps {
    *  viewports, where the tour is available, so the control is absent on the
    *  compact shell — the same optional-callback shape `onAdd` uses. */
   onTour?: () => void
-  /** Prerelease mode, and the control that flips it (add-prerelease-mode).
-   *  Absent means the control is not offered. */
-  prerelease?: boolean
-  onTogglePrerelease?: () => void
   /** The whole left navigation is folded (collapse-rail-with-sidebar): the rail
    *  keeps its grid slot via `visibility: hidden` and leaves the tab order, the
    *  same way the sidebar does. */
@@ -50,8 +46,6 @@ export function FolderRail({
   searchDisabled = false,
   onAdd,
   onTour,
-  prerelease = false,
-  onTogglePrerelease,
   collapsed = false,
   onActivate,
   onClose,
@@ -140,34 +134,11 @@ export function FolderRail({
           </div>
         </>
       )}
-      {/* The rail's bottom group (add-prerelease-mode): the prerelease toggle
-          and the app tour's entry point, held to the bottom edge however many
-          folders are listed. The tour stays the last control. */}
+      {/* The rail's bottom group (add-prerelease-mode, release-reminders): the
+          app tour's entry point, held to the bottom edge however many folders
+          are listed. The prerelease toggle that used to sit here retired with
+          the last flagged feature; the tour stays the last control. */}
       <div className={styles.railBottom}>
-        {onTogglePrerelease && (
-          <button
-            type="button"
-            className={styles.prerelease}
-            onClick={onTogglePrerelease}
-            aria-pressed={prerelease}
-            title={prerelease ? 'Prerelease features on' : 'Prerelease features off'}
-            aria-label="Prerelease features"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className={styles.prereleaseIcon}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3" />
-              <path d="M7 15h10" />
-            </svg>
-          </button>
-        )}
         {onTour && (
           <button
             type="button"

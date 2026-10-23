@@ -1121,3 +1121,35 @@ describe('every located block is framed', () => {
     expect(framedLines(el)).toEqual(['# dog'])
   })
 })
+
+// release-reminders: a due reminder is appended to the open day's note, and the
+// append must not move the reader. The reminder path is the only caller of
+// `appendMarkdown`, and it used to dispatch with a selection and
+// `scrollIntoView`, so opening a long day scrolled it to its end.
+describe('appending an occurrence leaves the view alone (release-reminders)', () => {
+  const view = (): EditorView => (adapter as unknown as { view: EditorView }).view
+
+  it('appends at the end and keeps the caret where it was', async () => {
+    await open('the day\n\nand more\n')
+    const v = view()
+    v.dispatch({ selection: { anchor: 2 } })
+    const dispatch = vi.spyOn(v, 'dispatch')
+
+    adapter?.appendMarkdown('#Ana')
+
+    expect(v.state.doc.toString()).toBe('the day\n\nand more\n#Ana')
+    expect(v.state.selection.main.head).toBe(2)
+    const spec = dispatch.mock.calls[0][0] as { selection?: unknown; scrollIntoView?: unknown }
+    expect(spec.selection).toBeUndefined()
+    expect(spec.scrollIntoView).toBeUndefined()
+  })
+
+  it('starts a new line only when the document does not end one', async () => {
+    await open('a line\n')
+    adapter?.appendMarkdown('#Ana')
+    expect(view().state.doc.toString()).toBe('a line\n#Ana')
+
+    adapter?.appendMarkdown('#Bea')
+    expect(view().state.doc.toString()).toBe('a line\n#Ana\n#Bea')
+  })
+})

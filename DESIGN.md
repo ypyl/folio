@@ -378,6 +378,13 @@ Disabled state (journal day, unmaterialized page, results view) is a dimmed
 down-level star; the button carries `aria-pressed`, the glyph is
 `aria-hidden`.
 
+In the Pages list, a page that holds a reminder rule carries a **small bell** at
+the row's trailing edge: no fill, no chip, `--stone` ink, 12px, in the slot the
+kind badges (`b`/`a`) use for boards and files. It is a status mark, not a
+control, and never a second chromatic color (Kami rule); the row's accessible
+name stays the page's name, and the row menu's `Remove reminder` item is where
+assistive technology reads the same fact.
+
 In the Pages list, pinned rows are marked by the **row's own style** — a
 bolder, near-black title (plus `data-pinned`) — never an icon or extra
 control. A second chromatic color must not appear (Kami rule); the status

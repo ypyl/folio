@@ -61,8 +61,6 @@ import {
 } from './vault/index'
 import { matchingRules, type Recurrence, type ReminderRule } from './vault/reminders'
 import { syncAppBadge } from './badge'
-import { features } from './features'
-import { usePrerelease } from './prerelease'
 import {
   boardCandidates,
   candidateNames,
@@ -103,11 +101,6 @@ function App() {
   const { graph, savePage, saveBoard, pins, reminders, saveReminders, togglePin } = useIndex(
     activeFolder?.storage,
   )
-  // Prerelease mode (add-prerelease-mode): an app-level preference that turns on
-  // features which ship behind a flag. The effective reminders gate is the build
-  // flag or the mode, computed once and passed to the places that read it.
-  const [prerelease, setPrerelease] = usePrerelease()
-  const remindersEnabled = features.reminders || prerelease
   const [activePath, setActivePath] = useState<string | null>(null)
   // Session trail of the pages opened so far, plus the cursor marking the open
   // one (add-history-navigation). In memory only, and cleared when the active
@@ -614,13 +607,12 @@ function App() {
     // the day holds its occurrence and the normal save persists it. It runs at
     // mount, so it touches only the day being opened, and it is idempotent
     // because a written line makes the day reference the page. Gated by the
-    // feature flag, so a disabled feature writes nothing.
-    if (remindersEnabled && graph && journalDay !== null) {
+    if (graph && journalDay !== null) {
       for (const rule of unreferencedRules(graph, reminders, journalDay)) {
         editorRef.current?.appendMarkdown(referenceToken(rule.target, 'word'))
       }
     }
-  }, [graph, reminders, journalDay, remindersEnabled])
+  }, [graph, reminders, journalDay])
 
   // Favorite a page from its row's context menu (add-row-context-menu). This is
   // the pin store the status-bar star used, now keyed by the row's own path.
@@ -860,11 +852,9 @@ function App() {
   )
 
   // The badge counts the open day's matching rules (design D4), written or not.
-  // Gated by the feature flag, so a disabled feature sets no badge.
   const openDayReminders = useMemo(
-    () =>
-      remindersEnabled && journalDay !== null ? matchingRules(reminders, journalDay).length : 0,
-    [reminders, journalDay, remindersEnabled],
+    () => (journalDay !== null ? matchingRules(reminders, journalDay).length : 0),
+    [reminders, journalDay],
   )
   useEffect(() => {
     syncAppBadge(openDayReminders)
@@ -1193,8 +1183,6 @@ function App() {
             // shell shows one view at a time, so App passes no callback there
             // and the rail renders no tour control.
             onTour={onTour}
-            prerelease={prerelease}
-            onTogglePrerelease={() => setPrerelease(!prerelease)}
             // Closing a folder forgets it; closing the active one returns home
             // (close-folders). The activeFolder?.id effect resets the page.
             onClose={(id) => void closeFolder(id)}
@@ -1222,7 +1210,6 @@ function App() {
             onPresent={handlePresent}
             reminderTarget={reminderTarget}
             reminderRules={reminderRules}
-            remindersEnabled={remindersEnabled}
             onRemind={handleRemind}
             onRemoveReminderFor={handleRemoveReminderFor}
             hasVault={graph !== null}
