@@ -16,7 +16,10 @@ sample data. The Files listing SHALL hold one list in this order: the vault's
 pages, then its boards, then its files. Favorites SHALL be listed first among the
 pages, in favorite order, followed by the remaining pages most-recently-edited
 first. Boards and files SHALL follow in path order. A page row SHALL carry no
-kind badge, a board row a `b` badge, and a file row an `a` badge. A page with no
+kind badge, a board row a `b` badge, and a file row an `a` badge. A page row
+whose page has a reminder rule SHALL also carry a reminder marker, in the badge
+treatment the kind badges use (reminders: A page row marks a page that has a
+reminder). A page with no
 file SHALL stay dimmed but clickable; board and file rows SHALL NOT be dimmed.
 The Journal and Files sections SHALL keep independent open and close state.
 
@@ -74,6 +77,13 @@ technology read each rendered row's position and the listing's total size.
 
 - **WHEN** a row in the Files listing is rendered
 - **THEN** it reports its position and the listing's total size
+
+#### Scenario: A page with a reminder keeps its kind badge slot free
+
+- **GIVEN** a vault with a page that has a reminder rule and a board
+- **WHEN** the Files listing renders
+- **THEN** the page's row shows the reminder marker and no kind badge, and the
+  board's row still shows `b`
 
 ### Requirement: Choosing a row opens it
 
