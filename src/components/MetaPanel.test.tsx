@@ -200,7 +200,7 @@ describe('MetaPanel', () => {
     expect(onSelect).not.toHaveBeenCalled()
   })
 
-  it('opens Contents and Links by default, with the keyboard reference collapsed', () => {
+  it('opens Contents, collapses Links, and collapses the keyboard reference', () => {
     const { container } = render(
       <MetaPanel
         pageOpen
@@ -217,7 +217,9 @@ describe('MetaPanel', () => {
       'Links',
       'Keyboard shortcuts',
     ])
-    expect(sections.map((s) => s.open)).toEqual([true, true, false])
+    // collapse-links-by-default: the page's shape leads, links are one click
+    // away, and the reference stays collapsed.
+    expect(sections.map((s) => s.open)).toEqual([true, false, false])
   })
 
   it('dims an unmaterialized board row in Links, and leaves a file row undimmed', () => {
@@ -448,14 +450,18 @@ describe('keyboard-shortcuts section', () => {
     expect(sections[0].className).not.toContain(styles.footer)
   })
 
-  it('opens independently of the Links section', () => {
+  it('opens independently of the other sections', () => {
     const { container } = render(panel({ pageOpen: true }))
     const sections = container.querySelectorAll('details')
-    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, false])
+    const state = () => [...sections].map((s) => (s as HTMLDetailsElement).open)
+    expect(state()).toEqual([true, false, false])
+
+    fireEvent.click(within(meta()).getByText('Links'))
+    expect(state()).toEqual([true, true, false])
+
     fireEvent.click(within(meta()).getByText('Keyboard shortcuts'))
-    expect(sections[2].open).toBe(true)
-    // Opening the reference leaves the Links section as it was.
-    expect([...sections].map((s) => (s as HTMLDetailsElement).open)).toEqual([true, true, true])
+    // Opening the reference leaves the sections as they were.
+    expect(state()).toEqual([true, true, true])
   })
 })
 

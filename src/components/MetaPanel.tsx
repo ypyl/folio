@@ -295,15 +295,12 @@ export function MetaPanel({
             )}
           </Accordion>
           {/* The Links section (merge-link-sections): the page's incoming and
-              outgoing links in one list, badged by direction or file kind. Open
-              by default, and it takes the panel's remaining height. */}
+              outgoing links in one list, badged by direction or file kind.
+              Collapsed by default (collapse-links-by-default): a reader arrives
+              for the page's shape, and links are the reference they open when
+              they want it. Open, it takes the panel's remaining height. */}
           <div className={styles.links}>
-            <Accordion
-              title="Links"
-              defaultOpen
-              className={styles.section}
-              bodyClassName={styles.fillBody}
-            >
+            <Accordion title="Links" className={styles.section} bodyClassName={styles.fillBody}>
               {loading ? (
                 skeletonLine
               ) : pageOpen ? (

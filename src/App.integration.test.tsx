@@ -168,8 +168,9 @@ const section = (title: string, root: HTMLElement = document.body) =>
   within((within(root).getByText(title) as HTMLElement).closest('details') as HTMLElement)
 const filesSection = () => section('Files', document.getElementById('sidebar-pane') as HTMLElement)
 
-/** The Links section, opened so its rows are reachable (it is open by
- *  default; one accordion replaced Backlinks and Forwardlinks). */
+/** The Links section, opened so its rows are reachable (collapse-links-by-
+ *  default closes it on open; one accordion replaced Backlinks and
+ *  Forwardlinks). */
 const links = () => {
   const el = (within(document.body).getByText('Links') as HTMLElement).closest(
     'details',
