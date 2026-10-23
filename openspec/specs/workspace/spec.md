@@ -187,8 +187,8 @@ SHALL show no calendar.
 ### Requirement: The right panel is an accordion of page metadata
 
 The right panel SHALL hold the page sections Contents and Links, followed by the
-shortcuts reference as the last section. Contents and Links SHALL both be open
-by default and SHALL open and close independently. While no page and no board is
+shortcuts reference as the last section. Contents SHALL be open by default and
+Links SHALL be collapsed by default; each SHALL open and close independently. While no page and no board is
 open, each SHALL show placeholder copy; while a board is open, the panel SHALL
 show the board's Referenced by section instead of the page sections. The Links
 section SHALL take the remaining height, scrolling within itself and keeping a
@@ -272,6 +272,13 @@ SHALL be dimmed but stay clickable; file rows SHALL NOT be dimmed.
 - **WHEN** the user looks at the right panel
 - **THEN** the panel shows the board's Referenced by section and no Reminders
   section
+
+#### Scenario: Links starts collapsed
+
+- **GIVEN** a page has just been opened and Links has not been touched
+- **WHEN** the user looks at the right panel
+- **THEN** Contents is open, Links shows only its summary row, and the keyboard
+  reference is collapsed
 
 ### Requirement: The right panel's last section lists the shortcuts the app binds
 
