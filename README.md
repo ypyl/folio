@@ -9,7 +9,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 ## Features
 
 - Open one or more local Markdown folders (vaults) directly from the browser; the folder is the database
-- Markdown editing with a live preview: images, tables, and references render inline while the text stays the source; auto-save and syntax-highlighted code blocks
+- Markdown editing with a live preview: images, tables, references, and GFM task checkboxes render inline while the text stays the source; auto-save and syntax-highlighted code blocks
 - Page references (`#word`, `#[[Page]]`) with backlinks and forwardlinks, plus inline completion for references and link destinations
 - Daily journal pages with a calendar
 - Whiteboards: `.excalidraw` boards under `boards/`, referenced with `#!` tokens and edited in the pane

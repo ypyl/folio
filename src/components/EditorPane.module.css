@@ -277,6 +277,21 @@
   padding: 1px 5px;
 }
 
+/* A GFM task item's checkbox (add-task-checkboxes, DESIGN.md — Tasks). The
+   marker renders as the platform's own control, painted in brand ink through
+   `accent-color`, so the checked state is the app's accent and the unchecked one
+   keeps the platform's neutral box. The box sits on the text's baseline with the
+   marker's own trailing space left as the gap to the item's text: no chip, no
+   extra padding, and nothing that changes the line's height. */
+.editor :global(.folio-task) {
+  width: 14px;
+  height: 14px;
+  margin: 0; /* the space after the marker is the gap */
+  vertical-align: -2px;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
 /* Vault images (fit-vault-images-to-pane, DESIGN.md — Images). The node view
    renders the wrapper; an image that resolved from the vault is shown at the
    pane's content width — wide images scale down, narrow ones keep their own

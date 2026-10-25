@@ -49,6 +49,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0030](0030-vault-storage-has-no-delete.md) | VaultStorage has no delete | Accepted |
 | [0031](0031-reminders-are-derived-from-rules.md) | Reminders are derived from rules and never materialized | Superseded by [0032](0032-a-due-reminder-is-written-on-open.md) |
 | [0032](0032-a-due-reminder-is-written-on-open.md) | A due reminder is written into the journal day when it is opened | Accepted |
+| [0033](0033-a-task-marker-is-a-checkbox.md) | A GFM task marker is a checkbox, and the marker is the text | Accepted |
 
 ## Adding a new ADR
 

@@ -111,6 +111,9 @@ function controlGlyph(): { svg: SVGSVGElement; path: SVGPathElement } {
 /** The class the pane's stylesheet gives a reference chip. */
 const REFERENCE_CLASS = 'ref'
 
+/** A GFM task item's checkbox (ADR-0033). The pane's stylesheet paints it. */
+const TASK_BOX_CLASS = 'folio-task'
+
 /** A URL written bare in the text, which reads as a link (brand ink, no
  *  underline) without being a Markdown link. */
 const URL_CLASS = 'folio-cm-url'
@@ -198,6 +201,52 @@ const highlightField = StateField.define<HighlightState>({
 
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 })
+
+/** A GFM task list item's marker, `[ ]` or `[x]`, as a checkbox. The text stays
+ *  the document's: a press writes the opposite three characters in one edit, so
+ *  the normal save persists it and the normal history undoes it. The widget
+ *  carries no offset, which is what lets `eq` reuse the same element as the
+ *  caret moves and the text above it grows (ADR-0033). */
+class TaskCheckboxWidget extends WidgetType {
+  private readonly checked: boolean
+
+  constructor(checked: boolean) {
+    super()
+    this.checked = checked
+  }
+
+  eq(other: TaskCheckboxWidget): boolean {
+    return other.checked === this.checked
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.className = TASK_BOX_CLASS
+    box.checked = this.checked
+    box.contentEditable = 'false'
+    // The press is the box's, not the caret's (ADR-0033): the selection stays
+    // where it was, so ticking an item does not move the reader elsewhere.
+    box.addEventListener('mousedown', (event) => event.preventDefault())
+    box.addEventListener('click', () => {
+      // The offset is read now, not stored: the widget outlives edits above it.
+      const from = view.posAtDOM(box)
+      const marker = view.state.doc.sliceString(from, from + 3)
+      if (!/^\[[ xX]\]$/.test(marker)) return
+      view.dispatch({
+        changes: { from, to: from + 3, insert: marker === '[ ]' ? '[x]' : '[ ]' },
+      })
+      view.focus()
+    })
+    return box
+  }
+
+  ignoreEvent(): boolean {
+    // True is the widget default, stated because it is the decision: CodeMirror
+    // leaves the press to the listeners above instead of placing the caret.
+    return true
+  }
+}
 
 /** A vault image reference: the wrapper and control the pane's stylesheet and
  *  asset pass already expect, so `syncAssetImages` finds the `<img>` by its
@@ -809,6 +858,20 @@ function render(view: EditorView): Rendered {
     to: visibleTo,
     enter: (node) => {
       const name = node.name
+
+      // A GFM task item's marker reads as a checkbox, and only where the grammar
+      // reads one: inside a list item, followed by whitespace. The box is
+      // atomic, so the caret steps over it and typing never lands inside `[x]`.
+      if (name === 'TaskMarker') {
+        const checked = state.doc.sliceString(node.from, node.to) !== '[ ]'
+        marks.push({
+          from: node.from,
+          to: node.to,
+          decoration: Decoration.replace({ widget: new TaskCheckboxWidget(checked) }),
+        })
+        atomic.push({ from: node.from, to: node.to, decoration: Decoration.replace({}) })
+        return
+      }
 
       // A fenced block reads as a full-width panel: every line gets the panel's
       // fill across the line box, and the block's own ends get the padded,

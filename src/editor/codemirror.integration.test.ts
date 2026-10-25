@@ -266,6 +266,114 @@ describe('inline formatting renders at rest', () => {
   })
 })
 
+describe('a GFM task item renders as a checkbox', () => {
+  const boxes = (el: HTMLElement): HTMLInputElement[] => [
+    ...el.querySelectorAll<HTMLInputElement>('input[type=checkbox]'),
+  ]
+
+  /** jsdom has no layout, so the press is dispatched on the box itself, which is
+   *  where the widget's own listeners are. */
+  function press(box: HTMLInputElement): void {
+    box.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
+    box.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))
+  }
+
+  function text(): string {
+    return (adapter as unknown as { view: EditorView }).view.state.doc.toString()
+  }
+
+  it('renders one box per item, checked from the marker', async () => {
+    const el = await open('- [ ] buy milk\n- [x] call mom\n- [X] ship it\n')
+    expect(boxes(el).map((box) => box.checked)).toEqual([false, true, true])
+    expect(el.textContent).not.toContain('[ ]')
+    expect(el.textContent).not.toContain('[x]')
+  })
+
+  it('keeps the marker in the document text', async () => {
+    const el = await open('- [ ] buy milk\n')
+    expect(boxes(el)).toHaveLength(1)
+    expect(text()).toBe('- [ ] buy milk\n')
+  })
+
+  it('renders a nested task like a top-level one', async () => {
+    const el = await open('- outer\n  - [ ] inner\n')
+    expect(boxes(el)).toHaveLength(1)
+    expect(boxes(el)[0].checked).toBe(false)
+  })
+
+  it('writes the opposite marker on a press, and the save carries it', async () => {
+    const el = await open('- [ ] buy milk\n')
+    const changes: string[] = []
+    adapter?.onChange((markdown) => changes.push(markdown))
+    press(boxes(el)[0])
+    expect(text()).toBe('- [x] buy milk\n')
+    expect(changes).toEqual(['- [x] buy milk\n'])
+    expect(boxes(el)[0].checked).toBe(true)
+  })
+
+  it('untickes a checked item, whatever case the marker used', async () => {
+    const el = await open('- [X] ship it\n')
+    press(boxes(el)[0])
+    expect(text()).toBe('- [ ] ship it\n')
+    expect(boxes(el)[0].checked).toBe(false)
+  })
+
+  it('undoes a press through the editor history', async () => {
+    // History groups changes that arrive close together, and the seed is one of
+    // them: moving the clock past the grouping delay makes the press its own
+    // history event, which is what a real press (a page opened, then read) is.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const el = await open('- [ ] buy milk\n')
+      vi.setSystemTime(Date.now() + 1000)
+      press(boxes(el)[0])
+      adapter?.applyChord('Mod-z')
+      expect(text()).toBe('- [ ] buy milk\n')
+      expect(boxes(el)[0].checked).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('leaves the caret where it was', async () => {
+    const el = await open('- [ ] buy milk\n\ntail\n')
+    const view = (adapter as unknown as { view: EditorView }).view
+    const caret = view.state.doc.length - 2
+    view.dispatch({ selection: { anchor: caret } })
+    press(boxes(el)[0])
+    expect(view.state.selection.main.head).toBe(caret)
+    expect(text()).toBe('- [x] buy milk\n\ntail\n')
+  })
+
+  it('keeps the box while the caret is beside the marker', async () => {
+    const el = await open('- [ ] buy milk\n')
+    const view = (adapter as unknown as { view: EditorView }).view
+    for (const caret of [0, 2, 5, view.state.doc.length - 2]) {
+      view.dispatch({ selection: { anchor: caret } })
+      expect(boxes(el)).toHaveLength(1)
+      expect(el.textContent).not.toContain('[ ]')
+    }
+  })
+
+  it('leaves a marker the grammar does not read as a task alone', async () => {
+    const el = await open(
+      [
+        'A paragraph with [ ] in it.',
+        '- [x]no space after the marker',
+        '```',
+        '- [ ] in a fence',
+        '```',
+        '[ ] alone',
+      ].join('\n') + '\n',
+    )
+    expect(boxes(el)).toHaveLength(0)
+    expect(el.textContent).toContain('[ ] in it')
+    expect(el.textContent).toContain('- [x]no space after the marker')
+    expect(el.textContent).toContain('- [ ] in a fence')
+    expect(el.textContent).toContain('[ ] alone')
+  })
+})
+
 describe('what an edit and a copy carry', () => {
   it('copies the Markdown source, not the rendered text', async () => {
     const el = await open('lead **bold** end\n')

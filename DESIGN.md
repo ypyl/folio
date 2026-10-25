@@ -294,6 +294,14 @@ recede `--brand-tint`. Solid hex only, no translucent backgrounds. Start pale;
 Native list markers, brand-colored. Do not fake a bullet with a `::before`
 dash — that reads like AI default output, not editorial typesetting.
 
+### Tasks
+
+A GFM task item's marker is the platform's own checkbox, 14px, painted in
+`--brand` through `accent-color`, on the text's baseline. It carries no chip, no
+border, and no padding of its own: the space the marker was typed with stays the
+item's gap, and the control never changes the line's height. A ticked item is
+still an ordinary line of prose, so nothing else about it changes.
+
 ### Editor document
 
 The prose column carries a symmetric reading gutter — 32px on both sides — so
