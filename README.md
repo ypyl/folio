@@ -136,8 +136,6 @@ npm install
 npm run dev
 ```
 
-See [research/01-project-discussion.md](research/01-project-discussion.md) for the full project spec.
-
 ## Documentation
 
 - [adr/README.md](adr/README.md) — architecture decision records

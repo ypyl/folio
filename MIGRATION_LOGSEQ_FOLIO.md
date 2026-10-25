@@ -1,18 +1,16 @@
 # Migrating a Logseq graph to Folio
 
-Rules for the one-way copy from a Logseq graph (`C:\Users\ypyl\mega\logseq`) into a
-Folio vault (`C:\Users\ypyl\mega\folio`). The Logseq folder is **read-only** in this
-migration: nothing is moved, renamed, or deleted there.
+The rule set for the one-way copy from a Logseq graph into a Folio vault. The source
+folder is **read-only** in the migration: nothing is moved, renamed, or deleted there.
 
 These rules are implemented in the in-app importer (`src/vault/logseqImport.ts`,
 reached from the brand screen's **Import from Logseq** action). The command-line script
-this document planned (`scripts/migrate-logseq.mjs`) shipped and was later removed once
-the in-app importer was the only route; the references below are kept as the plan's
-record. See ADR-0025 for why the importer is one-way and input-only.
+this document once planned (`scripts/migrate-logseq.mjs`) shipped and was later removed
+once the in-app importer was the only route. See ADR-0025 for why the importer is
+one-way and input-only.
 
-This document is the plan. Every rule below is either settled by Folio's ADRs/specs or
-marked **DECIDE** (an open question for the owner). No file is copied until the DECIDE
-rows are answered.
+Every rule below is settled; the open questions this document carried are answered and
+folded into the rules themselves.
 
 ## 1. What Folio accepts (the constraints)
 
@@ -126,10 +124,6 @@ Not rewritten (no Folio equivalent; left as literal text and reported):
 - Macros `{{video ...}}` - 9; `{{embed ...}}`, `{{query ...}}` - 0.
 - `[text](url)` ordinary links - untouched.
 
-> **DECIDE Q2:** For `((uuid))` block refs, keep the literal text, or delete it? There is
-> no target to link to, so it is dead text either way. Recommend keep (lossless, and the
-> surrounding sentence still reads).
-
 ## 5. Asset link rewriting
 
 - `![alt](../assets/x.png)` -> `![alt](assets/x.png)`.
@@ -186,8 +180,6 @@ data loss).
 - Bullet marker `-` is kept (ADR-0020: markers stay put).
 - Line endings normalized to `\n`.
 
-> **DECIDE Q4:** strip Logseq task keywords (`DONE`/`TODO`/...) or keep them as text?
-
 ## 8. Journals
 
 - `journals/2024_07_02.md` -> `journals/2024-07-02.md`, 494 files.
@@ -205,47 +197,6 @@ data loss).
    record of that tag); `2026-09-11` becomes an empty journal.
 2. **The same day twice.** `journals/2026_09_10.md` (two empty bullets) and
    `pages/journals/2026-09-10.md` (`#saira`) merge into one target journal file.
-   `2026-09-11` exists only nested and becomes an empty journal. Covered by Q5.
+   `2026-09-11` exists only nested and becomes an empty journal.
 3. **Malformed wikilinks.** 3 nested `[[[title](url)]]` and at least one `[[name]]]`.
    These stay as text and are reported.
-
-## 10. Target vault
-
-**Target (settled, Q7a): merge into `C:\Users\ypyl\mega\folio`.** Its 8 existing files
-(`pages/claude-certifications.md`, 4 journals 2026-09-13..16, 3 assets, `.folio/pins.md`)
-stay. Collisions were checked and there are none: target page names, journal dates, and
-asset basenames are disjoint between the two vaults. Existing pins are kept (Logseq has
-no pins). A collision check still runs before any write and aborts on a hit.
-
-## 11. Process
-
-1. ~~Answer the DECIDE rows.~~ All decided (see the table below).
-2. Write `scripts/migrate-logseq.mjs` (Node 22, `node:fs`/`node:path` only, no deps):
-   `node scripts/migrate-logseq.mjs <source> <target> [--apply]`. No personal paths
-   hardcoded; source and target are arguments.
-3. **Dry run first** (no `--apply`): emit the report - files to copy, renames, per-rule
-   rewrite counts, dangling refs, name collisions, assets missing, self/broken links.
-   Nothing is written.
-4. Review the report.
-5. Apply: `--apply` copies into the target, source untouched.
-6. Validate: page/journal/asset counts match the report; every reference target resolves
-   to a page, journal, or an intentional dangling name; `.folio/pins.md` untouched; open
-   the vault in Folio and spot-check `#DONE`, `#TODO`, a renamed page, and an asset link.
-7. Sweep dev servers with `npm run kill:dev` if a browser check was run.
-8. Commit the doc and script with a patch version bump (`package.json`).
-
-## Open questions
-
-All resolved:
-
-| # | Question | Decision |
-| --- | --- | --- |
-| Q1 | Name scheme: Option A (keep `%XX`/`___`) or Option B (readable replacements)? | **B - readable replacements** |
-| Q2 | `((uuid))` block refs: keep, delete, or page ref? | **page ref to the owning page** |
-| Q3 | User data properties: keep, convert, or drop? | **drop app noise, keep user data as `key:: value`** |
-| Q4 | Strip `DONE`/`TODO`/... keywords or keep? | **convert to `#KEY` page references** |
-| Q4b | `:LOGBOOK:`/`CLOCK:` drawers: keep, tidy, or drop? | **drop wrapper, keep `CLOCK:` lines** |
-| Q5 | Nested `pages/.folio` + `pages/journals`: skip or fold in? | **fold journals, skip `.folio`** |
-| Q6 | `draws/` + `whiteboards/`: copy to `assets/` or skip? | **copy both** |
-| Q7 | Target: merge into `mega/folio`, or a fresh folder? | **merge** |
-| Q8 | Commit the migration script, or run throwaway? | **commit `scripts/migrate-logseq.mjs`** |
