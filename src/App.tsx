@@ -755,9 +755,11 @@ function App() {
     drafts.clear()
     const saver = createDebouncedSaver(async (path, content) => {
       // Compare-skip (design C2): if the draft went back to the saved text
-      // before the timer fired (an undo), there is nothing to write.
+      // before the timer fired (an undo), there is nothing to write. A draft
+      // that is already gone (a folder switch cleared the store while this
+      // flush was running) is still written: the text was typed.
       const draft = drafts.get(path)
-      if (!draft || draft.content === draft.saved) return true
+      if (draft && draft.content === draft.saved) return true
       drafts.beginSave(path)
       setDraftVersion((v) => v + 1)
       const ok = await savePage(path, content)

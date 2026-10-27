@@ -155,6 +155,35 @@ describe('useIndex', () => {
     expect(result.current.graph?.pages.has('pages/a.md')).toBe(false)
   })
 
+  it('lands a late write from the previous folder without taking over the new index', async () => {
+    const treeA = buildTree({ pages: { 'a.md': 'a' } })
+    const storageA = vault(treeA)
+    const treeB = buildTree({ pages: { 'b.md': 'b' } })
+    const storageB = vault(treeB)
+    const { result, rerender } = renderHook(({ storage }) => useIndex(storage), {
+      initialProps: { storage: storageA },
+    })
+    await waitFor(() => expect(result.current.graph?.pages.has('pages/a.md')).toBe(true))
+    // The callback the old folder's pending flush still holds after the switch.
+    const staleSave = result.current.savePage
+
+    rerender({ storage: storageB })
+    await waitFor(() => expect(result.current.graph?.pages.has('pages/b.md')).toBe(true))
+
+    // The old folder's edit still lands in its own file.
+    await act(async () => {
+      expect(await staleSave('pages/a.md', 'late edit')).toBe(true)
+    })
+    expect(await storageA.read('pages/a.md')).toBe('late edit\n\n')
+
+    // The shown index is still the new folder's, and its writes still work.
+    expect(result.current.graph?.pages.has('pages/b.md')).toBe(true)
+    await act(async () => {
+      expect(await result.current.savePage('pages/b.md', 'edited b')).toBe(true)
+    })
+    expect(result.current.graph?.pages.get('pages/b.md')?.content).toBe('edited b\n\n')
+  })
+
   it('savePage writes through and updates the graph immediately', async () => {
     const tree = buildTree({ pages: { 'a.md': 'v1 #One', 'b.md': 'other' } })
     const storage = vault(tree)

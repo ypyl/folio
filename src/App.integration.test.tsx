@@ -672,6 +672,34 @@ describe('auto-save (page-editing spec)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('flushes pending edits on two pages before switching folders', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('first page')
+    fireEvent.click(await screen.findByRole('button', { name: 'Reading' }))
+    editor().emitChange('second page')
+
+    // Switch folders before the ~1s debounce fires: the old folder's writer
+    // holds two pending pages and must hand both to disk.
+    const home = buildTree({ pages: { 'b.md': 'b' } })
+    home.name = 'Home'
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => home as unknown as FileSystemDirectoryHandle),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
+
+    const welcome = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
+    const reading = pagesDir(tree).children.get('Reading.md') as FakeFileHandle
+    await waitFor(async () => {
+      expect(await (await reading.getFile()).text()).toBe('second page\n\n')
+    })
+    expect(await (await welcome.getFile()).text()).toBe('first page\n\n')
+    vi.unstubAllGlobals()
+  })
+
   it('a failed save keeps the page dirty and re-arms on the next edit', async () => {
     render(<App />)
     const tree = await openFixture()

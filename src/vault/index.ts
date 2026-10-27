@@ -73,6 +73,14 @@ export type VaultIndex = {
   reminders: ReminderRule[]
 }
 
+/** An index with no pages, for a write that still has to reach its file after
+ *  its folder stopped being the indexed one (a pending flush at a folder
+ *  switch). The write takes its content from its arguments, so the base only
+ *  shapes a result nothing publishes. */
+export function emptyIndex(): VaultIndex {
+  return { graph: fold(new Map(), new Set()), snapshot: new Map(), pins: [], reminders: [] }
+}
+
 /** How many pages the scan keeps in flight at once (design: open cost).
  *  Each stat/read is one asynchronous round trip to the file process, so the
  *  scan used to cost the sum of every hop in the vault; fanning them out makes
