@@ -512,11 +512,17 @@ export function snippetSegments(text: string, ranges: SearchRange[]): SnippetWin
 export function matchBlocks(text: string, ranges: SearchRange[]): number[] {
   if (!ranges.length) return []
   const anchors = blockStartLines(text)
+  // Each line's start offset, computed once: a match's line is then a binary
+  // search rather than a slice of the whole text per match.
+  const lines = text.split('\n')
+  const starts: number[] = new Array(lines.length)
+  for (let i = 0, at = 0; i < lines.length; i += 1) {
+    starts[i] = at
+    at += lines[i].length + 1
+  }
   const blocks: number[] = []
   for (const [start] of [...ranges].sort((a, b) => a[0] - b[0])) {
-    // 1-based, and one past the last line when the offset sits on a newline:
-    // either way the anchor search below finds the block the match is in.
-    const matchLine = text.slice(0, start).split('\n').length
+    const matchLine = lineAt(starts, start)
     let block = 0
     for (let i = 0; i < anchors.length; i++) {
       if (anchors[i] > matchLine) break
