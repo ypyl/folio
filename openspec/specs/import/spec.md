@@ -61,6 +61,10 @@ resulting vault reads correctly with no runtime compatibility:
 
 - Page and journal names SHALL be normalized into legal, visible, referenceable
   Folio names; journal days SHALL use the dated form.
+- A source page whose name is a real calendar day, whether written as a human
+  date or as a zero-padded day, SHALL be written as that journal day rather than
+  under the pages folder, so the references to it resolve. Its content SHALL
+  fold together with any journal source for the same day.
 - Plain `[[Name]]` wikilinks SHALL become `#[[Name]]`, with any alias dropped.
 - A reference whose name is a human-written date SHALL become the journal day for
   that date.
@@ -76,6 +80,34 @@ resulting vault reads correctly with no runtime compatibility:
 - Folio's own reference rules SHALL be respected: text Folio does not read as a
   reference SHALL NOT be turned into one, and content inside fenced code SHALL be
   left as written.
+
+#### Scenario: A human date page becomes its journal day
+
+- **GIVEN** a source page named `Apr 30th, 2025`
+- **WHEN** it is imported
+- **THEN** the destination holds it as `journals/2025-04-30.md` and a reference
+  to it resolves to that day
+
+#### Scenario: A zero-padded day page becomes its journal day
+
+- **GIVEN** a source page named `2025-04-30`
+- **WHEN** it is imported
+- **THEN** the destination holds it as `journals/2025-04-30.md`, not as a page
+  the app would never list
+
+#### Scenario: A day page folds with its journal source
+
+- **GIVEN** a source holding a page named `Apr 30th, 2025` and a journal file
+  for 2025-04-30
+- **WHEN** the source is imported
+- **THEN** the destination holds one `journals/2025-04-30.md` with both contents
+
+#### Scenario: A block reference into a date-named page names the day
+
+- **GIVEN** a source page named `Apr 30th, 2025` holding a block with an id,
+  and another page referencing that block
+- **WHEN** the source is imported
+- **THEN** the block reference becomes a reference to the 2025-04-30 journal day
 
 #### Scenario: Wikilinks become Folio references
 
