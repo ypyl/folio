@@ -1,5 +1,5 @@
 import type { VaultStorage } from '../vault/storage'
-import { InvalidVaultPathError, parsePath } from '../vault/fs'
+import { parsePath } from '../vault/fs'
 
 // The guided demo's transport (add-guided-demo, ADR-0034): a VaultStorage over
 // an in-memory file map. Everything the app already knows how to do - scan,
