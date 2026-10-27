@@ -27,6 +27,24 @@ test('the guided demo opens without a folder picker and demonstrates every featu
   await expect(page.getByRole('button', { name: 'Open the demo vault' })).toBeVisible()
   await expect(page.getByText('Demo vault')).toBeVisible()
 
+  // The session-only rule is a visible notice that stays while the page
+  // scrolls, not a paragraph a reader can scroll past.
+  const notice = page.getByText(
+    'Changes last for this session and are never saved to your disk.',
+  )
+  await expect(notice).toBeVisible()
+  const pane = page.locator('[data-tour="editor"]')
+  await pane.evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await expect(notice).toBeVisible()
+  const paneBox = (await pane.boundingBox())!
+  const noticeBox = (await notice.boundingBox())!
+  expect(noticeBox.y).toBeLessThan(paneBox.y + 60)
+  await pane.evaluate((el) => {
+    el.scrollTop = 0
+  })
+
   // The guide's table of contents is made of live reference badges.
   await editor.getByText('#References', { exact: true }).first().click()
   await expect(editor).toContainText('A reference is how one page names another')

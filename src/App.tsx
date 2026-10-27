@@ -1356,6 +1356,9 @@ function App() {
               onDemo={
                 status === 'ready' && activeFolder?.storage === undefined ? handleDemo : undefined
               }
+              // The demo's session-only rule stays in view on every page
+              // (make-the-demo-notice-visible). A real vault passes false.
+              demo={demoActive}
               brandAction={
                 canOpen && status === 'ready' && activeFolder?.storage === undefined ? (
                   <LogseqImportButton onClick={() => void handleImport()} />

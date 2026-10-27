@@ -318,6 +318,8 @@ describe('the guided demo (add-guided-demo)', () => {
     expect(editor().content).toContain('## Table of contents')
     expect(editor().content).toContain('#[[Links and backlinks]]')
     expect(editor().content).toContain('#Presenting')
+    // The session-only rule is visible, not only a paragraph in the page.
+    screen.getByText('Changes last for this session and are never saved to your disk.')
 
     // The rail lists it as a demo and marks it active; the status bar names it.
     const rail = within(document.getElementById('folder-rail')!)
@@ -328,6 +330,14 @@ describe('the guided demo (add-guided-demo)', () => {
     // Files lists the guide's pages, and the calendar marks the seeded days.
     filesSection().getByRole('button', { name: 'References' })
     screen.getByRole('button', { name: 'September 14, 2026' })
+  })
+
+  it('does not show the demo notice for a real folder', async () => {
+    render(<App />)
+    await openFixture()
+    expect(
+      screen.queryByText('Changes last for this session and are never saved to your disk.'),
+    ).toBeNull()
   })
 
   it("writes today's reminders into the journal when Today opens", async () => {

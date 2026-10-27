@@ -29,6 +29,36 @@
   min-height: 32px; /* a long document still leaves something to grab */
 }
 
+/* The demo's session-only rule (make-the-demo-notice-visible): a sticky strip
+   at the pane's top, so the warning stays read while the page scrolls beneath
+   it. Brand tint is the lightest sanctioned fill, and the Demo label carries
+   the only brand ink; it renders only for the demo. */
+.demoNotice {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--brand-tint);
+  border-bottom: 1px solid var(--border);
+  color: var(--dark-warm);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.demoNoticeLabel {
+  flex-shrink: 0;
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .emptyState {
   height: 100%;
   display: flex;

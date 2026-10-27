@@ -511,6 +511,19 @@ describe('EditorPane', () => {
     screen.getByRole('button', { name: 'Open the guided demo' })
   })
 
+  it('shows the demo session-only notice only for the demo (make-the-demo-notice-visible)', () => {
+    const { rerender } = render(
+      <EditorPane page={page} initialContent="# A page" onChange={() => {}} demo />,
+    )
+    screen.getByText('Changes last for this session and are never saved to your disk.')
+    screen.getByText('Demo')
+
+    rerender(<EditorPane page={page} initialContent="# A page" onChange={() => {}} demo={false} />)
+    expect(
+      screen.queryByText('Changes last for this session and are never saved to your disk.'),
+    ).toBeNull()
+  })
+
   it('shows the app introduction and the tour reference (add-landing-page-info)', () => {
     const onTour = vi.fn()
     render(

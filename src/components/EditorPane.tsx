@@ -77,6 +77,18 @@ export type EditorPaneHandle = {
   focus: () => void
 }
 
+// The demo's session-only rule (make-the-demo-notice-visible): the Welcome page
+// says it, and this strip keeps it in view on every page after the reader has
+// scrolled past that paragraph. Presentational only: no control, no state.
+function DemoNotice() {
+  return (
+    <p className={styles.demoNotice} role="note">
+      <span className={styles.demoNoticeLabel}>Demo</span>
+      <span>Changes last for this session and are never saved to your disk.</span>
+    </p>
+  )
+}
+
 export function EditorPane({
   page,
   initialContent,
@@ -85,6 +97,7 @@ export function EditorPane({
   brandAction,
   onTour,
   onDemo,
+  demo = false,
   onReady,
   loading = false,
   onAttachFiles,
@@ -122,6 +135,9 @@ export function EditorPane({
    *  including where the browser cannot open a local folder, because the demo
    *  is virtual. Absent once a vault is open. */
   onDemo?: () => void
+  /** The open vault is the session-only demo: show its persistent notice at the
+   *  top of the pane (make-the-demo-notice-visible). False for a real vault. */
+  demo?: boolean
   /** The editor has mounted and applied its initial content. App uses this to
    *  present a page it just opened (add-row-context-menu, navigate-then-
    *  present): the document is live, so its blocks are ready to derive. Fires
@@ -392,6 +408,7 @@ export function EditorPane({
         onDrop={handleDrop}
         className={styles.pane}
       >
+        {demo && <DemoNotice />}
         {loading ? (
           // Loading state (indexing-loading-state): decorative body-line
           // placeholders in place of the empty hint. The in-progress
@@ -473,6 +490,7 @@ export function EditorPane({
       onPaste={handlePaste}
       className={styles.pane}
     >
+      {demo && <DemoNotice />}
       <article className={styles.document}>
         <div
           ref={mountRef}
