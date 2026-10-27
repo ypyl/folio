@@ -74,10 +74,10 @@ describe('mimeFor', () => {
 
 describe('isDisplayable', () => {
   it('splits the types the browser shows from the ones it downloads', () => {
-    for (const path of ['a.pdf', 'a.PNG', 'a.mp4', 'a.txt', 'a.svg']) {
+    for (const path of ['a.pdf', 'a.PNG', 'a.mp4', 'a.txt']) {
       expect(isDisplayable(path)).toBe(true)
     }
-    for (const path of ['a.docx', 'a.zip', 'a.md', 'a', 'a.xyz']) {
+    for (const path of ['a.svg', 'a.docx', 'a.zip', 'a.md', 'a', 'a.xyz']) {
       expect(isDisplayable(path)).toBe(false)
     }
   })
@@ -123,6 +123,17 @@ describe('openVaultTarget', () => {
     expect(o.openTab).not.toHaveBeenCalled()
     expect(o.download).toHaveBeenCalledTimes(1)
     expect(o.download.mock.calls[0][1]).toBe('archive.zip')
+  })
+
+  it('downloads an SVG instead of opening it as a document', async () => {
+    // A blob: document carries the app's origin, so a top-level SVG runs its
+    // own script with the app's storage access. The download branch is the one
+    // safe way to hand it over.
+    const o = openers()
+    expect(await openVaultTarget('assets/chart.svg', reader(), o)).toBe(true)
+    expect(o.openTab).not.toHaveBeenCalled()
+    expect(o.download).toHaveBeenCalledTimes(1)
+    expect(o.download.mock.calls[0][1]).toBe('chart.svg')
   })
 
   it('falls back to a download when no window could be opened', async () => {

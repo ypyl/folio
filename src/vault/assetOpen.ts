@@ -35,7 +35,10 @@ export function isVaultRelative(src: string): boolean {
  *  it (design D3).
  *
  *  Deliberately its own list rather than `dropAssets`'s image set: that one
- *  decides which markdown form a drop writes, this one which files preview. */
+ *  decides which markdown form a drop writes, this one which files preview.
+ *  SVG is absent on purpose: a `blob:` document inherits the app's origin, so a
+ *  top-level SVG would run its own script with the app's storage access. An SVG
+ *  still renders inline as an image, which cannot script. */
 const DISPLAYABLE: Record<string, string> = {
   pdf: 'application/pdf',
   png: 'image/png',
@@ -43,7 +46,6 @@ const DISPLAYABLE: Record<string, string> = {
   jpeg: 'image/jpeg',
   gif: 'image/gif',
   webp: 'image/webp',
-  svg: 'image/svg+xml',
   bmp: 'image/bmp',
   avif: 'image/avif',
   mp3: 'audio/mpeg',

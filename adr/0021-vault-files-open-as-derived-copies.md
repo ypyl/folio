@@ -25,7 +25,7 @@ The alternatives were therefore not variations of the same feature:
 
 A vault file opens as a derived copy.
 
-- The app reads the file once through the storage seam's binary read and gives the bytes to the browser: a `blob:` URL in a new window for a type the browser displays (PDF, images, media, plain text), a download for everything else, so the operating system's registered application can open it.
+- The app reads the file once through the storage seam's binary read and gives the bytes to the browser: a `blob:` URL in a new window for a type the browser displays (PDF, raster images, media, plain text), a download for everything else, so the operating system's registered application can open it. An SVG is a download, not a window: a `blob:` document carries the creating page's origin, so a top-level SVG would run its own script with the app's access. An SVG shown inline in a page is an `<img>`, which cannot script, and is unaffected.
 - The gesture is Ctrl+Click, Cmd+Click on macOS (`open-links-on-ctrl-click`) for a link in the editor, and a plain click on an asset row — the sidebar's Assets section, a page's References section, and a search result (ADR-0022, `search-assets-by-name`) — where the row itself is what the user clicked and there is no caret to place. One verb, one behaviour, three surfaces.
 - The vault file is never written and the page's Markdown is never touched, so the file stays canonical (ADR-0001). The app writes nothing anywhere as part of the gesture; the download, where there is one, is the browser's.
 - No native companion, no in-app viewer, no protocol handler, no write-back, and no watching for a change made outside.
@@ -42,7 +42,7 @@ Rejected: copying the file into the vault on open, or writing a cached copy for 
 
 - Opening a PDF shows the browser's own viewer, not the user's PDF editor. Only the download branch reaches a registered application, and then it opens a copy in the downloads folder: an edit made there is invisible to Folio and does not return. This is the cost of the decision, and the feature is described in terms of it rather than as "open the file".
 - The app can now cause a file to be created outside the vault — the browser writes it, Folio never does. Nothing reads it back.
-- A window opened this way is an opaque origin with `opener` cleared: a file that carries script of its own (`svg`) can draw, and can reach neither the app nor the vault.
+- A `blob:` document has the creating page's origin, `opener` cleared or not, so the window branch is limited to types that cannot run script as a document: an SVG goes down the download branch for that reason, and any future displayable type has to answer the same question before it joins the list.
 - Nothing new is persisted, no index or derived data changes, and the vault is read on a click and not on a keystroke, so the typing budget is untouched.
 - The storage seam keeps the shape ADR-0003 gave it: one more consumer of the binary read that already existed.
 - Opening lives in the vault layer (`src/vault/assetOpen.ts`), not the editor layer: it has two callers, one holding an href from the document and one holding a path from the folder listing, and those two need different treatment. A Markdown destination may be percent-encoded and must be decoded before it names a file; a listed path is already the file's literal name and must not be.
