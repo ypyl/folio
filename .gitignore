@@ -47,3 +47,5 @@ blob-report
 
 # Browser automation session artifacts
 .playwright-cli
+# Agent scratch files
+.tmp
