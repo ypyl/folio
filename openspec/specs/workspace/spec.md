@@ -635,14 +635,17 @@ description it SHALL show a compact set of facts about what the app does: pages
 and journals are plain Markdown, a page is referenced with `#word` or
 `#[[Page]]`, and a whiteboard with `#!board`. It SHALL be reachable at startup
 when no folder is stored, by activating the brand, and by closing the active
-folder. Where the browser cannot open local folders, the screen SHALL state the
-browser requirement in place of the open-folder tagline, and SHALL contain no
-control that promises an action the app cannot perform. Where it can, the screen
-SHALL additionally offer the one-time Logseq import and host that import's
-progress and result states. Where the app tour is available (viewports wider
-than the compact breakpoint), the screen SHALL also offer a tour reference that
-opens the app tour, and that reference SHALL name the rail's tour control as the
-tour's other home.
+folder. In every no-folder state, whether or not the browser can open local
+folders, the screen SHALL offer the guided demo, and activating it SHALL open
+the demo vault's Welcome page. Where the browser cannot open local folders, the
+screen SHALL state the browser requirement in place of the open-folder tagline,
+and SHALL contain no control that promises an action the app cannot perform. The
+guided demo remains available there, because it needs no local folder. Where it
+can open folders, the screen SHALL additionally offer the one-time Logseq import
+and host that import's progress and result states. Where the app tour is
+available (viewports wider than the compact breakpoint), the screen SHALL also
+offer a tour reference that opens the app tour, and that reference SHALL name the
+rail's tour control as the tour's other home.
 
 In every no-folder state, whether or not the browser can open local folders, the
 screen SHALL also show, below the position the import action occupies, a line
@@ -662,6 +665,19 @@ carry an accessible name that identifies the repository.
 - **WHEN** the app starts with no folder open
 - **THEN** the center pane shows a short description of the app and a compact set
   of facts about what it does
+
+#### Scenario: The brand screen offers the guided demo
+
+- **WHEN** the brand screen shows
+- **THEN** it offers a control that opens the guided demo vault, and activating
+  it opens the demo's Welcome page
+
+#### Scenario: The demo is offered without a folder picker
+
+- **GIVEN** a browser that cannot open local folders
+- **WHEN** the brand screen shows
+- **THEN** it still offers the guided demo and no control promises an action the
+  browser cannot perform
 
 #### Scenario: The brand screen references the tour
 
@@ -860,7 +876,8 @@ one region of the shell — the folder rail, the sidebar, the editor area, the
 right panel, and the status bar — and explaining what that region holds. The
 step naming the editor area SHALL also name the reference forms the page surface
 accepts — `#word` and `#[[Page]]` for a page, and `#!word` and `#![[Board]]` for
-a board — so the tour teaches linking as well as the pane. Each step SHALL
+a board — so the tour teaches linking as well as the pane, and SHALL name the
+guided demo vault as the place where every feature can be tried. Each step SHALL
 highlight the region it names, and a step whose region is not on screen SHALL
 still show its explanation rather than fail. Every step except the first SHALL
 offer a way back to the previous step, every step except the last a way forward,
@@ -897,6 +914,12 @@ to the editing or typing path.
 
 - **WHEN** the user reaches the step naming the editor area
 - **THEN** its explanation names the forms that reference a page and a board
+
+#### Scenario: The editor step points at the guided demo
+
+- **WHEN** the user reaches the step naming the editor area
+- **THEN** its explanation names the guided demo vault as the place to try every
+  feature
 
 #### Scenario: Skipping ends the tour
 
