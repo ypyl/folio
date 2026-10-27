@@ -19,7 +19,7 @@
 // system in place, so the vault file is never written and never watched for a
 // change made outside. Markdown stays canonical (ADR-0001).
 
-import { baseName } from './link'
+import { baseName, splitExtension } from './link'
 
 /** Vault-relative only: a path carrying a scheme (`http:`, `https:`, `data:`,
  *  `blob:`) or starting at `/` is not a vault path. Shared with the image
@@ -138,12 +138,11 @@ export function vaultTarget(href: string | null | undefined): string | null {
   }
 }
 
-/** A path's extension, lowercased and without the dot; '' when it has none. A
- *  leading-dot name has no extension, matching how the asset flow reads one. */
+/** A path's extension, lowercased and without the dot; '' when it has none. The
+ *  one splitting rule is `link`'s, so a name the asset flow reads and a name
+ *  this module types agree. */
 function extensionOf(path: string): string {
-  const base = baseName(path)
-  const dot = base.lastIndexOf('.')
-  return dot > 0 ? base.slice(dot + 1).toLowerCase() : ''
+  return splitExtension(baseName(path)).ext.slice(1).toLowerCase()
 }
 
 /** The type to serve a vault path as. */

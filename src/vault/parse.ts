@@ -78,21 +78,28 @@ function* matchRefs(content: string): Generator<RefMatch> {
   }
 }
 
-/** Extract every board reference in `content`, in order of appearance.
- *  Repeated references to the same board collapse to the first occurrence, the
- *  same rule `parseLinks` applies to pages. `#!migration` and `#![[Migration]]`
- *  are the same board, unlike the page forms' two spellings of one name. */
-export function parseBoardRefs(content: string): BoardRef[] {
-  const refs: BoardRef[] = []
+/** The one extraction rule for both reference namespaces: every token of
+ *  `kind` in `content`, in order of appearance, repeated targets collapsed to
+ *  the first occurrence (case-insensitive). */
+function uniqueRefs(content: string, kind: ReferenceKind): { target: string; via: Link['via'] }[] {
+  const refs: { target: string; via: Link['via'] }[] = []
   const seen = new Set<string>()
   for (const ref of matchRefs(content)) {
-    if (ref.kind !== 'board') continue
+    if (ref.kind !== kind) continue
     const key = ref.target.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
     refs.push({ target: ref.target, via: ref.via })
   }
   return refs
+}
+
+/** Extract every board reference in `content`, in order of appearance.
+ *  Repeated references to the same board collapse to the first occurrence, the
+ *  same rule `parseLinks` applies to pages. `#!migration` and `#![[Migration]]`
+ *  are the same board, unlike the page forms' two spellings of one name. */
+export function parseBoardRefs(content: string): BoardRef[] {
+  return uniqueRefs(content, 'board')
 }
 
 // Word form: what `REF` accepts between '#' and the caret. A name is only
@@ -285,16 +292,7 @@ export function isReferenceable(name: string): boolean {
  * resolution rules of the vault-index spec) collapse to the first occurrence.
  */
 export function parseLinks(content: string): Link[] {
-  const links: Link[] = []
-  const seen = new Set<string>()
-  for (const ref of matchRefs(content)) {
-    if (ref.kind !== 'page') continue
-    const key = ref.target.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    links.push({ target: ref.target, via: ref.via })
-  }
-  return links
+  return uniqueRefs(content, 'page')
 }
 
 /**
