@@ -128,6 +128,16 @@ vi.mock('./components/months', async (importOriginal) => {
   }
 })
 
+// The app-icon badge is a browser API with no observable DOM (add-reminders,
+// design D8), so the count it is handed is recorded here: the reminder badge's
+// behavior (hide-a-ticked-reminder-from-the-badge) is exactly that number.
+const badgeCalls = vi.hoisted(() => ({ counts: [] as number[] }))
+vi.mock('./badge', () => ({
+  syncAppBadge: (count: number) => {
+    badgeCalls.counts.push(count)
+  },
+}))
+
 // The calendar only renders one month and the app opens today's journal, so the
 // suite is time-sensitive. Freeze Date (only Date, not timers: waitFor and the
 // debounced save stay real) to the fixture's month, or the suite goes red the
@@ -2920,6 +2930,91 @@ describe('reminders from the calendar (add-reminders)', () => {
     screen.getByTitle('pages/Welcome.md')
     await expect(store.read('pages/Take pills.md')).resolves.toBeDefined()
     expect(await store.read('journals/2026-09-15.md')).toContain('#[[Take pills]]')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('a ticked reminder line (hide-a-ticked-reminder-from-the-badge)', () => {
+  const storageOf = (tree: FakeDirectoryHandle) =>
+    new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
+  const today = 'journals/2026-09-15.md'
+  const badge = () => badgeCalls.counts.at(-1)
+
+  beforeEach(() => {
+    badgeCalls.counts.length = 0
+  })
+
+  it('counts a due reminder and drops it once the day records it as done', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n' },
+      journals: { '2026-09-15.md': '- [ ] #[[Take pills]]\n' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    // An unticked item is not a record of action, so the rule still counts.
+    await waitFor(() => expect(badge()).toBe(1))
+
+    // Ticking it stops the count once the save lands.
+    editor().emitChange('- [x] #[[Take pills]]\n')
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [x] #[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(badge()).toBe(0))
+
+    // Unticking it brings the reminder back.
+    editor().emitChange('- [ ] #[[Take pills]]\n')
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [ ] #[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(badge()).toBe(1))
+    vi.unstubAllGlobals()
+  })
+
+  it('drops only the reminder the day records as done', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n', 'Review inbox.md': 'inbox\n' },
+      journals: { '2026-09-15.md': '- [x] #[[Take pills]]\n' },
+      '.folio': {
+        'reminders.md':
+          '- daily 2026-09-15 #[[Take pills]]\n- daily 2026-09-15 #[[Review inbox]]\n',
+      },
+    })
+    render(<App />)
+    await openFixture(tree)
+    await waitFor(() => expect(badge()).toBe(1))
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps counting a reminder the day only mentions in prose', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n' },
+      journals: { '2026-09-15.md': 'took them #[[Take pills]]\n' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    await waitFor(() => expect(badge()).toBe(1))
+    vi.unstubAllGlobals()
+  })
+
+  it('ignores a done item that names another page', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n', 'Welcome.md': 'hi' },
+      journals: { '2026-09-15.md': '- [x] #[[Welcome]]\n' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    await waitFor(() => expect(badge()).toBe(1))
     vi.unstubAllGlobals()
   })
 })

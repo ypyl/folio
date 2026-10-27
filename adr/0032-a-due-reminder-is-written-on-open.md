@@ -36,7 +36,11 @@ write is idempotent: a written line makes the day reference the page, so the
 next open appends nothing. The app writes no other reminder content, and no
 background pass writes any day the user did not open.
 
-**The app-icon badge counts the open day's matching rules**, written or not.
+**The app-icon badge counts the open day's matching rules**, written or not,
+less the ones the day's note records as done: a rule whose page a done task
+item (`- [x] … #[[Page]]`) references in that note no longer counts, because a
+tick is the user's own record that the reminder was acted on. The count reads
+the note's saved text, so it follows the save rather than the press.
 
 ## Consequences
 
@@ -48,6 +52,9 @@ background pass writes any day the user did not open.
   the day being opened and to one line per rule.
 - A line the user deletes returns the next time the day is opened, because the
   rule is still due. Removing the reminder is the way to stop it.
+- A ticked reminder line is both the record and the reason the badge clears: the
+  rule stays live for later days, the note keeps its line, and the page's
+  backlinks keep the day. The badge lags the tick by the save it waits on.
 - The right-panel Reminders section, its form, and its record action are gone;
   creation and removal live on the calendar, and the day's note is the record.
 - Recurrence still costs no per-occurrence state beyond the written line, and

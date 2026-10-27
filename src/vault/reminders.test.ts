@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  doneTargets,
   matchingRules,
   parseReminders,
   renderReminders,
@@ -130,5 +131,30 @@ describe('matchingRules (add-reminders)', () => {
       rule('weekly', '2026-10-15', 'Review inbox'),
     ]
     expect(matchingRules(rules, '2026-10-16').map((r) => r.target)).toEqual(['Take pills'])
+  })
+})
+
+describe('doneTargets (hide-a-ticked-reminder-from-the-badge)', () => {
+  it('reads the page names of done task items, lowercased', () => {
+    const content = [
+      '- [x] #[[Take pills]]',
+      '- [X] #[[Water the plants]]',
+      '* [x] nested under something',
+      '- [ ] #Untouched',
+      '#[[Bare reference]]',
+      'prose with [x] and #[[NotDone]]',
+      '- [x]no space #[[NotATask]]',
+      '1. [x] #[[Numbered]]',
+      '    - [x] #[[Indented]]',
+    ].join('\n')
+    const done = doneTargets(content)
+    expect([...done].sort()).toEqual(
+      ['indented', 'numbered', 'take pills', 'water the plants'].sort(),
+    )
+  })
+
+  it('ignores a done item with no reference, and a repeated one collapses', () => {
+    expect([...doneTargets('- [x] something else')]).toEqual([])
+    expect([...doneTargets('- [x] #[[A]]\n- [x] #[[a]]')]).toEqual(['a'])
   })
 })

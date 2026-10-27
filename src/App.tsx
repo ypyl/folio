@@ -52,6 +52,7 @@ import { LogseqImportButton, LogseqImportPanel, type ImportView } from './compon
 import {
   boardStem,
   journalDate,
+  journalDayPath,
   kindOf,
   localDayString,
   resolveBoardPath,
@@ -59,7 +60,7 @@ import {
   stem,
   type IndexPage,
 } from './vault/index'
-import { matchingRules, type Recurrence, type ReminderRule } from './vault/reminders'
+import { doneTargets, matchingRules, type Recurrence, type ReminderRule } from './vault/reminders'
 import { syncAppBadge } from './badge'
 import {
   boardCandidates,
@@ -851,11 +852,20 @@ function App() {
     [reminders],
   )
 
-  // The badge counts the open day's matching rules (design D4), written or not.
-  const openDayReminders = useMemo(
-    () => (journalDay !== null ? matchingRules(reminders, journalDay).length : 0),
-    [reminders, journalDay],
-  )
+  // The badge counts the open day's matching rules (design D4), written or not,
+  // less the ones the day's note records as done
+  // (hide-a-ticked-reminder-from-the-badge). It reads the index's copy of the
+  // note, so the scan runs when that page's identity changes (a save or a fresh
+  // read), never on a keystroke — and the count therefore lands with the save
+  // rather than with the tick (design D3).
+  const openDayNote = journalDay === null ? undefined : graph?.pages.get(journalDayPath(journalDay))
+  const openDayReminders = useMemo(() => {
+    if (journalDay === null) return 0
+    const done = openDayNote ? doneTargets(openDayNote.content) : new Set<string>()
+    return matchingRules(reminders, journalDay).filter(
+      (rule) => !done.has(rule.target.toLowerCase()),
+    ).length
+  }, [reminders, journalDay, openDayNote])
   useEffect(() => {
     syncAppBadge(openDayReminders)
   }, [openDayReminders])

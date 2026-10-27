@@ -95,7 +95,33 @@ export function ruleMatches(rule: ReminderRule, day: string): boolean {
 }
 
 /** The rules that match `day`, in file order (add-reminders, the calendar-day
- *  change): what the badge counts and what a due day may materialize. */
+ *  change): what a due day may materialize. */
 export function matchingRules(rules: readonly ReminderRule[], day: string): ReminderRule[] {
   return rules.filter((rule) => ruleMatches(rule, day))
+}
+
+// A done task item's line (ADR-0033): a list marker, the ticked GFM marker, then
+// whitespace. The editor accepts a marker only as the item's first content and
+// only before a space, so this shape is that rule and nothing else: `[x]` in
+// prose, a bare `[x]` line, and `- [x]no-space` are not done items. A line
+// inside a fence that spells the shape reads as one, which costs at most one
+// badge count when it also names the exact reminder page; reading the syntax
+// tree instead would parse the whole note outside the editor for that count.
+const DONE_ITEM = /^\s*(?:[-*+]|\d{1,9}[.)])\s+\[[xX]\]\s/
+
+/** The lowercased page names a note's done task items reference
+ *  (hide-a-ticked-reminder-from-the-badge, design D1/D2): what the open day
+ *  records as already acted on. Repeats collapse, and a reference on a
+ *  continuation line of a done item does not count, because the marker's own
+ *  line is the line that is read. Pure, so the caller memoizes it on the note's
+ *  identity rather than running it per keystroke. */
+export function doneTargets(content: string): Set<string> {
+  const names = new Set<string>()
+  for (const line of content.split('\n')) {
+    if (!DONE_ITEM.test(line)) continue
+    for (const ref of findReferenceRanges(line)) {
+      if (ref.kind === 'page') names.add(ref.target.toLowerCase())
+    }
+  }
+  return names
 }
