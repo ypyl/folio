@@ -136,7 +136,7 @@ export function useVault() {
     }
     for (const f of folders) {
       if (f.id === excludeId) continue
-      if (await f.handle.isSameEntry(handle)) {
+      if (await isSameHandle(f.handle, handle)) {
         await activate(f.id)
         return
       }

@@ -216,6 +216,26 @@ describe('addFolder', () => {
     vi.unstubAllGlobals()
   })
 
+  it('adds the picked folder when a stored handle cannot be compared', async () => {
+    // A stored handle whose directory was renamed or deleted outside the app
+    // can throw on comparison. That must not abort the add.
+    const broken = store.seed('broken', 'granted').handle
+    broken.isSameEntry = async () => {
+      throw new DOMException('gone', 'NotFoundError')
+    }
+    const chosen = handle('notes', 'granted')
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => chosen as unknown as FileSystemDirectoryHandle),
+    )
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    await act(() => result.current.addFolder())
+    expect(result.current.folders.map((f) => f.name)).toEqual(['broken', 'notes'])
+    expect(result.current.activeId).toBe(result.current.folders[1].id)
+    vi.unstubAllGlobals()
+  })
+
   it('keeps previously opened folders when adding', async () => {
     store.seed('work', 'granted')
     const chosen = handle('notes', 'granted')
