@@ -2562,12 +2562,59 @@ describe('logseq import', () => {
   })
 })
 
-// Presentations (add-presentations) are disabled for now
-// (swap-editor-to-codemirror-live-preview): the row menu's Present entry is
-// gone, because a deck derived from the Markdown source does not yet render at
-// parity with the reading view. The view, its derivation, and their own tests
-// are kept, so re-enabling it is the menu row again plus the two App-level tests
-// this block used to hold.
+// Presenting (add-presentations, re-enabled by enable-presenting): the page
+// row's menu builds a deck from the live editor and opens the modal view.
+describe('presenting (enable-presenting)', () => {
+  it('presents the open page from its row menu and writes nothing', async () => {
+    const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
+    try {
+      render(<App />)
+      await openFixture()
+      fireEvent.click(filesSection().getByRole('button', { name: 'Welcome' }))
+      await waitFor(() => expect(editor().content).toContain('lightweight way'))
+
+      editor().blocks = [
+        { type: 'heading', html: '<h1>Welcome slide</h1>' },
+        { type: 'hr', html: '<hr>' },
+        { type: 'paragraph', html: '<p>Second slide</p>' },
+      ]
+      fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Welcome' }), {
+        clientX: 40,
+        clientY: 40,
+      })
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Presentation' })
+      expect(within(dialog).getByRole('heading', { name: 'Welcome slide' })).toBeTruthy()
+      expect(within(dialog).getByText('1 / 2')).toBeTruthy()
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Next slide' }))
+      within(dialog).getByText('Second slide')
+
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Close presentation' }))
+      expect(screen.queryByRole('dialog', { name: 'Presentation' })).toBeNull()
+      expect(editor().content).toContain('lightweight way')
+      expect(write).not.toHaveBeenCalled()
+    } finally {
+      write.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('opens a page that is not open before presenting it', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.contextMenu(filesSection().getByRole('button', { name: 'Inbox' }), {
+      clientX: 40,
+      clientY: 40,
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
+
+    await waitFor(() => expect(screen.getByTitle('pages/Inbox.md')).toBeTruthy())
+    const dialog = await screen.findByRole('dialog', { name: 'Presentation' })
+    within(dialog).getByText('1 / 1')
+    vi.unstubAllGlobals()
+  })
+})
 
 // The Contents section (add-page-contents): the open page's headings, and a row
 // that locates its heading without changing anything.

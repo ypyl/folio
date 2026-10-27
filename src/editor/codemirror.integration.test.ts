@@ -208,9 +208,13 @@ describe('a GFM table renders as a table', () => {
 
 describe('the pane reads', () => {
   it('splits the document into blocks for a presentation', async () => {
-    await open('# Title\n\ntext\n\n```js\ncode\n```')
+    await open('# Title\n\ntext with **bold** and #Inbox\n\n```js\ncode\n```')
     const blocks = adapter?.staticBlocks() ?? []
     expect(blocks.map((block) => block.type)).toEqual(['heading', 'paragraph', 'code_block'])
+    expect(blocks[0].html).toBe('<h1>Title</h1>')
+    expect(blocks[1].html).toContain('<strong>bold</strong>')
+    expect(blocks[1].html).toContain('class="ref" data-ref-target="Inbox"')
+    expect(blocks[2].html).toContain('<code class="language-js">code</code>')
   })
 
   it('marks a located block without touching the text', async () => {

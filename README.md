@@ -33,6 +33,7 @@ uses the File System Access API. Every push to `master` builds with
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
 - Favorites, back/forward history, and a status bar: the open page's name in the bar reveals its row in Files, creating the page first when it has no file yet, and a journal day's name shows and focuses that day in the calendar
+- Presentations: turn a page into a keyboard-driven slide deck from its row menu, with `---` separating slides
 - Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (see [Reminders](#reminders))
 - A guided demo vault with a table of contents and a worked example of every feature, in any browser (ADR-0034)
 - A guided tour of the shell, from the folder rail or the brand screen

@@ -610,12 +610,14 @@ describe('page-row context menu (add-row-context-menu)', () => {
   const rightClick = (name: string) =>
     fireEvent.contextMenu(screen.getByRole('button', { name }), { clientX: 40, clientY: 40 })
 
-  it('opens on a page row with Favorite, and no Present row', () => {
+  it('opens on a page row with Favorite and Present', () => {
     list()
     rightClick('Alpha')
     screen.getByRole('menu')
-    // Presenting is disabled for now (swap-editor-to-codemirror-live-preview).
-    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['Favorite'])
+    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
+      'Favorite',
+      'Present',
+    ])
   })
 
   it('advertises the menu only on page rows', () => {
@@ -654,6 +656,9 @@ describe('page-row context menu (add-row-context-menu)', () => {
     rightClick('Alpha')
     fireEvent.click(screen.getByRole('menuitem', { name: 'Favorite' }))
     expect(onFavorite).toHaveBeenCalledWith('a.md')
+    rightClick('Alpha')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }))
+    expect(onPresent).toHaveBeenCalledWith('a.md')
 
     // A replacement rows array carrying the favorited flag flips the label.
     rerender(
@@ -701,6 +706,7 @@ describe('page-row context menu (add-row-context-menu)', () => {
     expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
       'Favorite',
       'Remove reminderevery day from October 6, 2026',
+      'Present',
     ])
     fireEvent.click(item)
     expect(onRemoveReminderFor).toHaveBeenCalledWith('a.md')

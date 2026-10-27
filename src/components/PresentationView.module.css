@@ -99,6 +99,13 @@
   text-decoration: none;
 }
 
+.slide :global(.ref) {
+  background: var(--chip-bg);
+  color: var(--brand);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+
 .slide :global(blockquote) {
   margin: 0 0 0.7em;
   padding-left: 1em;

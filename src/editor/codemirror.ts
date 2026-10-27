@@ -49,6 +49,7 @@ import {
 import type { SyntaxNode } from '@lezer/common'
 import { tags } from '@lezer/highlight'
 import { blockLineRange, blockStartLines } from '../lineAnchors'
+import { REFERENCE_CLASS, blockType, renderBlock, renderInline } from '../markdown/render'
 import {
   isBoardTarget,
   isVaultRelative,
@@ -107,9 +108,6 @@ function controlGlyph(): { svg: SVGSVGElement; path: SVGPathElement } {
   svg.append(path)
   return { svg, path }
 }
-
-/** The class the pane's stylesheet gives a reference chip. */
-const REFERENCE_CLASS = 'ref'
 
 /** A GFM task item's checkbox (ADR-0033). The pane's stylesheet paints it. */
 const TASK_BOX_CLASS = 'folio-task'
@@ -382,7 +380,7 @@ function tableRow(tag: 'th' | 'td', cells: string[], align: (string | null)[]): 
     const node = document.createElement(tag)
     const alignment = align[column]
     if (alignment) node.style.textAlign = alignment
-    node.innerHTML = cellHtml(cell)
+    node.innerHTML = renderInline(cell)
     element.append(node)
   })
   return element
@@ -417,52 +415,6 @@ function readTable(state: EditorState, table: SyntaxNode): ParsedTable | null {
     rows: table.getChildren('TableRow').map(cells),
     align: delimiter ? alignment(state.doc.sliceString(delimiter.from, delimiter.to)) : [],
   }
-}
-
-/** A cell's inline markup as HTML. A small left-to-right walk rather than
- *  chained substitutions, so a code span cannot be re-read as emphasis and the
- *  reference offsets the scanner reports stay the ones used. Everything is
- *  escaped, so a cell can never inject markup into the pane. */
-function cellHtml(raw: string): string {
-  const refs = new Map(findReferenceRanges(raw).map((ref) => [ref.from, ref]))
-  let out = ''
-  let at = 0
-  while (at < raw.length) {
-    const ref = refs.get(at)
-    if (ref) {
-      out += chipHtml(raw.slice(ref.from, ref.to), ref.target, ref.kind)
-      at = ref.to
-      continue
-    }
-    const rest = raw.slice(at)
-    const match =
-      /^`([^`]*)`/.exec(rest) ??
-      /^\[([^\]]*)\]\(([^)\s]+)\)/.exec(rest) ??
-      /^(\*\*|__)(.+?)\1/.exec(rest) ??
-      /^(\*|_)(.+?)\1/.exec(rest) ??
-      /^~~(.+?)~~/.exec(rest)
-    if (!match) {
-      out += escapeHtml(raw[at])
-      at += 1
-      continue
-    }
-    const text = match[0]
-    if (text.startsWith('`')) out += `<code>${escapeHtml(match[1])}</code>`
-    else if (text.startsWith('['))
-      out += `<a href="${escapeAttr(match[2])}" data-href="${escapeAttr(match[2])}">${escapeHtml(match[1])}</a>`
-    else if (text.startsWith('~~')) out += `<del>${escapeHtml(match[1])}</del>`
-    else if (text.startsWith('**') || text.startsWith('__'))
-      out += `<strong>${escapeHtml(match[2])}</strong>`
-    else out += `<em>${escapeHtml(match[2])}</em>`
-    at += text.length
-  }
-  return out
-}
-
-/** A reference chip inside a rendered table. It carries the target, because the
- *  table is a widget: the document-level range lookup cannot see it. */
-function chipHtml(text: string, target: string, kind: string): string {
-  return `<span class="${REFERENCE_CLASS}" data-ref-target="${escapeAttr(target)}" data-ref-kind="${kind}">${escapeHtml(text)}</span>`
 }
 
 /** A table the field knows about: its document range, whether the caret is
@@ -1269,7 +1221,7 @@ export class CodeMirrorAdapter implements EditorAdapter {
         .slice(start - 1, end)
         .join('\n')
         .trimEnd()
-      return { type: blockType(body), html: blockHtml(body) }
+      return { type: blockType(body), html: renderBlock(body) }
     })
   }
 
@@ -1392,49 +1344,4 @@ export class CodeMirrorAdapter implements EditorAdapter {
     if (!reader) return
     void openVaultTarget(href, reader)
   }
-}
-
-/** The block's node type name, as the presentation renderer reads it. */
-function blockType(body: string): string {
-  const first = body.split('\n')[0].trim()
-  if (/^```/.test(first)) return 'code_block'
-  if (/^#{1,6}\s/.test(first)) return 'heading'
-  if (/^[-*+]\s/.test(first)) return 'bullet_list'
-  if (/^\d+[.)]\s/.test(first)) return 'ordered_list'
-  if (/^>/.test(first)) return 'blockquote'
-  if (/^\|/.test(first)) return 'table'
-  if (/^(---|\*\*\*|___)\s*$/.test(first)) return 'hr'
-  return 'paragraph'
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function escapeAttr(text: string): string {
-  return escapeHtml(text).replace(/'/g, '&#39;')
-}
-
-/** A block's static HTML: enough for the reading view, which owns its own
- *  rendering of the constructs it presents. */
-function blockHtml(body: string): string {
-  const type = blockType(body)
-  if (type === 'code_block') {
-    const fence = body.split('\n')
-    const language = /^```(\S*)/.exec(fence[0] ?? '')?.[1] ?? ''
-    const code = fence
-      .slice(1, fence[fence.length - 1]?.trim() === '```' ? -1 : undefined)
-      .join('\n')
-    return `<pre><code${language ? ` class="language-${escapeHtml(language)}"` : ''}>${escapeHtml(code)}</code></pre>`
-  }
-  if (type === 'heading') {
-    const depth = /^(#{1,6})/.exec(body.trim())?.[1].length ?? 1
-    const text = body.trim().replace(/^#{1,6}\s*/, '')
-    return `<h${depth}>${escapeHtml(text)}</h${depth}>`
-  }
-  return `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>`
 }

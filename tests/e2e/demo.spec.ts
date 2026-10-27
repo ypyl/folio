@@ -71,6 +71,23 @@ test('the guided demo opens without a folder picker and demonstrates every featu
   await editor.getByText('#![[How Folio works]]', { exact: true }).click()
   await expect(page.locator('.excalidraw canvas.interactive')).toBeVisible({ timeout: 20_000 })
 
+  // The Presenting chapter becomes a real deck from its row menu: formatted
+  // headings, separate slides, and a clean return to the page.
+  await files.getByRole('button', { name: 'Welcome' }).click()
+  await expect(editor).toContainText('## Table of contents')
+  await editor.getByText('#Presenting', { exact: true }).first().click()
+  await expect(editor).toContainText('Any page can become a deck')
+  await files.getByRole('button', { name: 'Presenting' }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Present' }).click()
+  const deck = page.getByRole('dialog', { name: 'Presentation' })
+  await expect(deck.locator('h1')).toHaveText('Presenting')
+  await expect(deck).toContainText('1 / 3')
+  await deck.getByRole('button', { name: 'Next slide' }).click()
+  await expect(deck).toContainText('A second slide')
+  await deck.getByRole('button', { name: 'Close presentation' }).click()
+  await expect(deck).toHaveCount(0)
+  await expect(editor).toContainText('Any page can become a deck')
+
   // Files covers every kind: scroll its own body to the end so the board and
   // asset rows enter the window, then read them.
   const fileList = files.getByRole('list').last()
