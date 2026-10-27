@@ -10,6 +10,7 @@
 // The importer is input-only: it never teaches the index, editor, or parser to
 // read Logseq conventions at runtime (ADR-0012, ADR-0024).
 
+import { journalDayName, journalDayPath } from './dates'
 import { baseName } from './link'
 import type { VaultStorage } from './storage'
 
@@ -247,13 +248,22 @@ function isAssetSource(path: string): boolean {
 const pageTarget = (path: string): string => `pages/${normalizeLogseqName(stemOf(path))}.md`
 const journalTarget = (path: string): string => `journals/${journalFileName(stemOf(path))}.md`
 
+/** The journal day a page source's name names, or null: a human-written date
+ *  title or the zero-padded day shape. A reference to it is rewritten to the
+ *  day, so the page has to be written where that reference resolves (ADR-0019). */
+function pageDay(stem: string): string | null {
+  return humanDateToDay(stem) ?? journalDayName(stem)
+}
+
 function assetTarget(path: string): string {
   if (path.startsWith('assets/')) return `assets/${path.slice('assets/'.length)}`
   return `assets/${baseName(path)}`
 }
 
 function outputNameFor(path: string): string {
-  return isJournalSource(path) ? journalFileName(stemOf(path)) : normalizeLogseqName(stemOf(path))
+  if (isJournalSource(path)) return journalFileName(stemOf(path))
+  const stem = stemOf(path)
+  return pageDay(stem) ?? normalizeLogseqName(stem)
 }
 
 // --------------------------------------------------------------- orchestration
@@ -362,9 +372,27 @@ export async function runLogseqImport(
     }
 
     // Planning: fresh pages, first-source-wins on a normalized-name collision.
+    // A page whose name is a day is a journal target, and folds with any journal
+    // source for that day: its references were rewritten to the day, so that is
+    // where it has to live.
     const planned: Planned[] = []
     const seen = new Set<string>()
+    const journalGroups = new Map<string, { path: string; parts: string[]; sourceKeys: string[] }>()
+    const addJournalSource = (path: string, target: string): void => {
+      const key = target.toLowerCase()
+      const group = journalGroups.get(key) ?? { path: target, parts: [], sourceKeys: [] }
+      group.parts.push(
+        rewriteLogseqContent(contents.get(path) ?? '', uuidToOwner, stemOf(path), stats),
+      )
+      group.sourceKeys.push(keyOf(path))
+      journalGroups.set(key, group)
+    }
     for (const path of freshPages) {
+      const day = pageDay(stemOf(path))
+      if (day !== null) {
+        addJournalSource(path, journalDayPath(day))
+        continue
+      }
       const target = pageTarget(path)
       const key = target.toLowerCase()
       if (seen.has(key)) {
@@ -382,17 +410,7 @@ export async function runLogseqImport(
     }
 
     // Journals fold: fresh sources for one day concatenate into one file.
-    const journalGroups = new Map<string, { path: string; parts: string[]; sourceKeys: string[] }>()
-    for (const path of freshJournals) {
-      const target = journalTarget(path)
-      const key = target.toLowerCase()
-      const group = journalGroups.get(key) ?? { path: target, parts: [], sourceKeys: [] }
-      group.parts.push(
-        rewriteLogseqContent(contents.get(path) ?? '', uuidToOwner, stemOf(path), stats),
-      )
-      group.sourceKeys.push(keyOf(path))
-      journalGroups.set(key, group)
-    }
+    for (const path of freshJournals) addJournalSource(path, journalTarget(path))
     for (const group of journalGroups.values()) {
       planned.push({
         path: group.path,

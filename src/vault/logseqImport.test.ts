@@ -223,6 +223,57 @@ describe('runLogseqImport', () => {
     expect(dest.files.has('.folio/imports.md')).toBe(true)
   })
 
+  it('writes a date-named page as its journal day', async () => {
+    const dest = new MemStorage()
+    const source = new MemStorage({
+      'pages/Apr 30th, 2025.md': 'Meeting notes\n',
+      'pages/2025-05-01.md': 'May day notes\n',
+      'pages/2025-02-30.md': 'Not a day\n',
+      'pages/Roadmap.md': 'See [[Apr 30th, 2025]] and [[2025-05-01]]\n',
+    })
+    const result = await runLogseqImport(source, dest)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    // Both day shapes land where their rewritten references point.
+    expect(dest.files.get('journals/2025-04-30.md')).toBe('Meeting notes\n')
+    expect(dest.files.get('journals/2025-05-01.md')).toBe('May day notes\n')
+    expect(dest.files.has('pages/Apr 30th, 2025.md')).toBe(false)
+    expect(dest.files.has('pages/2025-05-01.md')).toBe(false)
+    // A name that is not a real day is an ordinary page.
+    expect(dest.files.get('pages/2025-02-30.md')).toBe('Not a day\n')
+    expect(dest.files.get('pages/Roadmap.md')).toBe('See #[[2025-04-30]] and #[[2025-05-01]]\n')
+    expect(result.report.written).toBe(4)
+  })
+
+  it('folds a date-named page with its journal source into one day', async () => {
+    const dest = new MemStorage()
+    const source = new MemStorage({
+      'pages/Apr 30th, 2025.md': 'Page part\n',
+      'journals/2025_04_30.md': 'Journal part\n',
+    })
+    const result = await runLogseqImport(source, dest)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(dest.files.get('journals/2025-04-30.md')).toBe('Page part\n\nJournal part\n')
+    expect([...dest.files.keys()].filter((path) => path.startsWith('journals/'))).toEqual([
+      'journals/2025-04-30.md',
+    ])
+    expect(result.report.written).toBe(1)
+  })
+
+  it('names the day for a block reference into a date-named page', async () => {
+    const dest = new MemStorage()
+    const source = new MemStorage({
+      'pages/Apr 30th, 2025.md': 'id:: 11111111-1111-1111-1111-111111111111\n- a block\n',
+      'pages/Roadmap.md': 'See ((11111111-1111-1111-1111-111111111111))\n',
+    })
+    const result = await runLogseqImport(source, dest)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(dest.files.get('pages/Roadmap.md')).toBe('See #[[2025-04-30]]\n')
+    expect(result.report.stats.blockRefs).toBe(1)
+  })
+
   it('never imports config, backups, or source meta', async () => {
     const dest = new MemStorage()
     await runLogseqImport(source(), dest)

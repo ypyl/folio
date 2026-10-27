@@ -37,6 +37,7 @@ From `adr/` and `openspec/specs/`:
 | Logseq path | Folio path | Notes |
 | --- | --- | --- |
 | `pages/*.md` | `pages/*.md` | rename per §3 |
+| `pages/<a day name>.md` | `journals/<day>.md` | a page whose stem is a real day (`Apr 30th, 2025`, `2025-04-30`) is that journal day (ADR-0019), so references to it resolve |
 | `pages/journals/*.md` | `journals/*.md` | stray Folio artifacts inside the Logseq `pages/` folder (see §9) |
 | `pages/.folio/` | skip | Folio meta, not Logseq content |
 | `journals/YYYY_MM_DD.md` | `journals/YYYY-MM-DD.md` | underscore to hyphen |
