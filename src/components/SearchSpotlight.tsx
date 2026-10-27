@@ -246,6 +246,9 @@ export function SearchSpotlight({
   // the results view.
   const visible = results === null ? [] : topPerGroup(results)
   const sections = sectionsOf(visible, operator)
+  // The active row's index by path, once: the row loop below otherwise scans
+  // the list per rendered row.
+  const positions = new Map(visible.map((result, index) => [result.path, index]))
   const navLength = shown ? (showOperators ? SEARCH_OPERATORS.length : visible.length) : 0
   const navKeyDown = listKeyDown({
     // 0 while the dropdown is hidden, so a hidden list claims no key.
@@ -336,7 +339,7 @@ export function SearchSpotlight({
                   <section key={sec.label}>
                     <div className={styles.head}>{sec.label}</div>
                     {sec.items.map((r) => {
-                      const index = visible.indexOf(r)
+                      const index = positions.get(r.path) ?? -1
                       return (
                         <button
                           key={r.path}
