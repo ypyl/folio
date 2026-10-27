@@ -538,7 +538,15 @@ describe('EditorPane', () => {
       />,
     )
     screen.getByText(/Folio is a local-first notes app/)
-    screen.getByText(/Pages and journals are plain Markdown/)
+    // simplify-the-brand-screen: the facts are three labeled items, not a
+    // sentence, under the headline and the actions.
+    screen.getByRole('heading', { level: 1, name: 'Open a folder to begin.' })
+    const facts = within(screen.getByRole('main')).getAllByRole('listitem')
+    expect(facts.map((item) => item.textContent)).toEqual([
+      'Pages & journalsPlain Markdown files',
+      'Wiki links#word or #[[Page]]',
+      'Whiteboards#!board',
+    ])
     fireEvent.click(screen.getByRole('button', { name: 'Take the tour' }))
     expect(onTour).toHaveBeenCalledTimes(1)
   })
@@ -555,6 +563,9 @@ describe('EditorPane', () => {
     )
     expect(screen.queryByText(/Folio is a local-first notes app/)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+    // simplify-the-brand-screen: the facts belong with the introduction, so
+    // they are absent from the transitional hint too.
+    expect(screen.queryByRole('listitem')).toBeNull()
   })
 
   it('links to the project repository on the brand screen (add-github-link)', () => {

@@ -381,7 +381,13 @@ describe('the brand screen introduction (add-landing-page-info)', () => {
     await screen.findByText('Open a folder to begin.')
 
     screen.getByText(/Folio is a local-first notes app/)
-    screen.getByText(/Pages and journals are plain Markdown/)
+    // simplify-the-brand-screen: the facts are a labeled row, not a sentence.
+    const facts = within(document.querySelector('[data-tour="editor"]') as HTMLElement)
+    expect(facts.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Pages & journalsPlain Markdown files',
+      'Wiki links#word or #[[Page]]',
+      'Whiteboards#!board',
+    ])
     // add-issue-report-note: the repository area says where issues go.
     screen.getByText(/Found a bug or have a feature request\?/)
 

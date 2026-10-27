@@ -59,27 +59,75 @@
   text-transform: uppercase;
 }
 
+/* The brand screen (simplify-the-brand-screen): a hero, the actions it offers,
+   a scannable row of facts, and a quiet footer. The pane scrolls rather than
+   clips, and centering is the inner wrapper's `margin: auto` — `justify-content:
+   center` alone cuts the first band off once the content outgrows the pane. */
 .emptyState {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  /* The brand block outgrows a landscape phone, so this region does overflow on
+     a real target: it reserves the lane (steady-scroll-regions) and carries the
+     app's thumb (always-visible-scrollbars) rather than jumping when the bar
+     appears. */
+  scrollbar-gutter: stable;
+}
+
+.emptyState::-webkit-scrollbar {
+  background: transparent;
+}
+
+.emptyState::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.emptyState::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px;
+}
+
+.emptyContent {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  gap: 24px;
+  padding: 32px 24px;
+}
+
+/* The hero: mark, headline, one sentence. The gap under the headline stays
+   smaller than the gap above it (DESIGN.md rule 7), so the sentence belongs to
+   what precedes it. */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 46ch;
 }
 
 .mark {
   display: block;
-  width: 96px;
-  height: 96px;
+  width: 72px;
+  height: 72px;
 }
 
+/* The screen's headline: near-black and larger than the body, so the hierarchy
+   is carried by type rather than by the mark (ADR-0011 defers a type scale;
+   this stays inside today's screen-UI sizes). */
 .tagline {
   margin: 0;
-  font-size: 15px;
-  color: var(--stone);
-  /* The brand screen is a centred block: a line long enough to wrap (the
-     browser requirement) wraps inside a readable measure and stays centred. */
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--near-black);
+  /* A line long enough to wrap (the browser requirement) wraps inside a
+     readable measure and stays centred. */
   text-align: center;
   max-width: 46ch;
 }
@@ -119,45 +167,92 @@
   line-height: 1.5;
 }
 
-/* The brand screen's introduction (add-landing-page-info): the app's paragraph,
-   under the tagline. Same centered measure as the tagline, so the block reads as
-   one column. */
-.brandInfo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  max-width: 46ch;
-}
-
-/* The brand screen's body paragraph (add-landing-page-info, add-issue-report-note):
-   the app's introduction as one paragraph, the tour line's sentence inside it,
-   and the issue-reporting line below it, all centered on the tagline's measure.
-   The introduction is what the app is, so it carries secondary ink; the rest is
-   supporting detail in tertiary ink. */
-.description,
-.repoNote {
+/* The brand screen's introduction (add-landing-page-info): the app's one
+   sentence, under the headline, in secondary ink — the facts below it carry the
+   detail. */
+.description {
   margin: 0;
   font-size: 14px;
-  color: var(--stone);
+  color: var(--dark-warm);
   text-align: center;
 }
 
-.description {
-  color: var(--dark-warm);
+/* The actions the screen offers (the guided demo, the Logseq import), directly
+   under the introduction so a returning user acts before reading the facts. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.repoNote {
-  max-width: 46ch;
+/* What the app does (simplify-the-brand-screen): three labeled facts, read by
+   scanning. One row where the pane is wide enough for three columns, one column
+   where it is not, with no media query and no truncation. No icons: a glyph
+   would restate the label beside it (DESIGN.md rules 5 and 6). */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px 20px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.factLabel {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--near-black);
+}
+
+.factDetail {
+  margin: 0;
+  font-size: 12px;
+  color: var(--stone);
+}
+
+/* The tour reference and the issue-reporting line (add-landing-page-info,
+   add-issue-report-note): the screen's quietest text, below the facts. */
+.footerNote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.footerLine {
+  margin: 0;
+  font-size: 12px;
+  color: var(--stone);
+  text-align: center;
+  /* Wider than the headline's measure: these two lines are one short sentence
+     each and read better unbroken. */
+  max-width: 56ch;
 }
 
 /* The app's one link treatment (DESIGN.md "Links"): brand ink, no underline,
    hover tint. The repository link (add-github-link) is an anchor; the tour
    reference (add-landing-page-info) is a button, so it carries the button
-   resets on top. */
+   resets on top. The negative inline margin cancels the padding, so the tint
+   has its breathing room without widening the sentence around the control —
+   a punctuation mark after the control then hugs its text instead of floating
+   away from it (simplify-the-brand-screen). */
 .repoLink,
 .tourLink {
-  padding: 2px 6px;
+  margin: 0 -5px;
+  padding: 2px 5px;
   border-radius: 6px;
   color: var(--brand);
   text-decoration: none;

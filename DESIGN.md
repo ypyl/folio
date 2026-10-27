@@ -144,6 +144,25 @@ A lifted surface is carried by the fill, not an outline: `--ivory` against
 `--parchment` is the whole gesture. Do not add a closed hairline border around
 a filled card.
 
+### The brand screen
+
+The no-folder screen is a hero, then the actions it offers, then a row of facts,
+then a footer — in that order, in one centered column on `--parchment`. The
+headline carries the hierarchy: 20px/600 `--near-black`, with the mark held at
+72px so the logo is identity rather than the loudest thing on the screen. The
+introduction is one sentence in `--dark-warm`, and the demo and import actions
+sit directly under it, so a returning user never reads the facts to act.
+
+The facts are label/detail pairs — 13px/600 `--near-black` over 12px `--stone` —
+laid out as three columns (`repeat(auto-fit, minmax(140px, 1fr))`, 460px cap)
+that collapse to one column without a media query. They carry no icon, no fill,
+no border, and no divider: a chip would only restate the label beside it. The
+tour reference and the issue-reporting line close the screen at 12px `--stone`.
+
+The pane scrolls rather than clips, and centers on an inner wrapper's
+`margin: auto` — `justify-content: center` cuts the first band off once the
+content is taller than the pane.
+
 ### The board canvas
 
 A whiteboard's canvas is the app's parchment, not the editor's white: a board

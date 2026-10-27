@@ -44,14 +44,22 @@ const EMPTY_HINTS: Record<'notes' | 'open-folder', string> = {
   'open-folder': 'Open a folder to begin.',
 }
 
-// The brand screen's introduction (add-landing-page-info): what Folio is and
-// what it does, shown under the tagline once the no-folder state has settled.
-// The facts mirror the tour's editor step and ADR-0024's board form, so the two
-// do not drift.
+// The brand screen's introduction (add-landing-page-info, simplify-the-brand-
+// screen): one sentence under the headline, once the no-folder state has
+// settled. It says what Folio is; the facts below it are read by scanning
+// rather than by reading a paragraph.
 const BRAND_DESCRIPTION =
-  'Folio is a local-first notes app. Your Markdown folder is the database: open it in the browser and your notes stay on your machine.'
-const BRAND_FACTS =
-  'Pages and journals are plain Markdown. Link a page with #word or #[[Page]], and a whiteboard with #!board.'
+  'Folio is a local-first notes app: your Markdown folder is the database, and your notes stay on your machine.'
+
+// What the app does, as label/detail pairs (simplify-the-brand-screen, design
+// D2). The same three facts the paragraph used to carry, in the reference
+// grammar the tour's editor step and ADR-0024's board form use, so the two do
+// not drift.
+const BRAND_FACTS = [
+  { label: 'Pages & journals', detail: 'Plain Markdown files' },
+  { label: 'Wiki links', detail: '#word or #[[Page]]' },
+  { label: 'Whiteboards', detail: '#!board' },
+] as const
 
 // Line-number gutter (line-numbers change, design D3): the single shared
 // anchor rule (src/lineAnchors.ts) provides one canonical start line per
@@ -454,56 +462,77 @@ export function EditorPane({
             </div>
           </div>
         ) : (
+          // The brand screen (simplify-the-brand-screen): a hero, the actions
+          // it offers, then the facts as a scannable row and a quiet footer.
+          // Centering lives on the inner wrapper, so a short pane scrolls the
+          // block instead of clipping its first band.
           <div className={styles.emptyState}>
-            <FolioMark className={styles.mark} />
-            {emptyHint === 'browser-unsupported' ? (
-              <BrowserWarning />
-            ) : (
-              <p className={styles.tagline}>{EMPTY_HINTS[emptyHint]}</p>
-            )}
-            {/* The app's introduction (add-landing-page-info): what Folio is
-                and what it does. Shown once the no-folder state has settled —
-                not during the transitional `notes` hint, which exists to keep
-                a stored folder's restore from flashing the open-folder copy. */}
-            {emptyHint !== 'notes' && (
-              <div className={styles.brandInfo}>
-                <p className={styles.description}>
-                  {BRAND_DESCRIPTION} {BRAND_FACTS}
-                  {onTour && (
-                    <>
-                      {' '}
-                      New here?{' '}
-                      <button type="button" className={styles.tourLink} onClick={onTour}>
-                        Take the tour
-                      </button>
-                      , or use the ? in the left rail.
-                    </>
+            <div className={styles.emptyContent}>
+              <div className={styles.hero}>
+                <FolioMark className={styles.mark} />
+                {emptyHint === 'browser-unsupported' ? (
+                  <BrowserWarning />
+                ) : (
+                  <h1 className={styles.tagline}>{EMPTY_HINTS[emptyHint]}</h1>
+                )}
+                {/* The app's introduction (add-landing-page-info): what Folio
+                    is. Shown once the no-folder state has settled — not during
+                    the transitional `notes` hint, which exists to keep a stored
+                    folder's restore from flashing the open-folder copy. */}
+                {emptyHint !== 'notes' && <p className={styles.description}>{BRAND_DESCRIPTION}</p>}
+              </div>
+              {(onDemo || brandAction) && (
+                <div className={styles.actions}>
+                  {onDemo && (
+                    <button type="button" className="btn-primary" onClick={onDemo}>
+                      Open the guided demo
+                    </button>
                   )}
+                  {brandAction}
+                </div>
+              )}
+              {/* What the app does (simplify-the-brand-screen): three labeled
+                  facts instead of a sentence, one row where the pane is wide
+                  and one column where it is not. */}
+              {emptyHint !== 'notes' && (
+                <ul className={styles.facts}>
+                  {BRAND_FACTS.map((fact) => (
+                    <li key={fact.label} className={styles.fact}>
+                      <p className={styles.factLabel}>{fact.label}</p>
+                      <p className={styles.factDetail}>{fact.detail}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className={styles.footerNote}>
+                {emptyHint !== 'notes' && onTour && (
+                  <p className={styles.footerLine}>
+                    New here?{' '}
+                    <button type="button" className={styles.tourLink} onClick={onTour}>
+                      Take the tour
+                    </button>
+                    , or use the ? in the left rail.
+                  </p>
+                )}
+                {/* The issue-reporting line (add-issue-report-note): where
+                    bugs and feature requests go, with the repository link
+                    inline. Shown in every no-folder state, below the import
+                    action. */}
+                <p className={styles.footerLine}>
+                  Found a bug or have a feature request? Report it on{' '}
+                  <a
+                    className={styles.repoLink}
+                    href="https://github.com/ypyl/folio"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Folio on GitHub"
+                  >
+                    GitHub
+                  </a>
+                  .
                 </p>
               </div>
-            )}
-            {onDemo && (
-              <button type="button" className="btn-primary" onClick={onDemo}>
-                Open the guided demo
-              </button>
-            )}
-            {brandAction}
-            {/* The issue-reporting line (add-issue-report-note): where bugs and
-                feature requests go, with the repository link inline. Shown in
-                every no-folder state, in place of the bare repository link. */}
-            <p className={styles.repoNote}>
-              Found a bug or have a feature request? Report it on{' '}
-              <a
-                className={styles.repoLink}
-                href="https://github.com/ypyl/folio"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Folio on GitHub"
-              >
-                GitHub
-              </a>
-              .
-            </p>
+            </div>
           </div>
         )}
       </main>

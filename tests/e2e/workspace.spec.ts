@@ -12,7 +12,13 @@ test('the no-folder state invites opening a folder', async ({ page }) => {
   // add-landing-page-info: the screen says what Folio is and does, and points
   // at the tour.
   await expect(page.getByText(/Folio is a local-first notes app/)).toBeVisible()
-  await expect(page.getByText(/Pages and journals are plain Markdown/)).toBeVisible()
+  // simplify-the-brand-screen: the facts are a labeled row, not a sentence.
+  const facts = page.locator('[data-tour="editor"]').getByRole('listitem')
+  await expect(facts).toHaveCount(3)
+  await expect(facts.nth(0)).toContainText('Pages & journals')
+  await expect(facts.nth(0)).toContainText('Plain Markdown files')
+  await expect(facts.nth(1)).toContainText('#word or #[[Page]]')
+  await expect(facts.nth(2)).toContainText('#!board')
 
   // No vault yet: search is disabled, and the trail and Today have nowhere to go.
   await expect(page.getByRole('button', { name: 'Open search' })).toBeDisabled()
