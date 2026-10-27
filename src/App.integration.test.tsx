@@ -1915,6 +1915,40 @@ describe('whiteboards (add-whiteboards)', () => {
     await waitFor(() => screen.getByRole('main'))
   })
 
+  it('keeps the scene of the board still open when an earlier read lands late', async () => {
+    boardInstances.list.length = 0
+    render(<App />)
+    const tree = buildTree({
+      pages: { 'Ideas.md': 'nothing' },
+      boards: { 'X.excalidraw': '{"scene":"X"}', 'Y.excalidraw': '{"scene":"Y"}' },
+    })
+    await openFixture(tree)
+
+    // Hold both board reads open, so the order they land in is the test's.
+    const pending = new Map<string, (text: string) => void>()
+    const storageRead = FileSystemVaultStorage.prototype.read
+    const spy = vi
+      .spyOn(FileSystemVaultStorage.prototype, 'read')
+      .mockImplementation(async function (this: FileSystemVaultStorage, path: string) {
+        if (!path.startsWith('boards/')) return storageRead.call(this, path)
+        return new Promise<string>((resolve) => pending.set(path, resolve))
+      })
+    try {
+      fireEvent.click(filesSection().getByRole('button', { name: 'X.excalidraw' }))
+      fireEvent.click(filesSection().getByRole('button', { name: 'Y.excalidraw' }))
+
+      // X's read lands while Y is open: it must not mount Y's board with X's scene.
+      await act(async () => pending.get('boards/X.excalidraw')?.('{"scene":"X"}'))
+      expect(boardInstances.list).toEqual([])
+
+      await act(async () => pending.get('boards/Y.excalidraw')?.('{"scene":"Y"}'))
+      expect(boardInstances.list.map((board) => board.scene)).toEqual(['{"scene":"Y"}'])
+    } finally {
+      spy.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('lists a board in the sidebar and opens it', async () => {
     boardInstances.list.length = 0
     render(<App />)

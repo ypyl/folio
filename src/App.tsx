@@ -294,6 +294,12 @@ function App() {
     [activePath],
   )
 
+  // The open path, read by callbacks that resolve after an await: a read that
+  // started for one board or page must not act once another is open.
+  const activePathRef = useRef(activePath)
+  /* oxlint-disable-next-line react/refs */
+  activePathRef.current = activePath
+
   // Opening a board (add-whiteboards, design D5): the main pane switches to the
   // board editor and the board's text is read once into `boardScene`. The path
   // is the open thing's identity, exactly as a page path is, so the trail
@@ -311,10 +317,17 @@ function App() {
         setBoardScene('')
         return
       }
+      // A read that lands after another board opened is discarded: its scene
+      // belongs to a board that is no longer on screen, and applying it would
+      // show (and save) the wrong board's elements under the open path.
       void store
         .read(path)
-        .then((text) => setBoardScene(text))
-        .catch(() => setBoardScene(''))
+        .then((text) => {
+          if (activePathRef.current === path) setBoardScene(text)
+        })
+        .catch(() => {
+          if (activePathRef.current === path) setBoardScene('')
+        })
     },
     [activeFolder],
   )
@@ -578,9 +591,6 @@ function App() {
   // opened first, and its deck is derived when the editor reports ready
   // (navigate-then-present) rather than from a second Markdown render path.
   const pendingPresent = useRef<string | null>(null)
-  const activePathRef = useRef(activePath)
-  /* oxlint-disable-next-line react/refs */
-  activePathRef.current = activePath
 
   const handlePresent = useCallback(
     (path: string) => {
