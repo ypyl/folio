@@ -348,6 +348,63 @@ describe('MetaPanel', () => {
     expect(panel.getByRole('button', { name: 'Gamma' })).toBeTruthy()
   })
 
+  it('collapses every subtree at once and expands every one at once', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        contents={[
+          { level: 1, text: 'Alpha', block: 0 },
+          { level: 2, text: 'Beta', block: 2 },
+          { level: 3, text: 'Gamma', block: 3 },
+          { level: 1, text: 'Delta', block: 5 },
+          { level: 2, text: 'Epsilon', block: 6 },
+        ]}
+        links={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const contents = screen.getByText('Contents').closest('details') as HTMLElement
+    const panel = within(contents)
+    // Collapse all leaves only the headings that have no shallower heading
+    // above them, and each survivor's control reports the collapsed state.
+    fireEvent.click(panel.getByRole('button', { name: 'Collapse all' }))
+    expect(panel.queryByRole('button', { name: 'Beta' })).toBeNull()
+    expect(panel.queryByRole('button', { name: 'Gamma' })).toBeNull()
+    expect(panel.queryByRole('button', { name: 'Epsilon' })).toBeNull()
+    expect(panel.getByRole('button', { name: 'Expand Alpha' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    )
+    expect(panel.getByRole('button', { name: 'Expand Delta' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    )
+    // Expand all brings back every row, and a single subtree still toggles.
+    fireEvent.click(panel.getByRole('button', { name: 'Expand all' }))
+    expect(panel.getByRole('button', { name: 'Gamma' })).toBeTruthy()
+    expect(panel.getByRole('button', { name: 'Epsilon' })).toBeTruthy()
+    fireEvent.click(panel.getByRole('button', { name: 'Collapse Delta' }))
+    expect(panel.queryByRole('button', { name: 'Epsilon' })).toBeNull()
+  })
+
+  it('offers no expand-all control when there are no headings', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        contents={[]}
+        links={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const contents = screen.getByText('Contents').closest('details') as HTMLElement
+    expect(within(contents).queryByRole('button', { name: 'Expand all' })).toBeNull()
+    expect(within(contents).queryByRole('button', { name: 'Collapse all' })).toBeNull()
+  })
+
   it('resets collapse state when a different page opens', () => {
     const tree = [
       { level: 1, text: 'Alpha', block: 0 },

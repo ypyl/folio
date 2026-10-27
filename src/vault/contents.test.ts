@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildContentTree, deriveContents } from './contents'
+import { buildContentTree, collectCollapsibleBlocks, deriveContents } from './contents'
 
 describe('deriveContents (add-page-contents)', () => {
   it('lists headings in document order with level and block', () => {
@@ -86,5 +86,30 @@ describe('buildContentTree (add-contents-tree)', () => {
 
   it('returns nothing for no headings', () => {
     expect(buildContentTree([])).toEqual([])
+  })
+})
+
+describe('collectCollapsibleBlocks (add-contents-expand-collapse-all)', () => {
+  const entry = (level: number, text: string, block: number) => ({ level, text, block })
+
+  it('lists every node with children, in document order', () => {
+    const tree = buildContentTree([
+      entry(1, 'Alpha', 0),
+      entry(2, 'Beta', 2),
+      entry(3, 'Gamma', 3),
+      entry(1, 'Delta', 5),
+    ])
+    // Gamma has no subtree, so it is not a collapse target.
+    expect(collectCollapsibleBlocks(tree)).toEqual([0, 2])
+  })
+
+  it('lists nothing for a flat tree', () => {
+    expect(
+      collectCollapsibleBlocks(buildContentTree([entry(1, 'Alpha', 0), entry(1, 'Beta', 1)])),
+    ).toEqual([])
+  })
+
+  it('lists nothing for no headings', () => {
+    expect(collectCollapsibleBlocks([])).toEqual([])
   })
 })

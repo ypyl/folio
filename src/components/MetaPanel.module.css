@@ -190,6 +190,34 @@
   padding: 0;
 }
 
+/* The whole-outline controls (add-contents-expand-collapse-all): quiet text
+   buttons on the panel's own surface, stuck to the body's top edge because a
+   long outline scrolls inside the capped body and they must stay reachable.
+   The fill is the panel surface, so rows pass beneath them cleanly. */
+.contentTools {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  padding: 2px 0 6px;
+  background: var(--ivory);
+}
+
+.contentTool {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--stone);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.contentTool:hover {
+  color: var(--dark-warm);
+}
+
 /* When Links is collapsed it gives its height to Contents (grow-contents-when-
    links-collapsed): Contents grows, its body drops the cap and fills, and the
    collapsed Links summary keeps its place at the panel's bottom. Only while

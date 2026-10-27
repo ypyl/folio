@@ -73,3 +73,21 @@ export function buildContentTree(entries: ContentEntry[]): ContentNode[] {
   }
   return roots
 }
+
+/**
+ * The `block` of every node in `tree` that has children, in document order —
+ * the subtrees a collapse-all hides (add-contents-expand-collapse-all). Pure
+ * walk of an already-built tree, so it costs one pass over the headings and no
+ * parsing.
+ */
+export function collectCollapsibleBlocks(tree: ContentNode[]): number[] {
+  const blocks: number[] = []
+  const visit = (nodes: ContentNode[]) => {
+    for (const node of nodes) {
+      if (node.children.length > 0) blocks.push(node.block)
+      visit(node.children)
+    }
+  }
+  visit(tree)
+  return blocks
+}

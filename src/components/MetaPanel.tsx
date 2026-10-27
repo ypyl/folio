@@ -1,5 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { buildContentTree, type ContentEntry, type ContentNode } from '../vault/contents'
+import {
+  buildContentTree,
+  collectCollapsibleBlocks,
+  type ContentEntry,
+  type ContentNode,
+} from '../vault/contents'
 import { Accordion } from './Accordion'
 import styles from './MetaPanel.module.css'
 
@@ -144,19 +149,37 @@ function ContentList({
   collapsed,
   onToggle,
   onLocate,
+  onExpandAll,
+  onCollapseAll,
 }: {
   tree: ContentNode[]
   collapsed: ReadonlySet<number>
   onToggle: (block: number) => void
   onLocate: (block: number) => void
+  onExpandAll: () => void
+  onCollapseAll: () => void
 }) {
   if (tree.length === 0) {
     return <p className="section-placeholder">No headings on this page.</p>
   }
   return (
-    <div className={styles.list}>
-      <ContentNodes nodes={tree} collapsed={collapsed} onToggle={onToggle} onLocate={onLocate} />
-    </div>
+    <>
+      {/* The whole-outline controls (add-contents-expand-collapse-all): they
+          sit with the rows they act on, and only when there are rows, so an
+          empty or closed page offers nothing to click. Sticky, because a long
+          outline scrolls inside the capped body and they must stay reachable. */}
+      <div className={styles.contentTools}>
+        <button type="button" className={styles.contentTool} onClick={onExpandAll}>
+          Expand all
+        </button>
+        <button type="button" className={styles.contentTool} onClick={onCollapseAll}>
+          Collapse all
+        </button>
+      </div>
+      <div className={styles.list}>
+        <ContentNodes nodes={tree} collapsed={collapsed} onToggle={onToggle} onLocate={onLocate} />
+      </div>
+    </>
   )
 }
 
@@ -225,6 +248,11 @@ export function MetaPanel({
   // the saved content, so it is built once per save and never per keystroke.
   const tree = useMemo(() => buildContentTree(contents), [contents])
 
+  // The blocks Collapse all hides (add-contents-expand-collapse-all): every
+  // heading with a subtree, memoized on the tree, so a click writes one set and
+  // no keystroke pays for the walk.
+  const collapsibleBlocks = useMemo(() => collectCollapsibleBlocks(tree), [tree])
+
   // Collapse state is session-scoped and per open page (design D2): a `block`
   // index set that resets when a different page opens. Adjust-during-render,
   // so the reset lands before the new page's rows are shown; the guard keeps
@@ -244,6 +272,10 @@ export function MetaPanel({
       return { path: prev.path, blocks }
     })
   }
+  // Both extremes of the same set: expanding hides no subtree, collapsing hides
+  // every subtree. View-only, on the terms one toggle already keeps.
+  const expandAll = () => setCollapse({ path: activePath, blocks: EMPTY_BLOCKS })
+  const collapseAll = () => setCollapse({ path: activePath, blocks: new Set(collapsibleBlocks) })
 
   return (
     <aside
@@ -292,6 +324,8 @@ export function MetaPanel({
                 collapsed={collapsedBlocks}
                 onToggle={toggleSubtree}
                 onLocate={onLocate}
+                onExpandAll={expandAll}
+                onCollapseAll={collapseAll}
               />
             ) : (
               <p className="section-placeholder">Headings appear once a page is open.</p>
