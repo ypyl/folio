@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './fakeHandle'
 import { FileSystemVaultStorage } from './fs'
+import type { VaultStorage } from './storage'
 import {
   assetName,
   boardName,
@@ -97,6 +98,28 @@ describe('page name and kind (pages-folder-layout)', () => {
 })
 
 describe('buildIndex', () => {
+  it('skips a page whose file vanished or cannot be read, and indexes the rest', async () => {
+    const tree = buildTree({ pages: { 'gone.md': 'G', 'broken.md': 'B', 'kept.md': 'K' } })
+    const storage = vault(tree)
+    const flaky: VaultStorage = {
+      read: (path) =>
+        path === 'pages/broken.md' ? Promise.reject(new Error('unreadable')) : storage.read(path),
+      stat: (path) =>
+        path === 'pages/gone.md' ? Promise.reject(new Error('gone')) : storage.stat(path),
+      write: (path, content) => storage.write(path, content),
+      writeBinary: (path, blob) => storage.writeBinary(path, blob),
+      readBinary: (path) => storage.readBinary(path),
+      list: (path) => storage.list(path),
+    }
+
+    const index = await buildIndex(flaky)
+
+    expect([...index.graph.pages.keys()]).toEqual(['pages/kept.md'])
+    // No snapshot entry, so the next build tries both again rather than
+    // carrying over a page it never read.
+    expect(index.snapshot.has('pages/gone.md')).toBe(false)
+    expect(index.snapshot.has('pages/broken.md')).toBe(false)
+  })
   it('indexes pages/ and journals/ markdown with path, title, kind, and content', async () => {
     const tree = buildTree({
       pages: {

@@ -95,7 +95,9 @@ export async function buildIndex(
   const scanned = await mapLimit(paths.filter(isPagePath), SCAN_CONCURRENCY, (path) =>
     scanPage(storage, path, previous),
   )
-  for (const { path, lastModified, page } of scanned) {
+  for (const scannedPage of scanned) {
+    if (scannedPage === null) continue
+    const { path, lastModified, page } = scannedPage
     snapshot.set(path, lastModified)
     pages.set(path, page)
   }
@@ -105,18 +107,31 @@ export async function buildIndex(
 }
 
 /** One page's scan step: its mtime, then its resident record, carried over
- *  from `previous` when the mtime is unchanged. */
+ *  from `previous` when the mtime is unchanged. A page whose file vanished or
+ *  cannot be read between the listing and this step is skipped (null) rather
+ *  than failing the whole scan: the rest of the vault still opens, and the
+ *  path has no snapshot entry, so the next build tries it again. */
 async function scanPage(
   storage: VaultStorage,
   path: string,
   previous?: VaultIndex,
-): Promise<{ path: string; lastModified: number; page: IndexPage }> {
-  const lastModified = await storage.stat(path)
+): Promise<{ path: string; lastModified: number; page: IndexPage } | null> {
+  let lastModified: number
+  try {
+    lastModified = await storage.stat(path)
+  } catch {
+    return null
+  }
   if (previous) {
     const carried = carryOver(path, lastModified, previous)
     if (carried) return { path, lastModified, page: carried }
   }
-  const content = await storage.read(path)
+  let content: string
+  try {
+    content = await storage.read(path)
+  } catch {
+    return null
+  }
   return {
     path,
     lastModified,

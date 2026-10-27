@@ -117,6 +117,31 @@ describe('useIndex', () => {
     }
   })
 
+  it('retries the first build after a failed scan', async () => {
+    const tree = buildTree({ pages: { 'a.md': 'A' } })
+    const storage = vault(tree)
+    const list = FileSystemVaultStorage.prototype.list
+    let fail = true
+    vi.spyOn(FileSystemVaultStorage.prototype, 'list').mockImplementation(async function (
+      this: FileSystemVaultStorage,
+      path: string,
+    ) {
+      if (fail) throw new Error('denied')
+      return list.call(this, path)
+    })
+    const { result } = renderHook(() => useIndex(storage))
+    await flushUntil(() => false, 10)
+    // The failed scan published nothing, and nothing else was tried yet.
+    expect(result.current.graph).toBeNull()
+
+    // The next refresh builds again from empty instead of staying idle forever.
+    fail = false
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(result.current.graph?.pages.has('pages/a.md')).toBe(true))
+  })
+
   it('rebuilds from empty when the storage changes', async () => {
     const treeA = buildTree({ pages: { 'a.md': 'A' } })
     const treeB = buildTree({ pages: { 'b.md': 'B' } })

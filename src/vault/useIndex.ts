@@ -43,7 +43,6 @@ export function useIndex(storage: VaultStorage | undefined): {
   const pins = built !== null && built.storage === storage ? built.pins : EMPTY_PINS
   const reminders = built !== null && built.storage === storage ? built.reminders : EMPTY_REMINDERS
   const latest = useRef<VaultIndex | null>(null)
-  const inflight = useRef(false)
   // Generation counter: bumped when the storage changes, so an in-flight save
   // from a previous folder never touches the new folder's index.
   const generation = useRef(0)
@@ -60,41 +59,28 @@ export function useIndex(storage: VaultStorage | undefined): {
       return
     }
     let cancelled = false
+    // One scan at a time per storage (a build in flight, whether the first one
+    // or a refresh). Local to the effect, so a folder switch or StrictMode's
+    // second mount starts its own scan instead of waiting on the old one.
+    let building = false
     ++generation.current
     latest.current = null
 
-    // The index is disposable (ADR-0004): a fresh build on every folder
-    // switch, never cached across storages.
-    void buildIndex(store)
-      .then((index) => {
-        if (cancelled) return
-        /* oxlint-disable-next-line react/immutability */
-        latest.current = index
-        revision.current++
-        setBuilt({
-          storage: store,
-          graph: index.graph,
-          pins: index.pins,
-          reminders: index.reminders,
-        })
-      })
-      .catch(() => {
-        // Permission/folder failures keep the current state (no error UI).
-      })
-
     // Const arrow (not a hoisted function declaration) so TS keeps the
-    // narrowed `store` inside the closure.
-    const refresh = async (): Promise<void> => {
-      if (cancelled || inflight.current) return
+    // narrowed `store` inside the closure. One path for the first scan and
+    // every refresh: a fresh build while there is no index yet, a diff when
+    // there is one. The index is disposable (ADR-0004): a fresh build on every
+    // folder switch, never cached across storages.
+    const build = async (): Promise<void> => {
+      if (cancelled || building) return
       const current = latest.current
-      if (!current) return
       const revAtStart = revision.current
-      inflight.current = true
+      building = true
       try {
-        const next = await buildIndex(store, current)
+        const next = await (current ? buildIndex(store, current) : buildIndex(store))
         if (cancelled) return
-        // A write-through landed while this refresh was reading: what it read
-        // is older than the write's own index, so publishing would undo the
+        // A write-through landed while this build was reading: what it read is
+        // older than the write's own index, so publishing would undo the
         // write. Drop this pass; the next tick reads again.
         if (revAtStart !== revision.current) return
         /* oxlint-disable-next-line react/immutability */
@@ -102,28 +88,31 @@ export function useIndex(storage: VaultStorage | undefined): {
         revision.current++
         setBuilt({ storage: store, graph: next.graph, pins: next.pins, reminders: next.reminders })
       } catch {
-        // A transient read failure (a file deleted between the listing and its
-        // stat) must not reject the refresh: the current index stays and the
-        // next tick retries. The initial build above catches for the same
-        // reason.
+        // A transient failure (a page or the listing vanishing mid-scan, a
+        // permission blip) must not reject: the current index stays, and the
+        // next tick retries. Retrying the first build the same way is what
+        // stops one bad scan from leaving the app on "Indexing notes" for the
+        // whole session.
       } finally {
-        inflight.current = false
+        building = false
       }
     }
 
+    void build()
+
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') void refresh()
+      if (document.visibilityState === 'visible') void build()
     }
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refresh()
+      if (document.visibilityState === 'visible') void build()
     }, REFRESH_INTERVAL_MS)
 
-    window.addEventListener('focus', refresh)
+    window.addEventListener('focus', build)
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       cancelled = true
-      window.removeEventListener('focus', refresh)
+      window.removeEventListener('focus', build)
       document.removeEventListener('visibilitychange', onVisibility)
       window.clearInterval(interval)
     }
