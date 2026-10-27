@@ -2890,7 +2890,7 @@ describe('reminders from the calendar (add-reminders)', () => {
 
     await waitFor(
       async () => {
-        expect(await store.read(today)).toContain('#[[Take pills]]')
+        expect(await store.read(today)).toContain('- [ ] #[[Take pills]]')
       },
       { timeout: 3000 },
     )
@@ -2902,6 +2902,27 @@ describe('reminders from the calendar (add-reminders)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Today' }))
     await waitFor(() => screen.getByTitle(today))
     expect((await store.read(today)).match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
+    vi.unstubAllGlobals()
+  })
+
+  // The line is the control (materialize-a-reminder-as-a-task-item): an
+  // occurrence the user cannot tick would leave the reminder in the badge with
+  // no gesture to clear it.
+  it('materializes a single-word reminder as a task item', async () => {
+    const tree = buildTree({
+      pages: { 'Welcome.md': 'hi' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #reading\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    await waitFor(
+      async () => {
+        expect(await store.read('journals/2026-09-15.md')).toContain('- [ ] #reading')
+      },
+      { timeout: 3000 },
+    )
     vi.unstubAllGlobals()
   })
 
@@ -2929,11 +2950,11 @@ describe('reminders from the calendar (add-reminders)', () => {
         return write.call(this, path, content)
       })
     try {
-      await waitFor(() => expect(editor().content).toContain('#[[Take pills]]'))
+      await waitFor(() => expect(editor().content).toContain('- [ ] #[[Take pills]]'))
       // Leave and come back before the debounce fires.
       fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
       fireEvent.click(screen.getByRole('button', { name: 'Today' }))
-      await waitFor(() => expect(editor().content).toContain('#[[Take pills]]'))
+      await waitFor(() => expect(editor().content).toContain('- [ ] #[[Take pills]]'))
       expect(editor().content.match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
 
       release()
@@ -3079,6 +3100,37 @@ describe('a ticked reminder line (hide-a-ticked-reminder-from-the-badge)', () =>
       { timeout: 3000 },
     )
     await waitFor(() => expect(badge()).toBe(1))
+    vi.unstubAllGlobals()
+  })
+
+  it('drops a reminder the app wrote once the user ticks it', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    // The day opens with the occurrence already written as a task item, so the
+    // rule counts until the user ticks it.
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [ ] #[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(badge()).toBe(1))
+
+    // Ticking the box is the ordinary three-character edit the marker allows.
+    editor().emitChange('- [x] #[[Take pills]]\n')
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [x] #[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(badge()).toBe(0))
     vi.unstubAllGlobals()
   })
 

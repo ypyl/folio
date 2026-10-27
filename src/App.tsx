@@ -617,11 +617,14 @@ function App() {
     // matching rule whose page the note does not reference appends one line, so
     // the day holds its occurrence and the normal save persists it. It runs at
     // mount, so it touches only the day being opened, and it is idempotent
-    // because a written line makes the day reference the page. Gated by the
+    // because a written line makes the day reference the page. The line is an
+    // unchecked task item (materialize-a-reminder-as-a-task-item): the checkbox
+    // is the control that records the reminder as done, and ticking it is an
+    // ordinary edit the badge's done scan already reads.
     if (graph && journalDay !== null) {
       const draft = drafts.get(journalDayPath(journalDay))?.content
       for (const rule of unreferencedRules(graph, reminders, journalDay, draft)) {
-        editorRef.current?.appendMarkdown(referenceToken(rule.target, 'word'))
+        editorRef.current?.appendMarkdown(`- [ ] ${referenceToken(rule.target, 'word')}`)
       }
     }
   }, [graph, reminders, journalDay, drafts])

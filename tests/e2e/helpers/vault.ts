@@ -57,3 +57,20 @@ export async function openVault(page: Page): Promise<void> {
 export function editor(page: Page) {
   return page.locator('.cm-content')
 }
+
+/** The text of a file in the vault, or `''` while it does not exist yet: an
+ *  open day's note is written by the debounced save, so a poll reads it before
+ *  the first write and must not fail on that. */
+export async function readVaultFile(page: Page, path: string): Promise<string> {
+  return page.evaluate(async (path) => {
+    try {
+      const slash = path.indexOf('/')
+      const root = await navigator.storage.getDirectory()
+      const dir = slash === -1 ? root : await root.getDirectoryHandle(path.slice(0, slash))
+      const file = await (await dir.getFileHandle(path.slice(slash + 1))).getFile()
+      return file.text()
+    } catch {
+      return ''
+    }
+  }, path)
+}

@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { editor, installVaultPicker, openVault, seedVault } from './helpers/vault'
+import {
+  editor,
+  installVaultPicker,
+  openVault,
+  readVaultFile,
+  seedVault,
+  todayJournalPath,
+} from './helpers/vault'
 
 // add-reminders (remind-from-the-calendar): set a reminder for the open page
 // from a calendar day's menu, see it materialize into the day's note on open,
@@ -50,9 +57,17 @@ test('sets, replaces, materializes, and removes a reminder', async ({ page }) =>
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
 
-  // Opening today's journal materializes the reminder line into the note.
+  // Opening today's journal materializes the reminder line into the note. The
+  // line is an unchecked task item, so the day's occurrence arrives with the
+  // control that records it as done.
   await page.getByRole('button', { name: 'Today' }).click()
   await expect(editor(page)).toContainText('#Ana')
+  await expect(editor(page).locator('input[type="checkbox"]')).toHaveCount(1)
+
+  // Ticking the box is the user's record: the press writes `[x]` through the
+  // normal save, with no reminder-specific control behind it.
+  await editor(page).locator('input[type="checkbox"]').first().click()
+  await expect.poll(() => readVaultFile(page, todayJournalPath())).toContain('- [x] #Ana')
 
   // Confirming a replacement writes the chosen schedule.
   await files.getByRole('button', { name: 'Ana', exact: true }).click()
