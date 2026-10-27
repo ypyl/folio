@@ -34,22 +34,32 @@ test('the guided demo opens without a folder picker and demonstrates every featu
   await editor.getByText('#missing-topic', { exact: true }).click()
   await expect(page.getByTitle('pages/missing-topic.md')).toBeVisible()
 
-  // Files lists the demo's pages, its board, and its assets.
+  // Bring the guide back from the blank page and open its chapters through
+  // their reference badges, so the demo needs no outside content.
   const files = page.locator('#sidebar-pane')
-  await expect(files.getByRole('button', { name: 'Boards' })).toBeVisible()
-  await expect(files.getByRole('button', { name: 'How Folio works' })).toBeVisible()
-  await expect(files.getByRole('button', { name: 'folio-flow.svg' })).toBeVisible()
-
-  // The image on the Assets page resolves from the demo's own storage.
-  await files.getByRole('button', { name: 'Assets' }).click()
+  await files.getByRole('button', { name: 'Welcome' }).click()
+  await expect(editor).toContainText('## Table of contents')
+  await editor.getByText('#Assets', { exact: true }).click()
   await expect(editor).toContainText('An image from the vault')
   await expect(page.locator('.folio-image[data-resolved] img')).toBeVisible()
 
-  // The board reference opens the real Excalidraw surface.
-  await files.getByRole('button', { name: 'Boards' }).click()
+  // Back to the Welcome page, then into the board chapter.
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(editor).toContainText('## Table of contents')
+  await editor.getByText('#Boards', { exact: true }).first().click()
   await expect(editor).toContainText('Open the demo board')
   await editor.getByText('#![[How Folio works]]', { exact: true }).click()
-  await expect(page.locator('.excalidraw canvas.interactive')).toBeVisible()
+  await expect(page.locator('.excalidraw canvas.interactive')).toBeVisible({ timeout: 20_000 })
+
+  // Files covers every kind: scroll its own body to the end so the board and
+  // asset rows enter the window, then read them.
+  const fileList = files.getByRole('list').last()
+  await fileList.evaluate((el) => {
+    const body = el.parentElement as HTMLElement
+    body.scrollTop = body.scrollHeight
+  })
+  await expect(files.getByRole('button', { name: 'How Folio works' })).toBeVisible()
+  await expect(files.getByRole('button', { name: 'folio-flow.svg' })).toBeVisible()
 
   // Today opens the demo's own day and writes its due reminders into it.
   await page.getByRole('button', { name: 'Today' }).click()
