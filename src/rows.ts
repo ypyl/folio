@@ -19,6 +19,7 @@ import {
   type Graph,
   type IndexPage,
 } from './vault/index'
+import { parseLinks } from './vault/parse'
 import { matchingRules, type ReminderRule } from './vault/reminders'
 
 /** Order a "who references this" list: the most recently edited page first,
@@ -153,6 +154,7 @@ export function unreferencedRules(
   graph: Graph,
   rules: readonly ReminderRule[],
   day: string,
+  draft?: string,
 ): ReminderRule[] {
   const page = graph.pages.get(journalDayPath(day))
   const referenced = new Set<string>()
@@ -160,6 +162,13 @@ export function unreferencedRules(
     for (const link of page.links) {
       referenced.add(resolveReferencePath(link.target, graph.byName))
     }
+  }
+  // The open editor can hold a line the save has not written yet (the app
+  // appends the day's occurrences on open): counting its references too is what
+  // keeps closing and reopening the day inside the save debounce from adding a
+  // second copy.
+  for (const link of draft === undefined ? [] : parseLinks(draft)) {
+    referenced.add(resolveReferencePath(link.target, graph.byName))
   }
   const out: ReminderRule[] = []
   const seen = new Set<string>()

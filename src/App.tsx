@@ -619,11 +619,12 @@ function App() {
     // mount, so it touches only the day being opened, and it is idempotent
     // because a written line makes the day reference the page. Gated by the
     if (graph && journalDay !== null) {
-      for (const rule of unreferencedRules(graph, reminders, journalDay)) {
+      const draft = drafts.get(journalDayPath(journalDay))?.content
+      for (const rule of unreferencedRules(graph, reminders, journalDay, draft)) {
         editorRef.current?.appendMarkdown(referenceToken(rule.target, 'word'))
       }
     }
-  }, [graph, reminders, journalDay])
+  }, [graph, reminders, journalDay, drafts])
 
   // Favorite a page from its row's context menu (add-row-context-menu). This is
   // the pin store the status-bar star used, now keyed by the row's own path.

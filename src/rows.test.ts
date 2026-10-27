@@ -70,4 +70,15 @@ describe('unreferencedRules (add-reminders)', () => {
     )
     expect(rows).toHaveLength(1)
   })
+
+  it('counts a line the open draft holds but the saved note does not', () => {
+    const graph = graphOf([page('journals/2026-10-16.md')])
+    const rows = unreferencedRules(
+      graph,
+      [rule('daily', '2026-10-16', 'Take pills')],
+      '2026-10-16',
+      '\n\n#[[Take pills]]',
+    )
+    expect(rows).toEqual([])
+  })
 })

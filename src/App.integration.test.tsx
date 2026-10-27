@@ -2905,6 +2905,47 @@ describe('reminders from the calendar (add-reminders)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('does not add a second line when the day is reopened before the save lands', async () => {
+    const tree = buildTree({
+      pages: { 'Welcome.md': 'hi' },
+      '.folio': { 'reminders.md': '- daily 2026-09-15 #[[Take pills]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+    const today = 'journals/2026-09-15.md'
+
+    // Hold the day's write, so the reopen happens while only the draft holds
+    // the line and the index does not.
+    const write = FileSystemVaultStorage.prototype.write
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const spy = vi
+      .spyOn(FileSystemVaultStorage.prototype, 'write')
+      .mockImplementation(async function (this: FileSystemVaultStorage, path, content) {
+        if (path === today) await gate
+        return write.call(this, path, content)
+      })
+    try {
+      await waitFor(() => expect(editor().content).toContain('#[[Take pills]]'))
+      // Leave and come back before the debounce fires.
+      fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+      await waitFor(() => expect(editor().content).toContain('#[[Take pills]]'))
+      expect(editor().content.match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
+
+      release()
+      await waitFor(async () => {
+        expect((await store.read(today)).match(/#\[\[Take pills\]\]/g)).toHaveLength(1)
+      })
+    } finally {
+      spy.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('asks before a day-menu choice replaces an existing reminder', async () => {
     const tree = buildTree({
       pages: { 'Take pills.md': 'pills\n' },
