@@ -29,6 +29,18 @@ describe('blockStartLines', () => {
     expect(blockStartLines(text)).toEqual([1, 5])
   })
 
+  it('closes on a fence at least as long as the one that opened it', () => {
+    // A ``` block showing a ```` one: the longer run is still its close, so the
+    // heading after it is a block again.
+    const text = '```\ncode ``` here\n````\n\n# After\n'
+    expect(blockStartLines(text)).toEqual([1, 5])
+  })
+
+  it('treats a tilde fence as code too', () => {
+    const text = '~~~\n\n# not a heading\n~~~\n\n# Heading\n'
+    expect(blockStartLines(text)).toEqual([1, 6])
+  })
+
   it('does not treat a hard-broken continuation as a new block', () => {
     expect(blockStartLines('para one\nmore of the same paragraph\n')).toEqual([1])
   })

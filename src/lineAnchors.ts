@@ -21,24 +21,39 @@
  * - Blank lines count toward later numbering but yield no anchor, so the
  *   result can read 1, 3, 5.
  */
+/** The open code fence: its marker character (`` ` `` or `~`) and how many of
+ *  them opened it. CommonMark closes a fence on the same character repeated at
+ *  least that many times, which is what lets a ``` block hold a ```` one. */
+type Fence = { char: string; length: number }
+
+/** Whether `line` (already trimmed) closes `fence`. */
+function closesFence(line: string, fence: Fence): boolean {
+  if (line.length < fence.length) return false
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== fence.char) return false
+  }
+  return true
+}
+
 export function blockStartLines(text: string): number[] {
   const anchors: number[] = []
   const lines = text.split('\n')
-  let inFence = false
+  let fence: Fence | null = null
   let prevBlank = true // line 1 is an anchor regardless of context
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim()
-    if (inFence) {
+    if (fence) {
       // Code interior: never an anchor, and never resets prevBlank (a blank
       // inside a fence is code content, not a paragraph separator).
-      if (/^```$/.test(trimmed)) inFence = false
+      if (closesFence(trimmed, fence)) fence = null
       continue
     }
-    if (/^```/.test(trimmed)) {
+    const opener = /^(`{3,}|~{3,})/.exec(trimmed)
+    if (opener) {
       // Opening fence: the fence line IS the code block's anchor.
       if (i === 0 || prevBlank) anchors.push(i + 1)
-      inFence = true
+      fence = { char: opener[1][0], length: opener[1].length }
       prevBlank = false
       continue
     }
