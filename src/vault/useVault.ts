@@ -45,12 +45,21 @@ export function useVault() {
 
   useEffect(() => {
     let cancelled = false
-    void restore().then(([restored, active]) => {
-      if (cancelled) return
-      setFolders(restored)
-      setActiveId(active)
-      setStatus('ready')
-    })
+    void restore()
+      .then(([restored, active]) => {
+        if (cancelled) return
+        setFolders(restored)
+        setActiveId(active)
+        setStatus('ready')
+      })
+      .catch(() => {
+        // A folder registry that cannot be read (site data blocked, a failed
+        // open) leaves nothing to restore, which is the empty state, not a
+        // reason to stay on "restoring" forever: the rail must still offer the
+        // picker. Nothing is lost; the folders are still on disk.
+        if (cancelled) return
+        setStatus('ready')
+      })
     return () => {
       cancelled = true
     }

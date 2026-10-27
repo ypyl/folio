@@ -54,7 +54,7 @@ let dbPromise: Promise<IDBDatabase | null> | null = null
 function openDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null)
   if (!dbPromise) {
-    dbPromise = new Promise<IDBDatabase | null>((resolve, reject) => {
+    const opening = new Promise<IDBDatabase | null>((resolve, reject) => {
       const open = indexedDB.open('folio', 2)
       open.onupgradeneeded = () => {
         if (!open.result.objectStoreNames.contains('handles')) {
@@ -67,6 +67,13 @@ function openDb(): Promise<IDBDatabase | null> {
       open.onsuccess = () => resolve(open.result)
       open.onerror = () => reject(open.error)
     })
+    // A failed open must not poison every later call (site data blocked, a
+    // blocked upgrade from an older tab): forget it, so the next call tries
+    // again and the app can recover without a reload.
+    void opening.catch(() => {
+      if (dbPromise === opening) dbPromise = null
+    })
+    dbPromise = opening
   }
   return dbPromise
 }

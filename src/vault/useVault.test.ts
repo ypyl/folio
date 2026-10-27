@@ -9,8 +9,15 @@ import { buildIndex } from './index'
 const store = vi.hoisted(() => {
   const rows = new Map<string, { id: string; name: string; handle: unknown }>()
   let lastActive: string | null = null
+  let failList = false
   return {
-    listVaultHandles: async () => [...rows.values()],
+    listVaultHandles: async () => {
+      if (failList) {
+        failList = false
+        throw new Error('registry unavailable')
+      }
+      return [...rows.values()]
+    },
     saveVaultHandle: async (row: { id: string; name: string; handle: unknown }) => {
       rows.set(row.id, row)
     },
@@ -31,9 +38,13 @@ const store = vi.hoisted(() => {
       rows.set(rid, { id: rid, name, handle })
       return { id: rid, handle }
     },
+    failListOnce: () => {
+      failList = true
+    },
     reset: () => {
       rows.clear()
       lastActive = null
+      failList = false
     },
   }
 })
@@ -99,6 +110,16 @@ describe('boot restore', () => {
     expect(pending.permission).toBe('prompt')
     expect(pending.storage).toBeUndefined()
     expect(result.current.activeId).toBe(result.current.folders.find((f) => f.name === 'ready')!.id)
+  })
+
+  it('settles ready when the folder registry cannot be read', async () => {
+    store.failListOnce()
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    // Nothing was restored, which is the empty state: the rail still offers the
+    // picker instead of sitting on a boot that never finishes.
+    expect(result.current.folders).toEqual([])
+    expect(result.current.activeId).toBeNull()
   })
 
   it('drops a denied folder while others still reopen', async () => {

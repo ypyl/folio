@@ -85,6 +85,32 @@ describe('handleStore', () => {
     expect(await store.listVaultHandles()).toEqual([])
   })
 
+  it('opens again after a failed open instead of staying broken', async () => {
+    const db = makeIndexedDB()
+    let attempts = 0
+    vi.stubGlobal('indexedDB', {
+      open: () => {
+        attempts++
+        if (attempts > 1) return db.open()
+        const req = {
+          onsuccess: null,
+          onerror: null as null | (() => void),
+          onupgradeneeded: null,
+          result: null,
+          error: new Error('unavailable'),
+        }
+        queueMicrotask(() => req.onerror?.())
+        return req
+      },
+    })
+    const store = await load()
+    await expect(store.listVaultHandles()).rejects.toThrow('unavailable')
+
+    // The cached failure is forgotten, so the next call really opens again.
+    expect(await store.listVaultHandles()).toEqual([])
+    expect(attempts).toBe(2)
+  })
+
   it('is a safe no-op where IndexedDB is absent', async () => {
     vi.stubGlobal('indexedDB', undefined)
     const store = await load()
