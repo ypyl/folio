@@ -84,10 +84,39 @@
   max-width: 46ch;
 }
 
-/* The browser requirement (warn-unsupported-browser) is information the user
-   has to act on, not metadata: DESIGN.md's secondary text ink, not stone. */
-.notice {
-  color: var(--dark-warm);
+/* The unsupported-browser warning (highlight-the-browser-warning): the app's
+   one blocking warning, on the sanctioned warm warning tint. It is a card, not
+   a recolored tagline: icon, heading, and body read as a warning before the
+   sentence is read. */
+.browserWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 46ch;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--breaking-bg);
+  color: var(--breaking-fg);
+  text-align: left;
+}
+
+.browserWarningIcon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+
+.browserWarningTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.browserWarningBody {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* The brand screen's introduction (add-landing-page-info): the app's paragraph,

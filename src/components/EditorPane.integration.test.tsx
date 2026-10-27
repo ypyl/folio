@@ -434,6 +434,7 @@ describe('EditorPane', () => {
         <EditorPane page={null} emptyHint="open-folder" initialContent="" onChange={() => {}} />,
       )
       screen.getByText('Open a folder to begin.')
+      expect(screen.queryByText('Chrome, Edge, or Brave required')).toBeNull()
       expect(instances.list).toHaveLength(0)
     } finally {
       vi.unstubAllGlobals()
@@ -451,9 +452,10 @@ describe('EditorPane', () => {
     )
     // The requirement replaces the instruction: "open a folder" is not
     // something this browser can do (warn-unsupported-browser).
-    screen.getByText(
-      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave. You can still open the guided demo.',
-    )
+    // A warning card, not a recolored tagline (highlight-the-browser-warning).
+    screen.getByText('Chrome, Edge, or Brave required')
+    screen.getByText(/File System Access API/)
+    screen.getByText(/You can still open the guided demo/)
     expect(screen.queryByText('Open a folder to begin.')).toBeNull()
     // The mark stays decorative and no control promises a folder action.
     expect(screen.getByRole('main').querySelector('[aria-hidden="true"]')).not.toBeNull()

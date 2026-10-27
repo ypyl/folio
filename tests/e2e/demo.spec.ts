@@ -17,7 +17,9 @@ test('the guided demo opens without a folder picker and demonstrates every featu
 }) => {
   await page.goto('/')
 
-  // The browser requirement stands, and the demo is the one action it leaves.
+  // The browser requirement is a warning card, and the demo is the one action
+  // it leaves.
+  await expect(page.getByText('Chrome, Edge, or Brave required')).toBeVisible()
   await expect(page.getByText(/You can still open the guided demo/)).toBeVisible()
   await page.getByRole('button', { name: 'Open the guided demo' }).click()
 

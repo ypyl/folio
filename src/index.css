@@ -26,6 +26,10 @@
   /* Chromatic tints */
   --chip-bg: #e4ecf5;
   --brand-tint: #eef2f7;
+  /* The one sanctioned warning tint (DESIGN.md): the breaking-change badge and
+     the unsupported-browser warning, and nothing else. */
+  --breaking-bg: #f0e0d8;
+  --breaking-fg: #8b4513;
 
   /* Workspace columns (ui-shell): the rail, strip, and pane widths the
      workspace grid reads. The two `*-cur` values are the live widths the

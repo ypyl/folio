@@ -29,18 +29,19 @@ import styles from './EditorPane.module.css'
 // document or the serialized markdown.
 const PLACEHOLDER = 'Start typing…'
 
-// The brand screen's copy when the browser cannot open a local folder at all
-// (warn-unsupported-browser): the picker is Chromium-only, so the screen names
-// the requirement and the browsers that meet it rather than telling the user to
-// open a folder they have no way to open.
-const BROWSER_REQUIREMENT =
-  'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave. You can still open the guided demo.'
+// The unsupported-browser warning (warn-unsupported-browser): the picker is
+// Chromium-only, so the screen names the requirement as a warning rather than
+// telling the user to open a folder they have no way to open
+// (highlight-the-browser-warning).
+const BROWSER_WARNING_TITLE = 'Chrome, Edge, or Brave required'
+const BROWSER_WARNING_BODY =
+  'Folio opens local folders with the File System Access API, which needs a Chromium-based browser. You can still open the guided demo below.'
 
-// The brand screen's line, by hint variant.
-const EMPTY_HINTS: Record<'notes' | 'open-folder' | 'browser-unsupported', string> = {
+// The brand screen's line, by hint variant. The unsupported-browser state uses
+// the warning callout instead.
+const EMPTY_HINTS: Record<'notes' | 'open-folder', string> = {
   notes: 'Your notes appear here.',
   'open-folder': 'Open a folder to begin.',
-  'browser-unsupported': BROWSER_REQUIREMENT,
 }
 
 // The brand screen's introduction (add-landing-page-info): what Folio is and
@@ -75,6 +76,34 @@ export type EditorPaneHandle = {
    *  compact shell covers the editor with a view of its own, and the platform
    *  drops focus when the control that held it is hidden. */
   focus: () => void
+}
+
+// The unsupported-browser warning (highlight-the-browser-warning): the app's one
+// blocking condition on the brand screen. It is a warning surface with its own
+// heading, not a recolored tagline, and it points at the demo that still works.
+function BrowserWarning() {
+  return (
+    <div className={styles.browserWarning} role="note">
+      <svg
+        className={styles.browserWarningIcon}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 3 2.5 20h19L12 3Z" />
+        <path d="M12 9v5" />
+        <path d="M12 17.5h.01" />
+      </svg>
+      <div>
+        <p className={styles.browserWarningTitle}>{BROWSER_WARNING_TITLE}</p>
+        <p className={styles.browserWarningBody}>{BROWSER_WARNING_BODY}</p>
+      </div>
+    </div>
+  )
 }
 
 // The demo's session-only rule (make-the-demo-notice-visible): the Welcome page
@@ -427,11 +456,11 @@ export function EditorPane({
         ) : (
           <div className={styles.emptyState}>
             <FolioMark className={styles.mark} />
-            <p
-              className={`${styles.tagline}${emptyHint === 'browser-unsupported' ? ` ${styles.notice}` : ''}`}
-            >
-              {EMPTY_HINTS[emptyHint]}
-            </p>
+            {emptyHint === 'browser-unsupported' ? (
+              <BrowserWarning />
+            ) : (
+              <p className={styles.tagline}>{EMPTY_HINTS[emptyHint]}</p>
+            )}
             {/* The app's introduction (add-landing-page-info): what Folio is
                 and what it does. Shown once the no-folder state has settled —
                 not during the transitional `notes` hint, which exists to keep

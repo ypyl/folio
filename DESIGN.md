@@ -96,7 +96,9 @@ Kami's changelog template): a warm warning tint for breaking-change badges.
 | `--breaking-fg` | `#8b4513` (warm brown) |
 
 Both values are warm-toned (R > G > B). Any other off-token color is a
-violation; do not add a second semantic accent.
+violation; do not add a second semantic accent. Folio uses the tint in exactly
+two places: the breaking-change badge from Kami's changelog template, and the
+unsupported-browser warning on the brand screen. No other use is allowed.
 
 ---
 

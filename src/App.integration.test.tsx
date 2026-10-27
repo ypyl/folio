@@ -280,9 +280,8 @@ describe('application shell', () => {
     // Safari case (warn-unsupported-browser).
     expect('showDirectoryPicker' in window).toBe(false)
     render(<App />)
-    await screen.findByText(
-      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave. You can still open the guided demo.',
-    )
+    await screen.findByText('Chrome, Edge, or Brave required')
+    screen.getByText(/File System Access API/)
     // No control promises the action the browser cannot perform, and the
     // instruction it replaces is gone. The guided demo needs no folder, so it
     // is still offered (add-guided-demo).
