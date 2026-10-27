@@ -186,3 +186,40 @@ test('a selection inside a code block is visible', async ({ page }) => {
     .poll(() => layer.evaluate((el) => getComputedStyle(el).zIndex))
     .toBe('2')
 })
+
+// openspec/specs/editing: a dropped file is copied into the vault and linked,
+// never read into the page. CodeMirror's own drop handler reads every dropped
+// file as text, so a readable one (a certificate, an exported key) landed in
+// the page beside its link as well as in `assets/`.
+test('dropping a text file attaches it and does not insert its contents', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, { 'pages/Welcome.md': 'Start here.' })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Welcome' }).click()
+
+  const pem = '-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIUQ\n-----END CERTIFICATE-----\n'
+  const dataTransfer = await page.evaluateHandle((contents) => {
+    const dt = new DataTransfer()
+    dt.items.add(new File([contents], 'cert.pem', { type: 'application/x-pem-file' }))
+    return dt
+  }, pem)
+
+  const box = (await editor(page).boundingBox())!
+  await editor(page).dispatchEvent('drop', {
+    dataTransfer,
+    clientX: box.x + box.width / 2,
+    clientY: box.y + box.height / 2,
+  })
+
+  await expect(editor(page)).toContainText('[cert](assets/cert.pem)')
+  expect(await editor(page).innerText()).not.toContain('BEGIN CERTIFICATE')
+
+  // The bytes landed in the vault, not in the page.
+  const landed = await page.evaluate(async () => {
+    const assets = await (await navigator.storage.getDirectory()).getDirectoryHandle('assets')
+    const file = await (await assets.getFileHandle('cert.pem')).getFile()
+    return file.text()
+  })
+  expect(landed).toBe(pem)
+})

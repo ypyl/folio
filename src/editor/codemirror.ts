@@ -1175,6 +1175,15 @@ export class CodeMirrorAdapter implements EditorAdapter {
         this.changeListener?.(text)
       }),
       EditorView.domEventHandlers({
+        // A drop carrying files belongs to the pane, which copies each file
+        // into the vault and writes its link at the drop point
+        // (attach-pasted-files). CodeMirror's own drop handler reads every
+        // dropped file as text and inserts its contents, so a dropped
+        // certificate landed in the page beside its link. A handler returning
+        // true runs before the built-in one and claims the event for the
+        // pane, which still sees it: preventDefault does not stop bubbling.
+        // A drop with no files (selected text, a sidebar row) is left alone.
+        drop: (event) => (event.dataTransfer?.files.length ?? 0) > 0,
         mousedown: (event, view) => this.handleClick(event, view),
       }),
     ]
