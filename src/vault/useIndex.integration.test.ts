@@ -76,41 +76,25 @@ describe('useIndex', () => {
     await waitFor(() => expect(result.current.graph?.pages.get('pages/a.md')?.content).toBe('v2'))
   })
 
-  it('refreshes on the periodic interval while visible', async () => {
+  it('does not scan on a timer while the tab stays in view', async () => {
     vi.useFakeTimers()
     try {
       const tree = buildTree({ pages: { 'a.md': 'v1' } })
       const storage = vault(tree)
-      const { result } = renderHook(() => useIndex(storage))
-      await flushUntil(() => result.current.graph?.pages.has('pages/a.md') === true)
-
-      await act(async () => {
-        await fileOf(tree, 'pages/a.md').writeContent('v2')
-      })
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(30_000)
-      })
-      await flushUntil(() => result.current.graph?.pages.get('pages/a.md')?.content === 'v2')
-      expect(result.current.graph?.pages.get('pages/a.md')?.content).toBe('v2')
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('does not refresh on the interval while hidden', async () => {
-    vi.useFakeTimers()
-    try {
-      const tree = buildTree({ pages: { 'a.md': 'v1' } })
-      const storage = vault(tree)
+      const list = vi.spyOn(storage, 'list')
       const { result } = renderHook(() => useIndex(storage))
       await flushUntil(() => result.current.graph?.pages.has('pages/a.md') === true)
       await act(async () => {
         await fileOf(tree, 'pages/a.md').writeContent('v2')
       })
-      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+
+      const calls = list.mock.calls.length
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(30_000)
+        await vi.advanceTimersByTimeAsync(10 * 60_000)
       })
+
+      // No timer polls the folder: the change waits for focus or visibility.
+      expect(list).toHaveBeenCalledTimes(calls)
       expect(result.current.graph?.pages.get('pages/a.md')?.content).toBe('v1')
     } finally {
       vi.useRealTimers()

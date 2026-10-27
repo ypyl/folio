@@ -14,10 +14,9 @@ import type { VaultStorage } from './storage'
 
 // Binds the active folder's storage to its in-memory graph (design D6).
 // Idle (no build, no listeners) when storage is undefined; rebuilds from
-// empty when the storage changes; diff-refreshes on window focus, on
-// visibility becoming visible, and on a visibility-gated interval (design
-// D3 - external edits reach the index without restarting).
-const REFRESH_INTERVAL_MS = 30_000
+// empty when the storage changes; diff-refreshes on window focus and on
+// visibility becoming visible (design D3 - external edits reach the index
+// without restarting, and no timer polls the folder).
 
 type Built = { storage: VaultStorage; graph: Graph; pins: string[]; reminders: ReminderRule[] }
 
@@ -100,7 +99,7 @@ export function useIndex(storage: VaultStorage | undefined): {
         if (cancelled) return
         // A write-through landed while this build was reading: what it read is
         // older than the write's own index, so publishing would undo the
-        // write. Drop this pass; the next tick reads again.
+        // write. Drop this pass; the next refresh reads again.
         if (revAtStart !== revision.current) return
         /* oxlint-disable-next-line react/immutability */
         latest.current = { storage: store, index: next }
@@ -109,7 +108,7 @@ export function useIndex(storage: VaultStorage | undefined): {
       } catch {
         // A transient failure (a page or the listing vanishing mid-scan, a
         // permission blip) must not reject: the current index stays, and the
-        // next tick retries. Retrying the first build the same way is what
+        // next refresh retries. Retrying the first build the same way is what
         // stops one bad scan from leaving the app on "Indexing notes" for the
         // whole session.
       } finally {
@@ -122,9 +121,6 @@ export function useIndex(storage: VaultStorage | undefined): {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void build()
     }
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void build()
-    }, REFRESH_INTERVAL_MS)
 
     window.addEventListener('focus', build)
     document.addEventListener('visibilitychange', onVisibility)
@@ -133,7 +129,6 @@ export function useIndex(storage: VaultStorage | undefined): {
       cancelled = true
       window.removeEventListener('focus', build)
       document.removeEventListener('visibilitychange', onVisibility)
-      window.clearInterval(interval)
     }
   }, [storage])
 
