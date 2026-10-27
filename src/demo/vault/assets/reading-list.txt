@@ -1,0 +1,3 @@
+The Left Hand of Darkness — Ursula K. Le Guin
+Designing Data-Intensive Applications — Martin Kleppmann
+The Unaccountability Machine — Dan Davies

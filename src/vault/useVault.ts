@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FileSystemVaultStorage, pickVaultFolder } from './fs'
 import { isPagePath } from './index'
+import type { VaultStorage } from './storage'
 import {
   clearLastActiveId,
   clearVaultHandle,
@@ -30,12 +31,16 @@ export type VaultStatus = 'restoring' | 'ready'
 export interface VaultFolder {
   id: string
   name: string
-  handle: FileSystemDirectoryHandle
+  /** Absent for a virtual folder (the guided demo), which has no directory
+   *  handle and therefore can never reach a real file (add-guided-demo). */
+  handle?: FileSystemDirectoryHandle
   permission: PermissionState
-  storage?: FileSystemVaultStorage
+  storage?: VaultStorage
   /** The folder's notes, by the index's own rule (isPagePath), so the number the
    *  bar shows before the index lands is the number it shows after. */
   noteCount?: number
+  /** A session-only virtual vault: no handle, no stored row, no restore. */
+  demo?: boolean
 }
 
 export function useVault() {
@@ -66,10 +71,12 @@ export function useVault() {
   }, [])
 
   // Make a folder the active one, in state and in the stored last-active
-  // pointer. Every path that activates a folder ends here.
-  async function makeActive(id: string): Promise<void> {
+  // pointer. Every path that activates a folder ends here. A virtual folder
+  // (the demo) is not stored, so a reload restores the real folders unchanged
+  // (add-guided-demo, design D2).
+  async function makeActive(id: string, persist = true): Promise<void> {
     setActiveId(id)
-    await setLastActiveId(id)
+    if (persist) await setLastActiveId(id)
   }
 
   // Activate an existing folder. Granted: switch (loading the count lazily).
@@ -83,9 +90,10 @@ export function useVault() {
         const noteCount = await countNotes(target.storage)
         upsert(setFolders, { ...target, noteCount })
       }
-      await makeActive(id)
+      await makeActive(id, target.demo !== true)
       return
     }
+    if (!target.handle) return
     const granted = await permission(target.handle, 'request')
     if (granted === 'granted') {
       const open = await openVault(target.handle)
@@ -108,12 +116,15 @@ export function useVault() {
   // active, return home (no active folder, last-active cleared). Closing a
   // non-active folder only removes its entry and leaves the active folder.
   async function closeFolder(id: string): Promise<void> {
-    if (!folders.some((f) => f.id === id)) return
-    await clearVaultHandle(id)
+    const target = folders.find((f) => f.id === id)
+    if (!target) return
+    // A virtual folder has no stored handle; closing it discards its in-memory
+    // contents and leaves the registry alone.
+    if (target.demo !== true) await clearVaultHandle(id)
     setFolders((prev) => prev.filter((f) => f.id !== id))
     if (id === activeId) {
       setActiveId(null)
-      await clearLastActiveId()
+      if (target.demo !== true) await clearLastActiveId()
     }
   }
 
@@ -180,12 +191,40 @@ export function useVault() {
     await makeActive(id)
   }
 
+  // Add a vault that is not a directory (add-guided-demo): the demo's storage
+  // is already built, so there is no picker, permission request, handle, or
+  // stored row. Same one-entry-per-id dedup as a folder: a second request for a
+  // listed virtual vault activates that row instead of replacing its contents.
+  async function addVirtualFolder(folder: {
+    id: string
+    name: string
+    storage: VaultStorage
+    demo?: boolean
+  }): Promise<void> {
+    const existing = folders.find((f) => f.id === folder.id)
+    if (existing) {
+      await makeActive(existing.id, existing.demo !== true)
+      return
+    }
+    const noteCount = await countNotes(folder.storage)
+    upsert(setFolders, {
+      id: folder.id,
+      name: folder.name,
+      permission: 'granted',
+      storage: folder.storage,
+      noteCount,
+      demo: folder.demo,
+    })
+    await makeActive(folder.id, folder.demo !== true)
+  }
+
   return {
     status,
     folders,
     activeId,
     addFolder: openNewFolder,
     addFolderFromHandle,
+    addVirtualFolder,
     activate,
     closeFolder,
     goHome,
@@ -231,9 +270,10 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
 /** isSameEntry behind a guard: some handles (and test fakes) do not expose it,
  *  and a throw must not abort the import's folder registration. */
 async function isSameHandle(
-  a: FileSystemDirectoryHandle,
+  a: FileSystemDirectoryHandle | undefined,
   b: FileSystemDirectoryHandle,
 ): Promise<boolean> {
+  if (!a) return false
   try {
     return await a.isSameEntry(b)
   } catch {
@@ -244,7 +284,7 @@ async function isSameHandle(
 /** How many notes the folder holds: the listing filtered by the index's own
  *  rule, so a pre-index count and the index's page count agree (this change's
  *  D1). Assets, boards, and `.folio` state are not notes. */
-async function countNotes(storage: FileSystemVaultStorage): Promise<number> {
+async function countNotes(storage: VaultStorage): Promise<number> {
   return (await storage.list('')).filter(isPagePath).length
 }
 

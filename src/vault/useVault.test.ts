@@ -4,6 +4,7 @@ import { act } from 'react'
 import { useVault } from './useVault'
 import { buildTree, type FakeDirectoryHandle } from './fakeHandle'
 import { buildIndex } from './index'
+import { DemoVaultStorage } from '../demo/storage'
 
 // 1.3: in-memory registry stub for handleStore — hook tests never touch IDB.
 const store = vi.hoisted(() => {
@@ -74,6 +75,91 @@ function handle(name: string, permission: PermissionState): FakeDirectoryHandle 
 }
 
 beforeEach(() => store.reset())
+
+describe('virtual folders (add-guided-demo)', () => {
+  it('adds and activates a virtual vault without storing or restoring it', async () => {
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    const storage = new DemoVaultStorage({ 'pages/Welcome.md': '# Welcome' })
+    await act(async () => {
+      await result.current.addVirtualFolder({
+        id: 'demo',
+        name: 'Demo vault',
+        storage,
+        demo: true,
+      })
+    })
+
+    expect(result.current.activeId).toBe('demo')
+    const demo = result.current.folders.find((f) => f.id === 'demo')!
+    expect(demo.name).toBe('Demo vault')
+    expect(demo.demo).toBe(true)
+    expect(demo.handle).toBeUndefined()
+    expect(demo.storage).toBe(storage)
+    expect(demo.noteCount).toBe(1)
+    // Nothing went into the folder registry, and the last-active pointer is
+    // still unset, so a reload opens the empty state.
+    expect(store.lastActiveId()).toBeNull()
+    expect(await store.listVaultHandles()).toEqual([])
+  })
+
+  it('reuses a listed virtual vault instead of replacing its contents', async () => {
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    const first = new DemoVaultStorage({ 'pages/Welcome.md': '# Welcome' })
+    await act(async () => {
+      await result.current.addVirtualFolder({
+        id: 'demo',
+        name: 'Demo vault',
+        storage: first,
+        demo: true,
+      })
+    })
+    const second = new DemoVaultStorage({ 'pages/Other.md': '# Other' })
+    await act(async () => {
+      await result.current.addVirtualFolder({
+        id: 'demo',
+        name: 'Demo vault',
+        storage: second,
+        demo: true,
+      })
+    })
+
+    expect(result.current.folders).toHaveLength(1)
+    expect(result.current.folders[0]!.storage).toBe(first)
+    expect(result.current.activeId).toBe('demo')
+  })
+
+  it('closes a virtual vault back to the no-folder state and leaves a real pointer alone', async () => {
+    store.seed('notes', 'granted')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    await act(async () => {
+      await result.current.activate('notes')
+    })
+    await act(async () => {
+      await result.current.addVirtualFolder({
+        id: 'demo',
+        name: 'Demo vault',
+        storage: new DemoVaultStorage({ 'pages/Welcome.md': '# Welcome' }),
+        demo: true,
+      })
+    })
+    expect(store.lastActiveId()).toBe('notes')
+    expect(await store.listVaultHandles()).toHaveLength(1)
+
+    await act(async () => {
+      await result.current.closeFolder('demo')
+    })
+
+    expect(result.current.activeId).toBeNull()
+    expect(result.current.folders.map((f) => f.id)).toEqual(['notes'])
+    expect(store.lastActiveId()).toBe('notes')
+  })
+})
 
 describe('boot restore', () => {
   it('reopens several granted folders and makes the last active win', async () => {

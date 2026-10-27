@@ -34,7 +34,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="editor"]',
     title: 'Your page',
-    body: 'Pages open here as plain Markdown and save as you type. Type #word or #[[Page]] to reference a page, and #!word for a board; referencing something new creates it on first save.',
+    body: 'Pages open here as plain Markdown and save as you type. Type #word or #[[Page]] to reference a page, and #!word for a board. The guided demo, from the brand screen, is a worked example of every feature.',
     side: 'center',
   },
   {

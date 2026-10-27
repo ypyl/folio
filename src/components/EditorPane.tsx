@@ -34,7 +34,7 @@ const PLACEHOLDER = 'Start typing…'
 // the requirement and the browsers that meet it rather than telling the user to
 // open a folder they have no way to open.
 const BROWSER_REQUIREMENT =
-  'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.'
+  'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave. You can still open the guided demo.'
 
 // The brand screen's line, by hint variant.
 const EMPTY_HINTS: Record<'notes' | 'open-folder' | 'browser-unsupported', string> = {
@@ -84,6 +84,7 @@ export function EditorPane({
   emptyHint = 'notes',
   brandAction,
   onTour,
+  onDemo,
   onReady,
   loading = false,
   onAttachFiles,
@@ -117,6 +118,10 @@ export function EditorPane({
    *  optional-callback shape `FolderRail.onTour` uses; absent, the brand screen
    *  shows its copy without the tour reference. */
   onTour?: () => void
+  /** Opens the guided demo (add-guided-demo). Offered in every no-folder state,
+   *  including where the browser cannot open a local folder, because the demo
+   *  is virtual. Absent once a vault is open. */
+  onDemo?: () => void
   /** The editor has mounted and applied its initial content. App uses this to
    *  present a page it just opened (add-row-context-menu, navigate-then-
    *  present): the document is live, so its blocks are ready to derive. Fires
@@ -430,6 +435,11 @@ export function EditorPane({
                   )}
                 </p>
               </div>
+            )}
+            {onDemo && (
+              <button type="button" className="btn-primary" onClick={onDemo}>
+                Open the guided demo
+              </button>
             )}
             {brandAction}
             {/* The issue-reporting line (add-issue-report-note): where bugs and

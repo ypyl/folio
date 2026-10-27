@@ -281,14 +281,78 @@ describe('application shell', () => {
     expect('showDirectoryPicker' in window).toBe(false)
     render(<App />)
     await screen.findByText(
-      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
+      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave. You can still open the guided demo.',
     )
     // No control promises the action the browser cannot perform, and the
-    // instruction it replaces is gone.
+    // instruction it replaces is gone. The guided demo needs no folder, so it
+    // is still offered (add-guided-demo).
     expect(screen.queryByRole('button', { name: 'Add folder' })).toBeNull()
     expect(screen.queryByText('Open a folder to begin.')).toBeNull()
+    screen.getByRole('button', { name: 'Open the guided demo' })
     // The rail keeps its column so the shell's panes stay aligned.
     screen.getByRole('navigation', { name: 'Open folders' })
+  })
+})
+
+describe('the guided demo (add-guided-demo)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const openDemo = async () => {
+    render(<App />)
+    await screen.findByRole('button', { name: 'Open the guided demo' })
+    // The suite accumulates editor instances; reset before the demo mounts so
+    // `editor()` is this test's editor, not a leftover from the previous one.
+    editorInstances.list.length = 0
+    fireEvent.click(screen.getByRole('button', { name: 'Open the guided demo' }))
+    await waitFor(() => expect(editor().content).toContain('Welcome to the Folio demo'))
+  }
+
+  it('opens without a folder picker and lands on the guide table of contents', async () => {
+    // No stub: jsdom has no showDirectoryPicker, which is the Firefox and
+    // Safari case. The demo is virtual, so it still opens.
+    expect('showDirectoryPicker' in window).toBe(false)
+    await openDemo()
+
+    expect(editor().content).toContain('## Table of contents')
+    expect(editor().content).toContain('#[[Links and backlinks]]')
+    expect(editor().content).toContain('#Presenting')
+
+    // The rail lists it as a demo and marks it active; the status bar names it.
+    const rail = within(document.getElementById('folder-rail')!)
+    const entry = rail.getByRole('button', { name: 'Open the demo vault' })
+    expect(entry.getAttribute('aria-current')).toBe('page')
+    screen.getByText('Demo vault')
+
+    // Files lists the guide's pages, and the calendar marks the seeded days.
+    filesSection().getByRole('button', { name: 'References' })
+    screen.getByRole('button', { name: 'September 14, 2026' })
+  })
+
+  it("writes today's reminders into the journal when Today opens", async () => {
+    await openDemo()
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+
+    await waitFor(() => expect(editor().content).toContain('# 2026-09-15'))
+    await waitFor(() => expect(editor().content).toContain('- [ ] #[[Water the plants]]'))
+    expect(editor().content).toContain('- [ ] #[[Weekly review]]')
+  })
+
+  it('is session-only: closing and reopening starts from the seed', async () => {
+    await openDemo()
+    editor().emitChange('# Welcome to the Folio demo\n\nEdited in this session.')
+    fireEvent.click(
+      within(document.getElementById('folder-rail')!).getByRole('button', {
+        name: 'Close folder Demo vault',
+      }),
+    )
+    await screen.findByText(/You can still open the guided demo/)
+
+    editorInstances.list.length = 0
+    fireEvent.click(screen.getByRole('button', { name: 'Open the guided demo' }))
+    await waitFor(() => expect(editor().content).toContain('Welcome to the Folio demo'))
+    expect(editor().content).not.toContain('Edited in this session.')
   })
 })
 

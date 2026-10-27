@@ -40,6 +40,7 @@ import { EMPTY_TRAIL, appendTrail, canStep, stepTrail, trailPath, type Trail } f
 import { useCompact, type CompactView } from './compact'
 import { useToday } from './useToday'
 import { useVault } from './vault/useVault'
+import { createDemoVault, DEMO_ID, DEMO_NAME, DEMO_WELCOME_PATH } from './demo/content'
 import { useIndex } from './vault/useIndex'
 import {
   canOpenFolders,
@@ -90,6 +91,7 @@ function App() {
     activeId,
     addFolder,
     addFolderFromHandle,
+    addVirtualFolder,
     activate,
     closeFolder,
     goHome,
@@ -99,6 +101,12 @@ function App() {
   // and the brand screen states the requirement where it does not.
   const canOpen = canOpenFolders()
   const activeFolder = folders.find((f) => f.id === activeId)
+  // The guided demo is a virtual vault (add-guided-demo): no handle, no stored
+  // row, and a Welcome page as its home. `demoFolder` is the listed row while
+  // the demo is open, so a second open reuses its session contents instead of
+  // reseeding.
+  const demoFolder = folders.find((f) => f.demo)
+  const demoActive = activeFolder?.demo === true
   const { graph, savePage, saveBoard, pins, reminders, saveReminders, togglePin } = useIndex(
     activeFolder?.storage,
   )
@@ -184,6 +192,23 @@ function App() {
     lastKnown.current = null
     resetSearch()
   }, [resetSearch])
+
+  // Open the guided demo (add-guided-demo, design D2/D6). The seed is built
+  // only when no demo row exists, so a second activation returns to the same
+  // session copy; nothing here asks for a folder, a permission, or a handle.
+  const handleDemo = useCallback(() => {
+    resetOpenPage()
+    if (demoFolder) {
+      void activate(demoFolder.id)
+      return
+    }
+    void addVirtualFolder({
+      id: DEMO_ID,
+      name: DEMO_NAME,
+      storage: createDemoVault(),
+      demo: true,
+    })
+  }, [activate, addVirtualFolder, demoFolder, resetOpenPage])
 
   // Per-page drafts (design C1): session-scoped edit state; mutations bump
   // a render version so the editor's initial content and the indicator
@@ -482,12 +507,13 @@ function App() {
   // calendar day.
   useEffect(() => {
     if (graph === null || activePath !== null) return
-    const today = `journals/${localDayString(new Date())}.md`
+    // The demo lands on its guide (design D3); every real vault opens today.
+    const home = demoActive ? DEMO_WELCOME_PATH : `journals/${localDayString(new Date())}.md`
     // oxlint-disable-next-line react/set-state-in-effect
-    setActivePath(today)
-    drafts.open(today, graph.pages.get(today)?.content ?? '')
+    setActivePath(home)
+    drafts.open(home, graph.pages.get(home)?.content ?? '')
     setDraftVersion((v) => v + 1)
-  }, [graph, activePath, drafts])
+  }, [graph, activePath, demoActive, drafts])
 
   // Record every page the app opens (add-page-history, design D3). Keyed on
   // the open page, so the sidebar, the calendar, the links pane, the search
@@ -1323,6 +1349,12 @@ function App() {
                   : canOpen
                     ? 'open-folder'
                     : 'browser-unsupported'
+              }
+              // The guided demo is the primary no-folder action (add-guided-
+              // demo): it needs no picker, so it is offered even where the
+              // browser cannot open local folders.
+              onDemo={
+                status === 'ready' && activeFolder?.storage === undefined ? handleDemo : undefined
               }
               brandAction={
                 canOpen && status === 'ready' && activeFolder?.storage === undefined ? (

@@ -111,9 +111,10 @@ export function FolderRail({
                     type="button"
                     className={`${styles.avatar}${active ? ` ${styles.active}` : ''}${pending ? ` ${styles.pending}` : ''}`}
                     onClick={() => onActivate(folder.id)}
-                    title={folder.name}
-                    aria-label={`Open folder ${folder.name}`}
+                    title={folder.demo ? 'Open the demo vault' : folder.name}
+                    aria-label={folder.demo ? 'Open the demo vault' : `Open folder ${folder.name}`}
                     aria-current={active ? 'page' : undefined}
+                    data-demo={folder.demo || undefined}
                   >
                     <span className={styles.letter} aria-hidden="true">
                       {(folder.name || '?').charAt(0).toUpperCase()}

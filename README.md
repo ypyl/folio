@@ -2,9 +2,26 @@
 
 A lightweight, local-first alternative to Logseq. Your Markdown folder is the database; the app is just a UI and index over it.
 
-Live build: <https://ypyl.github.io/folio/> (Chromium browsers only — it needs the File System Access API).
+Live build: <https://ypyl.github.io/folio/>.
 
-Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys to GitHub Pages via `.github/workflows/deploy.yml`. Run `npm run dev` locally for the root base.
+## Try the demo
+
+Open the live build and choose **Open the guided demo**. It is a virtual vault
+seeded with pages, journal days, a board, assets, pins, and reminder rules, so
+every feature works without opening a folder or granting a permission. It works
+in any browser, not only Chromium.
+
+The demo's **Welcome** page is a table of contents. Each guide page explains one
+feature and demonstrates it with the demo's own content: references, backlinks
+and forwardlinks, Contents, journal, reminders, boards, assets, search, editing
+and tasks, and presentation. Edit anything. The changes last for the session;
+closing the demo or reloading the tab starts it fresh and writes nothing to your
+disk (ADR-0034).
+
+Opening your own folder needs a Chromium browser (Chrome, Edge, Brave) because it
+uses the File System Access API. Every push to `master` builds with
+`GITHUB_PAGES=1` (base `/folio/`) and deploys to GitHub Pages via
+`.github/workflows/deploy.yml`. Run `npm run dev` locally for the root base.
 
 ## Features
 
@@ -17,6 +34,7 @@ Every push to `master` builds with `GITHUB_PAGES=1` (base `/folio/`) and deploys
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
 - Favorites, back/forward history, and a status bar: the open page's name in the bar reveals its row in Files, creating the page first when it has no file yet, and a journal day's name shows and focuses that day in the calendar
 - Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (see [Reminders](#reminders))
+- A guided demo vault with a table of contents and a worked example of every feature, in any browser (ADR-0034)
 - A guided tour of the shell, from the folder rail or the brand screen
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline

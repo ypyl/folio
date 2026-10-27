@@ -50,6 +50,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0031](0031-reminders-are-derived-from-rules.md) | Reminders are derived from rules and never materialized | Superseded by [0032](0032-a-due-reminder-is-written-on-open.md) |
 | [0032](0032-a-due-reminder-is-written-on-open.md) | A due reminder is written into the journal day when it is opened | Accepted |
 | [0033](0033-a-task-marker-is-a-checkbox.md) | A GFM task marker is a checkbox, and the marker is the text | Accepted |
+| [0034](0034-the-guided-demo-is-an-in-memory-vault.md) | The guided demo is an in-memory vault | Accepted |
 
 ## Adding a new ADR
 

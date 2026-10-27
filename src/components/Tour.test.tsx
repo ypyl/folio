@@ -61,6 +61,7 @@ describe('Tour', () => {
     expect(card.textContent).toContain('Your page')
     expect(card.textContent).toContain('#word')
     expect(card.textContent).toContain('#!word')
+    expect(card.textContent).toContain('guided demo')
   })
 
   it('disables Back on the first step and ends with Done on the last', () => {

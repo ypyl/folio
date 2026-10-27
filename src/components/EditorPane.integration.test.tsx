@@ -452,10 +452,10 @@ describe('EditorPane', () => {
     // The requirement replaces the instruction: "open a folder" is not
     // something this browser can do (warn-unsupported-browser).
     screen.getByText(
-      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave.',
+      'Folio needs a Chromium-based browser to open a local folder. Use Chrome, Edge, or Brave. You can still open the guided demo.',
     )
     expect(screen.queryByText('Open a folder to begin.')).toBeNull()
-    // The mark stays decorative and the screen stays control-free.
+    // The mark stays decorative and no control promises a folder action.
     expect(screen.getByRole('main').querySelector('[aria-hidden="true"]')).not.toBeNull()
     expect(screen.queryByRole('button')).toBeNull()
     expect(instances.list).toHaveLength(0)
@@ -478,6 +478,37 @@ describe('EditorPane', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  it('offers the guided demo in both supported and unsupported states (add-guided-demo)', () => {
+    const onDemo = vi.fn()
+    const { rerender } = render(
+      <EditorPane
+        page={null}
+        emptyHint="open-folder"
+        initialContent=""
+        onChange={() => {}}
+        onDemo={onDemo}
+        brandAction={<button type="button">Import from Logseq</button>}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Open the guided demo' }))
+    expect(onDemo).toHaveBeenCalledTimes(1)
+    screen.getByRole('button', { name: 'Import from Logseq' })
+
+    rerender(
+      <EditorPane
+        page={null}
+        emptyHint="browser-unsupported"
+        initialContent=""
+        onChange={() => {}}
+        onDemo={onDemo}
+      />,
+    )
+    // The demo needs no folder, so it is the one action an unsupported browser
+    // can still take.
+    screen.getByText(/You can still open the guided demo/)
+    screen.getByRole('button', { name: 'Open the guided demo' })
   })
 
   it('shows the app introduction and the tour reference (add-landing-page-info)', () => {
