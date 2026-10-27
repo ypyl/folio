@@ -821,7 +821,10 @@ function App() {
   // so the editor shows it when a file that lacks one opens; the file is not
   // written until the user edits. `openDraft.content` is already normalized
   // once seeded, so re-normalizing is idempotent.
-  const initialContent = withTrailingBlankLine(openDraft?.content ?? page?.content ?? '')
+  const initialContent = useMemo(
+    () => withTrailingBlankLine(openDraft?.content ?? page?.content ?? ''),
+    [openDraft?.content, page?.content],
+  )
   const saveState = openDraft?.status ?? 'clean'
   // A page with no file yet is "new": its save indicator reads as creating it.
   const newPage = pendingBlank !== null
