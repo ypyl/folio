@@ -12,7 +12,7 @@ and overwrites files (pages, boards, the pins file) and never removes one. That
 is not an oversight: the product states the same rule in three other places.
 The app "SHALL never edit, move, rename, or delete the user's files on its own"
 (vault spec); an asset "never" gets deleted (ADR-0022); and reference-aware
-asset deletion is decided against (PLAN, "Decided against").
+asset deletion is decided against (NOTES.md, "Decided against").
 
 A capability with no caller is surface the seam does not need, and the only
 thing keeping this one alive was its own tests.

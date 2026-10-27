@@ -142,6 +142,7 @@ npm run dev
 - [openspec/specs/](openspec/specs/) — behavior specifications
 - [DESIGN.md](DESIGN.md) — the design language
 - [AGENTS.md](AGENTS.md) — how the project is built and kept small
+- [NOTES.md](NOTES.md) — the open backlog, the decisions made against, and accepted costs
 
 ## Importing from Logseq
 

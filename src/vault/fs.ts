@@ -54,7 +54,7 @@ function parseFilePath(path: string): string[] {
 /**
  * VaultStorage over a FileSystemDirectoryHandle. Assumes a granted handle
  * (D2): the picker grants readwrite for the session, and reload-restore
- * permission negotiation belongs to the caller (task 5), not here.
+ * permission negotiation belongs to the caller (the open-folder flow), not here.
  */
 export class FileSystemVaultStorage implements VaultStorage {
   /** The underlying Chrome handle. */

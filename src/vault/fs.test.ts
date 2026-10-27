@@ -14,7 +14,7 @@ import { buildTree, type FakeDirectoryHandle, type FakeTreeNode } from './fakeHa
 // impl types against the real DOM types, the fake implements exactly the
 // calls the impl makes.
 // ponytail: fake mirrors FSA failure modes (NotFoundError/TypeMismatchError)
-// for the calls the impl depends on; e2e in task 6 is the real-API backstop.
+// for the calls the impl depends on; the e2e suite is the real-API backstop.
 
 function fakeVault(tree: FakeTreeNode): FileSystemVaultStorage {
   const root = buildTree(tree)

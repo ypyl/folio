@@ -2,10 +2,9 @@
 // translates its conventions into Folio's Markdown rules, and merges the result
 // into a destination — new files are written, files the destination already
 // holds are appended to, and assets are never overwritten (change
-// add-logseq-import, extended by merge-logseq-imports). The rules mirror
-// scripts/migrate-logseq.mjs and MIGRATION_LOGSEQ_FOLIO.md; the pure functions
-// here are their browser-side implementation and are unit-tested with strings,
-// exactly like ./parse.
+// add-logseq-import, extended by merge-logseq-imports). The rules follow
+// MIGRATION_LOGSEQ_FOLIO.md, and the pure functions here are their
+// implementation, unit-tested with strings, exactly like ./parse.
 //
 // The importer is input-only: it never teaches the index, editor, or parser to
 // read Logseq conventions at runtime (ADR-0012, ADR-0024).

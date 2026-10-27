@@ -35,7 +35,7 @@ function cellsFor(year: number, month: number): DayCell[] {
   return cells
 }
 
-/** The journal calendar (PLAN task 10, journal-calendar D1/D4/D6): owns the
+/** The journal calendar (journal-calendar D1/D4/D6): owns the
  *  Journal section's body, replaces the flat day list, and stays a dumb,
  *  prop-driven child of Sidebar. The displayed month is component-local,
  *  seeded from and re-anchored to the open day; chevrons browse freely

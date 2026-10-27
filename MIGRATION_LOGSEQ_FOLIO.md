@@ -10,7 +10,9 @@ once the in-app importer was the only route. See ADR-0025 for why the importer i
 one-way and input-only.
 
 Every rule below is settled; the open questions this document carried are answered and
-folded into the rules themselves.
+folded into the rules themselves. The counts in the tables come from the graph this rule
+set was validated against. They are provenance for the rules, not requirements: the
+importer implements the rules and never the numbers.
 
 ## 1. What Folio accepts (the constraints)
 
@@ -71,8 +73,10 @@ Escapes found in this graph:
 **Rule (settled):** strip leading/trailing whitespace from every name and every
 reference target. The 6 space-prefixed page files are renamed without the space.
 
-**Rule (settled, Option B - readable names):** replace each illegal, hidden, or
-reference-breaking character with a legal replacement, in both the filename and every
+**Rule (settled, Option B - readable names):** every `%XX` escape is decoded first, so
+`%3A` arrives here as `:` and `%2E` as a leading `.`; `___` is Logseq's namespace
+separator (`/`) and becomes `-`. Then each illegal, hidden, or reference-breaking
+character is replaced with a legal replacement, in both the filename and every
 reference:
 
 | Char | Replacement |
@@ -83,13 +87,21 @@ reference:
 | `\|` | `-` |
 | `?` | `` (dropped) |
 | `>` | `-` |
+| `<` | `(` |
 | `*` | `x` |
 | leading `.` | dropped (`.NET interview question` -> `NET interview question`) |
+| trailing `.` or space | dropped (Windows forbids both) |
 | `]` | `)` |
 | `[` | `(` |
 
-A collision check runs before any rename; a collision aborts the migration and is
-reported (no silent suffixing).
+`#` and `%` decode to themselves and need no replacement: both are legal in a filename
+and both can appear inside a `#[[...]]` token.
+
+**Rule (settled):** a normalized-name collision is first-source-wins. Pages are planned
+in sorted path order; the first source to claim a name is written, and every later one is
+skipped and counted, which the result reports as "N source names collided; the first was
+kept". A journal target is never a collision: every source for one day folds into that
+day's file (§8). Nothing is silently suffixed.
 
 Rejected **Option A** (keep Logseq's `%XX` and `___`): the filename is the Folio page
 title, so the encoding stays visible, and it does not even resolve the hidden (`%2E`),
@@ -97,9 +109,10 @@ leading-space, and `]` cases, which need renaming regardless.
 
 ## 4. Reference rewriting
 
-HTML-like rewriting over page and journal bodies, in this order:
+Rewriting over page and journal bodies, in this order:
 
-1. `[[Name]]` (plain wikilink) -> `#[[Name]]`. 53 occurrences.
+1. `[[Name]]` (plain wikilink) -> `#[[Name]]`. 53 occurrences. An alias is dropped:
+   `[[Roadmap | this year]]` -> `#[[Roadmap]]`.
 2. `#[[Name]]` -> unchanged form, but `Name` is normalized by §3.
 3. `#word` tags are **left exactly as written**, including names with `/` or `.`.
    Decided during implementation: every such `#` in this graph is a URL fragment
@@ -116,11 +129,12 @@ HTML-like rewriting over page and journal bodies, in this order:
    owning file; that file's normalized page name (journal date or page stem) is the
    target. 89 become cross-page backlinks; the 8 same-page refs are kept as bare page
    references (Folio omits self-backlinks). Bare token, no `->` marker.
-6. Every rewritten target must equal a `pages/` or `journals/` file stem from §3 (or be a
-   deliberate dangling reference to a page not yet written). A report lists all targets
-   with no file so they can be reviewed.
+6. Every rewritten target must equal a `pages/` or `journals/` file stem from §3, or be
+a deliberate dangling reference to a page not yet written (the page materializes on first
+open, ADR-0012). This was checked once, by hand, against this graph. The importer does not
+resolve rewritten targets at run time and reports no dangling ones (§10).
 
-Not rewritten (no Folio equivalent; left as literal text and reported):
+Not rewritten (no Folio equivalent; left as literal text):
 
 - Macros `{{video ...}}` - 9; `{{embed ...}}`, `{{query ...}}` - 0.
 - `[text](url)` ordinary links - untouched.
@@ -133,12 +147,17 @@ Not rewritten (no Folio equivalent; left as literal text and reported):
   still copied (the Assets section lists orphans by design, ADR-0022).
 - Asset filenames are **not** renamed (they are bytes, not page names; a rename would
   break links and buys nothing). `%XX` inside an asset filename stays.
-- A destination that does not resolve is reported, not dropped. `../assets/` is also
-  rewritten when it appears outside a link, e.g. in a `file-path::` property value.
-- **Trap:** five asset filenames contain parentheses
-  (`Frankfurt_(Equality_as_a_Moral_Ideal)_1723959436393_0.pdf`, `CV_Fostiak_Vitalii_(1)_...`).
-  Destinations must be scanned with balanced-paren Markdown semantics, not `[^)]+`, or
-  those five links are truncated to a bad path.
+- `../assets/` is also rewritten when it appears outside a link, e.g. in a `file-path::`
+  property value. `../draws/` and `../whiteboards/` are rewritten the same way and land
+  in `assets/` (§2).
+- The rewrite is a prefix replacement (`](../assets/` -> `](assets/`), not a destination
+  scan, so it never has to parse the path. The old CLI's balanced-paren trap, where five
+  asset filenames containing parentheses
+  (`Frankfurt_(Equality_as_a_Moral_Ideal)_1723959436393_0.pdf`, `CV_Fostiak_Vitalii_(1)_...`)
+  were truncated by a `[^)]+` scan, does not apply to the importer.
+- A destination is never resolved: the 503 references were checked once, by hand, and all
+  resolved. A link to a missing asset stays a link to a missing asset, and the import
+  does not report it (§10).
 
 ## 6. Block and property cleanup
 
@@ -200,4 +219,19 @@ data loss).
    `pages/journals/2026-09-10.md` (`#saira`) merge into one target journal file.
    `2026-09-11` exists only nested and becomes an empty journal.
 3. **Malformed wikilinks.** 3 nested `[[[title](url)]]` and at least one `[[name]]]`.
-   These stay as text and are reported.
+   These stay as text: the importer does not report them.
+
+## 10. What the import reports
+
+The result summary counts Markdown files written, Markdown files merged into existing
+files, assets copied, assets skipped because the destination already held them, and
+source files skipped because `.folio/imports.md` records them (ADR-0025's ledger). A name
+collision is reported as a count: "N source names collided; the first was kept".
+
+`rewriteLogseqContent` also tallies what it rewrote per run (`ImportStats`): plain
+wikilinks, bracketed references, aliased links, human dates, block references, task
+markers, dropped properties, dropped drawer lines, and asset-path rewrites. Those
+counters exist for tests and for a future report; the summary does not show them.
+
+Nothing else is reported. The importer does not resolve rewritten targets or asset
+destinations, so a run cannot say that a reference or a link points at nothing.
