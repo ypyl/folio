@@ -350,8 +350,11 @@ export function EditorPane({
     if (files.length === 0) return
     const point = dropPoint(e)
     void onAttachFiles(files).then((paths) => {
-      for (const path of paths) {
-        adapterRef.current?.insertMarkdown(linkForAsset(path), point)
+      // One insert for the whole batch: inserting each link at the same drop
+      // point put the next one before the previous, so a multi-file drop read
+      // backwards.
+      if (paths.length > 0) {
+        adapterRef.current?.insertMarkdown(paths.map(linkForAsset).join(''), point)
       }
     })
   }

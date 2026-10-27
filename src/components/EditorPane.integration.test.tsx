@@ -654,7 +654,7 @@ describe('EditorPane', () => {
       expect(linkForAsset(path)).toBe(expected)
     })
 
-    it('inserts one link per landed file at the cursor (image vs plain)', async () => {
+    it('inserts one link per landed file, in drop order', async () => {
       const onAttachFiles = vi.fn(async () => ['assets/a.png', 'assets/b.pdf'])
       render(
         <EditorPane
@@ -670,7 +670,8 @@ describe('EditorPane', () => {
       })
       await act(async () => {})
       const editor = fake()
-      expect(editor.insertions).toEqual(['![a](assets/a.png)', '[b](assets/b.pdf)'])
+      // One insert, so the first link cannot end up after the second one.
+      expect(editor.insertions).toEqual(['![a](assets/a.png)[b](assets/b.pdf)'])
     })
 
     it('never calls onAttachFiles when no page is open', async () => {
