@@ -115,3 +115,35 @@ test('a title query leads with a Names section', async ({ page }) => {
   // The content-only match keeps its normal Pages group below.
   await expect(page.getByText('Pages', { exact: true })).toBeVisible()
 })
+
+// openspec/specs/search: the match-case toggle restricts a query to the typed
+// case and re-runs it without retyping (match-case-search).
+test('the match case toggle narrows the results to the typed case', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, {
+    'pages/Upper.md': 'Docker runs the containers.',
+    'pages/Lower.md': 'docker runs the containers.',
+  })
+  await openVault(page)
+
+  await expect(page.getByRole('button', { name: 'Upper', exact: true })).toBeVisible()
+
+  await page.keyboard.press('Control+k')
+  const input = page.getByRole('textbox', { name: 'Search notes' })
+  await input.fill('docker')
+  await expect(page.getByRole('option', { name: /Upper/ })).toBeVisible()
+  await expect(page.getByRole('option', { name: /Lower/ })).toBeVisible()
+
+  const toggle = page.getByRole('button', { name: 'Match case' })
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await toggle.click()
+
+  // The query is untouched and the folded match is gone.
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+  await expect(input).toHaveValue('docker')
+  await expect(page.getByRole('option', { name: /Upper/ })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: /Lower/ })).toBeVisible()
+  // The results view is fed the same narrowed set.
+  await expect(page.getByRole('button', { name: /See all 1 result/ })).toBeVisible()
+})

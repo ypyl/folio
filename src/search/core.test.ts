@@ -6,6 +6,7 @@ import {
   assetSearchDoc,
   boardSearchDoc,
   exactRanges,
+  fuseOptions,
   matchBlocks,
   parseQuery,
   searchDocs,
@@ -31,6 +32,10 @@ function fuse(docs: SearchDoc[]) {
   return new Fuse(docs, FUSE_OPTIONS)
 }
 
+function casedFuse(docs: SearchDoc[]) {
+  return new Fuse(docs, fuseOptions(true))
+}
+
 describe('wordRanges', () => {
   it('matches whole words only, case-insensitively', () => {
     expect(wordRanges('UX design, ux again', 'ux')).toEqual([
@@ -44,6 +49,17 @@ describe('wordRanges', () => {
     expect(wordRanges('I use C# daily', 'C#')).toEqual([[6, 8]])
     expect(wordRanges('CI/CD pipeline', 'CI/CD')).toEqual([[0, 5]])
   })
+
+  it('matches the typed case only when asked to', () => {
+    const text = 'UX review, then ux again'
+    expect(wordRanges(text, 'ux')).toEqual([
+      [0, 2],
+      [16, 18],
+    ])
+    expect(wordRanges(text, 'ux', true)).toEqual([[16, 18]])
+    expect(wordRanges(text, 'UX', true)).toEqual([[0, 2]])
+    expect(wordRanges('Linux', 'ux', true)).toEqual([])
+  })
 })
 
 describe('exactRanges', () => {
@@ -56,6 +72,17 @@ describe('exactRanges', () => {
 
   it('returns no ranges when the term is absent', () => {
     expect(exactRanges('nothing here', 'docker')).toEqual([])
+  })
+
+  it('matches the typed case only when asked to', () => {
+    const text = 'Docker up, docker down'
+    expect(exactRanges(text, 'docker')).toEqual([
+      [0, 6],
+      [11, 17],
+    ])
+    expect(exactRanges(text, 'docker', true)).toEqual([[11, 17]])
+    expect(exactRanges(text, 'Docker', true)).toEqual([[0, 6]])
+    expect(exactRanges(text, 'DOCKER', true)).toEqual([])
   })
 })
 
@@ -139,6 +166,76 @@ describe('searchDocs (AND-term model)', () => {
       doc('only-design.md', 'Design', 'no shortterm here'),
     ]
     expect(searchDocs(fuse(docs), 'UX design').map((r) => r.path)).toEqual(['both.md'])
+  })
+})
+
+describe('searchDocs (match-case toggle)', () => {
+  const spellings = [
+    doc('upper.md', 'Notes', 'Docker here'),
+    doc('lower.md', 'Notes', 'docker here'),
+  ]
+
+  it('folds case by default and requires the typed case when asked', () => {
+    expect(searchDocs(fuse(spellings), 'docker').map((r) => r.path)).toEqual([
+      'lower.md',
+      'upper.md',
+    ])
+    expect(searchDocs(casedFuse(spellings), 'docker', true).map((r) => r.path)).toEqual([
+      'lower.md',
+    ])
+    expect(searchDocs(casedFuse(spellings), 'Docker', true).map((r) => r.path)).toEqual([
+      'upper.md',
+    ])
+  })
+
+  it('requires the typed case for a short term too', () => {
+    const docs = [doc('UX.md', 'UX', 'notes'), doc('ux.md', 'Notes', 'an ux review')]
+    expect(searchDocs(casedFuse(docs), 'UX', true).map((r) => r.path)).toEqual(['UX.md'])
+    expect(searchDocs(casedFuse(docs), 'ux', true).map((r) => r.path)).toEqual(['ux.md'])
+  })
+
+  it('does not reach a wrong-case spelling by typo fallback', () => {
+    const docs = [doc('lower.md', 'Notes', 'docker here')]
+    expect(searchDocs(fuse(docs), 'Dockr').map((r) => r.path)).toEqual(['lower.md'])
+    expect(searchDocs(casedFuse(docs), 'Dockr', true)).toEqual([])
+  })
+
+  it('still finds a typo typed in the same case', () => {
+    const docs = [doc('lower.md', 'Notes', 'docker here')]
+    expect(searchDocs(casedFuse(docs), 'dockr', true).map((r) => r.path)).toEqual(['lower.md'])
+  })
+
+  it('highlights only the occurrences in the typed case', () => {
+    const docs = [doc('both.md', 'Notes', 'Docker then docker')]
+    const results = searchDocs(casedFuse(docs), 'docker', true)
+    expect(results.map((r) => r.path)).toEqual(['both.md'])
+    expect(results[0].ranges).toEqual([[12, 18]])
+  })
+  it('keeps the exact-first tiers in both modes', () => {
+    const docs = [doc('body.md', 'Notes', 'docker in the body'), doc('title.md', 'docker', 'plain')]
+    expect(searchDocs(casedFuse(docs), 'docker', true).map((r) => r.path)).toEqual([
+      'title.md',
+      'body.md',
+    ])
+  })
+
+  it('keeps every term in the typed case', () => {
+    const docs = [
+      doc('both.md', 'Both', 'Docker kubernetes'),
+      doc('mixed.md', 'Mixed', 'Docker Kubernetes'),
+    ]
+    expect(searchDocs(casedFuse(docs), 'Docker kubernetes', true).map((r) => r.path)).toEqual([
+      'both.md',
+    ])
+  })
+
+  it('marks only the typed-case occurrences in the snippets', () => {
+    const docs = [doc('both.md', 'Notes', 'docker first\nDocker second\ndocker third')]
+    const [result] = searchDocs(casedFuse(docs), 'docker', true)
+    const hits = snippetSegments(result.text, result.ranges).flatMap((window) =>
+      window.segments.filter((s) => s.hit).map((s) => s.text),
+    )
+    expect(hits).toEqual(['docker', 'docker'])
   })
 })
 

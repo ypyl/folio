@@ -271,6 +271,75 @@ describe('SearchSpotlight action flow (search spec: debounce, outside click, cle
   })
 })
 
+describe('SearchSpotlight match case (match-case-search)', () => {
+  const toggle = () => screen.getByRole('button', { name: 'Match case' })
+  const spellings = [page('Docker.md', 'container notes'), page('docker.md', 'container notes')]
+  // The last full match set a run reported, the way the results view reads it.
+  const lastPaths = (mock: ReturnType<typeof vi.fn>) =>
+    (mock.mock.calls[mock.mock.calls.length - 1][1] as SearchResult[]).map((r) => r.path)
+
+  it('is unpressed by default and narrows the match set when pressed', async () => {
+    const onQueryResult = vi.fn()
+    renderSpotlight({ docs: spellings, onQueryResult })
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+
+    await type('docker')
+    expect(lastPaths(onQueryResult)).toHaveLength(2)
+
+    fireEvent.click(toggle())
+    await waitFor(() => expect(lastPaths(onQueryResult)).toEqual(['docker.md']))
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    // The query and the caret stay where the user left them.
+    expect((input() as HTMLInputElement).value).toBe('docker')
+    expect(document.activeElement).toBe(input())
+
+    // Pressing again brings the folded matches back.
+    fireEvent.click(toggle())
+    await waitFor(() => expect(lastPaths(onQueryResult)).toHaveLength(2))
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('keeps the pressed state across a close with the query', async () => {
+    renderSpotlight({ docs: spellings })
+    await type('docker')
+    fireEvent.click(toggle())
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(screen.getByRole('dialog', { name: 'Search' }))
+    expect(screen.queryByRole('textbox', { name: 'Search notes' })).toBeNull()
+
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
+    await waitFor(() => expect(input()).toBeTruthy())
+    expect((input() as HTMLInputElement).value).toBe('docker')
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('resets to unpressed when the clear x empties the query', async () => {
+    renderSpotlight({ docs: spellings })
+    await type('docker')
+    fireEvent.click(toggle())
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    await waitFor(() => screen.getByRole('listbox', { name: 'Search operators' }))
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('resets to unpressed when Escape clears the query', async () => {
+    renderSpotlight({ docs: spellings })
+    await type('docker')
+    fireEvent.click(toggle())
+    fireEvent.keyDown(input(), { key: 'Escape' })
+
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
+    await waitFor(() => expect(input()).toBeTruthy())
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('is disabled when there is no usable vault', () => {
+    renderSpotlight({ docs: [], disabled: true })
+    expect((toggle() as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
 describe('SearchSpotlight keyboard (search spec: Cmd/Ctrl+K/P, arrows, enter)', () => {
   it('Cmd/Ctrl+K opens the spotlight and focuses/selects the input', async () => {
     renderSpotlight({ docs: [page('Welcome.md', 'x')] }, false)

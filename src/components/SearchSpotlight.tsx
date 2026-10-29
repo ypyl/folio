@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
 import {
-  FUSE_OPTIONS,
   SEARCH_OPERATORS,
+  fuseOptions,
   parseQuery,
   searchDocs,
   sectionsOf,
@@ -117,13 +117,31 @@ export function SearchSpotlight({
   // moves the caret to the end once the controlled value has painted. Kept in
   // state, not a ref, so the row handler stays a pure state update.
   const [caretTick, setCaretTick] = useState(0)
+  // The match-case toggle (match-case-search): off by default, kept with the
+  // query across a close, reset when the query is cleared.
+  const [caseSensitive, setCaseSensitive] = useState(false)
 
-  const fuse = useMemo(() => new Fuse(docs, FUSE_OPTIONS), [docs])
+  // One Fuse per case mode, built lazily and kept until the corpus identity
+  // changes: Fuse folds case when it builds its index, so the mode is part of
+  // the index's identity. A press therefore pays a build at most once per mode
+  // per corpus, and typing never pays one, because the current mode's index is
+  // already there.
+  const indexes = useRef<{ docs: SearchDoc[]; byMode: Map<boolean, Fuse<SearchDoc>> } | null>(null)
+  const fuseFor = (cased: boolean): Fuse<SearchDoc> => {
+    if (indexes.current?.docs !== docs) indexes.current = { docs, byMode: new Map() }
+    const byMode = indexes.current.byMode
+    let index = byMode.get(cased)
+    if (!index) {
+      index = new Fuse(docs, fuseOptions(cased))
+      byMode.set(cased, index)
+    }
+    return index
+  }
   // The query's operator, if any: it decides the group order both surfaces use.
   const { operator } = parseQuery(query)
 
-  const run = (value: string) => {
-    const found = searchDocs(fuse, value)
+  const run = (value: string, cased = caseSensitive) => {
+    const found = searchDocs(fuseFor(cased), value, cased)
     // A short query that matches nothing deploys nothing: the empty state is
     // for real queries, and one or two characters are usually a word still
     // being typed (search-short-terms).
@@ -143,7 +161,25 @@ export function SearchSpotlight({
     setQuery('')
     setResults(null)
     setActive(-1)
+    // Clearing means starting over, so the case rule starts over with it.
+    setCaseSensitive(false)
     window.clearTimeout(timer.current)
+  }
+
+  // Flip the case rule and re-run the query on the press, with the index for the
+  // new mode: a press is a complete instruction about a query that is already
+  // typed, so it does not go through the debounce. The list stays on screen
+  // until the new run lands, so a press never blanks the dropdown.
+  const toggleCase = () => {
+    const next = !caseSensitive
+    setCaseSensitive(next)
+    setActive(-1)
+    window.clearTimeout(timer.current)
+    // A press is not a keystroke: the caret goes back to the input so the next
+    // character continues the query instead of landing on the control.
+    inputRef.current?.focus()
+    // An empty query has nothing to re-run; the operator list stays as it is.
+    if (query.trim() !== '') run(query, next)
   }
 
   // Choosing an operator row inserts its token and leaves the caret after it, so
@@ -276,33 +312,46 @@ export function SearchSpotlight({
       }}
     >
       <div className={styles.box}>
-        <input
-          ref={inputRef}
-          className={styles.input}
-          type="text"
-          placeholder="Search notes"
-          aria-label="Search notes"
-          autoComplete="off"
-          spellCheck={false}
-          disabled={disabled}
-          value={query}
-          onChange={(e) => handleChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          aria-expanded={shown}
-          aria-controls="search-results"
-        />
+        <div className={styles.field}>
+          <input
+            ref={inputRef}
+            className={styles.input}
+            type="text"
+            placeholder="Search notes"
+            aria-label="Search notes"
+            autoComplete="off"
+            spellCheck={false}
+            disabled={disabled}
+            value={query}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={onKeyDown}
+            aria-expanded={shown}
+            aria-controls="search-results"
+          />
+          <button
+            type="button"
+            className={styles.clear}
+            aria-label="Clear search"
+            title="Clear search"
+            hidden={disabled || query === ''}
+            onClick={() => {
+              clear()
+              inputRef.current?.focus()
+            }}
+          >
+            {'\u2715'}
+          </button>
+        </div>
         <button
           type="button"
-          className={styles.clear}
-          aria-label="Clear search"
-          title="Clear search"
-          hidden={disabled || query === ''}
-          onClick={() => {
-            clear()
-            inputRef.current?.focus()
-          }}
+          className={styles.case}
+          aria-label="Match case"
+          aria-pressed={caseSensitive}
+          title="Match case"
+          disabled={disabled}
+          onClick={toggleCase}
         >
-          {'\u2715'}
+          {'Aa'}
         </button>
       </div>
       {shown && (

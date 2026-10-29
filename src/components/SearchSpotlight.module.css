@@ -33,8 +33,57 @@
   position: relative;
   display: flex;
   align-items: center;
+  gap: 8px;
   flex-shrink: 0;
   padding: 12px;
+}
+
+/* The field wrapper is what the clear x is positioned against, so the x keeps
+   its offset from the input's own edge now that the match-case toggle shares
+   the row (match-case-search). */
+.field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Match-case toggle (match-case-search): a quiet square control at the row's
+   trailing edge. --stone at rest, --brand ink and the brand tint while pressed,
+   the clear x's warm-sand hover, and the app's focus ring. */
+.case {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--stone);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.case:hover {
+  background: var(--warm-sand);
+  color: var(--near-black);
+}
+
+.case:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--brand-tint);
+}
+
+.case[aria-pressed='true'] {
+  color: var(--brand);
+  background: var(--brand-tint);
+}
+
+.case:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .input {

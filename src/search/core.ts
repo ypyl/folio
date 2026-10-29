@@ -58,6 +58,14 @@ export const FUSE_OPTIONS: IFuseOptions<SearchDoc> = {
   threshold: 0.25,
 }
 
+/** The same config with the case rule the match-case toggle asks for
+ *  (match-case-search): Fuse folds case when it builds its index, so the mode is
+ *  part of the index's identity and one builder keeps the fuzzy config in one
+ *  place. */
+export function fuseOptions(caseSensitive: boolean): IFuseOptions<SearchDoc> {
+  return { ...FUSE_OPTIONS, isCaseSensitive: caseSensitive }
+}
+
 export type SearchRange = [start: number, end: number]
 
 export type SearchResult = {
@@ -184,12 +192,12 @@ export function parseQuery(query: string): { operator: SearchOperator | null; te
   return { operator, terms }
 }
 
-/** Case-insensitive exact occurrences of a term in raw text. Used for
- *  highlighting because Fuse's fuzzy ranges are per-character and render as
- *  scattered 1-2 char marks; exact spans keep snippets clean. */
-export function exactRanges(text: string, term: string): SearchRange[] {
-  const hay = text.toLowerCase()
-  const needle = term.toLowerCase()
+/** Exact occurrences of a term in raw text, case-insensitive unless asked
+ *  otherwise. Used for highlighting because Fuse's fuzzy ranges are per-character
+ *  and render as scattered 1-2 char marks; exact spans keep snippets clean. */
+export function exactRanges(text: string, term: string, caseSensitive = false): SearchRange[] {
+  const hay = caseSensitive ? text : text.toLowerCase()
+  const needle = caseSensitive ? term : term.toLowerCase()
   const ranges: SearchRange[] = []
   let from = 0
   let i: number
@@ -200,10 +208,10 @@ export function exactRanges(text: string, term: string): SearchRange[] {
   return ranges
 }
 
-/** Case-insensitive exact-substring test: the boolean form of `exactRanges`,
- *  used for ranking without building the range array. */
-function hasExact(text: string, term: string): boolean {
-  return text.toLowerCase().includes(term.toLowerCase())
+/** Exact-substring test: the boolean form of `exactRanges`, used for ranking
+ *  without building the range array. */
+function hasExact(text: string, term: string, caseSensitive: boolean): boolean {
+  return caseSensitive ? text.includes(term) : text.toLowerCase().includes(term.toLowerCase())
 }
 
 /** The shortest term that also matches fuzzily. A term below it matches a whole
@@ -221,15 +229,15 @@ function isWordChar(char: string | undefined): boolean {
   return char !== undefined && WORD_CHAR.test(char)
 }
 
-/** Case-insensitive whole-word occurrences of a term: every literal occurrence
- *  not touching a letter or digit on either side. This is what keeps a short
- *  term out of longer words ("UX" never matches the "ux" in "Linux"). Built on
- *  `indexOf` plus a boundary check rather than a per-item regex, so a scan
- *  allocates only the ranges it returns. */
-export function wordRanges(text: string, term: string): SearchRange[] {
-  const needle = term.toLowerCase()
+/** Whole-word occurrences of a term, case-insensitive unless asked otherwise:
+ *  every literal occurrence not touching a letter or digit on either side. This
+ *  is what keeps a short term out of longer words ("UX" never matches the "ux"
+ *  in "Linux"). Built on `indexOf` plus a boundary check rather than a per-item
+ *  regex, so a scan allocates only the ranges it returns. */
+export function wordRanges(text: string, term: string, caseSensitive = false): SearchRange[] {
+  const needle = caseSensitive ? term : term.toLowerCase()
   if (!needle) return []
-  const hay = text.toLowerCase()
+  const hay = caseSensitive ? text : text.toLowerCase()
   const ranges: SearchRange[] = []
   let from = 0
   let i: number
@@ -241,9 +249,27 @@ export function wordRanges(text: string, term: string): SearchRange[] {
   return ranges
 }
 
-/** Whether `term` appears in `text` as a whole word, case-insensitively. */
-function hasWord(text: string, term: string): boolean {
-  return wordRanges(text, term).length > 0
+/** Whether `term` appears in `text` as a whole word, under the active case
+ *  rule. */
+function hasWord(text: string, term: string, caseSensitive: boolean): boolean {
+  return wordRanges(text, term, caseSensitive).length > 0
+}
+
+/** Whether a fuzzy hit under the case-sensitive rule really starts in the typed
+ *  case (match-case-search). Fuse's case-sensitive matcher still treats a
+ *  differing case as one edit, so `docker` aligns `Docker` at the price of a
+ *  typo. The aligned region must therefore begin with the term's first character
+ *  in the exact case: that rejects the case variant while a real typo (`dockr`
+ *  against `docker`) still starts on the right letter. One character compare per
+ *  aligned region, no allocation. */
+function alignedInCase(item: SearchDoc, term: string, hit: FuseResult<SearchDoc>): boolean {
+  for (const match of hit.matches ?? []) {
+    const field = match.key === 'title' ? item.title : match.key === 'text' ? item.text : ''
+    for (const [start, end] of match.indices) {
+      if (end >= start && field[start] === term[0]) return true
+    }
+  }
+  return false
 }
 
 /** Candidate hits for a short term: pages and journal days the index already
@@ -252,10 +278,14 @@ function hasWord(text: string, term: string): boolean {
  *  pass over the in-memory corpus, the same order as the `fuse.search` it
  *  stands in for. Short hits carry score 0: they rank by tier, and every one of
  *  them matched literally. */
-function wholeWordHits(fuse: Fuse<SearchDoc>, term: string): FuseResult<SearchDoc>[] {
+function wholeWordHits(
+  fuse: Fuse<SearchDoc>,
+  term: string,
+  caseSensitive: boolean,
+): FuseResult<SearchDoc>[] {
   const hits: FuseResult<SearchDoc>[] = []
   for (const item of fuse.getIndex().docs) {
-    if (hasWord(item.title, term) || hasWord(item.text, term)) {
+    if (hasWord(item.title, term, caseSensitive) || hasWord(item.text, term, caseSensitive)) {
       hits.push({ item, refIndex: -1, score: 0 })
     }
   }
@@ -268,16 +298,27 @@ function wholeWordHits(fuse: Fuse<SearchDoc>, term: string): FuseResult<SearchDo
  *  whole words only, with no fuzzy fallback. Results sort by match tier before
  *  score - exact title, exact body, fuzzy title, fuzzy body - so literal matches
  *  lead their kind group, then by summed score, uncapped: the launcher dropdown
- *  slices per group via topPerGroup, the results view paginates the full list. */
-export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[] {
+ *  slices per group via topPerGroup, the results view paginates the full list.
+ *
+ *  `caseSensitive` (match-case-search) is the mode the toggle asks for: every
+ *  rule compares the typed case, so the fuzzy index must have been built with
+ *  the same flag (`fuseOptions`). */
+export function searchDocs(
+  fuse: Fuse<SearchDoc>,
+  query: string,
+  caseSensitive = false,
+): SearchResult[] {
   const terms = parseQuery(query).terms
   if (!terms.length) return []
   const acc = new Map<string, Omit<SearchResult, 'blocks' | 'matchedTitle'> & AccFlags>()
   for (const term of terms) {
     const short = term.length < FUZZY_MIN_LENGTH
-    const hits = short ? wholeWordHits(fuse, term) : fuse.search(term)
+    const hits = short ? wholeWordHits(fuse, term, caseSensitive) : fuse.search(term)
     for (const hit of hits) {
       const item = hit.item
+      // A case-sensitive fuzzy hit must still begin in the typed case; Fuse alone
+      // would accept a case difference as a typo.
+      if (caseSensitive && !short && !alignedInCase(item, term, hit)) continue
       const rec = acc.get(item.path) ?? {
         path: item.path,
         title: item.title,
@@ -294,12 +335,16 @@ export function searchDocs(fuse: Fuse<SearchDoc>, query: string): SearchResult[]
       acc.set(item.path, rec)
       rec._terms += 1
       rec.score += hit.score ?? 1
-      const titleExact = short ? hasWord(item.title, term) : hasExact(item.title, term)
+      const titleExact = short
+        ? hasWord(item.title, term, caseSensitive)
+        : hasExact(item.title, term, caseSensitive)
       const titleFuzzy = !short && !!hit.matches?.some((m) => m.key === 'title')
       rec._titleExact &&= titleExact
       rec._titleFuzzy ||= titleFuzzy
       rec._titleHit ||= titleExact || titleFuzzy
-      let ranges = short ? wordRanges(item.text, term) : exactRanges(item.text, term)
+      let ranges = short
+        ? wordRanges(item.text, term, caseSensitive)
+        : exactRanges(item.text, term, caseSensitive)
       rec._bodyExact &&= ranges.length > 0
       if (!short && !ranges.length) {
         const textMatch = hit.matches?.find((m) => m.key === 'text')

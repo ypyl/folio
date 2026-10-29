@@ -398,6 +398,19 @@ matches, and the counts around it — the see-all total, the results view's matc
 count — count pages, not occurrences. The snippets are the row's view of the
 matches; the frames above are the page's. They are allowed to differ in number.
 
+### Match case toggle
+
+The search field carries one mode control at its trailing edge, outside the
+input's own box: a 30px square `Aa` button, `--stone` ink at rest, `--brand` ink
+on a `--brand-tint` fill while pressed, the clear `×`'s `--warm-sand` hover and
+the app's focus ring. It carries the accessible name **Match case** and
+`aria-pressed`, and the glyph itself is decoration. It is disabled while the
+vault is unusable, like the input. The clear `×` stays over the input's right
+edge, so the toggle never shares its space; the label is words in the
+accessible name and letters on screen, because a search field already taught
+this convention. Pressing it leaves the caret in the input: it changes the
+rule, not the query.
+
 ### Pin star (row icon + status-bar toggle)
 
 The pin toggle lives in the **status bar's leading corner**, before the
