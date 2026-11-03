@@ -126,8 +126,8 @@ note filled in. Cells outside the shown month SHALL be dimmed but clickable as
 days. The grid SHALL show the month of the open day, or the current month when
 no day is open; previous and next controls SHALL move the shown month without
 opening a day; and opening any day SHALL re-anchor the grid to that day's month.
-The control that opens the current day's journal lives in the sidebar's
-navigation row, below this section, and it SHALL re-anchor the grid to the
+The control that opens the current day's journal lives on this section's
+summary row, and it SHALL re-anchor the grid to the
 current month even when the current day is already open. With no folder open,
 the section SHALL show no calendar.
 
@@ -156,7 +156,7 @@ the section SHALL show no calendar.
 #### Scenario: Today re-anchors the calendar
 
 - **GIVEN** the current day's journal is open and the calendar shows another month
-- **WHEN** the user activates Today in the sidebar's navigation row
+- **WHEN** the user activates Today on the Journal section's summary row
 - **THEN** the grid shows the current day's month
 
 #### Scenario: No calendar without a folder
@@ -395,8 +395,8 @@ outside the panes' scroll regions, so its content never scrolls. The bar's
 display-only content SHALL perform no action; its only controls SHALL be the open
 page's name where it has a Files row, and — at or below the compact breakpoint —
 the navigation and meta view controls the compact shell adds. The bar SHALL NOT
-hold a Back, Forward, or Today control: those live in the sidebar's navigation
-row. At or below the compact breakpoint each view control SHALL show, by the
+hold a Back, Forward, or Today control: those live on the Journal section's
+summary row. At or below the compact breakpoint each view control SHALL show, by the
 shape it draws rather than by colour alone, whether its view is the one shown:
 the pane inside its frame SHALL be filled while that control's view is open and
 empty while it is closed, and the open control SHALL additionally carry the
@@ -450,7 +450,7 @@ app's recede tint as its background.
 
 - **WHEN** the shell renders in any state
 - **THEN** the status bar holds no Back, Forward, or Today control, and those
-  controls appear in the sidebar's navigation row
+  controls appear on the Journal section's summary row
 
 #### Scenario: The bar stays put while panes scroll
 
@@ -860,8 +860,8 @@ state, or write to the vault.
 ### Requirement: Compact controls are touch-sized and clear the device's safe areas
 
 At or below the compact breakpoint, every control in the status bar and every
-control in the sidebar's navigation row SHALL have a target of at least 44 by 44
-CSS pixels. The status bar SHALL pad itself with the device's safe-area insets,
+control of the Journal summary's session navigation SHALL have a target of at
+least 44 by 44 CSS pixels. The status bar SHALL pad itself with the device's safe-area insets,
 so no control sits under a notch, a rounded corner, or the home indicator, and
 the shell SHALL size itself to the viewport height that remains visible, so the
 on-screen keyboard shrinks the shell rather than covering the bottom of the
@@ -900,8 +900,8 @@ overlay with an accessible name, and while it is open it SHALL contain focus and
 require dismissal. It SHALL present an ordered sequence of steps, each naming
 one region of the shell — the folder rail, the sidebar, the editor area, the
 right panel, and the status bar — and explaining what that region holds. The
-step naming the sidebar SHALL name the navigation row it holds — Back, Forward,
-and Today — as well as the calendar and the listing. The step naming the editor
+step naming the sidebar SHALL name the session navigation its Journal row holds
+— Back, Forward, and Today — as well as the calendar and the listing. The step naming the editor
 area SHALL also name the reference forms the page surface accepts — `#word` and
 `#[[Page]]` for a page, and `#!word` and `#![[Board]]` for a board — so the tour
 teaches linking as well as the pane, and SHALL name the guided demo vault as the
@@ -1112,17 +1112,15 @@ where the browser can open local folders, and it SHALL write and store nothing.
 - **THEN** it creates no file, requests no permission, opens no picker, and
   writes nothing
 
-### Requirement: The sidebar is an accordion of Journal and Files with a navigation row
-The sidebar SHALL hold exactly two collapsible sections, Journal then Files, and
-exactly one navigation row between them: Journal first, the row directly below it,
-then Files, with no other sections or controls. The row SHALL be a band of the
-sidebar rather than part of the Journal section's body, so collapsing Journal
-SHALL leave it in place. Both sections SHALL be open by default and SHALL open and
-close independently, and every summary SHALL render in every state. The Journal
-section SHALL size to its content and not scroll internally; the Files section
-SHALL take the remaining height, scrolling within itself and keeping a minimum
-height. When Journal is collapsed, Files SHALL take the space it gave up. There
-SHALL be no tags section, no New Page button, and no History section.
+### Requirement: The sidebar is an accordion of Journal and Files
+The sidebar SHALL hold exactly two collapsible sections, Journal then Files, with
+no other sections, bands, or controls between or around them, so Journal is the
+first row. Both SHALL be open by default and SHALL open and close independently,
+and every summary SHALL render in every state. The Journal section SHALL size to
+its content and not scroll internally; the Files section SHALL take the remaining
+height, scrolling within itself and keeping a minimum height. When Journal is
+collapsed, Files SHALL take the space it gave up. There SHALL be no tags section,
+no New Page button, and no History section.
 
 #### Scenario: Sections open and close independently
 
@@ -1134,33 +1132,42 @@ SHALL be no tags section, no New Page button, and no History section.
 - **WHEN** the user collapses Files
 - **THEN** both summaries remain in order, each one row
 
-#### Scenario: The navigation row follows the Journal section
+#### Scenario: Journal leads the sidebar
 
 - **WHEN** the shell renders with a folder open
-- **THEN** the navigation row appears directly below the Journal section and above
-  the Files section
+- **THEN** the Journal section is the sidebar's first row and Files follows it
 
-#### Scenario: The row survives a collapsed Journal
+### Requirement: The Journal summary holds the session navigation
+The Journal section's summary row SHALL hold the Back and Forward controls
+specified by the history capability and a Today control, in that order, at its
+trailing edge ahead of the section's disclosure marker, and those three controls
+SHALL appear nowhere else in the sidebar. A control in the summary SHALL act as
+that control alone: activating it SHALL NOT open or close the section. Back and
+Forward SHALL each be disabled when there is nowhere to step on the session
+trail. Today SHALL open the current day's journal exactly as choosing a calendar
+day does — the file's content when it exists, otherwise a blank in-memory page
+that is created on first save and creates nothing on open — and SHALL be disabled
+while no folder is usable, activating nothing while disabled. Each control SHALL
+name its action. The summary SHALL stay one row tall whether the section is open
+or collapsed.
 
-- **WHEN** the user collapses the Journal section
-- **THEN** the navigation row stays in place between the two summaries, and Files
-  takes the height the calendar gave up
-
-### Requirement: The sidebar's navigation row holds the session navigation
-The sidebar's navigation row SHALL hold the Back and Forward controls specified by
-the history capability and a Today control, in that order, and those three
-controls SHALL appear nowhere else in the sidebar. Back and Forward SHALL each be
-disabled when there is nowhere to step on the session trail. Today SHALL open the
-current day's journal exactly as choosing a calendar day does — the file's content
-when it exists, otherwise a blank in-memory page that is created on first save and
-creates nothing on open — and SHALL be disabled while no folder is usable,
-activating nothing while disabled. Each control SHALL name its action.
-
-#### Scenario: The row's controls are in order
+#### Scenario: The summary's controls are in order
 
 - **WHEN** the sidebar renders
-- **THEN** Back, Forward, and Today appear in that order in one row below the
-  Journal section
+- **THEN** Back, Forward, and Today appear in that order on the Journal
+  section's summary row, before its disclosure marker
+
+#### Scenario: A control does not toggle its section
+
+- **GIVEN** the Journal section is open
+- **WHEN** the user activates Back, Forward, or Today
+- **THEN** the section stays open and only that control's action runs
+
+#### Scenario: The controls survive a collapsed Journal
+
+- **WHEN** the user collapses the Journal section
+- **THEN** Back, Forward, and Today stay on its summary row, and Files takes the
+  height the calendar gave up
 
 #### Scenario: The row reports when there is nowhere to go
 
