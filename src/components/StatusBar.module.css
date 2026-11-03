@@ -9,7 +9,10 @@
   align-items: center;
   gap: 10px;
   min-height: 30px;
-  padding: 4px 16px 4px 8px;
+  /* Symmetric insets: the bar leads with the open item's name now that the
+     session navigation lives on the sidebar's JOURNAL row, so its leading text
+     sits on the same margin as the version at its trailing edge. */
+  padding: 4px 16px;
   background: var(--parchment);
   border-top: 1px solid var(--border);
   font-size: 12px;
