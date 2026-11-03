@@ -187,11 +187,13 @@ the laser's — stay as they are.
 ### Side panes are columns of bands
 
 Both side panes — the left sidebar and the right meta panel — are columns of
-bands. A band either sizes to its content (the sidebar's control row and
-calendar, the meta panel's keyboard-shortcuts reference) or shares the pane's
-leftover height with the other bands: `flex: 1 1 0` while open, with a floor
-of 120px so a short window cannot collapse a listing to nothing, and exactly
-its summary row while closed. A listing that outgrows its band scrolls inside
+bands. A band either sizes to its content (the sidebar's Journal section, the
+meta panel's keyboard-shortcuts reference) or shares the pane's leftover height
+with the other bands: `flex: 1 1 0` while open, with a floor of 120px so a short
+window cannot collapse a listing to nothing, and exactly its summary row while
+closed. A band's disclosure marker leads its summary — ahead of the label, the
+way a tree draws it — so the row's trailing edge belongs to the controls the
+section itself carries (the Journal row's Back, Forward, and Today). A listing that outgrows its band scrolls inside
 that band's own body — it never grows the pane and never pushes another band's
 summary out of reach. The pane itself scrolls only as a fallback, when even
 the floors do not fit. Because surfaces stay flat, a band anchored to the

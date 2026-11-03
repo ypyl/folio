@@ -30,12 +30,12 @@
   white-space: nowrap;
 }
 
-/* A summary's own controls (put-nav-controls-on-the-journal-header): they sit
-   at the summary's trailing edge, ahead of the disclosure marker, and they keep
-   the row at its normal height instead of growing it — the marker, not the
-   controls, stays the row's tallest item. The negative block margins pull the
-   group's box back to the label's height; the control itself overflows into the
-   summary's own padding, which is transparent and never clips. */
+/* A summary's own controls (put-nav-controls-on-the-journal-header): they sit at
+   the summary's trailing edge and they keep the row at its normal height instead
+   of growing it — the label, not the controls, keeps the row at one line. The
+   negative block margins pull the group's box back to the label's height; the
+   control itself overflows into the summary's own padding, which is transparent
+   and never clips. */
 .actions {
   display: flex;
   align-items: center;
@@ -49,8 +49,15 @@
   display: none;
 }
 
-.summary::after {
+/* The disclosure marker (lead-the-summary-with-its-disclosure-marker): the
+   summary's first item, ahead of its label, so the affordance reads before the
+   name and the row's trailing edge stays with the section's own controls. It is
+   a decoration — the summary row is the one disclosure control — and it is
+   shorter than the label, so it never sets the row's height. Collapsed it points
+   right; open it points down. */
+.summary::before {
   content: '';
+  flex: 0 0 auto;
   width: 7px;
   height: 7px;
   border-right: 1.5px solid var(--stone);
@@ -59,7 +66,7 @@
   transition: transform 0.15s;
 }
 
-.accordion[open] .summary::after {
+.accordion[open] .summary::before {
   transform: rotate(45deg);
 }
 
