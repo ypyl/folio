@@ -94,14 +94,18 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(page.locator('.cm-content')).toBeVisible()
 
     // Every control in the bar is at least 44 by 44, view controls included.
+    // The session navigation is not in the bar: it is the sidebar's navigation
+    // row, inside the navigation view (move-nav-controls-to-the-sidebar).
     const bar = footer(page)
-    const names = ['Navigation', 'Back', 'Forward', 'Today', 'Page details']
+    const names = ['Navigation', 'Page details']
     for (const name of names) {
       const box = await bar.getByRole('button', { name }).boundingBox()
       expect(box, `${name} has no box`).not.toBeNull()
       expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(44)
       expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(44)
     }
+    await expect(bar.getByRole('button', { name: 'Back' })).toHaveCount(0)
+    await expect(bar.getByRole('button', { name: 'Today' })).toHaveCount(0)
 
     // The open item's name shows; the directories, the folder statistics, and
     // the version do not.
@@ -117,6 +121,27 @@ test.describe('the compact shell on a phone-sized window', () => {
     }))
     expect(row.scroll).toBeLessThanOrEqual(row.client + 1)
     expect(row.height).toBeLessThan(70)
+  })
+
+  test('the navigation row is touch-sized in the navigation view', async ({ page }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    const row = page.getByRole('navigation', { name: 'Session navigation' })
+    await expect(row).toBeVisible()
+    for (const name of ['Back', 'Forward', 'Today']) {
+      const box = await row.getByRole('button', { name }).boundingBox()
+      expect(box, `${name} has no box`).not.toBeNull()
+      expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(44)
+      expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(44)
+    }
+    // The row is a band of the sidebar, not part of the calendar's section, so
+    // collapsing Journal cannot take it away.
+    expect(await row.evaluate((el) => el.closest('details') !== null)).toBe(false)
   })
 
   test('the bar marks the open view by shape and tint', async ({ page }) => {

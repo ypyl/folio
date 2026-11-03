@@ -1698,8 +1698,9 @@ describe('applying shortcuts from the reference (apply-shortcuts-on-click)', () 
 })
 
 describe('history navigation (add-history-navigation spec)', () => {
-  // Back and Forward lead the status bar now (move-nav-controls-to-status-bar),
-  // so they are queried globally rather than through the sidebar.
+  // Back and Forward live in the sidebar's navigation row now
+  // (move-nav-controls-to-the-sidebar), so they are queried globally rather
+  // than through the Files listing.
   const back = () => screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement
   const forward = () => screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement
   // The page the sidebar marks as open.
@@ -1742,7 +1743,7 @@ describe('history navigation (add-history-navigation spec)', () => {
   })
 
   // add-history-keyboard-shortcuts: the Logseq chords, Mod+[ and Mod+] (Ctrl
-  // here), step the same trail the status bar's controls do.
+  // here), step the same trail the sidebar's controls do.
   it('steps back and forward with the history chords, without adding entries', async () => {
     render(<App />)
     await openFixture()
@@ -2718,11 +2719,12 @@ describe('the app tour (add-app-tour spec)', () => {
 })
 
 // The compact shell (add-compact-mobile-shell spec): one view at a time, chosen
-// from the status bar's app-bar controls, with the Android Back step closing
-// the view instead of leaving the app. jsdom applies no stylesheets and has no
-// layout, so what these tests hold is the state that drives the composition —
-// the shell's view class, the controls' pressed state, and the history entries.
-// The layout those classes select is checked in a browser.
+// from the status bar's app-bar controls or the open item's crumb, with the
+// Android Back step closing the view instead of leaving the app. jsdom applies
+// no stylesheets and has no layout, so what these tests hold is the state that
+// drives the composition — the shell's view class, the controls' pressed state,
+// and the history entries. The layout those classes select is checked in a
+// browser.
 describe('the compact shell (add-compact-mobile-shell spec)', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -2770,6 +2772,24 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     render(<App />)
     await openFixture()
     await waitFor(() => expect(shownView()).toBe('editor'))
+  })
+
+  it('keeps Back, Forward, and Today in the navigation view, not the app bar', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    await waitFor(() => expect(shownView()).toBe('editor'))
+    // The bar carries the two view controls alone; the session controls are the
+    // sidebar's navigation row, which is the navigation view
+    // (move-nav-controls-to-the-sidebar).
+    const bar = document.querySelector('footer') as HTMLElement
+    for (const name of ['Back', 'Forward', 'Today']) {
+      expect(within(bar).queryByRole('button', { name })).toBeNull()
+    }
+    const row = within(navLayer()).getByRole('navigation', { name: 'Session navigation' })
+    for (const name of ['Back', 'Forward', 'Today']) {
+      expect(within(row).getByRole('button', { name })).toBeTruthy()
+    }
   })
 
   it('locates the open journal day by showing the navigation view', async () => {

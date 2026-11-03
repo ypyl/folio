@@ -98,7 +98,7 @@ describe('Sidebar', () => {
   })
 })
 
-describe('Sidebar calendar re-anchor (move-nav-controls-to-status-bar)', () => {
+describe('Sidebar navigation row and calendar re-anchor (move-nav-controls-to-the-sidebar)', () => {
   it('re-anchors the calendar when App bumps the Today tick', () => {
     const today = `journals/${localDayString(new Date())}.md`
     const base = {
@@ -115,13 +115,13 @@ describe('Sidebar calendar re-anchor (move-nav-controls-to-status-bar)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
     screen.getByText(monthLabel(shiftMonth(new Date(), 1)))
     // The open day never changed, so only the tick can bring the grid back to
-    // the current day's month (move-nav-controls-to-status-bar).
+    // the current day's month (move-nav-controls-to-the-sidebar).
     rerender(<Sidebar {...base} todayTick={1} />)
     screen.getByText(monthLabel(new Date()))
   })
 
-  it('holds no navigation controls in the sidebar', () => {
-    render(
+  it('holds Back, Forward, and Today in one row below the Journal section', () => {
+    const { container } = render(
       <Sidebar
         rows={[pageRow('notes.md', 'notes')]}
         journalEntries={[journal]}
@@ -131,9 +131,74 @@ describe('Sidebar calendar re-anchor (move-nav-controls-to-status-bar)', () => {
         hasVault
       />,
     )
-    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Forward' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Today' })).toBeNull()
+    const row = screen.getByRole('navigation', { name: 'Session navigation' })
+    const names = within(row)
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('aria-label') ?? b.textContent)
+    expect(names).toEqual(['Back', 'Forward', 'Today'])
+    // The row is a band of the sidebar: it follows the Journal section's
+    // summary and precedes the Files section, so collapsing the calendar keeps
+    // the controls in reach (the row is not inside the Journal body).
+    const sections = [...container.querySelectorAll('details')]
+    const journalSection = sections[0] as HTMLElement
+    const filesSection = sections[1] as HTMLElement
+    expect(journalSection.contains(row)).toBe(false)
+    expect(
+      journalSection.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      row.compareDocumentPosition(filesSection) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('disables Back and Forward at the trail ends and calls each handler', () => {
+    const onBack = vi.fn()
+    const onForward = vi.fn()
+    const onToday = vi.fn()
+    render(
+      <Sidebar
+        rows={[]}
+        journalEntries={[]}
+        onOpenAsset={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+        canBack={false}
+        canForward={false}
+        onBack={onBack}
+        onForward={onForward}
+        canToday
+        onToday={onToday}
+      />,
+    )
+    const back = screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement
+    const forward = screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement
+    const today = screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement
+    expect(back.disabled).toBe(true)
+    expect(forward.disabled).toBe(true)
+    expect(today.disabled).toBe(false)
+    fireEvent.click(today)
+    expect(onToday).toHaveBeenCalledTimes(1)
+    // A disabled control is inert: activating it calls nothing.
+    fireEvent.click(back)
+    fireEvent.click(forward)
+    expect(onBack).not.toHaveBeenCalled()
+    expect(onForward).not.toHaveBeenCalled()
+  })
+
+  it('disables Today while no vault is usable', () => {
+    render(
+      <Sidebar
+        rows={[]}
+        journalEntries={[]}
+        onOpenAsset={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault={false}
+        canToday={false}
+      />,
+    )
+    expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
 

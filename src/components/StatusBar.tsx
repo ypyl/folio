@@ -5,40 +5,21 @@ import type { DraftStatus } from '../editor/drafts'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell spec): one always-present
-// thin bar below the workspace leading with the session navigation — Back,
-// Forward, and Today (move-nav-controls-to-status-bar) — then the open page's
-// file path, the save/indexing status, and the active vault's name and note
-// count (right). The bar sits outside all pane scroll regions, so its content
-// never scrolls. Groups empty when their content has no source. The three
-// navigation controls and the open item's name are its only controls: a page's
-// name reveals its row in the Files listing (reveal-open-page-in-files) and a
-// journal day's locates the day in the Journal calendar
-// (focus-the-journal-day-in-the-calendar). Either name spells the file name the
-// crumb prints, so what is written on it is what a person says to activate it
-// (name-the-crumb-with-what-it-shows), while the directory crumbs and the other
-// groups stay display-only. The question-mark help button and its modal
-// lived here until move-help-to-right-panel moved the reference into the right
-// panel, and the pin star lived here until add-row-context-menu moved
-// favoriting to a page row's context menu.
-
-// A 24-viewBox chevron. aria-hidden: the control's accessible name says which
-// way it goes, so the glyph is decoration (the same rule the pin star follows).
-function ChevronIcon({ direction }: { direction: 'back' | 'forward' }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={styles.controlIcon}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={direction === 'back' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
-    </svg>
-  )
-}
+// thin bar below the workspace showing the open page's file path, the
+// save/indexing status, and the active vault's name and note count (right). The
+// bar sits outside all pane scroll regions, so its content never scrolls. Groups
+// empty when their content has no source. The open item's name is its only
+// control: a page's name reveals its row in the Files listing
+// (reveal-open-page-in-files) and a journal day's locates the day in the Journal
+// calendar (focus-the-journal-day-in-the-calendar). Either name spells the file
+// name the crumb prints, so what is written on it is what a person says to
+// activate it (name-the-crumb-with-what-it-shows), while the directory crumbs
+// and the other groups stay display-only. The question-mark help button and its
+// modal lived here until move-help-to-right-panel moved the reference into the
+// right panel, the pin star lived here until add-row-context-menu moved
+// favoriting to a page row's context menu, and Back, Forward, and Today lived
+// here until move-nav-controls-to-the-sidebar moved them into the sidebar's
+// navigation row.
 
 // A pane glyph: a frame with the divider on the side the view occupies, so the
 // navigation control and the meta control read as mirror images and each points
@@ -94,12 +75,6 @@ export function StatusBar({
   indexing = false,
   vaultName,
   noteCount,
-  canBack = false,
-  canForward = false,
-  onBack,
-  onForward,
-  canToday = false,
-  onToday,
   onRevealPage,
   onLocateDay,
   compact = false,
@@ -117,17 +92,6 @@ export function StatusBar({
   /** How many notes the active folder holds (the index's page count, or the
    *  folder's own count by the same rule while the index builds). */
   noteCount?: number
-  /** The trail has an entry before/after the open page; the Back and Forward
-   *  controls lead the bar (move-nav-controls-to-status-bar). */
-  canBack?: boolean
-  canForward?: boolean
-  onBack?: () => void
-  onForward?: () => void
-  /** The current day's journal can be opened (a usable vault). */
-  canToday?: boolean
-  /** Opens the current day's journal; the handler lives in App, so the open is
-   *  an ordinary navigation. */
-  onToday?: () => void
   /** Reveal the open page's row in the sidebar's Files listing
    *  (reveal-open-page-in-files). App supplies it for a page; a page with no file
    *  yet is created by the reveal so it can have a row
@@ -142,8 +106,8 @@ export function StatusBar({
   onLocateDay?: () => void
   /** The compact shell (add-compact-mobile-shell): the bar is its app bar, so
    *  it carries the two view controls and drops what a phone-width row cannot
-   *  hold. Absent on a wide window, where the bar's controls are Back, Forward,
-   *  Today, and the page name. */
+   *  hold. Absent on a wide window, where the bar shows the open item's path and
+   *  the folder's statistics. */
   compact?: boolean
   /** Which compact view is shown, for the controls' pressed state. */
   view?: CompactView
@@ -181,39 +145,9 @@ export function StatusBar({
           <PanelsIcon side="nav" open={view === 'nav'} />
         </button>
       )}
-      {/* Session navigation (move-nav-controls-to-status-bar): the trail's
-          Back and Forward and the Today control lead the bar, so the sidebar
-          can lead with its sections. */}
-      {(onBack || onForward || onToday) && (
-        <div className={styles.nav}>
-          <button
-            type="button"
-            className={styles.control}
-            aria-label="Back"
-            disabled={!canBack}
-            onClick={onBack}
-          >
-            <ChevronIcon direction="back" />
-          </button>
-          <button
-            type="button"
-            className={styles.control}
-            aria-label="Forward"
-            disabled={!canForward}
-            onClick={onForward}
-          >
-            <ChevronIcon direction="forward" />
-          </button>
-          <button
-            type="button"
-            className={`${styles.control} ${styles.controlLabel}`}
-            disabled={!canToday}
-            onClick={onToday}
-          >
-            Today
-          </button>
-        </div>
-      )}
+      {/* Session navigation lived here until move-nav-controls-to-the-sidebar
+          moved Back, Forward, and Today into the sidebar's navigation row, so
+          the bar can lead with the open item. */}
       <div className={styles.path} title={pagePath ?? undefined}>
         {/* The compact bar shows the open item's name alone: a 360px row has no
             space for the directories, and the name is what identifies it. */}

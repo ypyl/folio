@@ -164,9 +164,9 @@ function App() {
   // no tour, so neither shows a control there (add-app-tour,
   // add-landing-page-info).
   const onTour = compact ? undefined : () => setTourOpen(true)
-  // The calendar's Today re-anchor tick (move-nav-controls-to-status-bar):
-  // Today now lives in the status bar, but the calendar it re-anchors stays in
-  // the sidebar. App owns the tick and passes it down; it changes only on a
+  // The calendar's Today re-anchor tick (move-nav-controls-to-the-sidebar):
+  // Today lives in the sidebar's navigation row, directly above the calendar it
+  // re-anchors. App owns the tick and passes it down; it changes only on a
   // Today activation, so it never touches the keystroke path.
   const [todayTick, setTodayTick] = useState(0)
   // The local day, re-read at local midnight and on wake (useToday). App passes
@@ -403,12 +403,12 @@ function App() {
     handleOpenPath(path)
   }, [trail, handleOpenPath])
 
-  // Today (move-nav-controls-to-status-bar): the current day's journal is just
+  // Today (move-nav-controls-to-the-sidebar): the current day's journal is just
   // another page to open, so it goes through handleSelect and inherits the
   // trail recording, the draft baseline, and the blank-page-on-first-save
   // rule. The day is read at activation, not at mount, so a session left open
-  // across midnight goes to the new day. The status bar owns the control; the
-  // calendar stays in the sidebar, so App bumps the tick that re-anchors it.
+  // across midnight goes to the new day. The sidebar's navigation row owns the
+  // control and the calendar it re-anchors, so App bumps the tick they share.
   const handleToday = useCallback(() => {
     setTodayTick((t) => t + 1)
     handleSelect(`journals/${localDayString(new Date())}.md`)
@@ -713,7 +713,7 @@ function App() {
   }, [])
 
   // History chords (add-history-keyboard-shortcuts, design D1/D2): Mod+[ and
-  // Mod+] step the trail wherever focus is, exactly as the status bar's Back and
+  // Mod+] step the trail wherever focus is, exactly as the sidebar's Back and
   // Forward controls do. The listener runs in the capture phase, so it claims
   // the chord before CodeMirror's own binding for it (list indent and outdent)
   // can act; Tab and Shift+Tab remain the indent chords. It is registered only
@@ -1263,6 +1263,12 @@ function App() {
             onOpenBoard={handleOpenBoard}
             onFavorite={handleFavorite}
             onPresent={handlePresent}
+            canBack={canBack}
+            canForward={canForward}
+            onBack={handleBack}
+            onForward={handleForward}
+            canToday={graph !== null}
+            onToday={handleToday}
             reminderTarget={reminderTarget}
             reminderRules={reminderRules}
             onRemind={handleRemind}
@@ -1416,12 +1422,6 @@ function App() {
         // rule before that (count-the-folders-notes-in-the-status-bar).
         vaultName={activeFolder?.storage ? activeFolder.name : undefined}
         noteCount={graph ? graph.pages.size : activeFolder?.noteCount}
-        canBack={canBack}
-        canForward={canForward}
-        onBack={handleBack}
-        onForward={handleForward}
-        canToday={graph !== null}
-        onToday={handleToday}
         onRevealPage={canRevealPage ? handleRevealPage : undefined}
         onLocateDay={journalDay !== null ? handleLocateDay : undefined}
       />

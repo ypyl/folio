@@ -9,7 +9,7 @@ marked.
 ## Today
 
 The demo wrote a note for today, #[[{{today}}]], and for two earlier days. Click a
-marked day in the calendar to open it, or press **Today** in the status bar. A
+marked day in the calendar to open it, or press **Today** under the calendar. A
 real vault opens today's note on load; the demo lands on #Welcome instead so you
 can read this first.
 

@@ -28,7 +28,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '#sidebar-pane',
     title: 'Journal and Files',
-    body: 'The calendar marks days that have a note, and Files lists every page, board, and file in the open folder.',
+    body: "The calendar marks days that have a note, and the row under it steps Back and Forward through what you have visited — Today opens the current day's journal. Files lists every page, board, and file in the open folder.",
     side: 'right',
   },
   {
@@ -46,7 +46,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="status"]',
     title: 'Getting around',
-    body: "Back and Forward walk the pages you have visited, and Today opens the current day's journal. The far end names the open folder and its file count.",
+    body: 'The bar names the open item, reports whether it is saved, and names the open folder and its file count at the far end.',
     side: 'top',
   },
 ]

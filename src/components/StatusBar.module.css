@@ -1,10 +1,9 @@
 /* App-level status frame (add-status-bar, ui-shell spec): a thin Kami bar
    below the workspace — stone 12px metadata on parchment, hairline top
-   border, flat, no shadow. Flex layout: the session navigation leads, then
-   the path cluster, the status cluster; the vault stats pin to the
-   far right via an auto margin on the right side. The bar leads at its own
-   edge now, so it keeps a small left inset
-   (move-nav-controls-to-status-bar). */
+   border, flat, no shadow. Flex layout: the path cluster leads, then the
+   status cluster; the vault stats pin to the far right via an auto margin on
+   the right side. The session navigation that used to lead the bar moved to
+   the sidebar's navigation row (move-nav-controls-to-the-sidebar). */
 .bar {
   display: flex;
   align-items: center;
@@ -17,63 +16,10 @@
   color: var(--stone);
 }
 
-/* Session navigation (move-nav-controls-to-status-bar): the bar's leading
-   group, Back then Forward then Today. Stone at rest, brand on hover/focus,
-   dimmed when unavailable. */
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.control {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--stone);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.control:hover:not(:disabled),
-.control:focus-visible {
-  color: var(--brand);
-}
-
-.control:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: -1px;
-}
-
-.control:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.controlIcon {
-  display: block;
-  width: 16px;
-  height: 16px;
-}
-
-/* The labelled Today control: the icon controls' treatment with the label's
-   own width. Declared after .control so it wins on equal specificity. */
-.controlLabel {
-  width: auto;
-  padding: 0 8px;
-  font-size: 12px;
-}
-
 /* Pin toggle (add-pinned-pages) lived here until add-row-context-menu moved
    favoriting to a page row's context menu; the status bar no longer carries
-   the star. */
+   the star. The Back, Forward, and Today controls' styles lived here until
+   move-nav-controls-to-the-sidebar moved them into the sidebar. */
 
 /* Path group (left): the open page's file path as inert segments. Fits its
    content (no stretch, no artificial gap between directory text and the
@@ -196,23 +142,10 @@ leading column's edge (continue-rail-border-in-status-bar). */
   padding-right: calc(4px + env(safe-area-inset-right));
 }
 
-/* Back, Forward, and Today are pointer-sized on a wide window and are now the
-   phone's primary navigation, so the compact bar sizes every one of them for a
-   thumb. The labelled control keeps its own width. */
-.compactBar .control {
-  width: 44px;
-  height: 44px;
-}
-
-.compactBar .controlLabel {
-  width: auto;
-  padding: 0 10px;
-  font-size: 13px;
-}
-
-/* The two view controls. They are the compact shell's only new controls, the
-   only ones that must meet the touch minimum on their own, and the bar's own
-   height is measured from them. */
+/* The two view controls are the compact app bar's own controls now that the
+   session navigation lives in the sidebar (move-nav-controls-to-the-sidebar).
+   They meet the touch minimum on their own, and the bar's height is measured
+   from them. */
 .viewControl {
   display: inline-flex;
   align-items: center;

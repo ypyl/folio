@@ -211,75 +211,20 @@ describe('StatusBar', () => {
     })
   })
 
-  describe('navigation controls (move-nav-controls-to-status-bar)', () => {
-    const nav = {
-      canBack: true,
-      canForward: true,
-      onBack: vi.fn(),
-      onForward: vi.fn(),
-      canToday: true,
-      onToday: vi.fn(),
-    }
-
-    it('leads the bar with Back, Forward, and Today, in order', () => {
-      const { container } = render(<StatusBar pagePath="a.md" {...nav} />)
-      const group = container.querySelector(`.${styles.nav}`) as HTMLElement
-      const buttons = [...group.querySelectorAll('button')]
-      expect(buttons.map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
-        'Back',
-        'Forward',
-        'Today',
-      ])
-      // Nav precedes the breadcrumb.
-      const path = container.querySelector(`.${styles.path}`) as HTMLElement
-      expect(group.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    })
-
-    it('disables Back and Forward when the trail has nowhere to step', () => {
-      const { rerender } = render(<StatusBar pagePath="a.md" {...nav} canBack={false} />)
-      expect((screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement).disabled).toBe(
-        true,
+  describe('navigation controls (move-nav-controls-to-the-sidebar)', () => {
+    it('holds no Back, Forward, or Today control, in any state', () => {
+      const { container, rerender } = render(
+        <StatusBar pagePath="a.md" saveState="saving" vaultName="notes" noteCount={3} />,
       )
-      expect((screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement).disabled).toBe(
-        false,
-      )
-      rerender(<StatusBar pagePath="a.md" {...nav} canForward={false} />)
-      expect((screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement).disabled).toBe(
-        true,
-      )
-    })
-
-    it('disables Today while no vault is usable', () => {
-      render(<StatusBar pagePath={null} {...nav} canToday={false} />)
-      expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(
-        true,
-      )
-    })
-
-    it('calls the handler for each control', () => {
-      const onBack = vi.fn()
-      const onForward = vi.fn()
-      const onToday = vi.fn()
-      render(
-        <StatusBar
-          pagePath="a.md"
-          {...nav}
-          onBack={onBack}
-          onForward={onForward}
-          onToday={onToday}
-        />,
-      )
-      fireEvent.click(screen.getByRole('button', { name: 'Back' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Forward' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Today' }))
-      expect(onBack).toHaveBeenCalledTimes(1)
-      expect(onForward).toHaveBeenCalledTimes(1)
-      expect(onToday).toHaveBeenCalledTimes(1)
-    })
-
-    it('renders no navigation controls without handlers', () => {
-      const { container } = render(<StatusBar pagePath="a.md" />)
-      expect(container.querySelector(`.${styles.nav}`)).toBeNull()
+      // The three session controls live in the sidebar's navigation row; the
+      // bar keeps the crumb, the status text, and the folder statistics.
+      for (const name of ['Back', 'Forward', 'Today']) {
+        expect(container.querySelector(`[aria-label="${name}"]`)).toBeNull()
+      }
+      rerender(<StatusBar pagePath="a.md" compact view="editor" onShowView={vi.fn()} />)
+      for (const name of ['Back', 'Forward', 'Today']) {
+        expect(container.querySelector(`[aria-label="${name}"]`)).toBeNull()
+      }
     })
   })
 

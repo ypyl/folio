@@ -5,5 +5,5 @@ rule in `.folio/reminders.md`, so its row in Files carries a bell.
 
 > A demo page. Back to #Welcome, or read #Reminders.
 
-The rule was anchored on {{today}}, a day the calendar marks. Open **Today** in
-the status bar to watch the app write it into the day's note.
+The rule was anchored on {{today}}, a day the calendar marks. Open **Today** under
+the calendar, in the left panel, to watch the app write it into the day's note.

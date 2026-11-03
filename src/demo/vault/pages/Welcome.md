@@ -25,7 +25,7 @@ nothing is ever written to your computer.
 - Open #References and click one of its reference badges.
 - Press `Ctrl/Cmd+P` and search for `page: reminder`.
 - Open the board from #Boards and draw on it.
-- Click **Today** in the status bar: the demo's reminders land in today's note.
+- Click **Today** under the calendar, in the left panel: the demo's reminders land in today's note.
 
 ## How the demo is organized
 

@@ -21,7 +21,7 @@ listing.
 
 ## See a rule land
 
-Click **Today** in the status bar. When the day opens, the app writes each due
+Click **Today** under the calendar, in the left panel. When the day opens, the app writes each due
 reminder into the note as an unchecked task item:
 
 - [ ] #[[Water the plants]]
