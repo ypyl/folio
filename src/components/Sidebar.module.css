@@ -1,3 +1,22 @@
+.sidebar {
+  background: var(--ivory);
+  border-right: 1px solid var(--border);
+  /* Top aligned with the other workspace columns, and 4px on every side. */
+  padding: 4px;
+  min-width: 0;
+  /* A column of bands (add-asset-navigation, D5): Journal, then Files. The pane
+     scrolls only as a fallback — when even the sections' minimum heights cannot
+     fit — because normally the listing owns the scrolling, inside its own body.
+     The session navigation rides the Journal summary
+     (put-nav-controls-on-the-journal-header), so it adds no band. */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* No reserved lane (drop-side-pane-gutters): the accordion bodies own the
+     scrolling, so a gutter here would sit empty on every ordinary window. The
+     fallback scroll keeps the platform's own bar rather than the app's thumb. */
+}
+
 /* A band that sizes to its content and never scrolls internally: the Journal
    section (its height is bounded by the month grid). */
 .sectionFixed {

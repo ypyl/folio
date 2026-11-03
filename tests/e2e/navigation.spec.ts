@@ -27,6 +27,23 @@ test("opening a vault lands on today's journal and lists its pages", async ({ pa
     'aria-current',
     'page',
   )
+
+  // The Files section takes the height the Journal band leaves, so the listing
+  // reaches the bottom of the pane instead of floating above it
+  // (openspec/specs/workspace: the sidebar's bands).
+  const boxes = await page.evaluate(() => {
+    const sidebar = document.querySelector('#sidebar-pane') as HTMLElement
+    const files = [...sidebar.querySelectorAll('details')].at(-1) as HTMLElement
+    const style = getComputedStyle(sidebar)
+    return {
+      sidebarBottom:
+        sidebar.getBoundingClientRect().bottom - parseFloat(style.paddingBottom),
+      filesBottom: files.getBoundingClientRect().bottom,
+      sidebarDisplay: style.display,
+    }
+  })
+  expect(boxes.sidebarDisplay).toBe('flex')
+  expect(Math.abs(boxes.sidebarBottom - boxes.filesBottom)).toBeLessThanOrEqual(1)
 })
 
 // openspec/specs/history (add-history-keyboard-shortcuts): Ctrl+[ and Ctrl+] step
