@@ -1,50 +1,28 @@
-.sidebar {
-  background: var(--ivory);
-  border-right: 1px solid var(--border);
-  /* Top aligned with the other workspace columns, and 4px on every side. */
-  padding: 4px;
-  min-width: 0;
-  /* A column of bands (add-asset-navigation, D5): Journal, the navigation row,
-     Files. The pane scrolls only as a fallback — when even the sections'
-     minimum heights cannot fit — because normally the listing owns the
-     scrolling, inside its own body. */
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  /* No reserved lane (drop-side-pane-gutters): the accordion bodies own the
-     scrolling, so a gutter here would sit empty on every ordinary window. The
-     fallback scroll keeps the platform's own bar rather than the app's thumb. */
-}
-
 /* A band that sizes to its content and never scrolls internally: the Journal
-   calendar (its height is bounded by the month grid) and the navigation row
-   below it (move-nav-controls-to-the-sidebar). */
+   section (its height is bounded by the month grid). */
 .sectionFixed {
   flex: 0 0 auto;
 }
 
-/* The session navigation band (move-nav-controls-to-the-sidebar): Back, Forward,
-   and Today directly under the Journal section. A fixed band like the calendar,
-   so the Files listing keeps its own share of the height. Stone at rest, brand on
-   hover/focus, dimmed when unavailable — the treatment they had in the status
-   bar. */
-.nav {
+/* The session navigation (put-nav-controls-on-the-journal-header): Back,
+   Forward, and Today on the Journal section's summary row, at its trailing
+   edge. Stone at rest, brand on hover/focus, dimmed when unavailable. */
+.navRow {
   display: flex;
   align-items: center;
   gap: 2px;
   flex: 0 0 auto;
-  padding: 2px 4px 4px;
 }
 
 .navControl {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: var(--stone);
   cursor: pointer;
@@ -68,16 +46,20 @@
 
 .navIcon {
   display: block;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 /* The labelled Today control: the icon controls' treatment with the label's own
-   width. Declared after .navControl so it wins on equal specificity. */
+   width. Declared after .navControl so it wins on equal specificity. It speaks
+   in the controls' sentence case, not the summary label's uppercase, because it
+   is a control and not a section name. */
 .navControlLabel {
   width: auto;
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 6px;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* At the compact breakpoint the sidebar is the navigation view, a touch
@@ -90,8 +72,8 @@
     height: 44px;
   }
 
-  /* The row's glyphs grow with their targets, matching the app bar's view
-     icons, so a 44px button does not hold a pointer-sized drawing. */
+  /* The glyphs grow with their targets, matching the app bar's view icons, so a
+     44px button does not hold a pointer-sized drawing. */
   .navIcon {
     width: 20px;
     height: 20px;

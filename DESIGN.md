@@ -262,12 +262,12 @@ its own bar, that bar is what scrolls the region and the app adds nothing.
 
 The compact shell is the app's first touch-sized surface, so this rule is about
 the phone and only about the phone. Every control in the compact app bar — the
-status bar's two view controls — and every control in the sidebar's navigation
-row — Back, Forward, and Today, which are pointer-sized on a wide window — is at
-least 44 by 44 CSS pixels. The app bar keeps the 4px spacing base
+status bar's two view controls — and every control the sidebar's JOURNAL row
+carries — Back, Forward, and Today, which are pointer-sized on a wide window — is
+at least 44 by 44 CSS pixels. The app bar keeps the 4px spacing base
 but its row is sized by those targets, not by its text, and its content never
 wraps or scrolls: the compact bar drops what does not fit rather than growing a
-second row. The navigation row keeps its one line and only its targets grow.
+second row. The JOURNAL row keeps its one line and only its targets grow.
 
 No control sits under a notch, a rounded corner, or the home indicator. The
 shell pads itself with `env(safe-area-inset-*)` at every edge the bar touches,

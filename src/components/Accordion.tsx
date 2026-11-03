@@ -9,6 +9,7 @@ export function Accordion({
   defaultOpen = false,
   className,
   bodyClassName,
+  actions,
   children,
   ref,
 }: {
@@ -21,6 +22,12 @@ export function Accordion({
   /** Extra class on the body, for a section whose body is the pane's own scroll
    *  region (the sidebar's Pages and Assets listings, add-asset-navigation). */
   bodyClassName?: string
+  /** Controls that belong to the section itself, drawn at the summary's
+   *  trailing edge before its disclosure marker (the Journal section's session
+   *  navigation, put-nav-controls-on-the-journal-header). A click on them is
+   *  the control's, never the section's: the click's default action, which is
+   *  the details' native toggle, is cancelled here rather than in the control. */
+  actions?: ReactNode
   children: ReactNode
   /** The `<details>` element, for a caller that opens the section itself. */
   ref?: Ref<HTMLDetailsElement>
@@ -31,7 +38,14 @@ export function Accordion({
       className={className ? `${styles.accordion} ${className}` : styles.accordion}
       open={defaultOpen}
     >
-      <summary className={styles.summary}>{title}</summary>
+      <summary className={styles.summary}>
+        <span className={styles.title}>{title}</span>
+        {actions ? (
+          <span className={styles.actions} onClick={(event) => event.preventDefault()}>
+            {actions}
+          </span>
+        ) : null}
+      </summary>
       <div className={bodyClassName ? `${styles.body} ${bodyClassName}` : styles.body}>
         {children}
       </div>

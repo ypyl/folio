@@ -2779,16 +2779,16 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     render(<App />)
     await openFixture()
     await waitFor(() => expect(shownView()).toBe('editor'))
-    // The bar carries the two view controls alone; the session controls are the
-    // sidebar's navigation row, which is the navigation view
-    // (move-nav-controls-to-the-sidebar).
+    // The bar carries the two view controls alone; the session controls ride the
+    // Journal row, inside the navigation view
+    // (put-nav-controls-on-the-journal-header).
     const bar = document.querySelector('footer') as HTMLElement
     for (const name of ['Back', 'Forward', 'Today']) {
       expect(within(bar).queryByRole('button', { name })).toBeNull()
     }
-    const row = within(navLayer()).getByRole('navigation', { name: 'Session navigation' })
+    const sidebar = within(navLayer())
     for (const name of ['Back', 'Forward', 'Today']) {
-      expect(within(row).getByRole('button', { name })).toBeTruthy()
+      expect(sidebar.getByRole('button', { name })).toBeTruthy()
     }
   })
 

@@ -77,7 +77,12 @@ test('the guided demo opens without a folder picker and demonstrates every featu
   await expect(editor).toContainText('## Table of contents')
   await editor.getByText('#Presenting', { exact: true }).first().click()
   await expect(editor).toContainText('Any page can become a deck')
-  await files.getByRole('button', { name: 'Presenting' }).click({ button: 'right' })
+  // The listing is windowed: bring the row into view and let the window settle
+  // before right-clicking, since any scroll dismisses an open row menu.
+  const presenting = files.getByRole('button', { name: 'Presenting' })
+  await presenting.scrollIntoViewIfNeeded()
+  await expect(presenting).toBeInViewport()
+  await presenting.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Present' }).click()
   const deck = page.getByRole('dialog', { name: 'Presentation' })
   await expect(deck.locator('h1')).toHaveText('Presenting')

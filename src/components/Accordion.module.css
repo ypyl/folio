@@ -22,6 +22,29 @@
   list-style: none; /* hide native marker */
 }
 
+.title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A summary's own controls (put-nav-controls-on-the-journal-header): they sit
+   at the summary's trailing edge, ahead of the disclosure marker, and they keep
+   the row at its normal height instead of growing it — the marker, not the
+   controls, stays the row's tallest item. The negative block margins pull the
+   group's box back to the label's height; the control itself overflows into the
+   summary's own padding, which is transparent and never clips. */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin: -6px 0;
+  cursor: default;
+}
+
 .summary::-webkit-details-marker {
   display: none;
 }

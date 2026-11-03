@@ -18,8 +18,8 @@ import styles from './StatusBar.module.css'
 // modal lived here until move-help-to-right-panel moved the reference into the
 // right panel, the pin star lived here until add-row-context-menu moved
 // favoriting to a page row's context menu, and Back, Forward, and Today lived
-// here until move-nav-controls-to-the-sidebar moved them into the sidebar's
-// navigation row.
+// here until move-nav-controls-to-the-sidebar moved them onto the sidebar's
+// JOURNAL row.
 
 // A pane glyph: a frame with the divider on the side the view occupies, so the
 // navigation control and the meta control read as mirror images and each points

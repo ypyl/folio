@@ -5,5 +5,5 @@ A demo page with a reminder rule. It is referenced by the demo's daily rule in
 
 > A demo page. Back to #Welcome, or read #Reminders.
 
-The rule was anchored on {{today}}. Open **Today** under the calendar, in the left panel, to see the
+The rule was anchored on {{today}}. Open **Today** on the JOURNAL row, in the left panel, to see the
 app write it into today's journal as a task item.

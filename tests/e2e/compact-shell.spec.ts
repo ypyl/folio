@@ -123,7 +123,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(row.height).toBeLessThan(70)
   })
 
-  test('the navigation row is touch-sized in the navigation view', async ({ page }) => {
+  test('the Journal row is touch-sized in the navigation view', async ({ page }) => {
     await installVaultPicker(page)
     await page.goto('/')
     await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
@@ -131,17 +131,23 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(page.locator('.cm-content')).toBeVisible()
 
     await page.getByRole('button', { name: 'Navigation', exact: true }).click()
-    const row = page.getByRole('navigation', { name: 'Session navigation' })
-    await expect(row).toBeVisible()
+    const journal = page.locator('#sidebar-pane details').first()
+    const summary = journal.locator('summary')
+    await expect(summary).toBeVisible()
     for (const name of ['Back', 'Forward', 'Today']) {
-      const box = await row.getByRole('button', { name }).boundingBox()
+      const box = await summary.getByRole('button', { name }).boundingBox()
       expect(box, `${name} has no box`).not.toBeNull()
       expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(44)
       expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(44)
     }
-    // The row is a band of the sidebar, not part of the calendar's section, so
-    // collapsing Journal cannot take it away.
-    expect(await row.evaluate((el) => el.closest('details') !== null)).toBe(false)
+    // The section's own disclosure still toggles it, and a control on the row
+    // does not (put-nav-controls-on-the-journal-header).
+    await expect(journal).toHaveAttribute('open', '')
+    await summary.getByRole('button', { name: 'Today' }).click()
+    await expect(journal).toHaveAttribute('open', '')
+    await summary.locator('span').first().click()
+    await expect(journal).not.toHaveAttribute('open', '')
+    await expect(summary.getByRole('button', { name: 'Back' })).toBeVisible()
   })
 
   test('the bar marks the open view by shape and tint', async ({ page }) => {

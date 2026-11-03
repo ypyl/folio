@@ -59,8 +59,10 @@ describe('Sidebar', () => {
   it('renders two sections and the listing rows when loaded', () => {
     sidebar(false)
     screen.getByRole('button', { name: 'notes' })
+    // Each summary's own label comes first; the Journal row also carries the
+    // session navigation's three controls (put-nav-controls-on-the-journal-header).
     const summaries = [...screen.getByRole('complementary').querySelectorAll('summary')].map(
-      (s) => s.textContent,
+      (s) => s.firstElementChild?.textContent,
     )
     expect(summaries).toEqual(['Journal', 'Files'])
     expect(within(screen.getByRole('complementary')).getAllByRole('button').length).toBeGreaterThan(
@@ -98,7 +100,7 @@ describe('Sidebar', () => {
   })
 })
 
-describe('Sidebar navigation row and calendar re-anchor (move-nav-controls-to-the-sidebar)', () => {
+describe('Sidebar session navigation and calendar re-anchor', () => {
   it('re-anchors the calendar when App bumps the Today tick', () => {
     const today = `journals/${localDayString(new Date())}.md`
     const base = {
@@ -120,7 +122,7 @@ describe('Sidebar navigation row and calendar re-anchor (move-nav-controls-to-th
     screen.getByText(monthLabel(new Date()))
   })
 
-  it('holds Back, Forward, and Today in one row below the Journal section', () => {
+  it('holds Back, Forward, and Today on the Journal summary row', () => {
     const { container } = render(
       <Sidebar
         rows={[pageRow('notes.md', 'notes')]}
@@ -131,24 +133,36 @@ describe('Sidebar navigation row and calendar re-anchor (move-nav-controls-to-th
         hasVault
       />,
     )
-    const row = screen.getByRole('navigation', { name: 'Session navigation' })
-    const names = within(row)
+    // The controls ride the Journal section's summary, so they stay in reach
+    // while the calendar is collapsed, and the section gains no band of its own.
+    const journalSection = container.querySelector('details') as HTMLElement
+    const summary = journalSection.querySelector('summary') as HTMLElement
+    const names = within(summary)
       .getAllByRole('button')
       .map((b) => b.getAttribute('aria-label') ?? b.textContent)
     expect(names).toEqual(['Back', 'Forward', 'Today'])
-    // The row is a band of the sidebar: it follows the Journal section's
-    // summary and precedes the Files section, so collapsing the calendar keeps
-    // the controls in reach (the row is not inside the Journal body).
-    const sections = [...container.querySelectorAll('details')]
-    const journalSection = sections[0] as HTMLElement
-    const filesSection = sections[1] as HTMLElement
-    expect(journalSection.contains(row)).toBe(false)
-    expect(
-      journalSection.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(
-      row.compareDocumentPosition(filesSection) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    expect(journalSection.querySelectorAll('details').length).toBe(0)
+  })
+
+  it('does not toggle the Journal section when one of its controls is activated', () => {
+    const onToday = vi.fn()
+    render(
+      <Sidebar
+        rows={[]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+        canToday
+        onToday={onToday}
+      />,
+    )
+    const journalSection = document.querySelector('details') as HTMLDetailsElement
+    expect(journalSection.open).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    expect(onToday).toHaveBeenCalledTimes(1)
+    expect(journalSection.open).toBe(true)
   })
 
   it('disables Back and Forward at the trail ends and calls each handler', () => {

@@ -73,9 +73,9 @@ function sameView(a: ListView, b: ListView): boolean {
   )
 }
 
-// A 24-viewBox chevron for the navigation row (moved here from the status bar by
-// move-nav-controls-to-the-sidebar). aria-hidden: the control's accessible name
-// says which way it goes, so the glyph is decoration.
+// A 24-viewBox chevron for the session navigation on the JOURNAL row (moved here
+// from the status bar by move-nav-controls-to-the-sidebar). aria-hidden: the
+// control's accessible name says which way it goes, so the glyph is decoration.
 function ChevronIcon({ direction }: { direction: 'back' | 'forward' }) {
   return (
     <svg
@@ -98,13 +98,14 @@ function ChevronIcon({ direction }: { direction: 'back' | 'forward' }) {
 // and tracked by vault-relative path, not object identity - the index re-derives
 // them on every refresh.
 //
-// The sidebar is three bands (move-nav-controls-to-the-sidebar): the Journal
-// calendar, sized to its content, the navigation row with Back, Forward, and
-// Today, and the Files section, one listing of the vault's pages, boards, and
-// assets that scrolls inside its own body. The row sits between the two
-// sections rather than inside the Journal body, so collapsing the calendar does
-// not take the session navigation with it. Every section summary is always in
-// the document, so nothing can be buried below a long listing.
+// The sidebar is two bands (merge-sidebar-sections): the Journal section, sized
+// to its content, and the Files section, one listing of the vault's pages,
+// boards, and assets that scrolls inside its own body. The Journal section's
+// summary row also carries the session navigation — Back, Forward, and Today —
+// so the app's session controls ride the row that answers "which day is it"
+// (put-nav-controls-on-the-journal-header), and a collapsed calendar leaves
+// them in place. Every section summary is always in the document, so nothing
+// can be buried below a long listing.
 //
 // Memoized so a keystroke in the open page does not re-create a row element per
 // row (add-page-history, design D8, AGENTS.md: the keystroke budget). The memo
@@ -158,9 +159,8 @@ export const Sidebar = memo(
       /** Activate a board row: open the board editor in the main pane
        *  (add-whiteboards). */
       onOpenBoard?: (path: string) => void
-      /** The trail has an entry before/after the open page; the navigation row
-       *  below the Journal section leads with Back and Forward
-       *  (move-nav-controls-to-the-sidebar). */
+      /** The trail has an entry before/after the open page; the JOURNAL row
+       *  leads with Back and Forward (put-nav-controls-on-the-journal-header). */
       canBack?: boolean
       canForward?: boolean
       /** Step one entry along the session trail (history). */
@@ -201,10 +201,10 @@ export const Sidebar = memo(
       hasVault: boolean
       /** The active folder's index is building (indexing-loading-state). */
       loading?: boolean
-      /** Bumped by App when the navigation row's Today is activated, so the
+      /** Bumped by App when the JOURNAL row's Today is activated, so the
        *  calendar re-anchors even when today is already the open day
-       *  (move-nav-controls-to-the-sidebar). The toggle re-anchor is bounded:
-       *  the counter changes only on activation, never on the typing path. */
+       *  (put-nav-controls-on-the-journal-header). The re-anchor is bounded: the
+       *  counter changes only on activation, never on the typing path. */
       todayTick?: number
       /** The sidebar is folded away (add-collapsible-sidebars). The pane stays
        *  mounted so its accordion state survives, and `display: none` takes its
@@ -534,6 +534,43 @@ export const Sidebar = memo(
         ? reminderRules?.get(menuRow.label.toLowerCase())
         : undefined
 
+    // The session navigation (put-nav-controls-on-the-journal-header): Back,
+    // Forward, and Today ride the Journal section's summary row, at its
+    // trailing edge. They are the section's own controls rather than a band of
+    // the sidebar, so they stay in reach whether the calendar is open or
+    // collapsed, and the panel's first row is the section that answers "which
+    // day is it". Built once per render: three buttons, off the typing path.
+    const navigation = (
+      <span className={styles.navRow}>
+        <button
+          type="button"
+          className={styles.navControl}
+          aria-label="Back"
+          disabled={!canBack}
+          onClick={onBack}
+        >
+          <ChevronIcon direction="back" />
+        </button>
+        <button
+          type="button"
+          className={styles.navControl}
+          aria-label="Forward"
+          disabled={!canForward}
+          onClick={onForward}
+        >
+          <ChevronIcon direction="forward" />
+        </button>
+        <button
+          type="button"
+          className={`${styles.navControl} ${styles.navControlLabel}`}
+          disabled={!canToday}
+          onClick={onToday}
+        >
+          Today
+        </button>
+      </span>
+    )
+
     return (
       <aside
         id="sidebar-pane"
@@ -541,10 +578,16 @@ export const Sidebar = memo(
         aria-label="Notes"
         ref={asideRef}
       >
-        {/* The sidebar leads with the Journal section, which holds the calendar
-          (journal-calendar D1); the navigation row below it holds the session
-          controls (move-nav-controls-to-the-sidebar). */}
-        <Accordion title="Journal" defaultOpen className={styles.sectionFixed} ref={journalRef}>
+        {/* The Journal section holds the calendar (journal-calendar D1) and
+          carries the session navigation on its summary row
+          (put-nav-controls-on-the-journal-header). */}
+        <Accordion
+          title="Journal"
+          defaultOpen
+          className={styles.sectionFixed}
+          actions={navigation}
+          ref={journalRef}
+        >
           {/* The journal calendar owns the section (journal-calendar D1); it
             stays hidden until a vault is open (no-inert-grid rule). */}
           {loading
@@ -561,39 +604,6 @@ export const Sidebar = memo(
                 />
               )}
         </Accordion>
-        {/* The session navigation (move-nav-controls-to-the-sidebar): Back,
-          Forward, and Today in one row directly under the Journal section, so
-          the day and the trail sit together at the panel's top. It is a band of
-          the sidebar, not part of the Journal body, so collapsing the calendar
-          leaves the controls in place. */}
-        <nav className={styles.nav} aria-label="Session navigation">
-          <button
-            type="button"
-            className={styles.navControl}
-            aria-label="Back"
-            disabled={!canBack}
-            onClick={onBack}
-          >
-            <ChevronIcon direction="back" />
-          </button>
-          <button
-            type="button"
-            className={styles.navControl}
-            aria-label="Forward"
-            disabled={!canForward}
-            onClick={onForward}
-          >
-            <ChevronIcon direction="forward" />
-          </button>
-          <button
-            type="button"
-            className={`${styles.navControl} ${styles.navControlLabel}`}
-            disabled={!canToday}
-            onClick={onToday}
-          >
-            Today
-          </button>
-        </nav>
         {/* The Files section (merge-sidebar-sections) owns the single listing:
           pages lead (pinned, then recency), boards and assets trail by path.
           It is open by default and takes the sidebar's remaining height. */}

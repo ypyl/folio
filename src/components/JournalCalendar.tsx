@@ -63,7 +63,7 @@ export function JournalCalendar({
    *  matches the day menu's past-day guard and refreshes at local midnight
    *  (useToday); a test can pin it. */
   today?: string
-  /** Bumped when the navigation row's Today control is activated; only a
+  /** Bumped when the JOURNAL row's Today control is activated; only a
    *  reason to re-run the re-anchor effect below. */
   todayTick?: number
   /** A request to locate a day (focus-the-journal-day-in-the-calendar): the
@@ -143,7 +143,8 @@ export function JournalCalendar({
     <div className={styles.calendar}>
       {/* ‹ label › across the whole panel: chevrons at the ends, month
           centered between them. The Today control moved to the sidebar's
-          navigation row (move-today-into-nav-controls). */}
+          JOURNAL row's controls (move-today-into-nav-controls, then
+          put-nav-controls-on-the-journal-header). */}
       <div className={styles.monthGroup}>
         <button
           type="button"

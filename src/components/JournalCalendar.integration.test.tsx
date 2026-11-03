@@ -38,7 +38,7 @@ describe('JournalCalendar grid', () => {
     render(<JournalCalendar journalEntries={[]} activePath={null} onSelect={vi.fn()} />)
     const cells = screen.getAllByRole('button')
     // 42 day cells + 2 month chevrons. The Today control lives in the sidebar's
-    // navigation row (move-today-into-nav-controls), not in this header.
+    // JOURNAL row (move-today-into-nav-controls), not in this header.
     expect(cells).toHaveLength(44)
     // For September 2026 the 1st is a Tuesday, so the grid anchors on Aug 30.
     expect(screen.queryByRole('button', { name: 'August 30, 2026' })).toBeTruthy()
