@@ -6,11 +6,10 @@
 
 While the open page has headings, the Contents section's summary row SHALL offer
 an Expand all control and a Collapse all control, at its trailing edge ahead of
-the section's disclosure marker and in that order; neither SHALL appear anywhere
-else. It SHALL offer neither for a page with no heading, while no page is open,
-or while the loading placeholder shows, because there is nothing for them to act
-on. Activating either control SHALL NOT open or close the Contents section, and
-the summary SHALL stay one row tall whether the section is open or collapsed.
+the disclosure marker and in that order; they SHALL appear nowhere else. It SHALL
+offer neither for a page with no heading, while no page is open, or while the
+loading placeholder shows. Activating either SHALL NOT open or close the section,
+and the summary SHALL stay one row tall whether it is open or collapsed.
 
 #### Scenario: Controls appear with the rows
 
