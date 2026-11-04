@@ -194,28 +194,35 @@
    buttons on the panel's own surface, stuck to the body's top edge because a
    long outline scrolls inside the capped body and they must stay reachable.
    The fill is the panel surface, so rows pass beneath them cleanly. */
-.contentTools {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  gap: 12px;
-  padding: 2px 0 6px;
-  background: var(--ivory);
-}
-
+/* The whole-outline controls on the CONTENTS summary row
+   (put-contents-controls-on-the-contents-header): they speak in the controls'
+   sentence case, not the summary label's uppercase, because they are controls
+   and not a section name — the Today label's treatment on the JOURNAL row. The
+   actions wrapper's negative block margin keeps the row at the label's height,
+   so a pair of text buttons costs no extra line. */
 .contentTool {
-  padding: 0;
+  padding: 0 6px;
   border: none;
+  border-radius: 5px;
   background: transparent;
   color: var(--stone);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.contentTool:hover {
-  color: var(--dark-warm);
+.contentTool:hover,
+.contentTool:focus-visible {
+  color: var(--brand);
+}
+
+.contentTool:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -1px;
 }
 
 /* When Links is collapsed it gives its height to Contents (grow-contents-when-

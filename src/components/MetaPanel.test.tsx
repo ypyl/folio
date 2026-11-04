@@ -368,6 +368,11 @@ describe('MetaPanel', () => {
     )
     const contents = screen.getByText('Contents').closest('details') as HTMLElement
     const panel = within(contents)
+    // The two whole-outline controls ride the section's summary row
+    // (put-contents-controls-on-the-contents-header), not the body.
+    const summary = contents.querySelector('summary') as HTMLElement
+    expect(within(summary).getByRole('button', { name: 'Expand all' })).toBeTruthy()
+    expect(within(summary).getByRole('button', { name: 'Collapse all' })).toBeTruthy()
     // Collapse all leaves only the headings that have no shallower heading
     // above them, and each survivor's control reports the collapsed state.
     fireEvent.click(panel.getByRole('button', { name: 'Collapse all' }))
@@ -388,8 +393,8 @@ describe('MetaPanel', () => {
     expect(panel.queryByRole('button', { name: 'Epsilon' })).toBeNull()
   })
 
-  it('offers no expand-all control when there are no headings', () => {
-    render(
+  it('offers no whole-outline control without a heading, without a page, or while loading', () => {
+    const { rerender } = render(
       <MetaPanel
         pageOpen
         contents={[]}
@@ -400,9 +405,62 @@ describe('MetaPanel', () => {
         shortcuts={shortcuts}
       />,
     )
-    const contents = screen.getByText('Contents').closest('details') as HTMLElement
-    expect(within(contents).queryByRole('button', { name: 'Expand all' })).toBeNull()
-    expect(within(contents).queryByRole('button', { name: 'Collapse all' })).toBeNull()
+    const contents = () => screen.getByText('Contents').closest('details') as HTMLElement
+    const noControls = () => {
+      expect(within(contents()).queryByRole('button', { name: 'Expand all' })).toBeNull()
+      expect(within(contents()).queryByRole('button', { name: 'Collapse all' })).toBeNull()
+    }
+    noControls()
+    // Neither the loading placeholder nor a closed panel has anything to act on.
+    rerender(
+      <MetaPanel
+        pageOpen
+        loading
+        contents={[]}
+        links={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    noControls()
+    rerender(
+      <MetaPanel
+        pageOpen={false}
+        links={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    noControls()
+  })
+
+  it('does not toggle the Contents section when a whole-outline control is activated', () => {
+    render(
+      <MetaPanel
+        pageOpen
+        contents={[
+          { level: 1, text: 'Alpha', block: 0 },
+          { level: 2, text: 'Beta', block: 2 },
+        ]}
+        links={[]}
+        activePath={null}
+        onSelect={() => {}}
+        onOpenAsset={() => {}}
+        shortcuts={shortcuts}
+      />,
+    )
+    const contents = screen.getByText('Contents').closest('details') as HTMLDetailsElement
+    expect(contents.open).toBe(true)
+    fireEvent.click(within(contents).getByRole('button', { name: 'Collapse all' }))
+    expect(within(contents).queryByRole('button', { name: 'Beta' })).toBeNull()
+    expect(contents.open).toBe(true)
+    fireEvent.click(within(contents).getByRole('button', { name: 'Expand all' }))
+    expect(within(contents).getByRole('button', { name: 'Beta' })).toBeTruthy()
+    expect(contents.open).toBe(true)
   })
 
   it('resets collapse state when a different page opens', () => {

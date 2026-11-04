@@ -149,37 +149,19 @@ function ContentList({
   collapsed,
   onToggle,
   onLocate,
-  onExpandAll,
-  onCollapseAll,
 }: {
   tree: ContentNode[]
   collapsed: ReadonlySet<number>
   onToggle: (block: number) => void
   onLocate: (block: number) => void
-  onExpandAll: () => void
-  onCollapseAll: () => void
 }) {
   if (tree.length === 0) {
     return <p className="section-placeholder">No headings on this page.</p>
   }
   return (
-    <>
-      {/* The whole-outline controls (add-contents-expand-collapse-all): they
-          sit with the rows they act on, and only when there are rows, so an
-          empty or closed page offers nothing to click. Sticky, because a long
-          outline scrolls inside the capped body and they must stay reachable. */}
-      <div className={styles.contentTools}>
-        <button type="button" className={styles.contentTool} onClick={onExpandAll}>
-          Expand all
-        </button>
-        <button type="button" className={styles.contentTool} onClick={onCollapseAll}>
-          Collapse all
-        </button>
-      </div>
-      <div className={styles.list}>
-        <ContentNodes nodes={tree} collapsed={collapsed} onToggle={onToggle} onLocate={onLocate} />
-      </div>
-    </>
+    <div className={styles.list}>
+      <ContentNodes nodes={tree} collapsed={collapsed} onToggle={onToggle} onLocate={onLocate} />
+    </div>
   )
 }
 
@@ -277,6 +259,23 @@ export function MetaPanel({
   const expandAll = () => setCollapse({ path: activePath, blocks: EMPTY_BLOCKS })
   const collapseAll = () => setCollapse({ path: activePath, blocks: new Set(collapsibleBlocks) })
 
+  // The whole-outline controls (add-contents-expand-collapse-all) ride the
+  // Contents summary row (put-contents-controls-on-the-contents-header), the way
+  // the session navigation rides the Journal row: at no cost in panel height, and
+  // still there when the section is collapsed. Offered only while there are rows
+  // to act on — an empty page, no page, and the loading placeholder offer none.
+  const contentControls =
+    !loading && pageOpen && tree.length > 0 ? (
+      <>
+        <button type="button" className={styles.contentTool} onClick={expandAll}>
+          Expand all
+        </button>
+        <button type="button" className={styles.contentTool} onClick={collapseAll}>
+          Collapse all
+        </button>
+      </>
+    ) : undefined
+
   return (
     <aside
       id="meta-panel"
@@ -315,6 +314,7 @@ export function MetaPanel({
             defaultOpen
             className={styles.contents}
             bodyClassName={styles.contentsBody}
+            actions={contentControls}
           >
             {loading ? (
               skeletonLine
@@ -324,8 +324,6 @@ export function MetaPanel({
                 collapsed={collapsedBlocks}
                 onToggle={toggleSubtree}
                 onLocate={onLocate}
-                onExpandAll={expandAll}
-                onCollapseAll={collapseAll}
               />
             ) : (
               <p className="section-placeholder">Headings appear once a page is open.</p>
