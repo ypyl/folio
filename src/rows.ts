@@ -11,6 +11,7 @@ import {
   assetName,
   boardName,
   boardReferrers,
+  journalDate,
   journalDayPath,
   orderPages,
   pageAssets,
@@ -20,7 +21,7 @@ import {
   type IndexPage,
 } from './vault/index'
 import { parseLinks } from './vault/parse'
-import { matchingRules, type ReminderRule } from './vault/reminders'
+import { dueRules, type RecordedElsewhere, type ReminderRule } from './vault/reminders'
 
 /** Order a "who references this" list: the most recently edited page first,
  *  path ascending as the tiebreak — the sidebar's own rule (`orderPages`) minus
@@ -145,15 +146,33 @@ export function sidebarListing(
   ]
 }
 
-/** The rules that match `day` and whose page the day's note does not yet
- *  reference (add-reminders, the calendar-day change): exactly what opening the
- *  day should materialize. One rule per page, so a page appears at most once.
- *  Pure: the caller runs it when a journal day's editor mounts, never on a
- *  keystroke. */
+/** Whether a journal day other than `day`, on or after the rule's anchor,
+ *  references the rule's page (carry-and-retire-a-once-reminder, design D2).
+ *  Read off the index's backlinks, so it is a map lookup plus a walk of one
+ *  page's referrers, never a vault scan. The day being judged is excluded so a
+ *  line already carried into it still counts as pending until it is ticked. */
+export function recordedElsewhere(graph: Graph): RecordedElsewhere {
+  return (rule, day) => {
+    const own = journalDayPath(day)
+    for (const path of graph.backlinks.get(rule.target.toLowerCase()) ?? []) {
+      if (path === own) continue
+      const date = journalDate(path)
+      if (date !== null && date >= rule.anchor) return true
+    }
+    return false
+  }
+}
+
+/** The rules due on `day` (a matching rule, or a missed one-off carried into
+ *  today) whose page the day's note does not yet reference (add-reminders, the
+ *  calendar-day change): exactly what opening the day should materialize. One
+ *  rule per page, so a page appears at most once. Pure: the caller runs it when
+ *  a journal day's editor mounts, never on a keystroke. */
 export function unreferencedRules(
   graph: Graph,
   rules: readonly ReminderRule[],
   day: string,
+  today: string,
   draft?: string,
 ): ReminderRule[] {
   const page = graph.pages.get(journalDayPath(day))
@@ -172,7 +191,7 @@ export function unreferencedRules(
   }
   const out: ReminderRule[] = []
   const seen = new Set<string>()
-  for (const rule of matchingRules(rules, day)) {
+  for (const rule of dueRules(rules, day, today, recordedElsewhere(graph))) {
     const path = resolveReferencePath(rule.target, graph.byName)
     if (seen.has(path) || referenced.has(path)) continue
     seen.add(path)

@@ -17,6 +17,7 @@ import {
   pageBacklinks,
   pageForwardlinks,
   pagesReferencingBoard,
+  recordedElsewhere,
   sidebarListing,
   unreferencedRules,
 } from './rows'
@@ -61,7 +62,7 @@ import {
   stem,
   type IndexPage,
 } from './vault/index'
-import { doneTargets, matchingRules, type Recurrence, type ReminderRule } from './vault/reminders'
+import { doneTargets, dueRules, type Recurrence, type ReminderRule } from './vault/reminders'
 import { syncAppBadge } from './badge'
 import {
   boardCandidates,
@@ -83,6 +84,10 @@ const EMPTY_ASSETS: string[] = []
 
 /** One shared empty boards list, for the same reason as `EMPTY_ASSETS`. */
 const EMPTY_BOARDS: string[] = []
+
+/** No vault, no record of anything: the no-graph instance of the reminder
+ *  predicate, shared so it is one identity across renders. */
+const NOT_RECORDED = () => false
 
 function App() {
   const {
@@ -640,20 +645,23 @@ function App() {
       setSlides(deriveSlides(editorRef.current?.staticBlocks() ?? []))
     }
     // Materialize the day's due reminders (add-reminders, design D3): each
-    // matching rule whose page the note does not reference appends one line, so
-    // the day holds its occurrence and the normal save persists it. It runs at
-    // mount, so it touches only the day being opened, and it is idempotent
-    // because a written line makes the day reference the page. The line is an
-    // unchecked task item (materialize-a-reminder-as-a-task-item): the checkbox
-    // is the control that records the reminder as done, and ticking it is an
-    // ordinary edit the badge's done scan already reads.
+    // due rule whose page the note does not reference appends one line, so the
+    // day holds its occurrence and the normal save persists it. "Due" is a
+    // matching rule plus a missed one-off carried into today
+    // (carry-and-retire-a-once-reminder): a `once` rule whose day passed while
+    // the note never got its line still lands. It runs at mount, so it touches
+    // only the day being opened, and it is idempotent because a written line
+    // makes the day reference the page. The line is an unchecked task item
+    // (materialize-a-reminder-as-a-task-item): the checkbox is the control that
+    // records the reminder as done, and ticking it is an ordinary edit the
+    // badge's done scan already reads.
     if (graph && journalDay !== null) {
       const draft = drafts.get(journalDayPath(journalDay))?.content
-      for (const rule of unreferencedRules(graph, reminders, journalDay, draft)) {
+      for (const rule of unreferencedRules(graph, reminders, journalDay, today, draft)) {
         editorRef.current?.appendMarkdown(`- [ ] ${referenceToken(rule.target, 'word')}`)
       }
     }
-  }, [graph, reminders, journalDay, drafts])
+  }, [graph, reminders, journalDay, today, drafts])
 
   // Favorite a page from its row's context menu (add-row-context-menu). This is
   // the pin store the status-bar star used, now keyed by the row's own path.
@@ -897,23 +905,54 @@ function App() {
     [reminders],
   )
 
-  // The badge counts the open day's matching rules (design D4), written or not,
-  // less the ones the day's note records as done
-  // (hide-a-ticked-reminder-from-the-badge). It reads the index's copy of the
-  // note, so the scan runs when that page's identity changes (a save or a fresh
-  // read), never on a keystroke — and the count therefore lands with the save
-  // rather than with the tick (design D3).
+  // The record a one-off's occurrence leaves anywhere else in the vault
+  // (carry-and-retire-a-once-reminder, design D2), read off the index's
+  // backlinks. Memoized on the graph, so the badge's own memo keys on one stable
+  // identity and a keystroke rebuilds nothing.
+  const recordedInVault = useMemo(
+    () => (graph === null ? NOT_RECORDED : recordedElsewhere(graph)),
+    [graph],
+  )
+
+  // The badge counts the open day's due rules (design D4), written or not, less
+  // the ones the day's note records as done
+  // (hide-a-ticked-reminder-from-the-badge). A due rule is a matching one plus a
+  // missed one-off carried into today (carry-and-retire-a-once-reminder). It
+  // reads the index's copy of the note, so the scan runs when that page's
+  // identity changes (a save or a fresh read), never on a keystroke — and the
+  // count therefore lands with the save rather than with the tick (design D3).
   const openDayNote = journalDay === null ? undefined : graph?.pages.get(journalDayPath(journalDay))
   const openDayReminders = useMemo(() => {
     if (journalDay === null) return 0
     const done = openDayNote ? doneTargets(openDayNote.content) : new Set<string>()
-    return matchingRules(reminders, journalDay).filter(
+    return dueRules(reminders, journalDay, today, recordedInVault).filter(
       (rule) => !done.has(rule.target.toLowerCase()),
     ).length
-  }, [reminders, journalDay, openDayNote])
+  }, [reminders, journalDay, today, openDayNote, recordedInVault])
   useEffect(() => {
     syncAppBadge(openDayReminders)
   }, [openDayReminders])
+
+  // Retire a ticked one-off (carry-and-retire-a-once-reminder, design D3): a
+  // `once` rule whose day has come and whose page the open note records as done
+  // has fired and been acted on, so the rule goes and its page row stops
+  // claiming a reminder that can never fire again. The line, the page, and its
+  // backlinks stay — the same record a removed rule leaves (ADR-0032). The scan
+  // is the badge's own, on the same memoized input, so nothing runs per
+  // keystroke and an ordinary day writes nothing.
+  useEffect(() => {
+    if (journalDay === null || openDayNote === undefined) return
+    const done = doneTargets(openDayNote.content)
+    const spent = reminders.filter(
+      (rule) =>
+        rule.recurrence === 'once' &&
+        rule.anchor <= journalDay &&
+        done.has(rule.target.toLowerCase()),
+    )
+    if (spent.length === 0) return
+    const gone = new Set(spent)
+    void saveReminders(reminders.filter((rule) => !gone.has(rule)))
+  }, [journalDay, openDayNote, reminders, saveReminders])
 
   // Write the open page's one reminder, anchored on the clicked day (design D2).
   // A page has one rule, so a second write replaces the first; the request below

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   doneTargets,
+  dueRules,
   matchingRules,
   parseReminders,
   renderReminders,
+  ruleIsDue,
   ruleMatches,
+  type RecordedElsewhere,
   type ReminderRule,
   type Recurrence,
 } from './reminders'
@@ -110,6 +113,13 @@ describe('ruleMatches (add-reminders)', () => {
     expect(ruleMatches(r, '2026-04-13')).toBe(false)
   })
 
+  it('yearly does not match before its anchor', () => {
+    const r = rule('yearly', '2027-03-15')
+    expect(ruleMatches(r, '2026-03-15')).toBe(false)
+    expect(ruleMatches(r, '2027-03-15')).toBe(true)
+    expect(ruleMatches(r, '2028-03-15')).toBe(true)
+  })
+
   it('skips the 31st in a short month', () => {
     const r = rule('monthly', '2026-01-31')
     expect(ruleMatches(r, '2026-03-31')).toBe(true)
@@ -131,6 +141,58 @@ describe('matchingRules (add-reminders)', () => {
       rule('weekly', '2026-10-15', 'Review inbox'),
     ]
     expect(matchingRules(rules, '2026-10-16').map((r) => r.target)).toEqual(['Take pills'])
+  })
+})
+
+describe('dueRules (carry-and-retire-a-once-reminder)', () => {
+  const unrecorded: RecordedElsewhere = () => false
+  const recorded: RecordedElsewhere = () => true
+
+  it('matches a rule that matches the day', () => {
+    const rules = [rule('daily', '2026-10-20')]
+    expect(dueRules(rules, '2026-10-23', '2026-10-23', recorded)).toEqual(rules)
+  })
+
+  it('carries an unrecorded one-off whose day passed onto today', () => {
+    const rules = [rule('once', '2026-10-20', 'Renew passport')]
+    expect(dueRules(rules, '2026-10-23', '2026-10-23', unrecorded)).toEqual(rules)
+  })
+
+  it('does not carry a one-off the vault already records', () => {
+    const rules = [rule('once', '2026-10-20', 'Renew passport')]
+    expect(dueRules(rules, '2026-10-23', '2026-10-23', recorded)).toEqual([])
+  })
+
+  it('carries only into today', () => {
+    const rules = [rule('once', '2026-10-20', 'Renew passport')]
+    expect(dueRules(rules, '2026-10-22', '2026-10-23', unrecorded)).toEqual([])
+    expect(dueRules(rules, '2026-10-24', '2026-10-23', unrecorded)).toEqual([])
+  })
+
+  it('does not carry a one-off whose day has not come', () => {
+    const rules = [rule('once', '2026-11-02', 'Renew passport')]
+    expect(dueRules(rules, '2026-10-23', '2026-10-23', unrecorded)).toEqual([])
+  })
+
+  it('carries no other recurrence', () => {
+    // 2026-10-22 is a Thursday, so a weekly rule anchored there does not match
+    // Friday the 23rd; a monthly rule anchored on the 22nd does not either.
+    expect(
+      dueRules([rule('weekly', '2026-10-22')], '2026-10-23', '2026-10-23', unrecorded),
+    ).toEqual([])
+    expect(
+      dueRules([rule('monthly', '2026-09-22')], '2026-10-23', '2026-10-23', unrecorded),
+    ).toEqual([])
+  })
+
+  it('asks the vault about the day being judged', () => {
+    const asked: Array<[string, string]> = []
+    const spy: RecordedElsewhere = (r, day) => {
+      asked.push([r.target, day])
+      return false
+    }
+    ruleIsDue(rule('once', '2026-10-20', 'Renew passport'), '2026-10-23', '2026-10-23', spy)
+    expect(asked).toEqual([['Renew passport', '2026-10-23']])
   })
 })
 

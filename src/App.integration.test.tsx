@@ -3319,3 +3319,173 @@ describe('a ticked reminder line (hide-a-ticked-reminder-from-the-badge)', () =>
     vi.unstubAllGlobals()
   })
 })
+
+describe('a one-off that missed its day (carry-and-retire-a-once-reminder)', () => {
+  const storageOf = (tree: FakeDirectoryHandle) =>
+    new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
+  const today = 'journals/2026-09-15.md'
+  const READABLE_EMPTY = '# Reminders - order is reminder order\n'
+  const badge = () => badgeCalls.counts.at(-1)
+
+  beforeEach(() => {
+    badgeCalls.counts.length = 0
+  })
+
+  it('carries a missed one-off into today and counts it', async () => {
+    const tree = buildTree({
+      pages: { 'Renew passport.md': 'expires\n' },
+      '.folio': { 'reminders.md': '- once 2026-09-12 #[[Renew passport]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [ ] #[[Renew passport]]')
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(badge()).toBe(1))
+    vi.unstubAllGlobals()
+  })
+
+  it('does not carry a one-off a journal day already records', async () => {
+    // The daily rule is the control: it proves the day's materialization ran, so
+    // the absence of the one-off's line is a decision, not a missing mount.
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n', 'Renew passport.md': 'expires\n' },
+      journals: { '2026-09-13.md': '- [ ] #[[Renew passport]]\n' },
+      '.folio': {
+        'reminders.md':
+          '- daily 2026-09-15 #[[Take pills]]\n- once 2026-09-12 #[[Renew passport]]\n',
+      },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [ ] #[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    expect(await store.read(today)).not.toContain('Renew passport')
+    await expect(store.read('.folio/reminders.md')).resolves.toContain('once 2026-09-12')
+    vi.unstubAllGlobals()
+  })
+
+  it('does not carry a one-off anchored later today', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n', 'Renew passport.md': 'expires\n' },
+      '.folio': {
+        'reminders.md':
+          '- daily 2026-09-15 #[[Take pills]]\n- once 2026-10-20 #[[Renew passport]]\n',
+      },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [ ] #[[Take pills]]')
+      },
+      { timeout: 3000 },
+    )
+    expect(await store.read(today)).not.toContain('Renew passport')
+    vi.unstubAllGlobals()
+  })
+
+  it('retires the rule when the carried line is ticked, keeping the record', async () => {
+    const tree = buildTree({
+      pages: { 'Renew passport.md': 'expires\n' },
+      '.folio': { 'reminders.md': '- once 2026-09-12 #[[Renew passport]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    // The carried line keeps the reminder pending until it is acted on.
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [ ] #[[Renew passport]]')
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(badge()).toBe(1))
+    await expect(store.read('.folio/reminders.md')).resolves.toContain('once 2026-09-12')
+
+    editor().emitChange('- [x] #[[Renew passport]]\n')
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [x] #[[Renew passport]]')
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(badge()).toBe(0))
+
+    // The one-off is spent: its rule goes, the line and the page's backlinks stay.
+    await waitFor(
+      async () => {
+        expect(await store.read('.folio/reminders.md')).toBe(READABLE_EMPTY)
+      },
+      { timeout: 3000 },
+    )
+    expect(await store.read(today)).toContain('- [x] #[[Renew passport]]')
+    await expect(store.read('pages/Renew passport.md')).resolves.toBeDefined()
+    vi.unstubAllGlobals()
+  })
+
+  it('retires a one-off ticked on its own anchor day', async () => {
+    const tree = buildTree({
+      pages: { 'Renew passport.md': 'expires\n' },
+      '.folio': { 'reminders.md': '- once 2026-09-15 #[[Renew passport]]\n' },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    await waitFor(
+      async () => {
+        expect(await store.read(today)).toContain('- [ ] #[[Renew passport]]')
+      },
+      { timeout: 3000 },
+    )
+    editor().emitChange('- [x] #[[Renew passport]]\n')
+    await waitFor(
+      async () => {
+        expect(await store.read('.folio/reminders.md')).toBe(READABLE_EMPTY)
+      },
+      { timeout: 3000 },
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps an unticked one-off, a recurring rule, and a later one-off', async () => {
+    const tree = buildTree({
+      pages: { 'Take pills.md': 'pills\n', 'Renew passport.md': 'expires\n' },
+      journals: { '2026-09-15.md': '- [x] #[[Take pills]]\n- [ ] #[[Renew passport]]\n' },
+      '.folio': {
+        'reminders.md':
+          '- daily 2026-09-15 #[[Take pills]]\n- once 2026-09-15 #[[Renew passport]]\n',
+      },
+    })
+    render(<App />)
+    await openFixture(tree)
+    const store = storageOf(tree)
+
+    // A tick records one day's occurrence, not a schedule, and an unticked line
+    // records nothing: only the recurring rule's day is done, so both rules stay.
+    await waitFor(
+      async () => {
+        expect(await store.read('.folio/reminders.md')).toContain('daily 2026-09-15')
+      },
+      { timeout: 3000 },
+    )
+    const file = await store.read('.folio/reminders.md')
+    expect(file).toContain('once 2026-09-15 #[[Renew passport]]')
+    vi.unstubAllGlobals()
+  })
+})

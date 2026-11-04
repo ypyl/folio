@@ -90,7 +90,7 @@ export function ruleMatches(rule: ReminderRule, day: string): boolean {
     case 'monthly':
       return day >= rule.anchor && today.day === anchor.day
     case 'yearly':
-      return today.month === anchor.month && today.day === anchor.day
+      return day >= rule.anchor && today.month === anchor.month && today.day === anchor.day
   }
 }
 
@@ -98,6 +98,43 @@ export function ruleMatches(rule: ReminderRule, day: string): boolean {
  *  change): what a due day may materialize. */
 export function matchingRules(rules: readonly ReminderRule[], day: string): ReminderRule[] {
   return rules.filter((rule) => ruleMatches(rule, day))
+}
+
+/** Whether a journal day other than `day`, on or after the rule's anchor,
+ *  references the rule's page: the one-off's occurrence happened somewhere.
+ *  Supplied by the caller, which owns the graph (rows.ts) — the day being
+ *  judged is excluded on purpose (carry-and-retire-a-once-reminder, design D2). */
+export type RecordedElsewhere = (rule: ReminderRule, day: string) => boolean
+
+/** Whether `rule` is due on `day` (carry-and-retire-a-once-reminder, design D1):
+ *  a rule that matches it, or a one-off whose day has passed and that no
+ *  journal day has recorded, carried into today so a missed one still lands.
+ *  A `once` rule never carried before its anchor, and no other recurrence is
+ *  ever carried. */
+export function ruleIsDue(
+  rule: ReminderRule,
+  day: string,
+  today: string,
+  recordedElsewhere: RecordedElsewhere,
+): boolean {
+  if (ruleMatches(rule, day)) return true
+  return (
+    rule.recurrence === 'once' &&
+    day === today &&
+    rule.anchor < today &&
+    !recordedElsewhere(rule, day)
+  )
+}
+
+/** The rules due on `day`, in file order: what the day materializes and what the
+ *  badge counts. */
+export function dueRules(
+  rules: readonly ReminderRule[],
+  day: string,
+  today: string,
+  recordedElsewhere: RecordedElsewhere,
+): ReminderRule[] {
+  return rules.filter((rule) => ruleIsDue(rule, day, today, recordedElsewhere))
 }
 
 // A done task item's line (ADR-0033): a list marker, the ticked GFM marker, then

@@ -38,11 +38,26 @@ write is idempotent: a written line makes the day reference the page, so the
 next open appends nothing. The app writes no other reminder content, and no
 background pass writes any day the user did not open.
 
-**The app-icon badge counts the open day's matching rules**, written or not,
-less the ones the day's note records as done: a rule whose page a done task
-item (`- [x] … #[[Page]]`) references in that note no longer counts, because a
-tick is the user's own record that the reminder was acted on. The count reads
-the note's saved text, so it follows the save rather than the press.
+**A one-off that missed its day is due on today.** A `once` rule whose anchor day
+has passed and that no journal day on or after the anchor references is written
+into today's journal like any due rule, so a day the user never opened does not
+swallow its reminder (`carry-and-retire-a-once-reminder`). The occurrence is
+derived, not stored: it stops being due the moment a journal day records the
+page, and only today can receive it, so no historical note is ever written by
+browsing. The day being judged is excluded from that record, which keeps a
+carried, unticked line counted for today.
+
+**A ticked one-off is retired.** When the open day's note records a `once`
+rule's page as done on or after its anchor day, the app deletes that rule from
+`.folio/reminders.md`. The tick is the user's own act, so the deletion is a
+consequence of it, not a background sweep; the line, the page, and its
+backlinks stay, exactly as they do for a removed rule.
+
+**The app-icon badge counts the open day's due rules**, written or not, less the
+ones the day's note records as done: a rule whose page a done task item
+(`- [x] … #[[Page]]`) references in that note no longer counts, because a tick is
+the user's own record that the reminder was acted on. The count reads the note's
+saved text, so it follows the save rather than the press.
 
 ## Consequences
 
@@ -58,6 +73,10 @@ the note's saved text, so it follows the save rather than the press.
   the day being opened and to one line per rule.
 - A line the user deletes returns the next time the day is opened, because the
   rule is still due. Removing the reminder is the way to stop it.
+- A `once` rule outlives its day only while its occurrence is unrecorded, and it
+  never leaves the file without the user's own tick: a missed one-off keeps
+  nagging on today rather than vanishing, and a finished one leaves no marker
+  behind. The rule file therefore describes what is still pending, not a log.
 - A ticked reminder line is both the record and the reason the badge clears: the
   rule stays live for later days, the note keeps its line, and the page's
   backlinks keep the day. The badge lags the tick by the save it waits on.
