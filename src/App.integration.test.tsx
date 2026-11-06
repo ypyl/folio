@@ -736,6 +736,30 @@ describe('auto-save (page-editing spec)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('keeps the same editor and its text across two saves', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    // Wait for this page's editor to be seeded before typing: opening a page
+    // remounts the pane, and a change that reaches the previous page's editor
+    // first is a race the real UI cannot produce (the caret is in the new one).
+    await waitFor(() => expect(editor().content).toContain('This is Folio'))
+    const open = editor()
+
+    open.emitChange('first save')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    // A save republishes the index; it must not remount the pane or reseed it.
+    expect(editor()).toBe(open)
+    expect(open.content).toBe('first save')
+
+    editor().emitChange('second save')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    expect(editor()).toBe(open)
+    const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
+    expect(await (await file.getFile()).text()).toBe('second save\n\n')
+    vi.unstubAllGlobals()
+  })
+
   it('leaving a page before the save keeps the draft and restores it on return', async () => {
     render(<App />)
     await openFixture()
