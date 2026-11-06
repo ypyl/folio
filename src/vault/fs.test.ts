@@ -172,6 +172,37 @@ describe('FileSystemVaultStorage', () => {
     const call = op === 'read' ? vault.read('') : vault.write('', 'x')
     await expect(call).rejects.toBeInstanceOf(InvalidVaultPathError)
   })
+
+  it('removes a file and leaves the rest alone', async () => {
+    const vault = fakeVault(VAULT)
+    await vault.remove('welcome.md')
+    await expect(vault.read('welcome.md')).rejects.toMatchObject({ name: 'NotFoundError' })
+    await expect(vault.list('')).resolves.toEqual([
+      'journals/2026.md',
+      'journals/deep/x.md',
+      'tags.md',
+    ])
+  })
+
+  it('removes a nested file', async () => {
+    const vault = fakeVault(VAULT)
+    await vault.remove('journals/deep/x.md')
+    await expect(vault.read('journals/deep/x.md')).rejects.toMatchObject({
+      name: 'NotFoundError',
+    })
+  })
+
+  it('rejects removing a missing file and the root', async () => {
+    const vault = fakeVault(VAULT)
+    await expect(vault.remove('nope.md')).rejects.toMatchObject({ name: 'NotFoundError' })
+    await expect(vault.remove('')).rejects.toBeInstanceOf(InvalidVaultPathError)
+  })
+
+  it('holds the path contract on remove', async () => {
+    const vault = fakeVault(VAULT)
+    await expect(vault.remove('/lead.md')).rejects.toBeInstanceOf(InvalidVaultPathError)
+    await expect(vault.remove('a/../b.md')).rejects.toBeInstanceOf(InvalidVaultPathError)
+  })
 })
 
 describe('canOpenFolders', () => {
@@ -241,5 +272,25 @@ describe('pickSourceFolder', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+})
+
+describe('FileSystemVaultStorage concurrent directory lookups', () => {
+  it('a miss on a missing directory does not fail a concurrent create', async () => {
+    const vault = fakeVault({})
+    // The trace's first log write creates `.folio/logs` while a scan stats the
+    // pins file that lives in the same missing `.folio`. Sharing one lookup
+    // between them would let the stat's NotFoundError fail the write.
+    const missing = vault.stat('.folio/pins.md').catch((error: unknown) => error)
+    await expect(vault.write('.folio/logs/session.log', 'line')).resolves.toBeUndefined()
+    expect(await missing).toBeInstanceOf(DOMException)
+    await expect(vault.read('.folio/logs/session.log')).resolves.toBe('line')
+  })
+
+  it('a miss does not poison the next lookup of a directory that now exists', async () => {
+    const vault = fakeVault({})
+    await expect(vault.list('.folio')).rejects.toMatchObject({ name: 'NotFoundError' })
+    await vault.write('.folio/pins.md', 'x')
+    await expect(vault.read('.folio/pins.md')).resolves.toBe('x')
   })
 })

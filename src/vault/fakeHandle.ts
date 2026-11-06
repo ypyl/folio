@@ -141,6 +141,17 @@ export class FakeDirectoryHandle {
     fsaCalls.entries++
     for (const [name, child] of this.children) yield [name, child]
   }
+
+  /** The DOM's `removeEntry` (ADR-0035: the trace pruner removes its own log
+   *  files). A non-empty directory needs `recursive`, as in the real API. */
+  async removeEntry(name: string, options?: { recursive?: boolean }): Promise<void> {
+    const child = this.children.get(name)
+    if (child === undefined) throw new DOMException('File not found', 'NotFoundError')
+    if (child instanceof FakeDirectoryHandle && child.children.size > 0 && !options?.recursive) {
+      throw new DOMException('Directory is not empty', 'InvalidModificationError')
+    }
+    this.children.delete(name)
+  }
 }
 
 export function buildTree(

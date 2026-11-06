@@ -3489,3 +3489,174 @@ describe('a one-off that missed its day (carry-and-retire-a-once-reminder)', () 
     vi.unstubAllGlobals()
   })
 })
+
+describe('the session trace (add-session-trace-logs)', () => {
+  const traceStore = (tree: FakeDirectoryHandle) =>
+    new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
+
+  /** The session log paths in a folder, or [] while there is no log directory. */
+  async function tracePaths(tree: FakeDirectoryHandle): Promise<string[]> {
+    try {
+      return await traceStore(tree).list('.folio/logs')
+    } catch {
+      return []
+    }
+  }
+
+  /** Every trace line in the folder, across sessions, as one string. */
+  async function traceText(tree: FakeDirectoryHandle): Promise<string> {
+    const store = traceStore(tree)
+    const texts: string[] = []
+    for (const path of await tracePaths(tree)) texts.push(await store.read(path))
+    return texts.join('\n')
+  }
+
+  /** The experimental switch, as a returning user would have left it. */
+  const switchOn = () => localStorage.setItem('folio.prerelease', '1')
+
+  const lines = (text: string, event: string) =>
+    text.split('\n').filter((line) => line.includes(` ${event} {`))
+
+  it('writes no trace while the switch is off', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('edited welcome body')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+
+    expect(await tracePaths(tree)).toEqual([])
+    expect(tree.children.get('.folio')).toBeUndefined()
+    vi.unstubAllGlobals()
+  })
+
+  it('records the session, its save, and none of the page text', async () => {
+    switchOn()
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('secret prose of the note')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+
+    await waitFor(
+      async () => {
+        const text = await traceText(tree)
+        expect(text).toContain('session-start')
+        expect(text).toContain('scan')
+        expect(text).toContain('page-open {"path":"pages/Welcome.md"')
+        expect(lines(text, 'edit')).toHaveLength(1)
+        expect(lines(text, 'write')[0]).toContain('"path":"pages/Welcome.md"')
+      },
+      { timeout: 3000 },
+    )
+
+    const text = await traceText(tree)
+    expect(text).not.toContain('secret prose')
+    const paths = await tracePaths(tree)
+    expect(paths).toHaveLength(1)
+    expect(paths[0]).toMatch(
+      /^\.folio\/logs\/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[0-9a-f]{4}\.log$/,
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('turns tracing on from the rail for the rest of the session', async () => {
+    render(<App />)
+    const tree = await openFixture()
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    expect(control.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(control)
+    expect(control.getAttribute('aria-pressed')).toBe('true')
+    await waitFor(async () => expect(await tracePaths(tree)).toHaveLength(1), { timeout: 3000 })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('traced after the switch')
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    await waitFor(async () => expect(await traceText(tree)).toContain('session-start'), {
+      timeout: 3000,
+    })
+    vi.unstubAllGlobals()
+  })
+
+  it('writes one file per folder session', async () => {
+    switchOn()
+    render(<App />)
+    const tree = await openFixture()
+    await waitFor(async () => expect(await tracePaths(tree)).toHaveLength(1), { timeout: 3000 })
+
+    const home = buildTree({ pages: { 'b.md': 'b' } })
+    home.name = 'Home'
+    vi.stubGlobal(
+      'showDirectoryPicker',
+      vi.fn(async () => home as unknown as FileSystemDirectoryHandle),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Add folder' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open folder Home' }))
+
+    await waitFor(async () => expect(await tracePaths(home)).toHaveLength(1), { timeout: 3000 })
+    expect(await tracePaths(tree)).toHaveLength(1)
+    await waitFor(
+      async () => expect(await traceText(tree)).toContain('"reason":"folder-changed"'),
+      { timeout: 3000 },
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('records a hidden-tab flush with what it carried', async () => {
+    switchOn()
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    editor().emitChange('pending at hide')
+
+    const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    fireEvent(document, new Event('visibilitychange'))
+    await waitFor(
+      async () => expect(await traceText(tree)).toContain('flush {"trigger":"hidden","writes":1}'),
+      { timeout: 3000 },
+    )
+    hidden.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('records an uncaught error', async () => {
+    switchOn()
+    render(<App />)
+    const tree = await openFixture()
+    await waitFor(async () => expect(await tracePaths(tree)).toHaveLength(1), { timeout: 3000 })
+
+    window.dispatchEvent(
+      new ErrorEvent('error', { message: 'boom', filename: 'app.js', lineno: 7 }),
+    )
+    await waitFor(
+      async () =>
+        expect(await traceText(tree)).toContain(
+          'error {"message":"boom","source":"app.js","line":7}',
+        ),
+      { timeout: 3000 },
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('records one edit line per dirty burst, not one per keystroke', async () => {
+    switchOn()
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+
+    // Four keystrokes make one burst, so they make one line: the first
+    // keystroke's size, since that is where the burst started.
+    for (const text of ['a', 'ab', 'abc', 'abcd']) editor().emitChange(text)
+
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+    await waitFor(
+      async () => {
+        const edits = lines(await traceText(tree), 'edit')
+        expect(edits).toHaveLength(1)
+        expect(edits[0]).toContain('"bytes":1')
+      },
+      { timeout: 3000 },
+    )
+    vi.unstubAllGlobals()
+  }, 15000)
+})

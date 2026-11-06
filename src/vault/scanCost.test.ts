@@ -58,6 +58,7 @@ function trackConcurrency(storage: VaultStorage): {
       readBinary: (path) => run(() => storage.readBinary(path)),
       list: (path) => run(() => storage.list(path)),
       stat: (path) => run(() => storage.stat(path)),
+      remove: (path) => run(() => storage.remove(path)),
     },
   }
 }

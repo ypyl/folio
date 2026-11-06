@@ -24,10 +24,13 @@ export default defineConfig({
   webServer: {
     // A dedicated port for the run. Playwright starts and stops this server
     // itself, so no dev server outlives the run. The build it serves is the
-    // one a user runs: no feature env vars (release-reminders).
+    // one a user runs, except that the session trace's build flag is on
+    // (add-session-trace-logs): the e2e exercises the trace engine while the
+    // shipped build hides it behind the experimental switch.
     command: `npm run dev -- --port ${PORT} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 60_000,
+    env: { VITE_TRACE: '1' },
   },
 })

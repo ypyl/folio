@@ -1,6 +1,6 @@
 # ADR-0030: VaultStorage has no delete
 
-- Status: Accepted
+- Status: Accepted (delete returned for the log pruner, see [0035](0035-the-session-trace-is-pruned.md))
 - Date: 2026-10-07
 
 ## Context

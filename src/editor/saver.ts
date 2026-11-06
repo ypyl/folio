@@ -39,5 +39,12 @@ export function createDebouncedSaver(save: SaveFn, delay: number) {
     void flush()
   }
 
-  return { schedule, flush, dispose }
+  /** How many writes the next flush would carry (add-session-trace-logs): the
+   *  session trace records a flush with its size, and an empty flush with a
+   *  non-empty one are different facts. Reads the map; writes nothing. */
+  function pendingCount(): number {
+    return pending.size
+  }
+
+  return { schedule, flush, dispose, pending: pendingCount }
 }

@@ -386,3 +386,84 @@ describe('a publish that raced another (lost-replacement)', () => {
     expect(result.current.reminders).toEqual([WEEKLY])
   })
 })
+
+describe('the session trace (add-session-trace-logs)', () => {
+  function recorder() {
+    const events: { level: string; name: string; fields?: Record<string, unknown> }[] = []
+    return {
+      events,
+      trace: {
+        event: (
+          level: 'info' | 'warn' | 'error',
+          name: string,
+          fields?: Record<string, unknown>,
+        ) => {
+          events.push({ level, name, fields })
+        },
+      },
+    }
+  }
+
+  it('records a scan with what it covered', async () => {
+    const tree = buildTree({ pages: { 'a.md': 'v1', 'b.md': 'v2' } })
+    const storage = vault(tree)
+    const { events, trace } = recorder()
+    const { result } = renderHook(() => useIndex(storage, trace))
+    await waitFor(() => expect(result.current.graph?.pages.has('pages/a.md')).toBe(true))
+    await waitFor(() => expect(events.some((event) => event.name === 'scan')).toBe(true))
+    const scan = events.find((event) => event.name === 'scan')!
+    expect(scan.level).toBe('info')
+    expect(scan.fields).toMatchObject({ files: 2, pages: 2 })
+    expect(typeof scan.fields!.ms).toBe('number')
+  })
+
+  it('records the pages a refresh saw changed, added, and vanished', async () => {
+    const tree = buildTree({ pages: { 'a.md': 'v1', 'b.md': 'v2' } })
+    const storage = vault(tree)
+    const { events, trace } = recorder()
+    const { result } = renderHook(() => useIndex(storage, trace))
+    await waitFor(() => expect(result.current.graph?.pages.has('pages/a.md')).toBe(true))
+
+    await act(async () => {
+      await fileOf(tree, 'pages/a.md').writeContent('')
+      const pagesDir = tree.children.get('pages') as FakeDirectoryHandle
+      pagesDir.children.delete('b.md')
+      const added = new FakeFileHandle('c.md', 'new page')
+      pagesDir.children.set('c.md', added)
+    })
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(events.some((event) => event.name === 'page-changed')).toBe(true))
+
+    expect(events.find((event) => event.name === 'page-changed')!.fields).toEqual({
+      path: 'pages/a.md',
+      before: 2,
+      after: 0,
+    })
+    expect(events.find((event) => event.name === 'page-vanished')!.fields).toEqual({
+      path: 'pages/b.md',
+      before: 2,
+    })
+    expect(events.find((event) => event.name === 'page-added')!.fields).toMatchObject({
+      path: 'pages/c.md',
+    })
+  })
+
+  it("records nothing extra for the app's own save", async () => {
+    const tree = buildTree({ pages: { 'a.md': 'v1' } })
+    const storage = vault(tree)
+    const { events, trace } = recorder()
+    const { result } = renderHook(() => useIndex(storage, trace))
+    await waitFor(() => expect(result.current.graph?.pages.has('pages/a.md')).toBe(true))
+    await act(async () => {
+      await result.current.savePage('pages/a.md', 'v2')
+    })
+    events.length = 0
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(events.some((event) => event.name === 'scan')).toBe(true))
+    expect(events.some((event) => event.name === 'page-changed')).toBe(false)
+  })
+})

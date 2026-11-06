@@ -63,6 +63,13 @@ export class DemoVaultStorage implements VaultStorage {
     return this.entry(path).lastModified
   }
 
+  /** Remove the file at `path`, rejecting for a missing one like a real folder
+   *  (ADR-0035: the trace pruner is the only caller). */
+  async remove(path: string): Promise<void> {
+    this.entry(path)
+    this.files.delete(path)
+  }
+
   /** The file at `path`, or a rejection that mirrors a real storage's missing
    *  file. Directories are implicit: a path with files beneath it is a folder. */
   private entry(path: string): Entry {

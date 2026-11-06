@@ -203,14 +203,37 @@ describe('FolderRail', () => {
   })
 })
 
-describe('FolderRail bottom group (release-reminders)', () => {
-  it('ends with the tour control, and the prerelease toggle is gone', () => {
-    render(<FolderRail {...railProps({ onTour: vi.fn() })} />)
+describe('FolderRail bottom group (prerelease)', () => {
+  it('offers the experimental switch and reports its state', () => {
+    const onTogglePrerelease = vi.fn()
+    const { rerender } = render(
+      <FolderRail {...railProps({ prerelease: false, onTogglePrerelease })} />,
+    )
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    expect(control.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(control)
+    expect(onTogglePrerelease).toHaveBeenCalledTimes(1)
+
+    rerender(<FolderRail {...railProps({ prerelease: true, onTogglePrerelease })} />)
+    expect(
+      screen.getByRole('button', { name: 'Experimental features' }).getAttribute('aria-pressed'),
+    ).toBe('true')
+  })
+
+  it('sits before the tour control, which stays the last', () => {
+    render(<FolderRail {...railProps({ onTour: vi.fn(), onTogglePrerelease: vi.fn() })} />)
     const nav = screen.getByRole('navigation', { name: 'Open folders' })
     const controls = nav.querySelectorAll('button')
     expect(controls[controls.length - 1]).toBe(
       screen.getByRole('button', { name: 'Take the tour' }),
     )
-    expect(screen.queryByRole('button', { name: 'Prerelease features' })).toBeNull()
+    expect(controls[controls.length - 2]).toBe(
+      screen.getByRole('button', { name: 'Experimental features' }),
+    )
+  })
+
+  it('renders the experimental switch without a tour control', () => {
+    render(<FolderRail {...railProps({ onTogglePrerelease: vi.fn() })} />)
+    screen.getByRole('button', { name: 'Experimental features' })
   })
 })

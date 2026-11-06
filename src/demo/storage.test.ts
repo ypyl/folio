@@ -43,4 +43,13 @@ describe('DemoVaultStorage', () => {
     const blob = await storage.readBinary('assets/note.txt')
     expect(await blob.text()).toBe('hello')
   })
+
+  it('removes a file, rejects a missing one, and holds the path contract', async () => {
+    const storage = new DemoVaultStorage({ 'pages/a.md': 'aye', 'pages/b.md': 'bee' })
+    await storage.remove('pages/a.md')
+    expect(await storage.list('pages')).toEqual(['pages/b.md'])
+    await expect(storage.read('pages/a.md')).rejects.toThrow('File not found')
+    await expect(storage.remove('pages/a.md')).rejects.toThrow('File not found')
+    await expect(storage.remove('/absolute.md')).rejects.toThrow(InvalidVaultPathError)
+  })
 })

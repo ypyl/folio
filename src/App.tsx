@@ -43,6 +43,10 @@ import { useToday } from './useToday'
 import { useVault } from './vault/useVault'
 import { createDemoVault, DEMO_ID, DEMO_NAME, DEMO_WELCOME_PATH } from './demo/content'
 import { useIndex } from './vault/useIndex'
+import { features } from './features'
+import { usePrerelease } from './prerelease'
+import { createSessionTrace, describeError } from './trace/session'
+import { version } from '../package.json'
 import {
   canOpenFolders,
   FileSystemVaultStorage,
@@ -112,9 +116,39 @@ function App() {
   // reseeding.
   const demoFolder = folders.find((f) => f.demo)
   const demoActive = activeFolder?.demo === true
-  const { graph, savePage, saveBoard, pins, reminders, saveReminders, togglePin } = useIndex(
-    activeFolder?.storage,
+  // The experimental switch (prerelease, restored by add-session-trace-logs):
+  // a browser-local preference, flipped from the rail. The effective gate for a
+  // capability that ships behind a flag is the build flag or this switch,
+  // computed once here so every surface reads the same value.
+  const [prerelease, setPrerelease] = usePrerelease()
+  const experiments = features.trace || prerelease
+  // The session trace (add-session-trace-logs, design D6): one file per folder
+  // session in `.folio/logs/`, created per storage so opening a folder,
+  // re-granting it, or flipping the switch keeps one identifiable session. A
+  // demo vault has no folder to write into, so it is never traced.
+  const rawStorage = activeFolder?.storage
+  const demoVault = activeFolder?.demo === true
+  const session = useMemo(
+    () => (rawStorage && experiments && !demoVault ? createSessionTrace(rawStorage) : null),
+    [rawStorage, demoVault, experiments],
   )
+  // Every read and write of the vault's notes goes through the traced storage,
+  // so the log sees the whole conversation with the folder (design D1).
+  const storage = session?.storage ?? rawStorage
+  const { graph, savePage, saveBoard, pins, reminders, saveReminders, togglePin } = useIndex(
+    storage,
+    session ?? undefined,
+  )
+  // The session opens when the folder and the gate are both in place and ends
+  // when either goes away. `start` and `end` are idempotent, so React's
+  // StrictMode double mount writes one file and one header.
+  useEffect(() => {
+    if (!session) return
+    session.start({ version, folder: activeFolder?.name ?? '', ua: navigator.userAgent })
+    return () => {
+      void session.end('folder-changed')
+    }
+  }, [session, activeFolder?.name])
   const [activePath, setActivePath] = useState<string | null>(null)
   // Session trail of the pages opened so far, plus the cursor marking the open
   // one (add-history-navigation). In memory only, and cleared when the active
@@ -296,7 +330,8 @@ function App() {
       setActivePath(path)
       // Baseline the draft against the index's content for this page. An
       // existing draft (unsaved edits from earlier in the session) wins.
-      drafts.open(path, graph?.pages.get(path)?.content ?? '')
+      const draft = drafts.open(path, graph?.pages.get(path)?.content ?? '')
+      session?.event('info', 'page-open', { path, bytes: draft.content.length })
       setDraftVersion((v) => v + 1)
       // A search result names the blocks to frame. A navigation that names none
       // leaves any frame alone (frame-the-located-block): the frames are
@@ -305,7 +340,7 @@ function App() {
         setMatchHighlight((prev) => ({ path, blocks, nonce: (prev?.nonce ?? 0) + 1 }))
       }
     },
-    [graph, drafts],
+    [graph, drafts, session],
   )
 
   // Locating a heading from the Contents section (add-page-contents): set the
@@ -342,7 +377,7 @@ function App() {
       setActivePath(path)
       setBoardSaveState('clean')
       setBoardScene(null)
-      const store = activeFolder?.storage
+      const store = storage
       if (!store) {
         setBoardScene('')
         return
@@ -359,7 +394,7 @@ function App() {
           if (activePathRef.current === path) setBoardScene('')
         })
     },
-    [activeFolder],
+    [storage],
   )
 
   // A board reference badge names a board; resolve the name in the board
@@ -449,11 +484,11 @@ function App() {
         handleOpenBoard(path)
         return
       }
-      const store = activeFolder?.storage
+      const store = storage
       if (!store) return
       void openVaultPath(path, (assetPath) => store.readBinary(assetPath))
     },
-    [activeFolder, handleOpenBoard],
+    [storage, handleOpenBoard],
   )
 
   // Every landed run updates the pane's source; a run with no matches leaves
@@ -610,7 +645,13 @@ function App() {
 
   const handleEdit = (markdown: string) => {
     if (activePath === null) return
-    if (drafts.edit(activePath, markdown) === 'dirty') {
+    // One trace line per dirty burst (add-session-trace-logs, design D8): the
+    // transition into `dirty` is the first keystroke of a burst, and the status
+    // read is one map lookup the keystroke path already pays for.
+    const wasDirty = drafts.get(activePath)?.status === 'dirty'
+    const status = drafts.edit(activePath, markdown)
+    if (status === 'dirty') {
+      if (!wasDirty) session?.event('info', 'edit', { path: activePath, bytes: markdown.length })
       saverRef.current?.schedule(activePath, markdown)
     }
     setDraftVersion((v) => v + 1)
@@ -833,22 +874,52 @@ function App() {
   // The debounce leaves a short window in which the last edits are only in
   // memory. A hidden tab or a page going away flushes both writers, so closing
   // or reloading the tab does not drop them. The writes are async and
-  // best-effort; the listener lives for the app's whole life.
+  // best-effort; the listener lives for the app's whole life. The byte-budget
+  // version of the same fact (add-session-trace-logs): the flush is recorded
+  // with what it carried, and the session's buffered trace lines go out too, so
+  // a reload or a close leaves the log as current as the notes.
   useEffect(() => {
-    const flush = () => {
+    const flush = (trigger: string) => {
+      const writes = (saverRef.current?.pending() ?? 0) + (boardSaverRef.current?.pending() ?? 0)
+      session?.event('info', 'flush', { trigger, writes })
       void saverRef.current?.flush()
       void boardSaverRef.current?.flush()
+      void session?.flush()
     }
+    const onPageHide = () => flush('pagehide')
     const onHidden = () => {
-      if (document.visibilityState === 'hidden') flush()
+      if (document.visibilityState === 'hidden') flush('hidden')
     }
-    window.addEventListener('pagehide', flush)
+    window.addEventListener('pagehide', onPageHide)
     document.addEventListener('visibilitychange', onHidden)
     return () => {
-      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('pagehide', onPageHide)
       document.removeEventListener('visibilitychange', onHidden)
     }
-  }, [])
+  }, [session])
+
+  // Uncaught errors are the one class of event nothing else in the app can see
+  // (add-session-trace-logs): record them while a session exists, and only
+  // then, so the shipped build registers no listener that writes.
+  useEffect(() => {
+    if (!session) return
+    const onError = (event: ErrorEvent) => {
+      session.event('error', 'error', {
+        message: event.message,
+        source: event.filename,
+        line: event.lineno,
+      })
+    }
+    const onRejection = (event: PromiseRejectionEvent) => {
+      session.event('error', 'rejection', { reason: describeError(event.reason) })
+    }
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
+  }, [session])
 
   // The open page's draft feeds the editor's initial content (existing draft
   // wins) and the indicator (dirty/saving/failed, else clean). `page` is
@@ -1273,6 +1344,10 @@ function App() {
             // no vault is usable, matching search's scoped rule.
             onSearch={() => setSearchOpen(true)}
             searchDisabled={!canSearch}
+            // The experimental switch (prerelease): app-level, so it renders in
+            // every shell state, compact included (design D6).
+            prerelease={prerelease}
+            onTogglePrerelease={() => setPrerelease(!prerelease)}
             // The tour is a wide-viewport surface (add-app-tour): the compact
             // shell shows one view at a time, so App passes no callback there
             // and the rail renders no tour control.
@@ -1373,17 +1448,11 @@ function App() {
               suggest={suggest}
               suggestBoards={suggestBoardRows}
               suggestFiles={suggestFileRows}
-              onAttachFiles={
-                activeFolder?.storage
-                  ? (files) => copyDroppedFiles(activeFolder.storage!, files)
-                  : undefined
-              }
+              onAttachFiles={storage ? (files) => copyDroppedFiles(storage, files) : undefined}
               // Vault images (render-vault-images): the pane resolves a page's
               // asset references through the active folder's storage, and does
               // nothing without one.
-              readAsset={
-                activeFolder?.storage ? (path) => activeFolder.storage!.readBinary(path) : undefined
-              }
+              readAsset={storage ? (path) => storage.readBinary(path) : undefined}
               // While restoring, avoid a one-frame "open a folder" flash; once
               // settled, only an actually usable folder keeps the notes hint,
               // and a browser with no folder picker gets the requirement instead
@@ -1507,9 +1576,7 @@ function App() {
         <PresentationView
           slides={slides}
           onClose={() => setSlides(null)}
-          readAsset={
-            activeFolder?.storage ? (path) => activeFolder.storage!.readBinary(path) : undefined
-          }
+          readAsset={storage ? (path) => storage.readBinary(path) : undefined}
         />
       ) : null}
     </div>

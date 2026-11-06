@@ -110,6 +110,7 @@ describe('buildIndex', () => {
       writeBinary: (path, blob) => storage.writeBinary(path, blob),
       readBinary: (path) => storage.readBinary(path),
       list: (path) => storage.list(path),
+      remove: (path) => storage.remove(path),
     }
 
     const index = await buildIndex(flaky)

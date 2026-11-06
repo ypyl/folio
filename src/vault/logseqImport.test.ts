@@ -176,6 +176,9 @@ class MemStorage implements VaultStorage {
     if (!this.files.has(path)) throw new Error(`missing ${path}`)
     return 0
   }
+  async remove(path: string): Promise<void> {
+    if (!this.files.delete(path)) throw new Error(`missing ${path}`)
+  }
 }
 
 describe('runLogseqImport', () => {

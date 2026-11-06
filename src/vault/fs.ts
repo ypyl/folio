@@ -129,6 +129,14 @@ export class FileSystemVaultStorage implements VaultStorage {
     return (await file.getFile()).lastModified
   }
 
+  /** Remove the file at `path` (ADR-0035): the session trace's pruner is the
+   *  one caller. A missing file rejects with the browser's error, like `read`. */
+  async remove(path: string): Promise<void> {
+    const segments = parseFilePath(path)
+    const parent = await this.resolveDir(segments.slice(0, -1))
+    await parent.removeEntry(lastSegment(segments))
+  }
+
   private async resolveDir(
     segments: string[],
     options?: { create: boolean },
@@ -143,18 +151,25 @@ export class FileSystemVaultStorage implements VaultStorage {
   }
 
   /** One path segment's handle: share an in-flight lookup, remember only
-   *  success, and drop the entry on a miss so the next call retries. */
+   *  success, and drop the entry on a miss so the next call retries.
+   *
+   *  A create lookup and a plain lookup never share an entry. They race exactly
+   *  when the directory does not exist yet - the trace's first log write
+   *  creating `.folio/logs` while a scan stats the pins file it has never
+   *  written - and a shared entry would let the plain lookup's miss fail the
+   *  write that was about to create the directory. */
   private dirHandle(
     key: string,
     parent: FileSystemDirectoryHandle,
     segment: string,
     options?: { create: boolean },
   ): Promise<FileSystemDirectoryHandle> {
-    const cached = this.dirs.get(key)
+    const cacheKey = options?.create ? `${key}\u0000create` : key
+    const cached = this.dirs.get(cacheKey)
     if (cached !== undefined) return cached
     const lookup = parent.getDirectoryHandle(segment, options)
-    this.dirs.set(key, lookup)
-    void lookup.catch(() => this.dirs.delete(key))
+    this.dirs.set(cacheKey, lookup)
+    void lookup.catch(() => this.dirs.delete(cacheKey))
     return lookup
   }
 }

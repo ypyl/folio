@@ -11,6 +11,7 @@ import {
   type VaultIndex,
 } from './index'
 import type { VaultStorage } from './storage'
+import type { TraceSink } from '../trace/session'
 
 // Binds the active folder's storage to its in-memory graph (design D6).
 // Idle (no build, no listeners) when storage is undefined; rebuilds from
@@ -35,7 +36,10 @@ const EMPTY_REMINDERS: ReminderRule[] = []
  *  write-through copies what it reads from it. */
 const DETACHED_INDEX = emptyIndex()
 
-export function useIndex(storage: VaultStorage | undefined): {
+export function useIndex(
+  storage: VaultStorage | undefined,
+  trace?: TraceSink,
+): {
   graph: Graph | null
   pins: string[]
   reminders: ReminderRule[]
@@ -93,6 +97,7 @@ export function useIndex(storage: VaultStorage | undefined): {
       if (cancelled || building) return
       const previous = latest.current?.storage === store ? latest.current.index : undefined
       const revAtStart = revision.current
+      const startedAt = Date.now()
       building = true
       try {
         const next = await buildIndex(store, previous)
@@ -105,6 +110,18 @@ export function useIndex(storage: VaultStorage | undefined): {
         latest.current = { storage: store, index: next }
         revision.current++
         setBuilt({ storage: store, graph: next.graph, pins: next.pins, reminders: next.reminders })
+        // The session trace (add-session-trace-logs, design D7): what this scan
+        // covered and, on a refresh, every page the folder changed underneath
+        // the app. One pass over the pages map on a refresh that just read the
+        // folder; nothing here runs on a keystroke.
+        if (trace) {
+          trace.event('info', 'scan', {
+            files: next.graph.files.size,
+            pages: next.graph.pages.size,
+            ms: Date.now() - startedAt,
+          })
+          if (previous) traceChanges(trace, previous, next)
+        }
       } catch {
         // A transient failure (a page or the listing vanishing mid-scan, a
         // permission blip) must not reject: the current index stays, and the
@@ -130,7 +147,7 @@ export function useIndex(storage: VaultStorage | undefined): {
       window.removeEventListener('focus', build)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [storage])
+  }, [storage, trace])
 
   // Write-through actions (design B1, D1/D3): stable identities so callers can
   // hold them in effect dependencies, and non-optimistic — the graph changes
@@ -263,4 +280,31 @@ function togglePins(storage: VaultStorage, current: VaultIndex, path: string): P
   const pinned = current.pins.includes(path)
   const nextPins = pinned ? current.pins.filter((p) => p !== path) : [path, ...current.pins]
   return upsertPins(storage, current, nextPins)
+}
+
+/** The pages a refresh saw change underneath the app (add-session-trace-logs,
+ *  design D7): a page that appeared, a page whose text changed, and a page that
+ *  vanished, each with the sizes that make "it was 4 KB and now it is 0" a fact
+ *  in the log rather than a guess. A page the app wrote itself is already in
+ *  the previous index, so it carries over object-identical and reports nothing. */
+function traceChanges(trace: TraceSink, previous: VaultIndex, next: VaultIndex): void {
+  for (const [path, page] of next.graph.pages) {
+    const before = previous.graph.pages.get(path)
+    if (before === undefined) {
+      trace.event('info', 'page-added', { path, bytes: page.content.length })
+      continue
+    }
+    if (before.content !== page.content) {
+      trace.event('warn', 'page-changed', {
+        path,
+        before: before.content.length,
+        after: page.content.length,
+      })
+    }
+  }
+  for (const [path, page] of previous.graph.pages) {
+    if (!next.graph.pages.has(path)) {
+      trace.event('warn', 'page-vanished', { path, before: page.content.length })
+    }
+  }
 }

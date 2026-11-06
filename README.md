@@ -37,6 +37,7 @@ uses the File System Access API. Every push to `master` builds with
 - Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (see [Reminders](#reminders))
 - A guided demo vault with a table of contents and a worked example of every feature, in any browser (ADR-0034)
 - A guided tour of the shell, from the folder rail or the brand screen
+- An optional session trace for troubleshooting: one plain-text log per session under `.folio/logs/`, kept for seven days, recording what the app wrote and what failed (see [Diagnostics](#diagnostics))
 - One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
 
@@ -101,12 +102,37 @@ and scroll position alone, so opening a long note still reads from where you lef
 it. A page that holds a rule carries a small bell in the Files listing, in the
 same badge slot the board and file rows use for their kind letters.
 
+## Diagnostics
+
+Folio can keep a trace of what it did, one plain-text file per session, under
+`.folio/logs/` in the vault it was working on. It is off by default: turn on
+**Experimental features** on the folder rail (the flask above the tour button),
+and the vault gets a session file named for the time the session started. The
+switch is a browser preference, not vault content, so it applies to every vault
+and writes nothing itself.
+
+A trace records the session's start (app version, folder, browser), each scan and
+refresh of the folder, the pages a refresh saw added, changed, or removed with
+their sizes before and after, the pages opened, every write with its size and
+outcome, every failed read or write with the error, flushes, and uncaught errors.
+It does not record your text: paths, sizes, and timings only, so the file is safe
+to attach to a bug report.
+
+That is the file to read when a note looks wrong. A `write` line says the app
+saved it; a `page-changed` line with `before` and `after` sizes says something
+else did; a `write-failed` line names the error.
+
+Files older than seven days are removed when a session starts, and that is the
+only thing Folio ever deletes. A file in `.folio/logs/` that Folio did not write
+is left alone.
+
 ## Cleaning up the vault
 
-Folio never deletes files. It edits them, so clearing a page in the app can leave an
-empty file behind, but the file itself stays in the folder. Everything else,
-deleting, renaming, moving, or emptying folders, is yours to do in your file
-manager.
+Folio never deletes your files. It edits them, so clearing a page in the app can leave an
+empty file behind, but the file itself stays in the folder. The one exception is
+its own session traces, removed seven days after they were written (see
+[Diagnostics](#diagnostics)). Everything else, deleting, renaming, moving, or
+emptying folders, is yours to do in your file manager.
 
 What a vault holds:
 
@@ -116,7 +142,7 @@ What a vault holds:
 | `journals/` | one `.md` file per day, named `YYYY-MM-DD.md` |
 | `assets/` | dropped, pasted, and imported files, whatever the extension |
 | `boards/` | `.excalidraw` whiteboards, referenced by `#!` tokens |
-| `.folio/` | the app's own bookkeeping: `pins.md` (pinned pages), `reminders.md` (reminder rules), and `imports.md` (the Logseq import ledger) |
+| `.folio/` | the app's own bookkeeping: `pins.md` (pinned pages), `reminders.md` (reminder rules), `imports.md` (the Logseq import ledger), and `logs/` (session traces, seven days) |
 | anything else | ignored by Folio; a Markdown file is a page only under `pages/` or `journals/` |
 
 So cleanup is plain file deletion:
@@ -132,6 +158,8 @@ So cleanup is plain file deletion:
   reference them stay; only the schedule goes.
 - **Logseq import ledger**: delete `.folio/imports.md` to make a folder importable again;
   the next run then writes those files once more, appending to what a previous run left.
+- **Session traces**: delete `.folio/logs/` whenever you like. The next session starts a
+  fresh file, and the old ones were going to be pruned after seven days anyway.
 
 Folio picks deletions up when it rescans: switching back to its tab, or reopening the
 folder, re-lists the vault, so a file you deleted drops out of the index and one you

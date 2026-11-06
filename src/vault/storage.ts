@@ -24,4 +24,8 @@ export interface VaultStorage {
   list(path: string): Promise<string[]>
   /** Resolve with the last-modified time (ms epoch) of the file at `path`. Rejects if missing. */
   stat(path: string): Promise<number>
+  /** Remove the file at `path`. Rejects if missing.
+   *  Called by the session trace's pruner and by nothing else (ADR-0035): the
+   *  app never removes a page, a board, a file, or its meta files. */
+  remove(path: string): Promise<void>
 }
