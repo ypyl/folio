@@ -19,8 +19,8 @@
 
 ## 5. Full circle
 
-- [ ] 5.1 Run `npx oxlint --fix`, `npm run fmt`, `npx tsc -b`, `npm run test`, `npm run build`, the e2e suite, and `npx oxlint --deny-warnings --format=agent`; all pass, and the e2e includes the reported reference name typed into a note (page stays text, no save failure, no file written).
-- [ ] 5.2 Bump `version` in `package.json` (patch) and commit the feature with its tests, docs, delta specs, and ADR line.
+- [x] 5.1 Run `npx oxlint --fix`, `npm run fmt`, `npx tsc -b`, `npm run test`, `npm run build`, the e2e suite, and `npx oxlint --deny-warnings --format=agent`; all pass, and the e2e includes the reported reference name typed into a note (page stays text, no save failure, no file written).
+- [x] 5.2 Bump `version` in `package.json` (patch) and commit the feature with its tests, docs, delta specs, and ADR line.
 
 ## Workflow follow-up
 
