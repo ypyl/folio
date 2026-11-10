@@ -7,7 +7,13 @@ import {
   pickSourceFolder,
   pickVaultFolder,
 } from './fs'
-import { buildTree, type FakeDirectoryHandle, type FakeTreeNode } from './fakeHandle'
+import {
+  buildTree,
+  fsaCalls,
+  resetFsaCalls,
+  type FakeDirectoryHandle,
+  type FakeTreeNode,
+} from './fakeHandle'
 
 // Fake handle tree lives in fakeHandle.ts (shared with useVault.test.ts);
 // this suite exercises the storage against it (D5). Cast into place: the
@@ -36,6 +42,21 @@ describe('parsePath', () => {
   })
   it.each(['/lead.slash', 'a/../b', 'a/.', './a', 'a//b', 'a/', '..'])('rejects %s', (path) => {
     expect(() => parsePath(path)).toThrow(InvalidVaultPathError)
+  })
+
+  // A segment the File System Access API refuses is a contract violation, not
+  // a browser surprise (disallow-unwritable-file-names).
+  it.each(['pages/a|b.md', 'pages/a:b.md', 'pages/a?b.md', 'NUL.md', 'pages/a\u0000b.md'])(
+    'rejects the unwritable segment in %j',
+    (path) => {
+      expect(() => parsePath(path)).toThrow(InvalidVaultPathError)
+    },
+  )
+
+  it('keeps unusual but writable segments', () => {
+    expect(parsePath('pages/café.md')).toEqual(['pages', 'café.md'])
+    expect(parsePath('pages/100% done.md')).toEqual(['pages', '100% done.md'])
+    expect(parsePath('assets/a(b).pdf')).toEqual(['assets', 'a(b).pdf'])
   })
 })
 
@@ -157,7 +178,7 @@ describe('FileSystemVaultStorage', () => {
     })
   })
 
-  it.each(['/lead', 'a/../b', '../x', 'a//b', 'a/', '.', '..', '/'])(
+  it.each(['/lead', 'a/../b', '../x', 'a//b', 'a/', '.', '..', '/', 'pages/a|b.md'])(
     'rejects invalid path %s on every operation',
     async (path) => {
       const vault = fakeVault(VAULT)
@@ -166,6 +187,15 @@ describe('FileSystemVaultStorage', () => {
       await expect(vault.list(path)).rejects.toBeInstanceOf(InvalidVaultPathError)
     },
   )
+
+  it('rejects an unwritable name before it touches a handle', async () => {
+    const vault = fakeVault(VAULT)
+    resetFsaCalls()
+    await expect(vault.write('pages/a|b.md', 'x')).rejects.toBeInstanceOf(InvalidVaultPathError)
+    await expect(vault.read('pages/a|b.md')).rejects.toBeInstanceOf(InvalidVaultPathError)
+    expect(fsaCalls.getDirectoryHandle).toBe(0)
+    expect(fsaCalls.getFileHandle).toBe(0)
+  })
 
   it.each(['read', 'write'] as const)('rejects %s of the root', async (op) => {
     const vault = fakeVault(VAULT)

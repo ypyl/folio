@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { editor, installVaultPicker, openVault, seedVault } from './helpers/vault'
+import { editor, installVaultPicker, openVault, readVaultFile, seedVault } from './helpers/vault'
 
 // openspec/specs/editing: the open page is edited in place and autosaves to the
 // vault folder.
@@ -222,4 +222,36 @@ test('dropping a text file attaches it and does not insert its contents', async 
     return file.text()
   })
   expect(landed).toBe(pem)
+})
+
+// openspec/specs/references (disallow-unwritable-file-names): a name the folder
+// cannot hold is not a reference. The reported case typed `#[[Interview - Amjad
+// A. | Bkdkfd]]`, clicked it, and every save of the blank page it opened failed
+// in the browser with "Name is not allowed". The token must stay text, and the
+// note holding it must save.
+test('a reference with a name the folder cannot hold stays text and saves', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, { 'pages/Welcome.md': 'Start here.' })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Welcome' }).click()
+
+  await editor(page).click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.type(' #[[Interview - Amjad A. | Bkdkfd]] and #[[Reading list]]')
+  await expect(editor(page)).toContainText('#[[Interview - Amjad A. | Bkdkfd]]')
+
+  // Only the writable name is a reference badge.
+  const chips = page.locator('.cm-content .ref')
+  await expect(chips).toHaveCount(1)
+  await expect(chips).toHaveText('#[[Reading list]]')
+
+  // The save lands, no file is created for the impossible name, and nothing
+  // reported a failure.
+  await expect(page.getByText('Unsaved changes')).toHaveCount(0, { timeout: 5000 })
+  expect(await readVaultFile(page, 'pages/Welcome.md')).toContain(
+    '#[[Interview - Amjad A. | Bkdkfd]]',
+  )
+  expect(await readVaultFile(page, 'pages/Interview - Amjad A. | Bkdkfd.md')).toBe('')
+  await expect(page.getByText('Save failed')).toHaveCount(0)
 })

@@ -469,3 +469,41 @@ describe('boardToken (add-whiteboards, design D2)', () => {
     expect(isBoardReferenceable(' padded ')).toBe(false)
   })
 })
+
+// A name the folder cannot hold (disallow-unwritable-file-names): its token is
+// not a reference at all, so the badge, the links pane, the backlinks, and the
+// save that would materialize a page all agree it is plain text.
+describe('a name the folder cannot hold', () => {
+  it.each([
+    '#[[Interview - Amjad A. | Bkdkfd]]',
+    '#[[Chapter 1: Start]]',
+    '#[[Journal/2026]]',
+    '#[[What?]]',
+    '#[[NUL]]',
+  ])('leaves the page token %s literal', (text) => {
+    expect(findReferenceRanges(text)).toEqual([])
+    expect(parseLinks(text)).toEqual([])
+  })
+
+  it('leaves a board token with such a name literal', () => {
+    expect(findReferenceRanges('#![[Topology | draft]]')).toEqual([])
+    expect(parseBoardRefs('#![[Topology | draft]]')).toEqual([])
+  })
+
+  it('keeps unusual but writable names', () => {
+    const text = '#[[café]] #[[2.0]] #[[100% done]] #[[a(b)]] #![[Migration topology]]'
+    expect(parseLinks(text).map((link) => link.target)).toEqual([
+      'café',
+      '2.0',
+      '100% done',
+      'a(b)',
+    ])
+    expect(parseBoardRefs(text).map((ref) => ref.target)).toEqual(['Migration topology'])
+  })
+
+  it('leaves a missing page with a writable name a reference', () => {
+    expect(parseLinks('#[[feature roadmap]]')).toEqual([
+      { target: 'feature roadmap', via: 'bracketed' },
+    ])
+  })
+})

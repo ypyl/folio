@@ -4,6 +4,7 @@
 // destinations by the same syntax the editor writes them with.
 
 import { decodeVaultPath, isVaultRelative } from './assetOpen'
+import { isWritableFileName } from './names'
 
 export type Link = {
   target: string // page name, exactly as referenced (trimmed)
@@ -68,6 +69,11 @@ function* matchRefs(content: string): Generator<RefMatch> {
     const bracketed = match[1] ?? match[3]
     const target = (bracketed ?? match[2] ?? match[4]).trim()
     if (target === '') continue
+    // A name the folder cannot hold is not a page or board name (see
+    // ./names.ts): its token stays literal text, so nothing downstream - the
+    // badge, the links pane, the backlinks, a save - ever tries to make a file
+    // the browser will refuse. This is the only place the rule is applied.
+    if (!isWritableFileName(target)) continue
     yield {
       from,
       to: from + match[0].length,

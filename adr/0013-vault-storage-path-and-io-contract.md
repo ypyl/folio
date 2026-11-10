@@ -1,6 +1,7 @@
 # ADR-0013: VaultStorage path and I/O contract
 
-- Status: Accepted
+- Status: Accepted (amended 2026-11-10: a path segment must also be a name the
+  folder can hold)
 - Date: 2026-09-05
 
 ## Context
@@ -25,6 +26,7 @@ interface VaultStorage {
 
 - `list` returns every file under the given path, at any depth, as vault-root-relative paths; directories never appear. This replaces the undefined `Entry[]`: no consumer in the plan needs a shallow look or directory entries, and the recursion lives in the implementation once instead of in each consumer.
 - Paths are vault-root-relative, `/`-separated, with no leading `/`, no `.` or `..` segments, and no absolute paths. The empty string denotes the vault root. Invalid paths are rejected, not sanitized.
+- A segment must also be a name the folder can hold: no `< > : " / \ | ? *`, no control characters, and no Windows device name (`CON`, `NUL`, `COM1`, …). This is the portable-name rule the File System Access API applies before it touches disk, so a name the browser would refuse is a contract violation here, not an opaque `TypeError` at the call site. One predicate (`src/vault/names.ts`) answers it for both the path contract and the reference layer, where a name the folder cannot hold is not a page name (`disallow-unwritable-file-names`).
 - `write` creates missing parent directories implied by the path.
 - `read` and `delete` reject when the file is missing — never resolve with a sentinel. Errors propagate as the underlying error (e.g. FSA's `NotFoundError`); there is no normalized error type.
 - The interface is text-only. Binary read/write (assets, `asset-drag-drop`) extends it additively (`readBuffer`/`writeBuffer`) — the File System Access API serves both from the same handle, so no rework.
@@ -33,5 +35,6 @@ interface VaultStorage {
 
 - Index keys (ADR-0004) are implementation-stable by construction.
 - `..` is a trust boundary: rejecting it at the interface defends the vault root regardless of how a path was derived.
+- A name the folder cannot hold is rejected before any handle is requested, so the failure names the path instead of quoting the browser. The same predicate keeps such a name from becoming a page: the reference token stays literal text.
 - No error-type module exists yet; one is added only when a consumer actually branches on error kinds.
 - The one place that must hold this contract is the File System Access implementation (`build-fsa-storage`), whose acceptance gates are the spec scenarios in `openspec/specs/vault-storage/spec.md`.

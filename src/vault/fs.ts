@@ -1,4 +1,5 @@
 import type { VaultStorage } from './storage'
+import { isWritableFileName } from './names'
 
 // 'showDirectoryPicker' was removed from lib.dom in TS 6; declare the one
 // member the picker factory needs (Chromium implements the full API).
@@ -29,14 +30,17 @@ export class InvalidVaultPathError extends Error {
 
 /**
  * Split a contract path into segments. '' denotes the root and yields [].
- * Rejects: leading '/', absolute forms, and empty/'.'/'..' segments.
+ * Rejects: leading '/', absolute forms, empty/'.'/'..' segments, and any
+ * segment the folder cannot hold as a name. The last rule is the browser's own:
+ * the File System Access API refuses such a segment before touching disk, so
+ * rejecting it here names the path and skips the handle walk (./names.ts).
  */
 export function parsePath(path: string): string[] {
   if (path === '') return []
   if (path.startsWith('/')) throw new InvalidVaultPathError(path)
   const segments = path.split('/')
   for (const segment of segments) {
-    if (segment === '' || segment === '.' || segment === '..') {
+    if (segment === '' || segment === '.' || segment === '..' || !isWritableFileName(segment)) {
       throw new InvalidVaultPathError(path)
     }
   }

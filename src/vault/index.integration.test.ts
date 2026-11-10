@@ -892,3 +892,34 @@ describe('boards (add-whiteboards, design D1/D2/D9)', () => {
     expect(boardReferrers(second.graph, 'boards/Migration.excalidraw')).toEqual(['pages/Ideas.md'])
   })
 })
+
+// disallow-unwritable-file-names: the reported failure was a page named
+// `Interview - Amjad A. | Bkdkfd` whose first save threw in the browser. The
+// token is now plain text, so the note holding it indexes and saves cleanly.
+describe('a reference the folder cannot hold', () => {
+  const NOTE = 'See #[[Interview - Amjad A. | Bkdkfd]] and #![[Topology | draft]]'
+
+  it('produces no page, forwardlink, backlink, or board', async () => {
+    const tree = buildTree({ pages: { 'Interview notes.md': NOTE } })
+    const index = await buildIndex(vault(tree))
+    const page = index.graph.pages.get('pages/Interview notes.md')!
+
+    expect(page.links).toEqual([])
+    expect(page.boards).toEqual([])
+    expect([...index.graph.pages.keys()]).toEqual(['pages/Interview notes.md'])
+    expect(index.graph.boards).toEqual([])
+    expect(index.graph.byName.has('interview - amjad a. | bkdkfd')).toBe(false)
+  })
+
+  it('saves the note holding it, writing one file and no page for the name', async () => {
+    const tree = buildTree({ pages: { 'Interview notes.md': 'v1' } })
+    const storage = vault(tree)
+    const first = await buildIndex(storage)
+
+    const second = await upsertPage(storage, first, 'pages/Interview notes.md', NOTE)
+
+    expect(await storage.read('pages/Interview notes.md')).toBe(`${NOTE}\n\n`)
+    expect([...second.graph.pages.keys()]).toEqual(['pages/Interview notes.md'])
+    expect(await storage.list('')).toEqual(['pages/Interview notes.md'])
+  })
+})
