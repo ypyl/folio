@@ -85,11 +85,11 @@
   height: 20px;
 }
 
-/* The rail's bottom group (add-prerelease-mode): the tour control, held to the
-   rail's bottom edge with the meta panel footer's recipe (`margin-top: auto` +
-   sticky) so a long folder list scrolling above it never pushes it out of
-   reach. The fill is the rail's own `--ivory`, so rows pass beneath it
-   cleanly. */
+/* The rail's bottom group (add-prerelease-mode, now the tour control alone):
+   held to the rail's bottom edge with the meta panel footer's recipe
+   (`margin-top: auto` + sticky) so a long folder list scrolling above it never
+   pushes it out of reach. The fill is the rail's own `--ivory`, so rows pass
+   beneath it cleanly. */
 .railBottom {
   margin-top: auto;
   position: sticky;
