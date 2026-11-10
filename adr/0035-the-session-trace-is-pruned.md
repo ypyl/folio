@@ -1,6 +1,6 @@
 # ADR-0035: A session trace lives in `.folio/logs/` and is pruned
 
-- Status: Accepted
+- Status: Accepted (amended 2026-11-10: the trace ships in every build)
 - Date: 2026-11-05
 
 ## Context
@@ -57,10 +57,12 @@ pattern. This is the return ADR-0030 anticipated. The seam is still read/write
 for every user file: the app never removes a page, a journal day, a board, a
 file, a pin, or a reminder rule.
 
-**The trace ships behind a gate.** A build-time flag (`features.trace`, from
-`VITE_TRACE`) plus the app-level experimental switch, which this change restores
-from the `add-prerelease-mode` change. With both off the app creates no
-directory, writes no file, and registers no listener that writes.
+**The trace runs for every real folder.** It first shipped behind a build flag
+plus the app's experimental switch (`release-reminders`' mechanism, restored by
+this change). That gate retired in `release-the-session-trace`: the trace was
+its last flagged feature, so the flag, the switch, and the mode went, and a
+folder being open is now the whole condition. A demo vault still writes nothing,
+because it has no folder behind it.
 
 ## Consequences
 
@@ -70,8 +72,8 @@ directory, writes no file, and registers no listener that writes.
 - `.folio/` gains its second kind of content: state that is discarded rather than
   rebuilt. It stays plain text, dot-named, and outside the page index.
 - A folder under a cloud client will sync these files. Volume is bounded by the
-  2000-line cap per file and by the seven-day window; the feature is off by
-  default.
+  2000-line cap per file and by the seven-day window. There is no opt-out: a user
+  who wants no trace deletes the files, and the pruner owns the rest.
 - The log shares the folder it describes. When the folder is broken enough that
   the log cannot be written, only `console.warn` remains, and the file written
   earlier in the session still holds the story up to that point.

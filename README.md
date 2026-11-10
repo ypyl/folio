@@ -104,12 +104,11 @@ same badge slot the board and file rows use for their kind letters.
 
 ## Diagnostics
 
-Folio can keep a trace of what it did, one plain-text file per session, under
-`.folio/logs/` in the vault it was working on. It is off by default: turn on
-**Experimental features** on the folder rail (the flask above the tour button),
-and the vault gets a session file named for the time the session started. The
-switch is a browser preference, not vault content, so it applies to every vault
-and writes nothing itself.
+Folio keeps a trace of what it did, one plain-text file per session, under
+`.folio/logs/` in every folder it works on. Opening a folder starts a session and
+the folder gets a file named for the time it started. There is nothing to turn
+on: the folder being open is the whole switch, and the guided demo writes
+nothing because it has no folder behind it.
 
 A trace records the session's start (app version, folder, browser), each scan and
 refresh of the folder, the pages a refresh saw added, changed, or removed with

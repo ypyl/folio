@@ -413,25 +413,6 @@ accessible name and letters on screen, because a search field already taught
 this convention. Pressing it leaves the caret in the input: it changes the
 rule, not the query.
 
-### Experimental switch (rail control)
-
-One app-level control sits in the rail's bottom group, before the tour control: a
-40px square **flask** on the search trigger's surface, `--border` hairline and
-`--dark-warm` ink at rest, `--brand-tint` fill with `--brand` ink and border
-while `aria-pressed` is true, the search trigger's hover, and the app's focus
-ring. Its accessible name is **Experimental features**; the glyph is decoration.
-It renders in every shell state, compact included, because it belongs to the app
-rather than to a folder, and it never writes vault content: the preference lives
-in `localStorage`. What it turns on today is the session trace (see the README's
-Diagnostics section), which writes only to `.folio/logs/`.
-
-While the control is hovered or focused it says what it turns on: a tooltip
-beside the rail, on an `--ivory` surface with an 8px radius and the whisper
-shadow reserved for floating surfaces, holding one 13px label over an 11px
-`--stone` line per gated feature. It takes no pointer input, so the press still
-belongs to the switch, and it lists the flags module's own descriptions, so a
-newly gated feature appears without a second list to maintain.
-
 ### Pin star (row icon + status-bar toggle)
 The pin toggle lives in the **status bar's leading corner**, before the
 file path — a 24px square button showing a 14px star: filled `--brand`

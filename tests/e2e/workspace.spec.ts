@@ -84,39 +84,3 @@ test('the brand screen opens the tour from its reference', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'App tour' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'App tour' })).toContainText('Your folders')
 })
-
-// explain-the-experimental-switch: the rail's experimental control says what it
-// turns on, on hover and on keyboard focus, and the tip is a real floating
-// surface beside the rail rather than a clipped child of its scroll box.
-test('the experimental control lists what it enables', async ({ page }) => {
-  await installVaultPicker(page)
-  await page.goto('/')
-
-  const control = page.getByRole('button', { name: 'Experimental features' })
-  await expect(control).toHaveAttribute('aria-pressed', 'false')
-  await expect(page.getByRole('tooltip')).toHaveCount(0)
-
-  // Hover: the gated feature and what it does.
-  await control.hover()
-  const tip = page.getByRole('tooltip')
-  await expect(tip).toBeVisible()
-  await expect(tip).toContainText('Session trace')
-  await expect(tip).toContainText('Records writes and failures')
-
-  // Beside the rail, inside the viewport: the rail's scroll box would clip a
-  // child that did not escape it.
-  const rail = (await page.locator('#folder-rail').boundingBox())!
-  const box = (await tip.boundingBox())!
-  expect(box.x).toBeGreaterThan(rail.x + rail.width)
-  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
-
-  // Leaving hides it, and keyboard focus brings it back.
-  await page.mouse.move(rail.x + rail.width + 200, rail.y + 40)
-  await expect(page.getByRole('tooltip')).toHaveCount(0)
-  await control.focus()
-  await expect(page.getByRole('tooltip')).toBeVisible()
-
-  // The tip never takes the press: clicking the focused control still flips it.
-  await control.click()
-  await expect(control).toHaveAttribute('aria-pressed', 'true')
-})

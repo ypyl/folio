@@ -1,10 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 import { editor, installVaultPicker, openVault, seedVault } from './helpers/vault'
 
-// add-session-trace-logs: the experimental switch on the folder rail turns the
-// session trace on without a rebuild, and the session's file lands in the vault
-// itself. The e2e build sets `VITE_TRACE=1`, so the engine is exercised while
-// the shipped build keeps it off (playwright.config.ts).
+// add-session-trace-logs, released by release-the-session-trace: the session
+// trace runs for every real folder, and its file lands in the vault itself. The
+// e2e runs the build a user runs (playwright.config.ts).
 
 /** Every trace line the vault holds, across sessions. `''` while none exists. */
 async function readTrace(page: Page): Promise<string> {
@@ -32,11 +31,8 @@ test('records a session of edits in the vault', async ({ page }) => {
   await seedVault(page, { 'pages/Ana.md': 'Ana\n' })
   await openVault(page)
 
-  // The switch is off in a shipped build; turning it on needs no reload.
-  const control = page.getByRole('button', { name: 'Experimental features' })
-  await expect(control).toHaveAttribute('aria-pressed', 'false')
-  await control.click()
-  await expect(control).toHaveAttribute('aria-pressed', 'true')
+  // Nothing to turn on: opening the folder started the session.
+  await expect(page.getByRole('button', { name: 'Experimental features' })).toHaveCount(0)
 
   const files = page.locator('details', {
     has: page.locator('summary', { hasText: 'Files' }),

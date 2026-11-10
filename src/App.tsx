@@ -43,8 +43,6 @@ import { useToday } from './useToday'
 import { useVault } from './vault/useVault'
 import { createDemoVault, DEMO_ID, DEMO_NAME, DEMO_WELCOME_PATH } from './demo/content'
 import { useIndex } from './vault/useIndex'
-import { experimentalFeatures, features } from './features'
-import { usePrerelease } from './prerelease'
 import { createSessionTrace, describeError } from './trace/session'
 import { version } from '../package.json'
 import {
@@ -116,21 +114,16 @@ function App() {
   // reseeding.
   const demoFolder = folders.find((f) => f.demo)
   const demoActive = activeFolder?.demo === true
-  // The experimental switch (prerelease, restored by add-session-trace-logs):
-  // a browser-local preference, flipped from the rail. The effective gate for a
-  // capability that ships behind a flag is the build flag or this switch,
-  // computed once here so every surface reads the same value.
-  const [prerelease, setPrerelease] = usePrerelease()
-  const experiments = features.trace || prerelease
-  // The session trace (add-session-trace-logs, design D6): one file per folder
-  // session in `.folio/logs/`, created per storage so opening a folder,
-  // re-granting it, or flipping the switch keeps one identifiable session. A
-  // demo vault has no folder to write into, so it is never traced.
+  // The session trace (add-session-trace-logs, released by
+  // release-the-session-trace): one file per folder session in `.folio/logs/`,
+  // created per storage so opening a folder or re-granting it keeps one
+  // identifiable session. A demo vault has no folder to write into, so it is
+  // never traced.
   const rawStorage = activeFolder?.storage
   const demoVault = activeFolder?.demo === true
   const session = useMemo(
-    () => (rawStorage && experiments && !demoVault ? createSessionTrace(rawStorage) : null),
-    [rawStorage, demoVault, experiments],
+    () => (rawStorage && !demoVault ? createSessionTrace(rawStorage) : null),
+    [rawStorage, demoVault],
   )
   // Every read and write of the vault's notes goes through the traced storage,
   // so the log sees the whole conversation with the folder (design D1).
@@ -139,9 +132,9 @@ function App() {
     storage,
     session ?? undefined,
   )
-  // The session opens when the folder and the gate are both in place and ends
-  // when either goes away. `start` and `end` are idempotent, so React's
-  // StrictMode double mount writes one file and one header.
+  // The session opens with the folder and ends when the folder goes away.
+  // `start` and `end` are idempotent, so React's StrictMode double mount writes
+  // one file and one header.
   useEffect(() => {
     if (!session) return
     session.start({ version, folder: activeFolder?.name ?? '', ua: navigator.userAgent })
@@ -1344,14 +1337,6 @@ function App() {
             // no vault is usable, matching search's scoped rule.
             onSearch={() => setSearchOpen(true)}
             searchDisabled={!canSearch}
-            // The experimental switch (prerelease): app-level, so it renders in
-            // every shell state, compact included (design D6).
-            prerelease={prerelease}
-            onTogglePrerelease={() => setPrerelease(!prerelease)}
-            // The switch's own answer to "what will this enable": the flags
-            // module's descriptions, so the popup cannot drift from the gates
-            // (explain-the-experimental-switch).
-            experimental={experimentalFeatures}
             // The tour is a wide-viewport surface (add-app-tour): the compact
             // shell shows one view at a time, so App passes no callback there
             // and the rail renders no tour control.

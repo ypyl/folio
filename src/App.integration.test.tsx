@@ -192,6 +192,13 @@ const links = () => {
 /** The fixture vault's pages directory: pages live under `pages/`. */
 const pagesDir = (tree: FakeDirectoryHandle) => tree.children.get('pages') as FakeDirectoryHandle
 
+/** The paths a `write` spy saw outside the app's own `.folio/` state. The
+ *  session trace writes a log line for the session itself, so a test asserting
+ *  that an action wrote nothing means "no note, board, or file in the vault",
+ *  not "no log" (release-the-session-trace). */
+const vaultWrites = (write: { mock: { calls: unknown[][] } }) =>
+  write.mock.calls.map(([path]) => path).filter((path) => !String(path).startsWith('.folio/'))
+
 // Test fixture: the former mock-vault content lifted into real .md files
 // (the promised scan/index fixture). 5 pages + 3 journals = 8 files.
 const PAGES = {
@@ -807,15 +814,19 @@ describe('auto-save (page-editing spec)', () => {
     render(<App />)
     const tree = await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    const spy = vi
-      .spyOn(FileSystemVaultStorage.prototype, 'write')
-      .mockRejectedValueOnce(new DOMException('denied', 'SecurityError'))
+    // Fail the page's own writable, so the trace's log write is not the one
+    // rejected (release-the-session-trace).
+    const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
+    const writable = file.createWritable
+    file.createWritable = async () => {
+      throw new DOMException('denied', 'SecurityError')
+    }
 
     editor().emitChange('first edit')
     await screen.findByText('Save failed', {}, { timeout: 3000 })
     expect(editor()).toBeTruthy()
 
-    spy.mockRestore()
+    file.createWritable = writable
     editor().emitChange('second edit')
     // The re-armed edit shows as dirty before it saves. Observing that status
     // first is what makes the wait below wait: on its own, "no status" is also
@@ -824,7 +835,6 @@ describe('auto-save (page-editing spec)', () => {
     const retry = await screen.findByRole('status')
     expect(retry.textContent).toBe('Unsaved changes')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
-    const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
     expect(await (await file.getFile()).text()).toBe('second edit\n\n')
     vi.unstubAllGlobals()
   })
@@ -1875,7 +1885,7 @@ describe('history navigation (add-history-navigation spec)', () => {
     await waitFor(() => expect(editor().setContents[0]).toBe('\n'))
     await waitFor(() => expect(back().disabled).toBe(false))
 
-    expect(write).not.toHaveBeenCalled()
+    expect(vaultWrites(write)).toEqual([])
     expect([...pagesDir(tree).children.keys()].sort()).toEqual(before)
     write.mockRestore()
     vi.unstubAllGlobals()
@@ -2624,7 +2634,7 @@ describe('presenting (enable-presenting)', () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Close presentation' }))
       expect(screen.queryByRole('dialog', { name: 'Presentation' })).toBeNull()
       expect(editor().content).toContain('lightweight way')
-      expect(write).not.toHaveBeenCalled()
+      expect(vaultWrites(write)).toEqual([])
     } finally {
       write.mockRestore()
       vi.unstubAllGlobals()
@@ -2667,7 +2677,7 @@ describe('page contents (add-page-contents)', () => {
 
       // Locating is view-only: the page is the same and nothing is written.
       expect(editor().content).toContain('Alpha')
-      expect(write).not.toHaveBeenCalled()
+      expect(vaultWrites(write)).toEqual([])
     } finally {
       write.mockRestore()
       vi.unstubAllGlobals()
@@ -3535,26 +3545,10 @@ describe('the session trace (add-session-trace-logs)', () => {
     return texts.join('\n')
   }
 
-  /** The experimental switch, as a returning user would have left it. */
-  const switchOn = () => localStorage.setItem('folio.prerelease', '1')
-
   const lines = (text: string, event: string) =>
     text.split('\n').filter((line) => line.includes(` ${event} {`))
 
-  it('writes no trace while the switch is off', async () => {
-    render(<App />)
-    const tree = await openFixture()
-    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    editor().emitChange('edited welcome body')
-    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
-
-    expect(await tracePaths(tree)).toEqual([])
-    expect(tree.children.get('.folio')).toBeUndefined()
-    vi.unstubAllGlobals()
-  })
-
   it('records the session, its save, and none of the page text', async () => {
-    switchOn()
     render(<App />)
     const tree = await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
@@ -3583,27 +3577,7 @@ describe('the session trace (add-session-trace-logs)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('turns tracing on from the rail for the rest of the session', async () => {
-    render(<App />)
-    const tree = await openFixture()
-    const control = screen.getByRole('button', { name: 'Experimental features' })
-    expect(control.getAttribute('aria-pressed')).toBe('false')
-
-    fireEvent.click(control)
-    expect(control.getAttribute('aria-pressed')).toBe('true')
-    await waitFor(async () => expect(await tracePaths(tree)).toHaveLength(1), { timeout: 3000 })
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
-    editor().emitChange('traced after the switch')
-    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
-    await waitFor(async () => expect(await traceText(tree)).toContain('session-start'), {
-      timeout: 3000,
-    })
-    vi.unstubAllGlobals()
-  })
-
   it('writes one file per folder session', async () => {
-    switchOn()
     render(<App />)
     const tree = await openFixture()
     await waitFor(async () => expect(await tracePaths(tree)).toHaveLength(1), { timeout: 3000 })
@@ -3627,7 +3601,6 @@ describe('the session trace (add-session-trace-logs)', () => {
   })
 
   it('records a hidden-tab flush with what it carried', async () => {
-    switchOn()
     render(<App />)
     const tree = await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
@@ -3644,7 +3617,6 @@ describe('the session trace (add-session-trace-logs)', () => {
   })
 
   it('records an uncaught error', async () => {
-    switchOn()
     render(<App />)
     const tree = await openFixture()
     await waitFor(async () => expect(await tracePaths(tree)).toHaveLength(1), { timeout: 3000 })
@@ -3663,7 +3635,6 @@ describe('the session trace (add-session-trace-logs)', () => {
   })
 
   it('records one edit line per dirty burst, not one per keystroke', async () => {
-    switchOn()
     render(<App />)
     const tree = await openFixture()
     fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))

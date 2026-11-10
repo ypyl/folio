@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { FolderRail } from './FolderRail'
 import styles from './FolderRail.module.css'
-import type { ExperimentalFeature } from '../features'
 import { buildTree } from '../vault/fakeHandle'
 import type { VaultFolder } from '../vault/useVault'
 
@@ -204,94 +203,18 @@ describe('FolderRail', () => {
   })
 })
 
-describe('FolderRail bottom group (prerelease)', () => {
-  it('offers the experimental switch and reports its state', () => {
-    const onTogglePrerelease = vi.fn()
-    const { rerender } = render(
-      <FolderRail {...railProps({ prerelease: false, onTogglePrerelease })} />,
-    )
-    const control = screen.getByRole('button', { name: 'Experimental features' })
-    expect(control.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(control)
-    expect(onTogglePrerelease).toHaveBeenCalledTimes(1)
-
-    rerender(<FolderRail {...railProps({ prerelease: true, onTogglePrerelease })} />)
-    expect(
-      screen.getByRole('button', { name: 'Experimental features' }).getAttribute('aria-pressed'),
-    ).toBe('true')
-  })
-
-  it('sits before the tour control, which stays the last', () => {
-    render(<FolderRail {...railProps({ onTour: vi.fn(), onTogglePrerelease: vi.fn() })} />)
+describe('FolderRail bottom group', () => {
+  it('puts the tour control last', () => {
+    render(<FolderRail {...railProps({ onTour: vi.fn() })} />)
     const nav = screen.getByRole('navigation', { name: 'Open folders' })
     const controls = nav.querySelectorAll('button')
     expect(controls[controls.length - 1]).toBe(
       screen.getByRole('button', { name: 'Take the tour' }),
     )
-    expect(controls[controls.length - 2]).toBe(
-      screen.getByRole('button', { name: 'Experimental features' }),
-    )
   })
 
-  it('renders the experimental switch without a tour control', () => {
-    render(<FolderRail {...railProps({ onTogglePrerelease: vi.fn() })} />)
-    screen.getByRole('button', { name: 'Experimental features' })
-  })
-})
-
-// The switch's own answer to "what will this enable"
-// (explain-the-experimental-switch): a tooltip bound to hover and focus, so it
-// never competes with the control it describes.
-describe('FolderRail experimental description', () => {
-  const EXPERIMENTAL: readonly ExperimentalFeature[] = [
-    { flag: 'trace', label: 'Session trace', detail: 'Records writes and failures' },
-  ]
-
-  it('lists what the switch enables while hovered, then hides it', () => {
-    render(
-      <FolderRail {...railProps({ onTogglePrerelease: vi.fn(), experimental: EXPERIMENTAL })} />,
-    )
-    const control = screen.getByRole('button', { name: 'Experimental features' })
-    expect(screen.queryByRole('tooltip')).toBeNull()
-
-    fireEvent.mouseEnter(control)
-    const tip = screen.getByRole('tooltip')
-    expect(tip.textContent).toContain('Session trace')
-    expect(tip.textContent).toContain('Records writes and failures')
-    expect(control.getAttribute('aria-describedby')).toBe(tip.id)
-    // The name and the pressed state are the control's own, unaffected.
-    expect(control.getAttribute('aria-pressed')).toBe('false')
-    expect(control.getAttribute('aria-label')).toBe('Experimental features')
-
-    fireEvent.mouseLeave(control)
-    expect(screen.queryByRole('tooltip')).toBeNull()
-    expect(control.getAttribute('aria-describedby')).toBeNull()
-  })
-
-  it('shows the same list on keyboard focus and clears it on blur', () => {
-    render(
-      <FolderRail {...railProps({ onTogglePrerelease: vi.fn(), experimental: EXPERIMENTAL })} />,
-    )
-    const control = screen.getByRole('button', { name: 'Experimental features' })
-    fireEvent.focus(control)
-    expect(screen.getByRole('tooltip').textContent).toContain('Session trace')
-    fireEvent.blur(control)
-    expect(screen.queryByRole('tooltip')).toBeNull()
-  })
-
-  it('keeps the switch operable while the popup is shown', () => {
-    const onTogglePrerelease = vi.fn()
-    render(<FolderRail {...railProps({ onTogglePrerelease, experimental: EXPERIMENTAL })} />)
-    const control = screen.getByRole('button', { name: 'Experimental features' })
-    fireEvent.mouseEnter(control)
-    fireEvent.click(control)
-    expect(onTogglePrerelease).toHaveBeenCalledTimes(1)
-  })
-
-  it('shows no popup when there is nothing to list', () => {
-    render(<FolderRail {...railProps({ onTogglePrerelease: vi.fn() })} />)
-    const control = screen.getByRole('button', { name: 'Experimental features' })
-    fireEvent.mouseEnter(control)
-    expect(screen.queryByRole('tooltip')).toBeNull()
+  it('renders no tour control when App offers none', () => {
+    render(<FolderRail {...railProps()} />)
+    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
   })
 })
