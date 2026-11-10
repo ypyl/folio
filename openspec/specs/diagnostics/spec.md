@@ -8,16 +8,15 @@ lost, emptied, or unexpectedly renamed file can be explained after the fact.
 
 ### Requirement: A session writes one trace file into the folder
 
-With tracing enabled and a real folder open, the app SHALL write one trace file
-to `.folio/logs/` in that folder, named for the session's start time so the files
-sort chronologically and no two names collide. A session SHALL begin when the
-folder becomes active or tracing turns on, and SHALL end when that folder stops
-being active, tracing turns off, or the app goes away. A new session SHALL write
-a new file and SHALL never append to another session's file.
+With a real folder open, the app SHALL write one trace file to `.folio/logs/` in
+that folder, named for the session's start time so the files sort chronologically
+and no two names collide. A session SHALL begin when the folder becomes active
+and SHALL end when that folder stops being active or the app goes away. A new
+session SHALL write a new file and SHALL never append to another session's file.
 
 #### Scenario: A session leaves one trace file
 
-- **GIVEN** a real folder open and tracing enabled
+- **GIVEN** a real folder open
 - **WHEN** the user opens a page and edits it
 - **THEN** `.folio/logs/` holds one trace file for that session
 
@@ -30,7 +29,7 @@ a new file and SHALL never append to another session's file.
 
 #### Scenario: A demo vault writes no trace
 
-- **GIVEN** tracing enabled and the guided demo open
+- **GIVEN** the guided demo open
 - **WHEN** the user edits a demo page
 - **THEN** no trace file is written, because a demo vault has no real folder
 
@@ -83,7 +82,7 @@ location.
 
 #### Scenario: An uncaught error reaches the trace
 
-- **GIVEN** tracing enabled and a folder open
+- **GIVEN** a real folder open
 - **WHEN** the app throws an error that nothing catches
 - **THEN** the trace records the error's message and source
 
@@ -99,25 +98,24 @@ characters, search queries, or any file's bytes.
 - **WHEN** the page is saved and its write is recorded
 - **THEN** the trace names the page's path and size and holds none of its text
 
-### Requirement: Tracing is off until the gate is on
+### Requirement: Tracing runs for every real folder
 
-Tracing SHALL be enabled only when its build-time flag is on or the app's
-experimental switch is on. While it is off, the app SHALL create no log
-directory, write no trace file, register no listener that writes, and record
-nothing.
+Every build SHALL trace a real folder: opening one SHALL start a session and
+write its trace file. Tracing SHALL need no build flag, no environment variable,
+and no switch, and the app SHALL offer no control that turns it on or off. A
+demo vault SHALL still write no trace, because it has no folder.
 
-#### Scenario: The shipped build writes no trace
+#### Scenario: A shipped build traces the folder it opens
 
-- **GIVEN** the build flag off and the switch off
-- **WHEN** the user opens a folder, edits a page, and saves it
-- **THEN** the vault gains no `.folio/logs/` directory and no trace file
+- **GIVEN** a real folder with no trace file
+- **WHEN** the user opens the folder and edits a page
+- **THEN** the folder gains `.folio/logs/` and one trace file recording the
+  session and the save
 
-#### Scenario: The switch turns tracing on for the session
+#### Scenario: No switch turns tracing on
 
-- **GIVEN** the build flag off, the switch off, and a folder open
-- **WHEN** the user turns the experimental switch on and edits a page
-- **THEN** a trace file appears for the remainder of the session and records the
-  edit and its save
+- **WHEN** the user looks across the app
+- **THEN** there is no control that enables or disables the trace
 
 ### Requirement: Recording never changes what an action does
 
@@ -128,14 +126,13 @@ no error to the user, and SHALL NOT retry in a loop.
 
 #### Scenario: A failing trace write does not fail the save
 
-- **GIVEN** tracing enabled and a folder whose writes to `.folio/logs/` are
-  rejected
+- **GIVEN** a real folder open whose writes to `.folio/logs/` are rejected
 - **WHEN** the user's edit is saved
 - **THEN** the page is saved, the editor reports it clean, and no error is shown
 
 #### Scenario: Typing writes no trace line
 
-- **GIVEN** an open page and tracing enabled
+- **GIVEN** an open page in a real folder
 - **WHEN** the user types a character
 - **THEN** the app writes nothing to the trace until the save it schedules
 

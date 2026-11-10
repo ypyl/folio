@@ -1003,25 +1003,22 @@ where its entry points exist; it SHALL add no work to the editing or typing path
 - **WHEN** the user types in the editor with the tour closed
 - **THEN** the tour performs no work on the typing path
 
-### Requirement: The folder rail lists open folders and ends with the tour control
+### Requirement: The rail lists open folders and ends with the tour control
 
 The rail SHALL render the Folio brand as its first control, then the search
-trigger, then the add control and one entry per open folder, then a prerelease
-control, and at viewports wider than the compact breakpoint a tour control held
-to the rail's bottom edge as its last control. Where the browser cannot open
-local folders, the rail SHALL show no add control and the app SHALL not invoke
-the picker. At or below the compact breakpoint the rail SHALL show no tour
-control. Activating an entry SHALL make that folder active, and a folder whose
-stored permission is pending SHALL request permission rather than opening the
-picker. Opening the same folder twice SHALL NOT add a second entry. Switching
-folders SHALL reset the open page to the new folder's today journal. The rail
-SHALL render no entries until stored folders have resolved, SHALL keep a fixed
-control size, and SHALL scroll vertically only. The tour control SHALL keep its
-place at the rail's bottom edge however many folders are listed, SHALL carry an
-accessible name naming the action it performs, and SHALL show visible keyboard
-focus. The prerelease control SHALL render in every state, compact included,
-SHALL carry an accessible name and `aria-pressed`, and SHALL sit before the tour
-control.
+trigger, then the add control and one entry per open folder, and at viewports
+wider than the compact breakpoint a tour control held to the rail's bottom edge
+as its last control. Where the browser cannot open local folders, the rail SHALL
+show no add control and the app SHALL not invoke the picker. At or below the
+compact breakpoint the rail SHALL show no tour control. Activating an entry SHALL
+make that folder active, and a folder whose stored permission is pending SHALL
+request permission rather than opening the picker. Opening the same folder twice
+SHALL NOT add a second entry. Switching folders SHALL reset the open page to the
+new folder's today journal. The rail SHALL render no entries until stored folders
+have resolved, SHALL keep a fixed control size, and SHALL scroll vertically only.
+The tour control SHALL keep its place at the rail's bottom edge however many
+folders are listed, SHALL carry an accessible name naming the action it performs,
+and SHALL show visible keyboard focus.
 
 #### Scenario: The add control opens the picker and lists the folder
 
@@ -1053,12 +1050,6 @@ control.
 - **GIVEN** a browser that cannot open local folders
 - **WHEN** the shell renders
 - **THEN** the rail shows no add control while keeping its column
-
-#### Scenario: The prerelease control renders before the tour
-
-- **GIVEN** a viewport wider than the compact breakpoint
-- **WHEN** the rail renders
-- **THEN** the prerelease control is present and the tour control follows it
 
 #### Scenario: The tour control sits at the rail's bottom
 

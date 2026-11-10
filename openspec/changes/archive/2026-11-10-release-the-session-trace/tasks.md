@@ -19,5 +19,5 @@
 
 ## Workflow follow-up
 
-- Archive the change, retiring the `prerelease` spec and syncing the `diagnostics` and `workspace` deltas, with its own patch version bump.
-- Push `master` to every remote (`origin`, `nas`).
+- [x] Archive the change, retiring the `prerelease` spec and syncing the `diagnostics` and `workspace` deltas, with its own patch version bump.
+- [x] Push `master` to every remote (`origin`, `nas`).
