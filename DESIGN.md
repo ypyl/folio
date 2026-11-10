@@ -425,6 +425,13 @@ rather than to a folder, and it never writes vault content: the preference lives
 in `localStorage`. What it turns on today is the session trace (see the README's
 Diagnostics section), which writes only to `.folio/logs/`.
 
+While the control is hovered or focused it says what it turns on: a tooltip
+beside the rail, on an `--ivory` surface with an 8px radius and the whisper
+shadow reserved for floating surfaces, holding one 13px label over an 11px
+`--stone` line per gated feature. It takes no pointer input, so the press still
+belongs to the switch, and it lists the flags module's own descriptions, so a
+newly gated feature appears without a second list to maintain.
+
 ### Pin star (row icon + status-bar toggle)
 The pin toggle lives in the **status bar's leading corner**, before the
 file path — a 24px square button showing a 14px star: filled `--brand`

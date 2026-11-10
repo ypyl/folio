@@ -43,7 +43,7 @@ import { useToday } from './useToday'
 import { useVault } from './vault/useVault'
 import { createDemoVault, DEMO_ID, DEMO_NAME, DEMO_WELCOME_PATH } from './demo/content'
 import { useIndex } from './vault/useIndex'
-import { features } from './features'
+import { experimentalFeatures, features } from './features'
 import { usePrerelease } from './prerelease'
 import { createSessionTrace, describeError } from './trace/session'
 import { version } from '../package.json'
@@ -1348,6 +1348,10 @@ function App() {
             // every shell state, compact included (design D6).
             prerelease={prerelease}
             onTogglePrerelease={() => setPrerelease(!prerelease)}
+            // The switch's own answer to "what will this enable": the flags
+            // module's descriptions, so the popup cannot drift from the gates
+            // (explain-the-experimental-switch).
+            experimental={experimentalFeatures}
             // The tour is a wide-viewport surface (add-app-tour): the compact
             // shell shows one view at a time, so App passes no callback there
             // and the rail renders no tour control.

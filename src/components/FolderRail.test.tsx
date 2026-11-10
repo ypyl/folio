@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { FolderRail } from './FolderRail'
 import styles from './FolderRail.module.css'
+import type { ExperimentalFeature } from '../features'
 import { buildTree } from '../vault/fakeHandle'
 import type { VaultFolder } from '../vault/useVault'
 
@@ -235,5 +236,62 @@ describe('FolderRail bottom group (prerelease)', () => {
   it('renders the experimental switch without a tour control', () => {
     render(<FolderRail {...railProps({ onTogglePrerelease: vi.fn() })} />)
     screen.getByRole('button', { name: 'Experimental features' })
+  })
+})
+
+// The switch's own answer to "what will this enable"
+// (explain-the-experimental-switch): a tooltip bound to hover and focus, so it
+// never competes with the control it describes.
+describe('FolderRail experimental description', () => {
+  const EXPERIMENTAL: readonly ExperimentalFeature[] = [
+    { flag: 'trace', label: 'Session trace', detail: 'Records writes and failures' },
+  ]
+
+  it('lists what the switch enables while hovered, then hides it', () => {
+    render(
+      <FolderRail {...railProps({ onTogglePrerelease: vi.fn(), experimental: EXPERIMENTAL })} />,
+    )
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+
+    fireEvent.mouseEnter(control)
+    const tip = screen.getByRole('tooltip')
+    expect(tip.textContent).toContain('Session trace')
+    expect(tip.textContent).toContain('Records writes and failures')
+    expect(control.getAttribute('aria-describedby')).toBe(tip.id)
+    // The name and the pressed state are the control's own, unaffected.
+    expect(control.getAttribute('aria-pressed')).toBe('false')
+    expect(control.getAttribute('aria-label')).toBe('Experimental features')
+
+    fireEvent.mouseLeave(control)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(control.getAttribute('aria-describedby')).toBeNull()
+  })
+
+  it('shows the same list on keyboard focus and clears it on blur', () => {
+    render(
+      <FolderRail {...railProps({ onTogglePrerelease: vi.fn(), experimental: EXPERIMENTAL })} />,
+    )
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    fireEvent.focus(control)
+    expect(screen.getByRole('tooltip').textContent).toContain('Session trace')
+    fireEvent.blur(control)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('keeps the switch operable while the popup is shown', () => {
+    const onTogglePrerelease = vi.fn()
+    render(<FolderRail {...railProps({ onTogglePrerelease, experimental: EXPERIMENTAL })} />)
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    fireEvent.mouseEnter(control)
+    fireEvent.click(control)
+    expect(onTogglePrerelease).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows no popup when there is nothing to list', () => {
+    render(<FolderRail {...railProps({ onTogglePrerelease: vi.fn() })} />)
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    fireEvent.mouseEnter(control)
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 })

@@ -139,6 +139,50 @@
   height: 18px;
 }
 
+/* The experimental control's description (explain-the-experimental-switch): a
+   floating surface, so the whisper shadow DESIGN.md reserves for popovers and
+   tooltips. It is `fixed` from the control's own box, which is what escapes the
+   rail's scroll box, and it takes no pointer input, so the pointer always
+   belongs to the control beneath it. */
+.prereleaseTip {
+  position: fixed;
+  z-index: 30; /* above the sidebar and its bands, as the row context menu is */
+  width: 232px;
+  max-width: calc(100vw - 72px); /* the rail and the gap on its right */
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ivory);
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --near-black at low opacity */
+  pointer-events: none;
+}
+
+.tipList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tipRow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tipLabel {
+  color: var(--near-black);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.tipDetail {
+  color: var(--stone);
+  font-size: 11px;
+  line-height: 14px;
+}
+
 /* Tour control (add-app-tour): the rail's last control, on the search
    trigger's own surface so it reads as a rail control rather than a second
    accent. It sits in the bottom group above. */

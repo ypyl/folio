@@ -21,4 +21,14 @@ describe('build-time feature flags', () => {
     const { features } = await import('./features')
     expect(features.trace).toBe(false)
   })
+
+  // The rail's experimental popup reads this list (explain-the-experimental-
+  // switch): a flag added without its description would hide from the popup, so
+  // the two sets must be equal in both directions.
+  it('describes every gated feature, and only gated ones', async () => {
+    const { experimentalFeatures, features } = await import('./features')
+    expect(experimentalFeatures.map((feature) => feature.flag).sort()).toEqual(
+      Object.keys(features).sort(),
+    )
+  })
 })
