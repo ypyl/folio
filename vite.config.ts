@@ -61,6 +61,28 @@ export default defineConfig({
         display: 'standalone',
         // Relative so the manifest resolves correctly under any base path.
         start_url: './',
+        // A stable identity across deploys (make-the-phone-read-like-an-app), so
+        // an installed app updates instead of being treated as a new one.
+        id: './',
+        categories: ['productivity', 'utilities'],
+        // Chrome's richer install dialog shows narrow screenshots; these are the
+        // phone layout, captured at 390x844 CSS pixels and 2x.
+        screenshots: [
+          {
+            src: 'screenshot-notes.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'The notes list, journal calendar, and folders rail',
+          },
+          {
+            src: 'screenshot-page.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'A page in the editor, with its title and actions',
+          },
+        ],
         icons: [
           {
             src: 'pwa-192x192.png',

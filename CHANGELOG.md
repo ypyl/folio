@@ -6,6 +6,7 @@ and for nothing else. The status bar's version badge reads this file.
 
 ## 2026-11-11
 
+- give the phone an app-scale design
 - show the page when its own row is selected
 - make the app usable on a phone
 - record the import's source files a batch at a time
@@ -63,4 +64,3 @@ and for nothing else. The status bar's version badge reads this file.
 - stop a reopened day from adding the reminder line twice
 - close a code fence on a longer run and read tilde fences
 - open the app when the folder registry cannot be read
-- keep a pending write in its own folder across a switch

@@ -86,6 +86,12 @@
    keep the negative block margin that holds them inside it. */
 @media (max-width: 640px) {
   .summary {
-    min-height: 44px;
+    min-height: 48px;
+    font-size: 12px;
+  }
+
+  .body {
+    padding-left: 8px;
+    padding-right: 8px;
   }
 }

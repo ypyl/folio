@@ -75,17 +75,6 @@
   border-radius: 4px;
 }
 
-/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
-   the open item's name is a control, so it fills the app bar's 44px row instead
-   of sitting in it as a line of text. The bar keeps its height. */
-@media (max-width: 640px) {
-  .crumbReveal {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-  }
-}
-
 .crumbSep {
   flex-shrink: 0;
 }
@@ -236,37 +225,57 @@ leading column's edge (continue-rail-border-in-status-bar). */
 }
 
 /* The compact app bar (add-compact-mobile-shell, DESIGN.md "Touch targets and
-   safe areas"): the same bar wearing the app bar's role below the breakpoint.
-   Its height is set by the 44px targets rather than by its 12px text, and its
-   padding clears the screen's insets so no control sits under a notch, a
-   rounded corner, or the home indicator. Declared after `.bar` so these
-   longhands win at equal specificity. */
+   safe areas", make-the-phone-read-like-an-app): the same bar wearing the phone
+   navigation's role below the breakpoint. Its height is set by the 48px targets
+   and their labels rather than by its 12px text, and its padding clears the
+   screen's insets so no control sits under a notch, a rounded corner, or the
+   home indicator. Declared after `.bar` so these longhands win at equal
+   specificity. */
 .compactBar {
-  gap: 8px;
-  min-height: 44px;
+  gap: 4px;
+  min-height: 56px;
   padding-top: 4px;
   padding-bottom: calc(4px + env(safe-area-inset-bottom));
   padding-left: calc(4px + env(safe-area-inset-left));
   padding-right: calc(4px + env(safe-area-inset-right));
 }
 
-/* The two view controls are the compact app bar's own controls now that the
-   session navigation lives in the sidebar (move-nav-controls-to-the-sidebar).
-   They meet the touch minimum on their own, and the bar's height is measured
-   from them. */
+/* The save state takes the free space between the two labeled controls, so the
+   bar reads as [Notes] [state] [Details]. */
+.compactBar .center {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* The two view controls are the compact bar's navigation (move-nav-controls-to-
+   the-sidebar, make-the-phone-read-like-an-app). Each carries its label under
+   the glyph, so the destination is named on screen and not only to assistive
+   technology, and the target is 48 by 48. */
 .viewControl {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  gap: 2px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: none;
   border-radius: 8px;
   background: transparent;
   color: var(--stone);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.viewLabel {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .viewControl:hover,
@@ -291,12 +300,12 @@ leading column's edge (continue-rail-border-in-status-bar). */
 
 .viewIcon {
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 /* The meta control takes the trailing edge, which the vault group would hold on
    a wide window and which the compact bar does not render. */
 .viewControlTrailing {
-  margin-left: auto;
+  margin-left: 0;
 }

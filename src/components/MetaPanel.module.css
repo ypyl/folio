@@ -335,19 +335,25 @@
    next. The two outline controls keep the summary's own height. */
 @media (max-width: 640px) {
   .row {
-    min-height: 44px;
+    min-height: 52px;
+    font-size: 16px;
+  }
+
+  .rowText {
+    font-size: 16px;
   }
 
   .disclosure,
   .disclosureSpacer {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
   }
 
   .contentTool {
-    min-height: 44px;
+    min-height: 48px;
     display: inline-flex;
     align-items: center;
+    font-size: 12px;
   }
 }
 

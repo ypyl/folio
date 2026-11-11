@@ -87,21 +87,22 @@
    breakpoint; `compact.test.ts` fails on any other. */
 @media (max-width: 640px) {
   .navControl {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
   }
 
   /* The glyphs grow with their targets, matching the app bar's view icons, so a
-     44px button does not hold a pointer-sized drawing. */
+     48px button does not hold a pointer-sized drawing. */
   .navIcon {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
   }
 
   .navControlLabel {
     width: auto;
-    padding: 0 10px;
-    font-size: 13px;
+    min-width: 48px;
+    padding: 0 12px;
+    font-size: 15px;
   }
 }
 
@@ -330,16 +331,30 @@
    row stride follows in `pageWindow.ts`, because the spacers standing in for
    skipped rows have to add up to the same extent. */
 @media (max-width: 640px) {
+  .sidebar {
+    padding: 8px;
+  }
+
   .row {
-    min-height: 44px;
+    min-height: 52px;
+    font-size: 16px;
+  }
+
+  .rowText {
+    font-size: 16px;
   }
 
   .skeletonRow {
-    height: 44px;
+    height: 52px;
   }
 
   .calDay {
-    height: 44px;
+    height: 48px;
+  }
+
+  .calSkeleton {
+    margin-left: -8px;
+    margin-right: -8px;
   }
 }
 

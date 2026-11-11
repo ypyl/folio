@@ -79,12 +79,13 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(page.locator('.cm-content')).toBeVisible()
 
     // Every visible button, link, summary, input, and role=button box in the
-    // shell is at least 44 by 44 CSS pixels (make-the-app-usable-on-a-phone,
-    // DESIGN.md "Touch targets and safe areas"). Two controls are measured by
-    // their target rather than their mark: the folder entry's close badge keeps
-    // an 18px mark inside a 44px transparent hit area, so its target is the
-    // pseudo-element's box, and the GFM task checkbox inside the editor stays at
-    // its text size by spec, so it is excluded by name.
+    // shell is at least 48 by 48 CSS pixels (make-the-phone-read-like-an-app,
+    // DESIGN.md "Touch targets and safe areas"). Two controls are measured
+    // differently: the folder entry's close badge keeps an 18px mark inside a
+    // 48px transparent hit area, so its target is the pseudo-element's box; and
+    // a calendar day cell is 48 tall but takes its seven-column share, so its
+    // width only has to clear the 44px floor. The GFM task checkbox inside the
+    // editor stays at its text size by spec, so it is excluded by name.
     const undersized = () =>
       page.evaluate(() => {
         const found: string[] = []
@@ -104,7 +105,8 @@ test.describe('the compact shell on a phone-sized window', () => {
             width = parseFloat(hit.width)
             height = parseFloat(hit.height)
           }
-          if (width < 44 || height < 44) {
+          const minWidth = node.hasAttribute('data-date') ? 44 : 48
+          if (width < minWidth || height < 48) {
             const name =
               node.getAttribute('aria-label') || (node.textContent ?? '').trim().slice(0, 30)
             found.push(
@@ -136,6 +138,72 @@ test.describe('the compact shell on a phone-sized window', () => {
     // spotlight's own controls; the page's row is the dropdown's target.
     await expect(page.locator('dialog[open]')).toContainText('Ideas')
     expect(await undersized()).toEqual([])
+  })
+
+  test('the app bar names the open view and carries its page actions', async ({ page }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    // Open a page from the list and read its name in the app bar.
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Ideas', exact: true }).click()
+    await expect(page.locator('.cm-content')).toContainText('Half-formed thoughts.')
+    const appBar = page.locator('.workspace header')
+    await expect(appBar).toContainText('Ideas')
+
+    // The page's row actions are the bar's trailing control.
+    await page.getByRole('button', { name: 'Page actions' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Favorite' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Present' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0)
+  })
+
+  test('the compact shell uses the phone type scale', async ({ page }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    const fontOf = (selector: string) =>
+      page.evaluate((sel) => {
+        const el = document.querySelector(sel)
+        return el ? getComputedStyle(el).fontSize : null
+      }, selector)
+
+    // The editor and the app bar title are the body scale (make-the-phone-read-
+    // like-an-app); the app bar's first child is its title.
+    expect(await fontOf('.cm-content')).toBe('16px')
+    expect(await fontOf('.workspace header > *')).toBe('16px')
+
+    // The navigation view's labels follow the same scale.
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await expect(page.locator('.layer-nav')).toBeVisible()
+    expect(await fontOf('#sidebar-pane summary')).toBe('12px')
+    expect(await fontOf('#sidebar-pane button[class*="row"]')).toBe('16px')
+    expect(await fontOf('.layer-nav button[data-date]')).toBe('14px')
+  })
+
+  test('the manifest offers the app screens and an id for the install dialog', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/')
+    const response = await request.get('/manifest.webmanifest')
+    expect(response.ok()).toBe(true)
+    const manifest = await response.json()
+    expect(manifest.id).toBeTruthy()
+    expect(manifest.categories).toContain('productivity')
+    expect(manifest.screenshots).toHaveLength(2)
+    for (const shot of manifest.screenshots) {
+      expect(shot.form_factor).toBe('narrow')
+      const image = await request.get(new URL(shot.src, response.url()).toString())
+      expect(image.ok(), `${shot.src} should exist`).toBe(true)
+    }
   })
 
   test('a held press opens the menu a right-click opens, and a tap still taps', async ({
@@ -230,23 +298,29 @@ test.describe('the compact shell on a phone-sized window', () => {
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    // Every control in the bar is at least 44 by 44, view controls included.
-    // The session navigation is not in the bar: it is the sidebar's navigation
-    // row, inside the navigation view (move-nav-controls-to-the-sidebar).
+    // Every control in the bar is at least 48 by 48, view controls included,
+    // and each control carries its label on screen. The session navigation is
+    // not in the bar: it is the sidebar's navigation row, inside the navigation
+    // view (move-nav-controls-to-the-sidebar).
     const bar = footer(page)
     const names = ['Navigation', 'Page details']
     for (const name of names) {
-      const box = await bar.getByRole('button', { name }).boundingBox()
+      const control = bar.getByRole('button', { name })
+      const box = await control.boundingBox()
       expect(box, `${name} has no box`).not.toBeNull()
-      expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(44)
-      expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(44)
+      expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(48)
+      expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(48)
     }
+    await expect(bar.getByRole('button', { name: 'Navigation' })).toContainText('Notes')
+    await expect(bar.getByRole('button', { name: 'Page details' })).toContainText('Details')
     await expect(bar.getByRole('button', { name: 'Back' })).toHaveCount(0)
     await expect(bar.getByRole('button', { name: 'Today' })).toHaveCount(0)
 
-    // The open item's name shows; the directories, the folder statistics, and
-    // the version do not.
-    await expect(bar).toContainText(todayJournalPath().split('/')[1]!)
+    // The app bar names the open item; the status bar keeps only the save state
+    // between its controls, and the version and the folder statistics are gone.
+    const appBar = page.locator('.workspace header')
+    await expect(appBar).toContainText(todayJournalPath().split('/')[1]!.replace(/\.md$/, ''))
+    await expect(bar).not.toContainText(todayJournalPath().split('/')[1]!)
     await expect(bar).not.toContainText('journals/')
     await expect(bar).not.toContainText('v0.')
     await expect(bar.locator('[class*="vaultStatus"]')).toHaveCount(0)

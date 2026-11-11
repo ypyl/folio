@@ -377,11 +377,18 @@ describe('StatusBar', () => {
       }
     })
 
-    it('shows the open item\u2019s name alone, with no directories', () => {
+    it('shows no item name, because the app bar names the view', () => {
+      // make-the-phone-read-like-an-app: the compact bar keeps the save state
+      // between its two controls, and the app bar carries the open item's name.
       const { container } = render(<StatusBar pagePath="journals/2026-09-15.md" compact />)
-      const crumb = container.querySelector(`.${styles.path}`) as HTMLElement
-      expect(crumb.textContent).toBe('2026-09-15.md')
-      expect(crumb.querySelector(`.${styles.crumbDirs}`)).toBeNull()
+      expect(container.querySelector(`.${styles.path}`)).toBeNull()
+      expect(container.textContent).not.toContain('2026-09-15.md')
+    })
+
+    it('labels its two view controls on screen', () => {
+      render(<StatusBar pagePath="a.md" compact view="nav" />)
+      expect(screen.getByRole('button', { name: 'Navigation' }).textContent).toBe('Notes')
+      expect(screen.getByRole('button', { name: 'Page details' }).textContent).toBe('Details')
     })
 
     it('drops the folder statistics and the version a wide bar shows', () => {

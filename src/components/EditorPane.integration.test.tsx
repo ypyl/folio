@@ -482,6 +482,30 @@ describe('EditorPane', () => {
     }
   })
 
+  it('leads with the stored folder when its permission is pending (make-the-phone-read-like-an-app)', () => {
+    const onReconnect = vi.fn()
+    const onOpenFolder = vi.fn()
+    render(
+      <EditorPane
+        page={null}
+        emptyHint="open-folder"
+        initialContent=""
+        onChange={() => {}}
+        reconnect={{ name: 'notes', onReconnect }}
+        onOpenFolder={onOpenFolder}
+        onDemo={() => {}}
+      />,
+    )
+    const reconnect = screen.getByRole('button', { name: 'Continue with notes' })
+    expect(reconnect.className).toContain('btn-primary')
+    // The picker stays, one step quieter, for a different folder.
+    const picker = screen.getByRole('button', { name: 'Open a different folder' })
+    expect(picker.className).toContain('btn-secondary')
+    fireEvent.click(reconnect)
+    expect(onReconnect).toHaveBeenCalledTimes(1)
+    expect(onOpenFolder).not.toHaveBeenCalled()
+  })
+
   it('offers the guided demo in both supported and unsupported states (add-guided-demo)', () => {
     const onDemo = vi.fn()
     const { rerender } = render(

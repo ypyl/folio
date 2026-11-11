@@ -4,6 +4,16 @@
   gap: 6px;
 }
 
+/* The compact grid takes the band's full width: the body pads 8px for the
+   listing, and seven columns at 44+ need that 16px back. The month controls
+   then sit 8px from the pane's edge, which the pane itself provides. */
+@media (max-width: 640px) {
+  .calendar {
+    margin-left: -8px;
+    margin-right: -8px;
+  }
+}
+
 /* ‹ label › across the section's full width (move-today-into-nav-controls):
    the chevrons sit at the two ends and the month is centered between them.
    The label's flex:1 box is symmetric — equally wide chevrons on both sides —
@@ -106,8 +116,10 @@
 
 /* Neighbor-month cells: dimmed but still clickable days (design D2). */
 .dimmed {
+  /* Out-of-month days stay clickable days, so they keep the tertiary ink's
+     contrast (4.9:1 on parchment) and read as secondary by colour alone; the
+     old 0.55 opacity dropped them to 2.2:1, below the text floor. */
   color: var(--stone);
-  opacity: 0.55;
 }
 
 /* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
@@ -117,12 +129,22 @@
    screen; both rows carry it, so the weekdays stay over their columns. */
 @media (max-width: 640px) {
   .navBtn {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
   }
 
   .day {
-    min-height: 44px;
+    min-height: 48px;
+    font-size: 14px;
+  }
+
+  .weekday {
+    font-size: 11px;
+  }
+
+  .month {
+    font-size: 15px;
   }
 
   .weekdays,

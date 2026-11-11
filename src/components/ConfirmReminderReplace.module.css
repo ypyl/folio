@@ -65,3 +65,17 @@
   background: var(--brand-light);
   transform: translateY(-1px);
 }
+
+/* The compact shell's phone scale (make-the-phone-read-like-an-app): the one
+   confirmation's buttons reach the 48px target and its copy follows the scale. */
+@media (max-width: 640px) {
+  .body {
+    font-size: 15px;
+  }
+
+  .replace,
+  .cancel {
+    min-height: 48px;
+    font-size: 16px;
+  }
+}

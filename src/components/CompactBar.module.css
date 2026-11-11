@@ -1,0 +1,87 @@
+/* The compact app bar (make-the-phone-read-like-an-app, design D3). One 56px
+   ivory bar above every compact view: a 16px title, and the open page's
+   actions at the trailing edge. It sits above the three view layers, which
+   start below it, and pads the top safe-area inset where the platform reports
+   one. */
+
+.bar {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--compact-bar-h);
+  padding: env(safe-area-inset-top) calc(4px + env(safe-area-inset-right)) 0
+    calc(8px + env(safe-area-inset-left));
+  background: var(--ivory);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* The view's name: one line, ellipsized, 16px semibold. As a control it takes
+   the target height and keeps the text's own alignment. */
+.title {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
+  line-height: 48px;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--near-black);
+  text-align: left;
+}
+
+button.title {
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--near-black);
+  cursor: pointer;
+}
+
+button.title:hover {
+  background: var(--warm-sand);
+}
+
+button.title:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--stone);
+  cursor: pointer;
+}
+
+.actions:hover {
+  background: var(--warm-sand);
+  color: var(--dark-warm);
+}
+
+.actions:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+}

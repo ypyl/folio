@@ -276,23 +276,39 @@ day it landed beneath at 12px `--stone`, on a native marker in `--brand`. There
 are no version headings, no badges, and no links: the badge already names the
 version, and the panel answers what changed.
 
-### Touch targets and safe areas
+### Touch targets, type, and safe areas
 
 The compact shell is the app's touch-sized surface, so this rule is about the
-phone and only about the phone. Every control it shows is at least 44 by 44 CSS
-pixels: the app bar's two view controls, the Journal row's Back, Forward, and
-Today, the rail's controls and a folder entry's close badge, the calendar's
-month controls and day cells, the accordion summaries, a Files row, the right
-panel's rows and the Contents disclosure and its own controls, the open item's
-name in the status bar, the brand screen's actions, the search spotlight's
-controls and rows, a menu's items, the shortcuts reference's chips, and a
-presentation's controls. The minimum is a **target**, not a mark: a control whose
-drawn mark must stay small — the close badge, the Contents chevron — keeps the
-mark and carries the difference as a transparent hit area, so nothing about the
-drawing, spacing, or row height changes. The app bar keeps the 4px spacing base
-but its row is sized by those targets, not by its text, and its content never
-wraps or scrolls: the compact bar drops what does not fit rather than growing a
-second row. The JOURNAL row keeps its one line and only its targets grow.
+phone and only about the phone. Every control it shows is at least 48 by 48 CSS
+pixels: the compact app bar's title and page-actions control, the status bar's
+two labeled view controls, the Journal row's Back, Forward, and Today, the rail's
+controls and a folder entry's close badge, the calendar's month controls and day
+cells, the accordion summaries, a Files row, the right panel's rows and the
+Contents disclosure and its own controls, the brand screen's actions, the search
+spotlight's controls and rows, a menu's items, the shortcuts reference's chips,
+and a presentation's controls. The minimum is a **target**, not a mark: a control
+whose drawn mark must stay small (the close badge, the Contents chevron) keeps
+the mark and carries the difference as a transparent hit area, so nothing about
+the drawing, spacing, or row height changes. A calendar day cell is the one
+width exception: its seven-column grid gives each cell 48px of height and the
+pane's column share, which clears the 44px floor. A Files row is 52px tall, and
+the navigation view keeps a row's box 16px from the trailing edge.
+
+The phone's type follows one scale, not the desktop's print scale: 16px body and
+list text, 14px secondary text and calendar days, 12px section labels, status
+text, and tab labels, and no text below 11px. The editor is 16px with 20px
+headings; the wide window keeps its 15px surface. Icons on the phone are 24px, so
+a 48px target does not hold a pointer-sized drawing.
+
+The compact app bar names the view: a 56px bar above the content, a 16px
+semibold title (the open item, the folder, "Details", or "Folio"), and the open
+page's actions at its trailing edge. The status bar below the content keeps the
+save state and the two view controls, and each control carries its label under
+its glyph, so the destination is named on screen and not only to assistive
+technology. The bar's two view controls mark the open view **by shape first**:
+the pane inside the frame is filled while that view is shown and empty while it
+is closed. The recede tint (`--brand-tint`) behind the open control is
+reinforcement, never the signal, so the state survives without colour.
 
 A phone has no right-click, so **a press held on a row or a calendar day is the
 context-menu gesture**: it opens the menu a right-click opens, and a press that
@@ -301,19 +317,19 @@ the instant the hold elapses, so the click that a release carries reaches
 nothing. A page row still carries no visible trigger for its menu.
 
 No control sits under a notch, a rounded corner, or the home indicator. The
-shell pads itself with `env(safe-area-inset-*)` at every edge the bar touches,
+shell pads itself with `env(safe-area-inset-*)` at every edge a bar touches,
 which is why `viewport-fit=cover` is set: without it the insets report zero and
 the padding silently does nothing. The shell also sizes itself to the visible
 height (`100dvh` with `interactive-widget=resizes-content`), so the on-screen
 keyboard shrinks the editor instead of covering the line being typed. These
 rules belong to the compact composition as a whole; the desktop shell keeps its
-pointer-sized controls and its `100%` height.
+pointer-sized controls, its smaller type, and its `100%` height.
 
-The compact app bar's two view controls mark the open view **by shape first**:
-the pane inside the frame is filled while that view is shown and empty while it
-is closed. The recede tint (`--brand-tint`) behind the open control is
-reinforcement, never the signal, so the state survives without colour. A control
-added to that bar follows the same pair rather than inventing a third treatment.
+When a stored folder is active with its permission pending, the brand screen
+leads with `Continue with <name>`, because a phone's cold start otherwise costs a
+trip through the rail and the picker's permission prompt. It is a named action,
+not an automatic prompt: the browser requires a gesture, and the user needs the
+context.
 
 ### Links
 

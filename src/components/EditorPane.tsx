@@ -135,6 +135,7 @@ export function EditorPane({
   onTour,
   onDemo,
   onOpenFolder,
+  reconnect,
   demo = false,
   onReady,
   loading = false,
@@ -179,6 +180,11 @@ export function EditorPane({
    *  action, so its presence is also what makes it the screen's primary action
    *  and the demo its secondary one. */
   onOpenFolder?: () => void
+  /** A stored folder whose permission is pending
+   *  (make-the-phone-read-like-an-app): its name and the request call. Present,
+   *  the screen leads with "Continue with <name>", the one action that gets a
+   *  returning user back into their notes after a cold start. */
+  reconnect?: { name: string; onReconnect: () => void }
   /** The open vault is the session-only demo: show its persistent notice at the
    *  top of the pane (make-the-demo-notice-visible). False for a real vault. */
   demo?: boolean
@@ -488,17 +494,26 @@ export function EditorPane({
                     folder's restore from flashing the open-folder copy. */}
                 {emptyHint !== 'notes' && <p className={styles.description}>{BRAND_DESCRIPTION}</p>}
               </div>
-              {(onDemo || brandAction || onOpenFolder) && (
+              {(onDemo || brandAction || onOpenFolder || reconnect) && (
                 <div className={styles.actions}>
+                  {reconnect && (
+                    <button type="button" className="btn-primary" onClick={reconnect.onReconnect}>
+                      Continue with {reconnect.name}
+                    </button>
+                  )}
                   {onOpenFolder && (
-                    <button type="button" className="btn-primary" onClick={onOpenFolder}>
-                      Open folder
+                    <button
+                      type="button"
+                      className={reconnect ? 'btn-secondary' : 'btn-primary'}
+                      onClick={onOpenFolder}
+                    >
+                      {reconnect ? 'Open a different folder' : 'Open folder'}
                     </button>
                   )}
                   {onDemo && (
                     <button
                       type="button"
-                      className={onOpenFolder ? 'btn-secondary' : 'btn-primary'}
+                      className={reconnect || onOpenFolder ? 'btn-secondary' : 'btn-primary'}
                       onClick={onDemo}
                     >
                       Open the guided demo

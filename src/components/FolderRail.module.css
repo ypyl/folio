@@ -214,32 +214,45 @@
   border-color: var(--dark-warm);
 }
 
-/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
-   the rail's column is 44 wide inside its padding, so its controls and the
-   folder entries fill it, and the close badge keeps its 18px mark while the
-   corner it sits in answers to 44. */
+/* The compact shell is touch-sized (make-the-phone-read-like-an-app): the rail
+   is 56px with a 4px inset, so its controls and the folder entries fill 48, and
+   the close badge keeps its 18px mark while the corner it sits in answers to
+   48. */
 @media (max-width: 640px) {
+  .rail {
+    padding: 4px;
+  }
+
   .brand,
   .search,
   .add,
   .avatar,
   .tour {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
   }
 
   .entry {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .letter {
+    font-size: 16px;
+  }
+
+  .searchIcon {
+    width: 24px;
+    height: 24px;
   }
 
   .close::before {
     content: '';
     position: absolute;
-    /* The badge's 18px box is the border box, so its padding box — what an
-       absolutely positioned child is measured against — is 16px; -14 makes the
-       transparent hit area 44. */
-    inset: -14px;
+    /* The badge's 18px box is the border box, so its padding box (what an
+       absolutely positioned child is measured against) is 16px; -16 makes the
+       transparent hit area 48. */
+    inset: -16px;
     border-radius: 50%;
   }
 }

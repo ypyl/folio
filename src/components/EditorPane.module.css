@@ -618,3 +618,63 @@
   background: var(--warm-sand);
   color: var(--near-black);
 }
+
+/* The compact shell's phone scale (make-the-phone-read-like-an-app): the brand
+   screen and the editor carry the same readable sizes the app's other phone
+   surfaces do. The editor's base size comes from two places (the wrapper's
+   font-size and the CodeMirror theme's root), so both are raised here, and the
+   headings follow at 1.25em. The wide composition keeps its 15px surface. */
+@media (max-width: 640px) {
+  .editor {
+    font-size: 16px;
+  }
+
+  .editor :global(.cm-editor) {
+    font-size: 16px;
+  }
+
+  .editor :global(.folio-cm-heading) {
+    font-size: 1.25em;
+  }
+
+  .demoNotice {
+    font-size: 14px;
+  }
+
+  .demoNoticeLabel {
+    font-size: 12px;
+  }
+
+  .description {
+    font-size: 16px;
+  }
+
+  /* The brand block is fit-content in a column flex parent; at the phone width
+     the 16px copy and the three-column facts would push it past the pane and
+     clip the trailing edge. Pin it to the pane and let its children wrap. */
+  .emptyContent {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .factLabel {
+    font-size: 14px;
+  }
+
+  .factDetail {
+    font-size: 13px;
+  }
+
+  .footerLine {
+    font-size: 13px;
+  }
+
+  .browserWarningTitle {
+    font-size: 15px;
+  }
+
+  .browserWarningBody {
+    font-size: 14px;
+  }
+}

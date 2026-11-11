@@ -124,6 +124,13 @@ body {
    and only leaves the tab order — rather than removed or resized, which would
    make CodeMirror re-measure on every return and lose its undo history (D1). */
 @media (max-width: 640px) {
+  .app-shell {
+    /* The compact app bar's height, including the top inset: the bar is a
+       normal-flow child of the workspace, and the three view layers start
+       below it (make-the-phone-read-like-an-app). */
+    --compact-bar-h: calc(56px + env(safe-area-inset-top));
+  }
+
   .workspace {
     position: relative;
     display: block;
@@ -131,7 +138,7 @@ body {
 
   .view-layer {
     position: absolute;
-    inset: 0;
+    inset: var(--compact-bar-h) 0 0 0;
     /* Overrides the wide `display: contents`, which would otherwise leave a
        layer with no box of its own and hoist its panes into the workspace. */
     display: block;
@@ -225,7 +232,8 @@ body {
 @media (max-width: 640px) {
   .btn-primary,
   .btn-secondary {
-    min-height: 44px;
+    min-height: 48px;
+    font-size: 16px;
   }
 }
 

@@ -66,8 +66,17 @@
    a menu item is a 44px target, its label and description centered in it. */
 @media (max-width: 640px) {
   .item {
-    min-height: 44px;
+    min-height: 48px;
     justify-content: center;
+    font-size: 15px;
+  }
+
+  .description {
+    font-size: 12px;
+  }
+
+  .heading {
+    font-size: 12px;
   }
 }
 

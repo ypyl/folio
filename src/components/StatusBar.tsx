@@ -220,58 +220,62 @@ export function StatusBar({
           onClick={() => onShowView?.('nav')}
         >
           <PanelsIcon side="nav" open={view === 'nav'} />
+          <span className={styles.viewLabel}>Notes</span>
         </button>
       )}
       {/* Session navigation lived here until move-nav-controls-to-the-sidebar
           moved Back, Forward, and Today into the sidebar's navigation row, so
           the bar can lead with the open item. */}
-      <div className={styles.path} title={pagePath ?? undefined}>
-        {/* The compact bar shows the open item's name alone: a 360px row has no
-            space for the directories, and the name is what identifies it. */}
-        {hasDirs && !compact && (
-          <>
-            <span className={styles.crumbDirs}>
-              {segments.slice(0, -1).map((segment, i) => (
-                <Fragment key={`${i}-${segment}`}>
-                  {i > 0 && (
-                    <span className={styles.crumbSep} aria-hidden="true">
-                      /
-                    </span>
-                  )}
-                  {segment}
-                </Fragment>
-              ))}
-            </span>
-            <span className={styles.crumbSep} aria-hidden="true">
-              /
-            </span>
-          </>
-        )}
-        {segments.length > 0 &&
-          (onRevealPage || onLocateDay ? (
-            // The open item's name is the bar's one non-navigation control: a
-            // page's reveals its row in Files and does nothing else
-            // (reveal-open-page-in-files); a journal day's locates the day in
-            // the calendar and does nothing else
-            // (focus-the-journal-day-in-the-calendar). Either name carries the
-            // text the crumb prints, so what is on screen is what is said to
-            // activate it (name-the-crumb-with-what-it-shows).
-            <button
-              type="button"
-              className={`${styles.crumbLast} ${styles.crumbReveal}`}
-              aria-label={
-                onLocateDay
-                  ? `Show ${segments[segments.length - 1]} in the Journal calendar`
-                  : `Reveal ${segments[segments.length - 1]} in Files`
-              }
-              onClick={onLocateDay ?? onRevealPage}
-            >
-              {segments[segments.length - 1]}
-            </button>
-          ) : (
-            <span className={styles.crumbLast}>{segments[segments.length - 1]}</span>
-          ))}
-      </div>
+      {/* The item's file path is the wide bar's: at compact the app bar names
+          the open item (make-the-phone-read-like-an-app), so the status bar
+          keeps only the save state between its two view controls. */}
+      {!compact && (
+        <div className={styles.path} title={pagePath ?? undefined}>
+          {hasDirs && (
+            <>
+              <span className={styles.crumbDirs}>
+                {segments.slice(0, -1).map((segment, i) => (
+                  <Fragment key={`${i}-${segment}`}>
+                    {i > 0 && (
+                      <span className={styles.crumbSep} aria-hidden="true">
+                        /
+                      </span>
+                    )}
+                    {segment}
+                  </Fragment>
+                ))}
+              </span>
+              <span className={styles.crumbSep} aria-hidden="true">
+                /
+              </span>
+            </>
+          )}
+          {segments.length > 0 &&
+            (onRevealPage || onLocateDay ? (
+              // The open item's name is the bar's one non-navigation control: a
+              // page's reveals its row in Files and does nothing else
+              // (reveal-open-page-in-files); a journal day's locates the day in
+              // the calendar and does nothing else
+              // (focus-the-journal-day-in-the-calendar). Either name carries the
+              // text the crumb prints, so what is on screen is what is said to
+              // activate it (name-the-crumb-with-what-it-shows).
+              <button
+                type="button"
+                className={`${styles.crumbLast} ${styles.crumbReveal}`}
+                aria-label={
+                  onLocateDay
+                    ? `Show ${segments[segments.length - 1]} in the Journal calendar`
+                    : `Reveal ${segments[segments.length - 1]} in Files`
+                }
+                onClick={onLocateDay ?? onRevealPage}
+              >
+                {segments[segments.length - 1]}
+              </button>
+            ) : (
+              <span className={styles.crumbLast}>{segments[segments.length - 1]}</span>
+            ))}
+        </div>
+      )}
       <div className={styles.center}>
         {statusText !== null ? (
           <span className={styles.statusText} role="status">
@@ -292,6 +296,7 @@ export function StatusBar({
           onClick={() => onShowView?.('meta')}
         >
           <PanelsIcon side="meta" open={view === 'meta'} />
+          <span className={styles.viewLabel}>Details</span>
         </button>
       )}
       {/* The vault group is the wide bar's, like the version below it: on

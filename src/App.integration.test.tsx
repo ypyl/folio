@@ -2864,11 +2864,12 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
       await waitFor(() => expect(shownView()).toBe('editor'))
       const date = localDayString(new Date())
 
-      // The day's crumb is the standard way back to the calendar on a phone:
-      // the navigation view appears, then the cell takes focus.
-      fireEvent.click(
-        screen.getByRole('button', { name: `Show ${date}.md in the Journal calendar` }),
-      )
+      // The app bar's title is the day's locator on a phone
+      // (make-the-phone-read-like-an-app): the navigation view appears, then the
+      // cell takes focus.
+      const title = screen.getByRole('button', { name: `Show ${date} in the Journal calendar` })
+      expect(title.textContent).toBe(date)
+      fireEvent.click(title)
 
       await waitFor(() => expect(shownView()).toBe('nav'))
       await waitFor(() =>
@@ -2989,6 +2990,44 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     expect(shownView()).toBe('nav')
     fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(shownView()).toBe('editor'))
+  })
+
+  it('names the open page in the app bar and offers its actions', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(shownView()).toBe('editor'))
+
+    // The bar names the page, and its title locates the row.
+    const title = screen.getByRole('button', { name: 'Reveal Welcome in Files' })
+    expect(title.textContent).toBe('Welcome')
+    // The page row's actions are the bar's trailing control.
+    fireEvent.click(screen.getByRole('button', { name: 'Page actions' }))
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Favorite',
+      'Present',
+    ])
+  })
+
+  it('offers no page actions for a journal day', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    await waitFor(() => expect(shownView()).toBe('editor'))
+    expect(screen.queryByRole('button', { name: 'Page actions' })).toBeNull()
+  })
+
+  it('names the navigation view folder in the app bar', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    await waitFor(() => expect(shownView()).toBe('nav'))
+    // The fixture folder's name is the navigation view's title.
+    const bar = document.querySelector('.workspace header') as HTMLElement
+    expect(bar.textContent).toBe('notes')
   })
 
   it('takes focus back into the editor when a chosen view closes', async () => {

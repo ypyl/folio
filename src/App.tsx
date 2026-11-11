@@ -9,6 +9,8 @@ import { SearchSpotlight } from './components/SearchSpotlight'
 import { SearchResultsView } from './components/SearchResultsView'
 import { ConfirmReminderReplace } from './components/ConfirmReminderReplace'
 import { StatusBar } from './components/StatusBar'
+import { CompactBar } from './components/CompactBar'
+import type { RowMenuItem } from './components/RowContextMenu'
 import { Tour } from './components/Tour'
 import { PresentationView } from './components/PresentationView'
 import {
@@ -44,6 +46,7 @@ import { useVault } from './vault/useVault'
 import { createDemoVault, DEMO_ID, DEMO_NAME, DEMO_WELCOME_PATH } from './demo/content'
 import { useIndex } from './vault/useIndex'
 import { createSessionTrace, describeError } from './trace/session'
+import { describeSchedule } from './components/recurrences'
 import { version } from '../package.json'
 import {
   canOpenFolders,
@@ -1183,10 +1186,11 @@ function App() {
   // a missing name starts with no file and no row, so revealing it has to create
   // the page first (reveal-a-page-that-has-no-file); a page with a file writes
   // nothing. Memoized on the rows' identity.
-  const hasPageRow = useMemo(
-    () => sidebarRows.some((row) => row.kind === 'page' && row.path === activePath),
+  const openPageRow = useMemo(
+    () => sidebarRows.find((row) => row.kind === 'page' && row.path === activePath),
     [sidebarRows, activePath],
   )
+  const hasPageRow = openPageRow !== undefined
 
   // Reveal the open page's row in the Files listing (reveal-open-page-in-files,
   // ui-shell spec, reveal-a-page-that-has-no-file), or locate the open journal
@@ -1268,6 +1272,71 @@ function App() {
     else sidebarRef.current?.locateDay(pending.date)
   }, [compact, compactView, hasPageRow, leftCollapsed])
 
+  // The compact app bar (make-the-phone-read-like-an-app, design D3). The title
+  // follows the view: the open item on the editor, the folder on the navigation
+  // view, "Details" on the meta view. The editor's title locates the open item
+  // when it supports it, and carries the open page's row actions when it has a
+  // row. Built from state that changes on navigation rather than on a keystroke,
+  // so typing never rebuilds it.
+  const barTitle =
+    compactView === 'nav'
+      ? activeFolder?.name || 'Folders'
+      : compactView === 'meta'
+        ? 'Details'
+        : mode === 'results'
+          ? 'Search results'
+          : activePath === null
+            ? 'Folio'
+            : mode === 'board'
+              ? boardStem(activePath)
+              : (page?.title ?? stem(activePath))
+  const barTitleAction =
+    compactView !== 'editor'
+      ? undefined
+      : journalDay !== null
+        ? handleLocateDay
+        : canRevealPage
+          ? handleRevealPage
+          : undefined
+  const barTitleLabel =
+    compactView !== 'editor' || activePath === null
+      ? undefined
+      : journalDay !== null
+        ? `Show ${barTitle} in the Journal calendar`
+        : canRevealPage
+          ? `Reveal ${barTitle} in Files`
+          : undefined
+  const barActions = useMemo<RowMenuItem[]>(() => {
+    if (!compact || compactView !== 'editor' || mode !== 'page' || activePath === null) return []
+    if (openPageRow === undefined) return []
+    return [
+      {
+        label: openPageRow.pinned ? 'Unfavorite' : 'Favorite',
+        onSelect: () => handleFavorite(activePath),
+      },
+      ...(openPageRule !== undefined
+        ? [
+            {
+              label: 'Remove reminder',
+              description: describeSchedule(openPageRule),
+              onSelect: () => handleRemoveReminderFor(activePath),
+            },
+          ]
+        : []),
+      { label: 'Present', onSelect: () => handlePresent(activePath) },
+    ]
+  }, [
+    compact,
+    compactView,
+    mode,
+    activePath,
+    openPageRow,
+    openPageRule,
+    handleFavorite,
+    handleRemoveReminderFor,
+    handlePresent,
+  ])
+
   // Loading state (indexing-loading-state): while an active folder with
   // storage is building its index, the graph is null — the panes show
   // placeholders instead of empty content. No active folder (brand empty
@@ -1342,6 +1411,16 @@ function App() {
   return (
     <div className={shellClass}>
       <div className="workspace">
+        {/* The compact app bar (make-the-phone-read-like-an-app): one per view,
+            naming it and carrying the open page's actions. Wide has no bar. */}
+        {compact && (
+          <CompactBar
+            title={barTitle}
+            titleAction={barTitleAction}
+            titleLabel={barTitleLabel}
+            actions={barActions}
+          />
+        )}
         {/* The strips are the wide composition's: the compact shell shows one
             view at a time and has nothing to fold (design D1). */}
         {!compact && (
@@ -1497,6 +1576,20 @@ function App() {
                   ? () => {
                       resetOpenPage()
                       void addFolder()
+                    }
+                  : undefined
+              }
+              // A stored folder whose permission is pending is the first action
+              // (make-the-phone-read-like-an-app): one tap, the browser's Allow,
+              // and the folder opens through the existing activation path.
+              reconnect={
+                status === 'ready' &&
+                activeFolder !== undefined &&
+                activeFolder.storage === undefined &&
+                activeFolder.permission === 'prompt'
+                  ? {
+                      name: activeFolder.name,
+                      onReconnect: () => handleActivate(activeFolder.id),
                     }
                   : undefined
               }
