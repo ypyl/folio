@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { VaultStorage } from './storage'
 import {
+  LEDGER_BATCH,
   emptyImportStats,
   humanDateToDay,
   journalFileName,
@@ -194,6 +195,16 @@ describe('runLogseqImport', () => {
       'journals/2024_07_02.md': 'B day\n',
       'assets/shot.png': new Blob(['png']),
     })
+  const manyPages = (count: number) =>
+    new MemStorage(
+      Object.fromEntries(
+        Array.from({ length: count }, (_, i) => [
+          `pages/p${String(i).padStart(3, '0')}.md`,
+          `page ${i}
+`,
+        ]),
+      ),
+    )
   const source = () =>
     new MemStorage({
       'pages/Roadmap.md': 'See [[Ideas]]\n',
@@ -352,6 +363,77 @@ describe('runLogseqImport', () => {
     expect(retry.report.written).toBe(1)
     expect(retry.report.merged).toBe(0)
     expect(dest.files.get('pages/Roadmap.md')).toBe('A roadmap\n')
+  })
+
+  it('writes the record once per batch, not once per file', async () => {
+    const dest = new MemStorage()
+    const ledgerWrites: string[] = []
+    const write = dest.write.bind(dest)
+    dest.write = async (path, content) => {
+      if (path === '.folio/imports.md') ledgerWrites.push(content)
+      await write(path, content)
+    }
+    const result = await runLogseqImport(manyPages(120), dest, { sourceName: 'graph' })
+    expect(result.ok).toBe(true)
+    // 120 files at one write per batch: two full batches and the run's own.
+    expect(ledgerWrites).toHaveLength(Math.ceil(120 / LEDGER_BATCH))
+    const record = String(dest.files.get('.folio/imports.md'))
+    expect(record.match(/^- /gm)).toHaveLength(120)
+
+    // An import under one batch writes the record once, when the run ends.
+    const small = new MemStorage()
+    const smallWrites: string[] = []
+    const smallWrite = small.write.bind(small)
+    small.write = async (path, content) => {
+      if (path === '.folio/imports.md') smallWrites.push(content)
+      await smallWrite(path, content)
+    }
+    await runLogseqImport(sourceA(), small, { sourceName: 'graph' })
+    expect(smallWrites).toHaveLength(1)
+  })
+
+  it('records a completed batch before the run ends, so a kill loses at most the batch in hand', async () => {
+    const dest = new MemStorage()
+    const write = dest.write.bind(dest)
+    let reached!: () => void
+    const atGate = new Promise<void>((resolve) => {
+      reached = resolve
+    })
+    let released!: () => void
+    const gate = new Promise<void>((resolve) => {
+      released = resolve
+    })
+    let pages = 0
+    dest.write = async (path, content) => {
+      await write(path, content)
+      // Park the run inside a page of the second batch: the tab dying here
+      // leaves the destination exactly as it is right now.
+      if (path.startsWith('pages/') && ++pages === LEDGER_BATCH + 20) {
+        reached()
+        await gate
+      }
+    }
+
+    const run = runLogseqImport(manyPages(120), dest, { sourceName: 'graph' })
+    await atGate
+    const snapshot = String(dest.files.get('.folio/imports.md'))
+    expect(snapshot.match(/^- /gm)).toHaveLength(LEDGER_BATCH)
+
+    released()
+    expect((await run).ok).toBe(true)
+    expect(String(dest.files.get('.folio/imports.md')).match(/^- /gm)).toHaveLength(120)
+  })
+
+  it('reports the failure when the record cannot be written, and keeps the files', async () => {
+    const dest = new MemStorage()
+    const write = dest.write.bind(dest)
+    dest.write = async (path, content) => {
+      if (path === '.folio/imports.md') throw new Error('ledger full')
+      await write(path, content)
+    }
+    const result = await runLogseqImport(sourceA(), dest, { sourceName: 'graph' })
+    expect(result).toEqual({ ok: false, error: 'ledger full' })
+    expect(dest.files.has('pages/Roadmap.md')).toBe(true)
   })
 
   it('reports progress through scanning and writing', async () => {

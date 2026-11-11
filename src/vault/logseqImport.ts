@@ -297,6 +297,15 @@ type ImportResult = { ok: true; report: ImportReport } | { ok: false; error: str
 const LEDGER_PATH = '.folio/imports.md'
 const LEDGER_HEADER = '# Imported Logseq sources - one entry per imported file'
 
+/** How many imported files one write of the ledger records (import spec:
+ *  "batches of at most `LEDGER_BATCH`"). The storage seam has no append
+ *  (ADR-0013), so recording a file means rewriting the whole record: one write
+ *  per file makes an import quadratic, in rendered text and in file round
+ *  trips. This is also the bound on what a killed tab can lose — its files are
+ *  appended again by the next run — so it stays small enough to be a nuisance
+ *  rather than a loss. */
+export const LEDGER_BATCH = 50
+
 function renderLedger(keys: Iterable<string>): string {
   const body = [...keys]
     .sort()
@@ -326,8 +335,8 @@ type Planned = { path: string; content: string; sourceKeys: string[] }
  * ledger has not recorded, then writes: a new Markdown target is created, an
  * existing one is appended to (blank-line separated), and an existing asset is
  * skipped. Never deletes and never touches `.folio/` other than the ledger,
- * which records each source file as its output lands so a re-run appends only
- * what is new. Reports progress as `{ phase, done, total }`.
+ * which records each source file it imported a batch at a time, so a re-run
+ * appends only what is new. Reports progress as `{ phase, done, total }`.
  */
 export async function runLogseqImport(
   source: VaultStorage,
@@ -338,6 +347,27 @@ export async function runLogseqImport(
   const stats = emptyImportStats()
   const collisions: string[] = []
   const keyOf = (path: string): string => `${sourceName}\t${path}`
+  // The record of imported source files: read at the start, extended as outputs
+  // land, and written a batch at a time (`LEDGER_BATCH`) plus once when the run
+  // ends. Declared outside the `try` so the failure path can write the batch in
+  // hand.
+  const ledger = new Set<string>()
+  let pending: string[] = []
+  const flushLedger = async (): Promise<void> => {
+    if (pending.length === 0) return
+    for (const key of pending) ledger.add(key)
+    pending = []
+    await dest.write(LEDGER_PATH, renderLedger(ledger))
+  }
+  const record = async (sourceKeys: string[]): Promise<void> => {
+    // Flush before a group that would overflow the batch, so every written
+    // record holds at most LEDGER_BATCH files.
+    if (pending.length > 0 && pending.length + sourceKeys.length > LEDGER_BATCH) {
+      await flushLedger()
+    }
+    pending.push(...sourceKeys)
+    if (pending.length >= LEDGER_BATCH) await flushLedger()
+  }
 
   try {
     const files = await source.list('')
@@ -347,7 +377,7 @@ export async function runLogseqImport(
 
     // The ledger decides which source files are new. Already-imported ones are
     // still read, so a block reference into them still resolves.
-    const ledger = await readLedger(dest)
+    for (const key of await readLedger(dest)) ledger.add(key)
     const freshPages = pagePaths.filter((path) => !ledger.has(keyOf(path)))
     const freshJournals = journalPaths.filter((path) => !ledger.has(keyOf(path)))
     const alreadyImported =
@@ -429,11 +459,6 @@ export async function runLogseqImport(
     let done = 0
     onProgress?.({ phase: 'writing', done, total: writeTotal })
 
-    const record = async (sourceKeys: string[]): Promise<void> => {
-      for (const key of sourceKeys) ledger.add(key)
-      await dest.write(LEDGER_PATH, renderLedger(ledger))
-    }
-
     for (const item of planned) {
       const key = item.path.toLowerCase()
       let landed = false
@@ -456,6 +481,8 @@ export async function runLogseqImport(
       done++
       onProgress?.({ phase: 'writing', done, total: writeTotal })
     }
+    // The record is about source files, so it is complete before the assets.
+    await flushLedger()
 
     for (const path of assetPaths) {
       const target = assetTarget(path)
@@ -477,8 +504,11 @@ export async function runLogseqImport(
       report: { written, merged, skipped, assetsCopied, alreadyImported, collisions, stats },
     }
   } catch (error) {
-    // The ledger is written as each file lands, so a run that fails part-way
-    // still records what it wrote and a re-run appends only the rest.
+    // The record is written a batch at a time, so a run that fails with an
+    // error the app can see still records everything it wrote, and a re-run
+    // appends only the rest. A failing ledger write here must not replace the
+    // error that ended the run.
+    await flushLedger().catch(() => {})
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
