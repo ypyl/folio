@@ -150,7 +150,7 @@ The no-folder screen is a hero, then the actions it offers, then a row of facts,
 then a footer — in that order, in one centered column on `--parchment`. The
 headline carries the hierarchy: 20px/600 `--near-black`, with the mark held at
 72px so the logo is identity rather than the loudest thing on the screen. The
-introduction is one sentence in `--dark-warm`, and the demo and import actions
+introduction is one sentence in `--dark-warm`, and the actions the screen offers
 sit directly under it, so a returning user never reads the facts to act.
 
 The facts are label/detail pairs — 13px/600 `--near-black` over 12px `--stone` —

@@ -3,11 +3,15 @@
 The rule set for the one-way copy from a Logseq graph into a Folio vault. The source
 folder is **read-only** in the migration: nothing is moved, renamed, or deleted there.
 
-These rules are implemented in the in-app importer (`src/vault/logseqImport.ts`,
-reached from the brand screen's **Import from Logseq** action). The command-line script
-this document once planned (`scripts/migrate-logseq.mjs`) shipped and was later removed
-once the in-app importer was the only route. See ADR-0025 for why the importer is
-one-way and input-only.
+These rules are implemented in `src/vault/logseqImport.ts` and run by the repository
+script `scripts/import-logseq.ts`:
+
+```bash
+npm run import:logseq -- <logseq-folder> <folio-vault>
+```
+
+The app itself no longer imports. See ADR-0025 for why the importer is one-way and
+input-only.
 
 Every rule below is settled; the open questions this document carried are answered and
 folded into the rules themselves. The counts in the tables come from the graph this rule

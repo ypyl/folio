@@ -6,6 +6,7 @@ and for nothing else. The status bar's version badge reads this file.
 
 ## 2026-11-11
 
+- move the Logseq import to a repo script
 - enlarge the phone's text
 - give the phone a three-tab navigation bar
 - give the phone an app-scale design
@@ -63,4 +64,3 @@ and for nothing else. The status bar's version badge reads this file.
 - download an SVG instead of opening it as a document
 - add a folder even when a stored handle cannot be compared
 - keep dropped links in the order the files landed
-- stop a reopened day from adding the reminder line twice

@@ -95,10 +95,10 @@ Won't do, with the date and the reason, so the question stays closed.
   the typing path" assertions are reachable. The cost is local runtime, not correctness,
   and deleting green tests to save it is a bad trade.
 - **A batched Logseq import ledger** — **won't do unless an import feels slow** (decided
-  2026-10-15). The importer rewrites `.folio/imports.md` after every file
-  (`src/vault/logseqImport.ts`), which is O(n²) on a large graph. Flushing every N files
-  would trade that for a crash window of N re-appends. Revisit only on a measured slow
-  import.
+  2026-10-15). The import rewrites `.folio/imports.md` after every file
+  (`src/vault/logseqImport.ts`, run by `scripts/import-logseq.ts`), which is O(n²) on a
+  large graph. Flushing every N files would trade that for a crash window of N
+  re-appends. Revisit only on a measured slow import.
 
 ## Known costs
 

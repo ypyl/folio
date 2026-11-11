@@ -463,25 +463,6 @@ describe('EditorPane', () => {
     expect(instances.list).toHaveLength(0)
   })
 
-  it('renders the optional brand action under the tagline (add-logseq-import)', async () => {
-    vi.stubGlobal('showDirectoryPicker', vi.fn())
-    try {
-      render(
-        <EditorPane
-          page={null}
-          emptyHint="open-folder"
-          initialContent=""
-          onChange={() => {}}
-          brandAction={<button type="button">Import from Logseq</button>}
-        />,
-      )
-      screen.getByText('Open a folder to begin.')
-      screen.getByRole('button', { name: 'Import from Logseq' })
-    } finally {
-      vi.unstubAllGlobals()
-    }
-  })
-
   it('leads with the stored folder when its permission is pending (make-the-phone-read-like-an-app)', () => {
     const onReconnect = vi.fn()
     const onOpenFolder = vi.fn()
@@ -515,12 +496,10 @@ describe('EditorPane', () => {
         initialContent=""
         onChange={() => {}}
         onDemo={onDemo}
-        brandAction={<button type="button">Import from Logseq</button>}
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Open the guided demo' }))
     expect(onDemo).toHaveBeenCalledTimes(1)
-    screen.getByRole('button', { name: 'Import from Logseq' })
 
     rerender(
       <EditorPane

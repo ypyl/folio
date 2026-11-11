@@ -38,7 +38,6 @@ uses the File System Access API. Every push to `master` builds with
 - A guided demo vault with a table of contents and a worked example of every feature, in any browser (ADR-0034)
 - A guided tour of the shell, from the folder rail or the brand screen
 - An optional session trace for troubleshooting: one plain-text log per session under `.folio/logs/`, kept for seven days, recording what the app wrote and what failed (see [Diagnostics](#diagnostics))
-- One-way import of an existing Logseq graph (pages, journals, and assets), merged without overwriting
 - Collapsible side panes; a PWA that installs and works offline
 
 ## Searching
@@ -202,22 +201,29 @@ npm run dev
 - [AGENTS.md](AGENTS.md) — how the project is built and kept small
 - [NOTES.md](NOTES.md) — the open backlog, the decisions made against, and accepted costs
 
-## Importing from Logseq
+## Migrating from Logseq
 
-With no folder open, the brand screen offers **Import from Logseq**. Pick the Logseq
-folder (read-only) and a destination folder, and Folio translates the graph into its own
-Markdown rules and merges it in: new files are written, a file the destination already
-holds is appended to, and an existing asset is left alone. Progress is shown as it runs,
-and the result summary reports what was written, merged, and skipped.
+The app does not import a Logseq graph. A repository script does it once, from a
+terminal:
 
-Importing several graphs into one vault is the intended use: import each in turn and
+```bash
+npm install
+npm run import:logseq -- /path/to/logseq-graph /path/to/folio-vault
+```
+
+The source is read only. The destination is created when it does not exist, and the
+script translates the graph into Folio's Markdown rules and merges it in: new files are
+written, a file the destination already holds is appended to, and an existing asset is
+left alone. It prints what was written, merged, and skipped.
+
+Importing several graphs into one vault is the intended use: run it once per graph and
 their pages and journals combine. A hidden `.folio/imports.md` ledger records every
-source file already imported, so re-running an import — including resuming after a
-partial failure — appends only what is new and never duplicates. Importing the same
-folder twice is a no-op.
+source file already imported, so running it again — including after a partial failure —
+appends only what is new and never duplicates. The same folder twice is a no-op.
 
 The rule set is documented in [MIGRATION_LOGSEQ_FOLIO.md](MIGRATION_LOGSEQ_FOLIO.md),
-implemented in the app, and recorded as one-way and input-only in
+implemented in `src/vault/logseqImport.ts` and run by `scripts/import-logseq.ts`, and
+recorded as one-way and input-only in
 [ADR-0025](adr/0025-logseq-import-is-one-way-and-input-only.md).
 
 ## License

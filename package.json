@@ -1,7 +1,7 @@
 {
   "name": "folio",
   "private": true,
-  "version": "0.91.1",
+  "version": "0.92.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,8 @@
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
     "kill:dev": "node scripts/kill-dev.mjs",
-    "changelog": "node scripts/changelog.mjs"
+    "changelog": "node scripts/changelog.mjs",
+    "import:logseq": "tsx scripts/import-logseq.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -45,6 +46,7 @@
     "jsdom": "^30.0.1",
     "oxfmt": "^0.67.0",
     "oxlint": "^1.79.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vite-plugin-pwa": "^1.3.0",

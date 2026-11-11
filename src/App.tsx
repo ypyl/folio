@@ -50,14 +50,7 @@ import { useIndex } from './vault/useIndex'
 import { createSessionTrace, describeError } from './trace/session'
 import { describeSchedule } from './components/recurrences'
 import { version } from '../package.json'
-import {
-  canOpenFolders,
-  FileSystemVaultStorage,
-  pickSourceFolder,
-  pickVaultFolder,
-} from './vault/fs'
-import { runLogseqImport } from './vault/logseqImport'
-import { LogseqImportButton, LogseqImportPanel, type ImportView } from './components/LogseqImport'
+import { canOpenFolders } from './vault/fs'
 import {
   boardStem,
   journalDate,
@@ -97,17 +90,8 @@ const EMPTY_BOARDS: string[] = []
 const NOT_RECORDED = () => false
 
 function App() {
-  const {
-    status,
-    folders,
-    activeId,
-    addFolder,
-    addFolderFromHandle,
-    addVirtualFolder,
-    activate,
-    closeFolder,
-    goHome,
-  } = useVault()
+  const { status, folders, activeId, addFolder, addVirtualFolder, activate, closeFolder, goHome } =
+    useVault()
   // Browser capability (warn-unsupported-browser): probed once per render and
   // spent twice — the rail's add control exists only where the picker does,
   // and the brand screen states the requirement where it does not.
@@ -160,7 +144,6 @@ function App() {
   const [mode, setMode] = useState<'page' | 'results' | 'board'>('page')
   // The no-folder Logseq import (add-logseq-import): the whole flow's view state.
   // Non-null means the center pane hosts the import instead of the editor.
-  const [importView, setImportView] = useState<ImportView | null>(null)
   // Mirror of the latest landed search run (search-results-view): SearchBox
   // owns the Fuse and the debounce, and reports the uncapped result set up;
   // this feeds the results pane and stays current for the see-all handoff.
@@ -278,40 +261,6 @@ function App() {
     // active folder is not a switch, so it keeps the page.
     if (id !== activeId) resetOpenPage()
     void activate(id)
-  }
-
-  // The Logseq import (add-logseq-import): pick a read-only source, a read-write
-  // destination, run the transform, then open the destination. Both picker
-  // cancellations end the flow silently; the panel hosts progress and result.
-  const handleImport = async () => {
-    if (!canOpen) return
-    let sourceHandle: FileSystemDirectoryHandle
-    let destHandle: FileSystemDirectoryHandle
-    try {
-      sourceHandle = await pickSourceFolder()
-    } catch {
-      return
-    }
-    try {
-      destHandle = await pickVaultFolder()
-    } catch {
-      return
-    }
-    setImportView({ kind: 'running', progress: { phase: 'scanning', done: 0, total: 0 } })
-    const result = await runLogseqImport(
-      new FileSystemVaultStorage(sourceHandle),
-      new FileSystemVaultStorage(destHandle),
-      {
-        sourceName: sourceHandle.name,
-        onProgress: (progress) => setImportView({ kind: 'running', progress }),
-      },
-    )
-    if (!result.ok) {
-      setImportView({ kind: 'error', message: result.error })
-      return
-    }
-    setImportView({ kind: 'done', report: result.report })
-    await addFolderFromHandle(destHandle)
   }
 
   // Stable identity so the memoized Sidebar can skip re-rendering on every
@@ -732,8 +681,8 @@ function App() {
   // its listing is; an open item leads with the editor. While a vault is
   // restoring a page is about to open, so the editor leads and the brand screen
   // does not flash.
-  const mainPaneHasItem = activePath !== null || mode !== 'page' || importView !== null
-  const itemKey = JSON.stringify([activePath, mode, importView?.kind ?? null])
+  const mainPaneHasItem = activePath !== null || mode !== 'page'
+  const itemKey = JSON.stringify([activePath, mode])
   const noActiveFolder = activeFolder?.storage === undefined
   const landingView: CompactView =
     status === 'restoring' || mainPaneHasItem || noActiveFolder ? 'editor' : 'nav'
@@ -822,13 +771,12 @@ function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
-      if (searchOpen || tourOpen || importView !== null || slides !== null || mode === 'results')
-        return
+      if (searchOpen || tourOpen || slides !== null || mode === 'results') return
       setMatchHighlight(null)
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [searchOpen, tourOpen, importView, slides, mode])
+  }, [searchOpen, tourOpen, slides, mode])
 
   // Focus follows the view (design D1): a covered editor leaves the tab order,
   // so the platform drops focus on the body when the row that held it is
@@ -1509,9 +1457,7 @@ function App() {
           />
         </div>
         <div className="view-layer layer-main">
-          {importView !== null ? (
-            <LogseqImportPanel view={importView} onContinue={() => setImportView(null)} />
-          ) : mode === 'results' ? (
+          {mode === 'results' ? (
             <SearchResultsView
               // Keyed on the query: editing the query while the view is open
               // remounts it, resetting page and active row to the new set.
@@ -1616,11 +1562,6 @@ function App() {
               // The demo's session-only rule stays in view on every page
               // (make-the-demo-notice-visible). A real vault passes false.
               demo={demoActive}
-              brandAction={
-                canOpen && status === 'ready' && activeFolder?.storage === undefined ? (
-                  <LogseqImportButton onClick={() => void handleImport()} />
-                ) : undefined
-              }
               // The brand screen's tour reference (add-landing-page-info): the
               // same callback the rail gets, so both entry points open one tour,
               // and absent on compact where the tour does not exist.

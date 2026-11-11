@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
-import type { CSSProperties, ClipboardEvent, DragEvent, ReactNode, Ref } from 'react'
+import type { CSSProperties, ClipboardEvent, DragEvent, Ref } from 'react'
 import { FolioMark } from '../FolioMark'
 import type { EditorAdapter, StaticBlock } from '../editor/editor'
 import { CodeMirrorAdapter } from '../editor/codemirror'
@@ -131,7 +131,6 @@ export function EditorPane({
   initialContent,
   onChange,
   emptyHint = 'notes',
-  brandAction,
   onTour,
   onDemo,
   onOpenFolder,
@@ -161,10 +160,6 @@ export function EditorPane({
    *  picker — the browser requirement instead of an instruction that cannot be
    *  followed (warn-unsupported-browser). */
   emptyHint?: 'notes' | 'open-folder' | 'browser-unsupported'
-  /** Optional control rendered under the tagline on the brand screen
-   *  (add-logseq-import): the Import from Logseq action. Presentational only —
-   *  the pane owns no import state. */
-  brandAction?: ReactNode
   /** Opens the app tour from the brand screen (add-landing-page-info). App
    *  supplies it only on wide viewports, where the tour is available, the same
    *  optional-callback shape `FolderRail.onTour` uses; absent, the brand screen
@@ -494,7 +489,7 @@ export function EditorPane({
                     folder's restore from flashing the open-folder copy. */}
                 {emptyHint !== 'notes' && <p className={styles.description}>{BRAND_DESCRIPTION}</p>}
               </div>
-              {(onDemo || brandAction || onOpenFolder || reconnect) && (
+              {(onDemo || onOpenFolder || reconnect) && (
                 <div className={styles.actions}>
                   {reconnect && (
                     <button type="button" className="btn-primary" onClick={reconnect.onReconnect}>
@@ -519,7 +514,6 @@ export function EditorPane({
                       Open the guided demo
                     </button>
                   )}
-                  {brandAction}
                 </div>
               )}
               {/* What the app does (simplify-the-brand-screen): three labeled

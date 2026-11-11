@@ -2551,60 +2551,6 @@ describe('locating the open journal day in the calendar (focus-the-journal-day-i
   })
 })
 
-describe('logseq import', () => {
-  it('offers no import action where the browser has no picker', async () => {
-    // jsdom has no showDirectoryPicker; stub it undefined so the test does not
-    // inherit a picker another test left in place, and the action cannot be
-    // performed (add-logseq-import).
-    vi.stubGlobal('showDirectoryPicker', undefined)
-    try {
-      render(<App />)
-      await screen.findByText(/Chromium-based browser/)
-      expect(screen.queryByRole('button', { name: 'Import from Logseq' })).toBeNull()
-    } finally {
-      vi.unstubAllGlobals()
-    }
-  })
-
-  it('imports a Logseq folder into a destination and opens it', async () => {
-    const source = buildTree({
-      pages: { 'Roadmap.md': 'See [[Ideas]]' },
-      journals: { '2024_07_02.md': 'met a person' },
-      assets: { 'shot.png': 'bytes' },
-    })
-    source.name = 'logseq'
-    const dest = buildTree({})
-    dest.name = 'folio'
-    const picks: FakeDirectoryHandle[] = [source, dest]
-    vi.stubGlobal(
-      'showDirectoryPicker',
-      vi.fn(async () => picks.shift() as unknown as FileSystemDirectoryHandle),
-    )
-    try {
-      render(<App />)
-      fireEvent.click(await screen.findByRole('button', { name: 'Import from Logseq' }))
-
-      // The result summary lands, and the destination now holds the translated
-      // files under Folio paths.
-      await screen.findByText('Import complete')
-      const pages = dest.children.get('pages') as FakeDirectoryHandle
-      const journals = dest.children.get('journals') as FakeDirectoryHandle
-      const assets = dest.children.get('assets') as FakeDirectoryHandle
-      expect(pages.children.has('Roadmap.md')).toBe(true)
-      expect(journals.children.has('2024-07-02.md')).toBe(true)
-      expect(assets.children.has('shot.png')).toBe(true)
-
-      // Continuing opens the imported destination as the active vault.
-      fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await waitFor(() => screen.getByText('Roadmap'))
-    } finally {
-      vi.unstubAllGlobals()
-    }
-  })
-})
-
-// Presenting (add-presentations, re-enabled by enable-presenting): the page
-// row's menu builds a deck from the live editor and opens the modal view.
 describe('presenting (enable-presenting)', () => {
   it('presents the open page from its row menu and writes nothing', async () => {
     const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')

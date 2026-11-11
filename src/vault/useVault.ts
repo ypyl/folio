@@ -166,31 +166,6 @@ export function useVault() {
     await makeActive(id)
   }
 
-  // Add a folder from a handle already acquired elsewhere (add-logseq-import):
-  // the import flow owns the destination handle, so it must join the rail
-  // without invoking the picker again. Same one-entry-per-folder dedup as
-  // openNewFolder, and the same activation.
-  async function addFolderFromHandle(handle: FileSystemDirectoryHandle): Promise<void> {
-    for (const f of folders) {
-      if (await isSameHandle(f.handle, handle)) {
-        await activate(f.id)
-        return
-      }
-    }
-    const id = crypto.randomUUID()
-    const open = await openVault(handle)
-    await saveVaultHandle({ id, name: handle.name, handle })
-    upsert(setFolders, {
-      id,
-      name: handle.name,
-      handle,
-      permission: 'granted',
-      storage: open.storage,
-      noteCount: open.noteCount,
-    })
-    await makeActive(id)
-  }
-
   // Add a vault that is not a directory (add-guided-demo): the demo's storage
   // is already built, so there is no picker, permission request, handle, or
   // stored row. Same one-entry-per-id dedup as a folder: a second request for a
@@ -223,7 +198,6 @@ export function useVault() {
     folders,
     activeId,
     addFolder: openNewFolder,
-    addFolderFromHandle,
     addVirtualFolder,
     activate,
     closeFolder,
