@@ -90,6 +90,9 @@ export function emptyIndex(): VaultIndex {
  *  backlink order derived from it, are unchanged. */
 export const SCAN_CONCURRENCY = 16
 
+const pinsOf = (index: VaultIndex): string[] => index.pins
+const remindersOf = (index: VaultIndex): ReminderRule[] => index.reminders
+
 /** Full or incremental scan (design D3): with `previous` given, only files
  *  whose mtime moved are re-read; unchanged pages carry over. */
 export async function buildIndex(
@@ -109,8 +112,16 @@ export async function buildIndex(
     snapshot.set(path, lastModified)
     pages.set(path, page)
   }
-  const pins = await readPins(storage, previous, snapshot)
-  const reminders = await readReminders(storage, previous, snapshot)
+  const pins = await readMetaFile(storage, PINS_PATH, previous, snapshot, pinsOf, [], parsePins)
+  const reminders = await readMetaFile(
+    storage,
+    REMINDERS_PATH,
+    previous,
+    snapshot,
+    remindersOf,
+    [],
+    parseReminders,
+  )
   return { graph: fold(pages, files), snapshot, pins, reminders }
 }
 
@@ -175,64 +186,37 @@ async function mapLimit<T, R>(
   return results
 }
 
-/** Read the pins meta file into the index (design D1/D3). A missing file is
- *  the empty list — `VaultStorage.read`/`stat` reject on missing paths
- *  (ADR-0013), so absence must be caught, not propagated. The file's mtime
- *  joins the snapshot, so refresh re-reads pins only when the file changed
- *  (external edits reach the index on the app's scan, like page changes). */
-async function readPins(
+/** Read one of the app's hidden meta files into the index (ADR-0015): pins
+ *  (design D1/D3) and reminder rules (add-reminders, ADR-0031) are the same
+ *  read. The file's mtime joins the snapshot, so refresh re-reads it only when
+ *  the file changed. A missing file is `fallback` — `VaultStorage.read`/`stat`
+ *  reject on a missing path (ADR-0013), so absence is caught, not propagated —
+ *  and a file that exists but cannot be read — removed between the two calls,
+ *  a permission blip — keeps the previous value and loses its snapshot entry,
+ *  so the next scan tries again instead of the whole scan failing.
+ */
+async function readMetaFile<T>(
   storage: VaultStorage,
+  path: string,
   previous: VaultIndex | undefined,
   snapshot: Map<string, number>,
-): Promise<string[]> {
+  current: (index: VaultIndex) => T,
+  fallback: T,
+  parse: (content: string) => T,
+): Promise<T> {
   let mtime: number
   try {
-    mtime = await storage.stat(PINS_PATH)
+    mtime = await storage.stat(path)
   } catch {
-    return [] // no meta file: nothing pinned
+    return fallback // no meta file
   }
-  snapshot.set(PINS_PATH, mtime)
-  if (previous && previous.snapshot.get(PINS_PATH) === mtime) {
-    return previous.pins
-  }
+  snapshot.set(path, mtime)
+  if (previous && previous.snapshot.get(path) === mtime) return current(previous)
   try {
-    return parsePins(await storage.read(PINS_PATH))
+    return parse(await storage.read(path))
   } catch {
-    // A file that stats but cannot be read (removed between the two calls, a
-    // permission blip) must not fail the whole scan: the previous list stands,
-    // and dropping the snapshot entry makes the next scan read it again rather
-    // than carry a value that was never read.
-    snapshot.delete(PINS_PATH)
-    return previous?.pins ?? []
-  }
-}
-
-/** Read the reminders meta file into the index (add-reminders, ADR-0031). A
- *  missing file is the empty list — `VaultStorage.read`/`stat` reject on a
- *  missing path (ADR-0013), so absence is caught. The mtime joins the snapshot,
- *  so refresh re-reads rules only when the file changed, exactly like pins. */
-async function readReminders(
-  storage: VaultStorage,
-  previous: VaultIndex | undefined,
-  snapshot: Map<string, number>,
-): Promise<ReminderRule[]> {
-  let mtime: number
-  try {
-    mtime = await storage.stat(REMINDERS_PATH)
-  } catch {
-    return [] // no meta file: no reminders
-  }
-  snapshot.set(REMINDERS_PATH, mtime)
-  if (previous && previous.snapshot.get(REMINDERS_PATH) === mtime) {
-    return previous.reminders
-  }
-  try {
-    return parseReminders(await storage.read(REMINDERS_PATH))
-  } catch {
-    // Exactly like pins: an unreadable rules file keeps the previous rules and
-    // re-reads on the next scan instead of failing the whole index build.
-    snapshot.delete(REMINDERS_PATH)
-    return previous?.reminders ?? []
+    snapshot.delete(path)
+    return previous === undefined ? fallback : current(previous)
   }
 }
 
@@ -375,28 +359,35 @@ export async function upsertPins(
   current: VaultIndex,
   pins: string[],
 ): Promise<VaultIndex> {
-  await storage.write(PINS_PATH, renderPins(pins))
-  const lastModified = await storage.stat(PINS_PATH)
-  const snapshot = new Map(current.snapshot)
-  snapshot.set(PINS_PATH, lastModified)
+  const snapshot = await writeMetaFile(storage, current, PINS_PATH, pins, renderPins)
   return { graph: current.graph, snapshot, pins, reminders: current.reminders }
 }
 
-/** Write-through for reminder-rule edits (add-reminders), mirroring
- *  `upsertPins`: write the meta file, re-read its mtime, and heal the snapshot
- *  so the next diff-rescan skips it. Non-optimistic by construction — the index
- *  changes only after the write resolves, so a failed write leaves it
- *  consistent with disk. */
+/** Write-through for reminder-rule edits (add-reminders), the same write as
+ *  pins: the meta file, its re-read mtime, and the healed snapshot. */
 export async function upsertReminders(
   storage: VaultStorage,
   current: VaultIndex,
   reminders: ReminderRule[],
 ): Promise<VaultIndex> {
-  await storage.write(REMINDERS_PATH, renderReminders(reminders))
-  const lastModified = await storage.stat(REMINDERS_PATH)
-  const snapshot = new Map(current.snapshot)
-  snapshot.set(REMINDERS_PATH, lastModified)
+  const snapshot = await writeMetaFile(storage, current, REMINDERS_PATH, reminders, renderReminders)
   return { graph: current.graph, snapshot, pins: current.pins, reminders }
+}
+
+/** Write one meta file and heal its snapshot entry, so the next diff-rescan
+ *  skips it. Returns the snapshot the caller folds into its index; the write
+ *  resolves first, so a failed write changes nothing in memory. */
+async function writeMetaFile<T>(
+  storage: VaultStorage,
+  current: VaultIndex,
+  path: string,
+  value: T,
+  render: (value: T) => string,
+): Promise<Map<string, number>> {
+  await storage.write(path, render(value))
+  const snapshot = new Map(current.snapshot)
+  snapshot.set(path, await storage.stat(path))
+  return snapshot
 }
 
 const PINS_HEADER = '# Pinned pages - order is pin order, most recent first'
