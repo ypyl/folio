@@ -1,0 +1,78 @@
+/* The compact navigation bar (give-the-phone-a-navigation-bar, design D1): the
+   phone's footer, a Material navigation bar with three equal destinations. 64px
+   tall plus the bottom safe-area inset; each destination is a full-height third
+   with a 56x32 active indicator, a 24px icon, and a 12px label. */
+
+.bar {
+  height: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--ivory);
+  border-top: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.nav {
+  display: flex;
+  width: 100%;
+  height: 64px;
+}
+
+/* A destination: the whole third of the bar is the target, not just the icon.
+   Column layout: the indicator (which holds the icon) then the label. */
+.destination {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--stone);
+  font: inherit;
+  cursor: pointer;
+}
+
+.destination:hover {
+  color: var(--dark-warm);
+}
+
+.destination:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* The active indicator is the navigation bar's shape signal: it is present only
+   on the shown destination, so the state does not rest on colour alone. */
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 32px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.indicator.active {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.destination[aria-current='page'] .label {
+  color: var(--brand);
+}
+
+.icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+}

@@ -17,6 +17,28 @@
   border-bottom: 1px solid var(--border-soft);
 }
 
+/* The title and the save state stack: the title keeps its 48px target and the
+   12px status line sits under it, outside the title's control so a live region
+   still announces it. */
+.titleBlock {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.status {
+  display: block;
+  padding: 0 8px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--stone);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The view's name: one line, ellipsized, 16px semibold. As a control it takes
    the target height and keeps the text's own alignment. */
 .title {

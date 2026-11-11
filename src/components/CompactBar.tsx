@@ -22,6 +22,7 @@ export function CompactBar({
   titleAction,
   titleLabel,
   actions,
+  status,
 }: {
   /** The view's name, already resolved by App (page, board, folder, view). */
   title: string
@@ -34,6 +35,9 @@ export function CompactBar({
   /** The open page's row menu items. Empty or absent, no actions control is
    *  drawn. */
   actions?: RowMenuItem[]
+  /** The save-state line under the title (give-the-phone-a-navigation-bar):
+   *  announced as a status, and absent on the brand screen. */
+  status?: string | null
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number; trigger: HTMLElement } | null>(null)
   const actionsRef = useRef<HTMLButtonElement | null>(null)
@@ -53,18 +57,25 @@ export function CompactBar({
 
   return (
     <header className={styles.bar}>
-      {titleAction ? (
-        <button
-          type="button"
-          className={styles.title}
-          aria-label={titleLabel ?? title}
-          onClick={titleAction}
-        >
-          {title}
-        </button>
-      ) : (
-        <span className={styles.title}>{title}</span>
-      )}
+      <div className={styles.titleBlock}>
+        {titleAction ? (
+          <button
+            type="button"
+            className={styles.title}
+            aria-label={titleLabel ?? title}
+            onClick={titleAction}
+          >
+            {title}
+          </button>
+        ) : (
+          <span className={styles.title}>{title}</span>
+        )}
+        {status ? (
+          <span className={styles.status} role="status">
+            {status}
+          </span>
+        ) : null}
+      </div>
       {hasActions ? (
         <button
           ref={actionsRef}

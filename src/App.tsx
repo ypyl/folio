@@ -10,6 +10,8 @@ import { SearchResultsView } from './components/SearchResultsView'
 import { ConfirmReminderReplace } from './components/ConfirmReminderReplace'
 import { StatusBar } from './components/StatusBar'
 import { CompactBar } from './components/CompactBar'
+import { CompactNavBar } from './components/CompactNavBar'
+import { saveStateLabel } from './components/saveLabel'
 import type { RowMenuItem } from './components/RowContextMenu'
 import { Tour } from './components/Tour'
 import { PresentationView } from './components/PresentationView'
@@ -753,19 +755,28 @@ function App() {
     [itemKey],
   )
 
-  const toggleCompactView = useCallback(
-    (view: 'nav' | 'meta') => {
-      // The shown view's own control closes it. Only a view the user opened has
-      // an entry to pop: a landing view was never pushed, so it just gives way
-      // to the editor.
-      if (compactView === view && chosenView?.item === itemKey) {
-        setChosenView({ view: 'editor', item: itemKey })
-        history.back()
+  // Selecting a destination (give-the-phone-a-navigation-bar, design D3): the
+  // shown one does nothing, the editor is the base, and leaving the editor
+  // pushes one entry. Switching between the two non-editor views pushes
+  // nothing, so Back returns to the editor in one step.
+  const selectCompactView = useCallback(
+    (view: CompactView) => {
+      if (view === compactView) return
+      if (view === 'editor') {
+        if (chosenView?.item === itemKey && chosenView.view !== 'editor') {
+          // Show the editor now and pop the entry it was opened with; the
+          // popstate handler lands on the same view.
+          setChosenView({ view: 'editor', item: itemKey })
+          history.back()
+          return
+        }
+        setChosenView(null)
         return
       }
-      showCompactView(compactView === view ? 'editor' : view)
+      setChosenView({ view, item: itemKey })
+      if (compactView === 'editor') history.pushState({ folioView: view }, '')
     },
-    [compactView, chosenView, itemKey, showCompactView],
+    [compactView, chosenView, itemKey],
   )
 
   // Back closes the view. The listener never pushes, so the first Back with the
@@ -1419,6 +1430,15 @@ function App() {
             titleAction={barTitleAction}
             titleLabel={barTitleLabel}
             actions={barActions}
+            status={
+              activePath === null
+                ? null
+                : saveStateLabel({
+                    saveState: mode === 'board' ? boardSaveState : saveState,
+                    newPage,
+                    indexing,
+                  })
+            }
           />
         )}
         {/* The strips are the wide composition's: the compact shell shows one
@@ -1640,22 +1660,23 @@ function App() {
           />
         )}
       </div>
-      <StatusBar
-        pagePath={activePath}
-        saveState={mode === 'board' ? boardSaveState : saveState}
-        newPage={newPage}
-        indexing={indexing}
-        compact={compact}
-        view={compactView}
-        onShowView={toggleCompactView}
-        // The active vault's name and the notes it holds: the index's page
-        // count once it lands, and the folder's own count of notes by the same
-        // rule before that (count-the-folders-notes-in-the-status-bar).
-        vaultName={activeFolder?.storage ? activeFolder.name : undefined}
-        noteCount={graph ? graph.pages.size : activeFolder?.noteCount}
-        onRevealPage={canRevealPage ? handleRevealPage : undefined}
-        onLocateDay={journalDay !== null ? handleLocateDay : undefined}
-      />
+      {compact ? (
+        <CompactNavBar view={compactView} onSelect={selectCompactView} />
+      ) : (
+        <StatusBar
+          pagePath={activePath}
+          saveState={mode === 'board' ? boardSaveState : saveState}
+          newPage={newPage}
+          indexing={indexing}
+          // The active vault's name and the notes it holds: the index's page
+          // count once it lands, and the folder's own count of notes by the same
+          // rule before that (count-the-folders-notes-in-the-status-bar).
+          vaultName={activeFolder?.storage ? activeFolder.name : undefined}
+          noteCount={graph ? graph.pages.size : activeFolder?.noteCount}
+          onRevealPage={canRevealPage ? handleRevealPage : undefined}
+          onLocateDay={journalDay !== null ? handleLocateDay : undefined}
+        />
+      )}
       {/* Search spotlight (replace-header-with-spotlight): a modal overlay in
           every app state. Keyed on the folder so a switch remounts it and
           clears the query (search: scoped to the active vault). */}

@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { installVaultPicker, openVault, seedVault, todayJournalPath } from './helpers/vault'
 
 // add-compact-mobile-shell: the compact composition's layout is a media query
@@ -53,18 +53,18 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(await page.locator('.cm-content').count()).toBeGreaterThan(0)
     void todayJournalPath()
 
-    // The app bar's meta control shows the right panel over the editor.
-    await page.getByRole('button', { name: 'Page details', exact: true }).click()
+    // The Details destination shows the right panel over the editor.
+    await page.getByRole('button', { name: 'Details', exact: true }).click()
     await expect(page.locator('.layer-meta')).toBeVisible()
     await expect(page.locator('.cm-content')).toBeHidden()
 
-    // The shown view's own control gives way to the editor.
-    await page.getByRole('button', { name: 'Page details', exact: true }).click()
+    // The Page destination returns to the editor.
+    await page.getByRole('button', { name: 'Page', exact: true }).click()
     await expect(page.locator('.cm-content')).toBeVisible()
     await expect(page.locator('.layer-meta')).toBeHidden()
 
-    // The navigation view covers the editor; a row opens its page in the editor.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    // The Notes destination covers the editor; a row opens its page.
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await expect(navView).toBeVisible()
     await page.getByRole('button', { name: 'Ideas', exact: true }).click()
     await expect(page.locator('.cm-content')).toContainText('Half-formed thoughts.')
@@ -121,17 +121,17 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(await undersized()).toEqual([])
 
     // The navigation view: rail, calendar, summaries, and the listing.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await expect(page.locator('.layer-nav')).toBeVisible()
     expect(await undersized()).toEqual([])
 
     // The meta view: summaries, Contents, and the shortcuts reference.
-    await page.getByRole('button', { name: 'Page details', exact: true }).click()
+    await page.getByRole('button', { name: 'Details', exact: true }).click()
     await expect(page.locator('.layer-meta')).toBeVisible()
     expect(await undersized()).toEqual([])
 
     // The search spotlight.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await page.getByRole('button', { name: 'Open search' }).click()
     await page.locator('dialog[open] input').fill('Half')
     // A result row, its clear control, and the match-case toggle are the
@@ -148,7 +148,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(page.locator('.cm-content')).toBeVisible()
 
     // Open a page from the list and read its name in the app bar.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await page.getByRole('button', { name: 'Ideas', exact: true }).click()
     await expect(page.locator('.cm-content')).toContainText('Half-formed thoughts.')
     const appBar = page.locator('.workspace header')
@@ -181,7 +181,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(await fontOf('.workspace header > *')).toBe('16px')
 
     // The navigation view's labels follow the same scale.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await expect(page.locator('.layer-nav')).toBeVisible()
     expect(await fontOf('#sidebar-pane summary')).toBe('12px')
     expect(await fontOf('#sidebar-pane button[class*="row"]')).toBe('16px')
@@ -226,7 +226,7 @@ test.describe('the compact shell on a phone-sized window', () => {
 
     // A held press on a page row opens the row menu in the navigation view, and
     // the release does not open the page under it.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     const ideas = page.getByRole('button', { name: 'Ideas', exact: true })
     await hold(ideas)
     const menu = page.getByRole('menu')
@@ -242,7 +242,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(menu).toHaveCount(0)
 
     // A held press on a day cell opens the reminder menu for that day.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     const day = page.locator('.layer-nav button[data-date]').nth(10)
     await hold(day)
     await expect(menu).toBeVisible()
@@ -254,7 +254,12 @@ test.describe('the compact shell on a phone-sized window', () => {
     // The demo needs no folder picker, and its Assets page shows a vault image.
     await page.getByRole('button', { name: 'Open the guided demo' }).click()
     await expect(page.locator('.cm-content')).toBeVisible()
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
+    // The demo's listing is longer than the shorter compact viewport; scroll it
+    // so the windowed listing renders the row before clicking it.
+    await page
+      .locator('#sidebar-pane [class*="scrollBody"]')
+      .evaluate((el) => el.scrollTo(0, el.scrollHeight))
     await page.getByRole('button', { name: 'Assets', exact: true }).click()
 
     const image = page.locator('.folio-image img').first()
@@ -279,7 +284,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await expect(page.locator('.layer-nav')).toBeVisible()
 
     await page.goBack()
@@ -289,7 +294,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(page.url()).toContain('/')
   })
 
-  test('the app bar is touch-sized and drops what a phone-width row cannot hold', async ({
+  test('the navigation bar is touch-sized and carries only its destinations', async ({
     page,
   }) => {
     await installVaultPicker(page)
@@ -298,26 +303,20 @@ test.describe('the compact shell on a phone-sized window', () => {
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    // Every control in the bar is at least 48 by 48, view controls included,
-    // and each control carries its label on screen. The session navigation is
-    // not in the bar: it is the sidebar's navigation row, inside the navigation
-    // view (move-nav-controls-to-the-sidebar).
+    // Every destination is at least 48 by 48, and each is its third of the bar.
     const bar = footer(page)
-    const names = ['Navigation', 'Page details']
-    for (const name of names) {
-      const control = bar.getByRole('button', { name })
+    for (const name of ['Notes', 'Page', 'Details']) {
+      const control = bar.getByRole('button', { name, exact: true })
       const box = await control.boundingBox()
       expect(box, `${name} has no box`).not.toBeNull()
       expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(48)
       expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(48)
     }
-    await expect(bar.getByRole('button', { name: 'Navigation' })).toContainText('Notes')
-    await expect(bar.getByRole('button', { name: 'Page details' })).toContainText('Details')
     await expect(bar.getByRole('button', { name: 'Back' })).toHaveCount(0)
     await expect(bar.getByRole('button', { name: 'Today' })).toHaveCount(0)
 
-    // The app bar names the open item; the status bar keeps only the save state
-    // between its controls, and the version and the folder statistics are gone.
+    // The app bar names the open item; the navigation bar carries no status,
+    // folder statistics, or version.
     const appBar = page.locator('.workspace header')
     await expect(appBar).toContainText(todayJournalPath().split('/')[1]!.replace(/\.md$/, ''))
     await expect(bar).not.toContainText(todayJournalPath().split('/')[1]!)
@@ -342,7 +341,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     const journal = page.locator('#sidebar-pane details').first()
     const summary = journal.locator('summary')
     await expect(summary).toBeVisible()
@@ -359,14 +358,14 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(journal).toHaveAttribute('open', '')
     // Today opens the day, so the editor view takes over; come back to the list
     // to check that the summary's own label is still what toggles it.
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await expect(navView(page)).toBeVisible()
     await summary.locator('span').first().click()
     await expect(journal).not.toHaveAttribute('open', '')
     await expect(summary.getByRole('button', { name: 'Back' })).toBeVisible()
   })
 
-  test('the bar marks the open view by shape and tint', async ({ page }) => {
+  test('the navigation bar marks the shown destination by its indicator', async ({ page }) => {
     await installVaultPicker(page)
     await page.goto('/')
     await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
@@ -374,66 +373,69 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(page.locator('.cm-content')).toBeVisible()
 
     const bar = footer(page)
-    const nav = bar.getByRole('button', { name: 'Navigation', exact: true })
-    const meta = bar.getByRole('button', { name: 'Page details', exact: true })
+    const destination = (name: string) => bar.getByRole('button', { name, exact: true })
+    // The indicator is the first child: its tint is the drawn state.
+    const painted = (name: string) =>
+      destination(name).evaluate((el) => {
+        const indicator = el.firstElementChild as HTMLElement
+        return {
+          background: getComputedStyle(indicator).backgroundColor,
+          current: el.getAttribute('aria-current'),
+        }
+      })
 
-    // What the control draws and what it reports, read from the real stylesheet
-    // and the real SVG: jsdom applies neither.
-    const painted = (control: Locator) =>
-      control.evaluate((el) => ({
-        tint: getComputedStyle(el).backgroundColor,
-        panes: el.querySelectorAll('svg path[fill="currentColor"]').length,
-        pressed: el.getAttribute('aria-pressed'),
-      }))
+    // The editor view is shown, so Page is the marked destination.
+    expect(await painted('Page')).toEqual({
+      background: 'rgb(238, 242, 247)',
+      current: 'page',
+    })
+    expect((await painted('Notes')).current).toBeNull()
+    expect((await painted('Details')).background).toBe('rgba(0, 0, 0, 0)')
 
-    // The editor view belongs to neither control, so both are closed: an empty
-    // pane on no tint.
-    expect(await painted(nav)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
-    expect(await painted(meta)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
+    await destination('Notes').click()
+    expect(await painted('Notes')).toEqual({
+      background: 'rgb(238, 242, 247)',
+      current: 'page',
+    })
+    expect((await painted('Page')).current).toBeNull()
 
-    await nav.click()
-    expect(await painted(nav)).toEqual({ tint: 'rgb(238, 242, 247)', panes: 1, pressed: 'true' })
-    expect(await painted(meta)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
+    // The tint is keyed to the state, not the pointer.
+    await destination('Details').hover()
+    expect((await painted('Details')).background).toBe('rgba(0, 0, 0, 0)')
 
-    // The tint is keyed to the state, not the pointer: hovering a closed control
-    // does not make it look open.
-    await meta.hover()
-    expect((await painted(meta)).tint).toBe('rgba(0, 0, 0, 0)')
-
-    await meta.click()
-    expect(await painted(meta)).toEqual({ tint: 'rgb(238, 242, 247)', panes: 1, pressed: 'true' })
-    expect(await painted(nav)).toEqual({ tint: 'rgba(0, 0, 0, 0)', panes: 0, pressed: 'false' })
+    await destination('Details').click()
+    expect(await painted('Details')).toEqual({
+      background: 'rgb(238, 242, 247)',
+      current: 'page',
+    })
+    expect((await painted('Notes')).current).toBeNull()
   })
 
-  test('the two view controls sit at the bar\u2019s two edges', async ({ page }) => {
+  test('the three destinations split the bar into equal thirds', async ({ page }) => {
     await installVaultPicker(page)
     await page.goto('/')
     await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    // Each control is flush with the bar's own content edge, and the two gaps
-    // match: nothing sits between the trailing control and the edge to absorb
-    // free space and leave it short of the border.
-    const edges = await page.evaluate(() => {
-      const bar = document.querySelector('.app-shell > footer') as HTMLElement
-      const style = getComputedStyle(bar)
-      const box = bar.getBoundingClientRect()
-      const leading = bar
-        .querySelector('button[aria-label="Navigation"]')!
-        .getBoundingClientRect()
-      const trailing = bar
-        .querySelector('button[aria-label="Page details"]')!
-        .getBoundingClientRect()
-      return {
-        leadingGap: leading.left - box.left - parseFloat(style.paddingLeft),
-        trailingGap: box.right - parseFloat(style.paddingRight) - trailing.right,
-      }
-    })
-    expect(edges.leadingGap).toBeLessThan(1)
-    expect(edges.trailingGap).toBeLessThan(1)
-    expect(Math.abs(edges.leadingGap - edges.trailingGap)).toBeLessThan(1)
+    const boxes = await footer(page)
+      .locator('nav button')
+      .evaluateAll((buttons) =>
+        buttons.map((el) => {
+          const rect = el.getBoundingClientRect()
+          return { left: rect.left, width: rect.width, height: rect.height }
+        }),
+      )
+    expect(boxes).toHaveLength(3)
+    // Same width within a pixel, edge to edge, and the bar's full 64px height.
+    expect(
+      Math.max(...boxes.map((b) => b.width)) - Math.min(...boxes.map((b) => b.width)),
+    ).toBeLessThan(1)
+    expect(boxes[1].left - boxes[0].left).toBeCloseTo(boxes[0].width, 0)
+    expect(boxes[2].left - boxes[1].left).toBeCloseTo(boxes[1].width, 0)
+    expect(boxes.every((b) => b.height === 64)).toBe(true)
   })
+
 })
 
 test.describe('the wide composition is unchanged', () => {
@@ -448,8 +450,9 @@ test.describe('the wide composition is unchanged', () => {
 
     // No view class, no view controls: the compact shell is not in play.
     await expect(page.locator('.app-shell')).not.toHaveAttribute('class', /view-/)
-    await expect(page.getByRole('button', { name: 'Navigation', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Page details', exact: true })).toHaveCount(0)
+    for (const name of ['Notes', 'Page', 'Details']) {
+      await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
+    }
 
     // Both panes are laid out beside the editor, and both strips fold them.
     const rail = page.locator('.layer-nav > *').first()
@@ -488,7 +491,7 @@ test.describe('the navigation view holds the sidebar whole', () => {
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Notes', exact: true }).click()
     const nav = page.locator('.layer-nav')
     await expect(nav).toBeVisible()
 

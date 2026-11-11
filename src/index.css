@@ -128,7 +128,7 @@ body {
     /* The compact app bar's height, including the top inset: the bar is a
        normal-flow child of the workspace, and the three view layers start
        below it (make-the-phone-read-like-an-app). */
-    --compact-bar-h: calc(56px + env(safe-area-inset-top));
+    --compact-bar-h: calc(64px + env(safe-area-inset-top));
   }
 
   .workspace {

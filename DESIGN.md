@@ -280,8 +280,9 @@ version, and the panel answers what changed.
 
 The compact shell is the app's touch-sized surface, so this rule is about the
 phone and only about the phone. Every control it shows is at least 48 by 48 CSS
-pixels: the compact app bar's title and page-actions control, the status bar's
-two labeled view controls, the Journal row's Back, Forward, and Today, the rail's
+pixels: the compact app bar's title, status line, and page-actions control, the
+navigation bar's three destinations, the Journal row's Back, Forward, and
+Today, the rail's
 controls and a folder entry's close badge, the calendar's month controls and day
 cells, the accordion summaries, a Files row, the right panel's rows and the
 Contents disclosure and its own controls, the brand screen's actions, the search
@@ -300,15 +301,21 @@ text, and tab labels, and no text below 11px. The editor is 16px with 20px
 headings; the wide window keeps its 15px surface. Icons on the phone are 24px, so
 a 48px target does not hold a pointer-sized drawing.
 
-The compact app bar names the view: a 56px bar above the content, a 16px
-semibold title (the open item, the folder, "Details", or "Folio"), and the open
-page's actions at its trailing edge. The status bar below the content keeps the
-save state and the two view controls, and each control carries its label under
-its glyph, so the destination is named on screen and not only to assistive
-technology. The bar's two view controls mark the open view **by shape first**:
-the pane inside the frame is filled while that view is shown and empty while it
-is closed. The recede tint (`--brand-tint`) behind the open control is
-reinforcement, never the signal, so the state survives without colour.
+The compact app bar names the view: a 64px bar above the content, a 16px
+semibold title (the open item, the folder, "Details", or "Folio") with a 12px
+save-state line under it, and the open page's actions at its trailing edge. It is
+the phone's only status surface: the footer below the content is the navigation
+bar, not a status bar, so the two never mix.
+
+The compact navigation bar is the phone's footer: 64px plus the bottom safe-area
+inset, three equal destinations (Notes, Page, Details), each the full bar height
+and a third of its width, with a 24px icon and a 12px label. The shown
+destination carries a 56 by 32 rounded active indicator in `--brand-tint` behind
+its icon, with brand ink on the icon and label; the others carry no indicator
+and tertiary ink. The indicator is the shape signal, so the state never rests on
+colour alone. The whole segment is the target. The wide composition keeps its
+status bar and its breadcrumb, save state, folder statistics, and version; no
+navigation bar exists above the breakpoint.
 
 A phone has no right-click, so **a press held on a row or a calendar day is the
 context-menu gesture**: it opens the menu a right-click opens, and a press that

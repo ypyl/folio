@@ -2882,7 +2882,7 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     }
   })
 
-  it('shows one view at a time from the app bar, and its own control returns', async () => {
+  it('selects a view from the navigation bar, and the shown one does nothing', async () => {
     stubCompact()
     const back = stubBack()
     try {
@@ -2890,20 +2890,20 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
       await openFixture()
       expect(shownView()).toBe('editor')
 
-      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
       expect(shownView()).toBe('nav')
-      expect(screen.getByRole('button', { name: 'Navigation' }).getAttribute('aria-pressed')).toBe(
-        'true',
+      expect(screen.getByRole('button', { name: 'Notes' }).getAttribute('aria-current')).toBe(
+        'page',
       )
 
-      fireEvent.click(screen.getByRole('button', { name: 'Page details' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+      expect(shownView()).toBe('meta')
+      fireEvent.click(screen.getByRole('button', { name: 'Details' }))
       expect(shownView()).toBe('meta')
 
-      fireEvent.click(screen.getByRole('button', { name: 'Page details' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Page' }))
       expect(shownView()).toBe('editor')
-      expect(
-        screen.getByRole('button', { name: 'Page details' }).getAttribute('aria-pressed'),
-      ).toBe('false')
+      expect(screen.getByRole('button', { name: 'Page' }).getAttribute('aria-current')).toBe('page')
     } finally {
       back.mockRestore()
     }
@@ -2917,11 +2917,12 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
       await openFixture()
       const push = vi.spyOn(window.history, 'pushState')
       try {
-        fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
         expect(push).toHaveBeenCalledTimes(1)
-        fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Page' }))
         expect(back).toHaveBeenCalledTimes(1)
-        // Closing pushes nothing: the entry it opened with is the one it pops.
+        // Selecting the editor pushes nothing: the entry it opened with is the
+        // one it pops.
         expect(push).toHaveBeenCalledTimes(1)
       } finally {
         push.mockRestore()
@@ -2954,7 +2955,7 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     stubCompact()
     render(<App />)
     await openFixture()
-    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
     expect(shownView()).toBe('nav')
 
     act(() => {
@@ -2967,7 +2968,7 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     stubCompact()
     render(<App />)
     await openFixture()
-    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
     expect(shownView()).toBe('nav')
 
     fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
@@ -2982,11 +2983,11 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     // Open Welcome, come back to the list, and select the row of the page that
     // is already open: a row is a navigation, so the list must give way even
     // though the open item does not change.
-    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
     fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(shownView()).toBe('editor'))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
     expect(shownView()).toBe('nav')
     fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(shownView()).toBe('editor'))
@@ -2996,7 +2997,7 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     stubCompact()
     render(<App />)
     await openFixture()
-    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
     fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
     await waitFor(() => expect(shownView()).toBe('editor'))
 
@@ -3023,7 +3024,7 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     stubCompact()
     render(<App />)
     await openFixture()
-    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
     await waitFor(() => expect(shownView()).toBe('nav'))
     // The fixture folder's name is the navigation view's title.
     const bar = document.querySelector('.workspace header') as HTMLElement
@@ -3037,8 +3038,8 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
       render(<App />)
       await openFixture()
       const before = editor().focuses
-      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Page' }))
       expect(editor().focuses).toBe(before + 1)
     } finally {
       back.mockRestore()
@@ -3061,8 +3062,9 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     render(<App />)
     await openFixture()
     expect(shownView()).toBeUndefined()
-    expect(screen.queryByRole('button', { name: 'Navigation' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Page details' })).toBeNull()
+    for (const name of ['Notes', 'Page', 'Details']) {
+      expect(screen.queryByRole('button', { name })).toBeNull()
+    }
     // Both collapse strips are still there, and both panes are expanded.
     expect(document.querySelectorAll('[aria-controls="folder-rail sidebar-pane"]')).toHaveLength(1)
     expect(document.querySelectorAll('[aria-controls="meta-panel"]')).toHaveLength(1)
