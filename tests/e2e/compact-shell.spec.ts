@@ -261,6 +261,7 @@ test.describe('the compact shell on a phone-sized window', () => {
   })
 
   test('the Journal row is touch-sized in the navigation view', async ({ page }) => {
+    const navView = (p: import('@playwright/test').Page) => p.locator('.layer-nav')
     await installVaultPicker(page)
     await page.goto('/')
     await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
@@ -282,6 +283,10 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(journal).toHaveAttribute('open', '')
     await summary.getByRole('button', { name: 'Today' }).click()
     await expect(journal).toHaveAttribute('open', '')
+    // Today opens the day, so the editor view takes over; come back to the list
+    // to check that the summary's own label is still what toggles it.
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await expect(navView(page)).toBeVisible()
     await summary.locator('span').first().click()
     await expect(journal).not.toHaveAttribute('open', '')
     await expect(summary.getByRole('button', { name: 'Back' })).toBeVisible()

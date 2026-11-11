@@ -316,6 +316,10 @@ function App() {
   // never on the open page, which it does not read.
   const handleSelect = useCallback(
     (path: string, blocks: number[] = []) => {
+      // The compact shell's shelf view gives way to the item it selects, even
+      // when that item is already open: a row is a navigation, and tapping it
+      // must show the page rather than leave the list in front of it.
+      setChosenView(null)
       // Opening anything leaves the results view (search-results-view); the
       // spotlight keeps the query, so its see-all row returns to it later.
       setMode('page')
@@ -365,6 +369,8 @@ function App() {
   // yet opens blank; its file is written by the first save (design D3).
   const handleOpenBoard = useCallback(
     (path: string) => {
+      // Same rule as handleSelect: a board row shows the board.
+      setChosenView(null)
       setMode('board')
       lastKnown.current = null
       setActivePath(path)

@@ -2974,6 +2974,23 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     expect(editor().content).toContain('lightweight way')
   })
 
+  it('shows the editor when the open page is the row selected', async () => {
+    stubCompact()
+    render(<App />)
+    await openFixture()
+    // Open Welcome, come back to the list, and select the row of the page that
+    // is already open: a row is a navigation, so the list must give way even
+    // though the open item does not change.
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(shownView()).toBe('editor'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
+    expect(shownView()).toBe('nav')
+    fireEvent.click(within(navLayer()).getByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(shownView()).toBe('editor'))
+  })
+
   it('takes focus back into the editor when a chosen view closes', async () => {
     stubCompact()
     const back = stubBack()
