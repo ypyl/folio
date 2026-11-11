@@ -23,6 +23,23 @@ export function escapeAttr(text: string): string {
   return escapeHtml(text).replace(/'/g, '&#39;')
 }
 
+/** The schemes a rendered link may carry: the same allowlist `openExternal`
+ *  applies to a click, so a link reads the same in both places. A destination
+ *  with any other scheme (`javascript:`, `data:`, `file:`, `vbscript:`) is not
+ *  a link this app can open. It matters most in a slide, which has no click
+ *  handler to refuse the press: `dangerouslySetInnerHTML` would make a
+ *  `javascript:` href run its script in the app's own origin. A vault-relative
+ *  destination carries no scheme and stays a link. */
+const LINK_SCHEMES = new Set(['http', 'https', 'mailto'])
+
+/** The destination to write into an anchor, or null when the scheme is not one
+ *  the app opens (then the label renders as text). */
+function safeHref(destination: string): string | null {
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(destination)
+  if (scheme === null) return destination
+  return LINK_SCHEMES.has(scheme[1].toLowerCase()) ? destination : null
+}
+
 /** A reference chip. It carries the target and kind, as the table cell's chip
  *  already does; a slide's chip is display-only. */
 function chipHtml(text: string, target: string, kind: string): string {
@@ -70,7 +87,11 @@ export function renderInline(raw: string): string {
     }
     const link = /^\[([^\]]*)\]\(([^)\s]+)\)/.exec(rest)
     if (link) {
-      out += `<a href="${escapeAttr(link[2])}" data-href="${escapeAttr(link[2])}" target="_blank" rel="noopener noreferrer">${escapeHtml(link[1])}</a>`
+      const href = safeHref(link[2])
+      out +=
+        href === null
+          ? escapeHtml(link[1])
+          : `<a href="${escapeAttr(href)}" data-href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link[1])}</a>`
       at += link[0].length
       continue
     }

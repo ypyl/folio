@@ -15,6 +15,16 @@ describe('renderInline', () => {
     expect(renderInline('<https://example.com>')).toContain('target="_blank"')
   })
 
+  it('renders a destination the app cannot open as plain text', () => {
+    // A slide inserts this HTML raw and has no click handler, so a
+    // `javascript:` href would run its script in the app's own origin.
+    expect(renderInline('[click](javascript:alert%28document.domain%29)')).toBe('click')
+    expect(renderInline('[x](data:text/html,<b>x</b>)')).toBe('x')
+    // The schemes the app opens, and a vault path, stay links.
+    expect(renderInline('[mail](mailto:me@example.com)')).toContain('href="mailto:me@example.com"')
+    expect(renderInline('[report](assets/q3.pdf)')).toContain('href="assets/q3.pdf"')
+  })
+
   it('renders a vault image for the presentation pass to resolve', () => {
     expect(renderInline('![A chart](assets/chart.svg)')).toBe(
       '<img src="assets/chart.svg" alt="A chart" loading="lazy">',
