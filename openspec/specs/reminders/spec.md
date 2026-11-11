@@ -300,9 +300,13 @@ The Journal calendar's day cells SHALL offer a context menu of reminder items
 acting on the currently open page as the target and the clicked day as the
 anchor: `Once, on this day`, `Every day`, `Every week`, `Every month`, and
 `Every year`, under a `Reminder` heading, and only when the open item is a page,
-not a journal day or a board. Only `Once, on this day` SHALL be unavailable for a
-day before today. Choosing a recurrence SHALL ask for confirmation before it
-replaces a rule the page already has.
+not a journal day or a board. The context-menu gesture SHALL be a pointer
+right-click, the keyboard gesture for a context menu on the focused cell, or, on
+a touch-primary device, a press held on the cell; a press that moves (a scroll)
+or is released before the hold SHALL NOT open the menu, and releasing the press
+after the menu opened SHALL NOT choose the day. Only `Once, on this day` SHALL be
+unavailable for a day before today. Choosing a recurrence SHALL ask for
+confirmation before it replaces a rule the page already has.
 
 #### Scenario: A once reminder is anchored on the clicked day
 
@@ -324,6 +328,18 @@ replaces a rule the page already has.
   replacement
 - **THEN** the page has one rule, the new anchor and recurrence, and the old rule
   is gone
+
+#### Scenario: A press and hold opens the day menu on a touch device
+
+- **GIVEN** a touch-primary device, an open page, and the navigation view shown
+- **WHEN** the user presses and holds a calendar day
+- **THEN** that day's reminder menu opens, and that day does not open
+
+#### Scenario: A tap on a day opens it
+
+- **GIVEN** a touch-primary device and the navigation view shown
+- **WHEN** the user presses and releases a calendar day without holding
+- **THEN** that day opens and no menu opens
 
 #### Scenario: No reminder items without an open page
 

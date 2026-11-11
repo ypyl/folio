@@ -94,15 +94,19 @@ extra control. Unfavorited rows SHALL render with the normal row style.
 ### Requirement: A page row opens a menu of row actions
 
 A page row in the Files listing SHALL open a menu when the user invokes the
-context-menu gesture on it — a pointer right-click, or the keyboard gesture for
-a context menu while the row has focus. The menu SHALL hold the favorite item
-labelled "Favorite" or "Unfavorite" to match the state, a `Remove reminder` item
-when the row's page has a reminder rule, and a "Present" item, in that order. A
-menu item MAY carry a description shown beneath its label as a smaller, muted
-line, which assistive technology reads as the item's description rather than as
-part of its name. The menu SHALL open for page rows only: a board row, an asset
-row, and a journal day cell SHALL have no menu. The row SHALL carry no visible
-trigger for it.
+context-menu gesture on it — a pointer right-click, the keyboard gesture for a
+context menu while the row has focus, or, on a touch-primary device, a press
+held on the row. The hold SHALL be a press that the pointer keeps still for a
+short interval; a press that moves (a scroll) or is released before that
+interval SHALL NOT open the menu and SHALL keep the row's ordinary tap behavior,
+and releasing the press after the menu opened SHALL NOT activate the row under
+it. The menu SHALL hold the favorite item labelled "Favorite" or "Unfavorite" to
+match the state, a `Remove reminder` item when the row's page has a reminder
+rule, and a "Present" item, in that order. A menu item MAY carry a description
+shown beneath its label as a smaller, muted line, which assistive technology
+reads as the item's description rather than as part of its name. The menu SHALL
+open for page rows only: a board row, an asset row, and a journal day cell SHALL
+have no menu. The row SHALL carry no visible trigger for it.
 
 #### Scenario: Right-clicking a page row opens the menu
 
@@ -114,6 +118,30 @@ trigger for it.
 - **WHEN** a page row has keyboard focus and the user invokes the context-menu
   gesture
 - **THEN** the row's menu opens, positioned at the row
+
+#### Scenario: A press and hold opens the menu on a touch device
+
+- **GIVEN** a touch-primary device and the navigation view shown
+- **WHEN** the user presses and holds a page row
+- **THEN** the row's menu opens at the press, without the row's page opening
+
+#### Scenario: Releasing the hold activates nothing
+
+- **GIVEN** a touch-primary device and a page row's menu open from a hold
+- **WHEN** the user lifts the pointer
+- **THEN** the menu stays open and the row's page does not open
+
+#### Scenario: A tap opens the page
+
+- **GIVEN** a touch-primary device and the navigation view shown
+- **WHEN** the user presses and releases a page row without holding
+- **THEN** that page opens and no menu opens
+
+#### Scenario: A hold that moves is a scroll
+
+- **GIVEN** a touch-primary device and a listing longer than its view
+- **WHEN** the user presses a row and drags it to scroll the listing
+- **THEN** the listing scrolls and no menu opens
 
 #### Scenario: Non-page rows have no menu
 

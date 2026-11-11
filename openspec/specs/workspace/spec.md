@@ -641,7 +641,11 @@ additionally offer the one-time Logseq import and host that import's progress an
 result states. Where the app tour is available (viewports wider than the compact
 breakpoint), the screen SHALL also offer a tour reference that opens the app
 tour, and that reference SHALL name the rail's tour control as the tour's other
-home.
+home. At or below the compact breakpoint, where the shell shows one view at a
+time and the folder rail is not on screen, the screen SHALL also offer an
+open-folder action where the browser can open folders, as the action the
+screen's own headline names, and activating it SHALL open the folder picker and
+add the chosen folder exactly as the rail's add control does.
 
 In every no-folder state, whether or not the browser can open local folders, the
 screen SHALL also show, below the position the import action occupies, a line
@@ -710,6 +714,21 @@ than clip it, and the content SHALL stay centered while it fits.
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the brand screen shows
 - **THEN** it shows no control that opens the app tour
+
+#### Scenario: The compact brand screen opens a folder
+
+- **GIVEN** a viewport at or below the compact breakpoint, a browser that can open
+  local folders, and no active folder
+- **WHEN** the brand screen shows
+- **THEN** it offers an open-folder action beside the guided demo, and activating
+  it opens the folder picker and adds the chosen folder
+
+#### Scenario: The compact brand screen offers no folder action it cannot perform
+
+- **GIVEN** a viewport at or below the compact breakpoint and a browser that
+  cannot open local folders
+- **WHEN** the brand screen shows
+- **THEN** it shows the browser requirement and no open-folder action
 
 #### Scenario: The brand screen shows while folders are listed
 
@@ -798,9 +817,12 @@ no collapse strips and SHALL NOT fold a pane. Which view is shown SHALL last
 only for the session, resetting on reload and never being written to the vault,
 to IndexedDB, or to any other store.
 
-With no page open the shell SHALL show the navigation view; with a page open it
-SHALL show the editor view. Selecting a row in the navigation view SHALL show
-the editor view. Activating the navigation or meta view control SHALL show that
+The landing view SHALL follow what is open: with no folder open it SHALL be the
+editor view, whose center pane is the brand screen; with a folder open and
+nothing open in it, the navigation view; with an item open, the editor view.
+Returning home — by activating the brand or by closing the active folder — SHALL
+land on the brand screen. Selecting a row in the navigation view SHALL show the
+editor view. Activating the navigation or meta view control SHALL show that
 view, and activating the control of the view already shown SHALL return to the
 editor view. Showing a view SHALL push a history entry, so the browser's back
 step — the Android Back button and the Back gesture — returns to the editor view
@@ -808,9 +830,16 @@ instead of leaving the app. Showing a view SHALL change nothing else: it SHALL
 NOT navigate, change the open page or its content, change the search spotlight's
 state, or write to the vault.
 
+#### Scenario: The brand screen is the landing view with no folder open
+
+- **GIVEN** a viewport at or below the compact breakpoint and no folder active
+- **WHEN** the app loads
+- **THEN** the editor view is shown and its center pane is the brand screen
+
 #### Scenario: The navigation view is the landing view with nothing open
 
-- **GIVEN** a viewport at or below the compact breakpoint and no page open
+- **GIVEN** a viewport at or below the compact breakpoint, a folder open, and no
+  page open
 - **WHEN** the app loads
 - **THEN** the navigation view is shown
 
@@ -819,6 +848,12 @@ state, or write to the vault.
 - **GIVEN** a viewport at or below the compact breakpoint and a page open
 - **WHEN** the app loads
 - **THEN** the editor view is shown
+
+#### Scenario: Returning home shows the brand screen
+
+- **GIVEN** a viewport at or below the compact breakpoint and an active folder
+- **WHEN** the user activates the brand or closes the active folder
+- **THEN** the brand screen is shown, not the navigation view
 
 #### Scenario: Selecting a row shows the editor
 
@@ -860,9 +895,17 @@ state, or write to the vault.
 
 ### Requirement: Compact controls are touch-sized and clear the device's safe areas
 
-At or below the compact breakpoint, every control in the status bar and every
-control of the Journal summary's session navigation SHALL have a target of at
-least 44 by 44 CSS pixels. The status bar SHALL pad itself with the device's safe-area insets,
+At or below the compact breakpoint, every control the shell shows SHALL have a
+target of at least 44 by 44 CSS pixels. The rule covers the controls of the
+status bar and the Journal row, the folder rail's controls and a folder entry's
+close control, the accordion summaries, the calendar's month controls and day
+cells, the Files listing's rows, the right panel's rows and its Contents
+disclosure and expand/collapse controls, the status bar's open-item name, the
+brand screen's actions, the search spotlight's controls and rows, the menus'
+items, and the presentation view's controls. A target MAY be larger than the
+mark it draws; where a control's drawn mark is smaller than the minimum, an
+invisible hit area SHALL make up the difference. The status bar SHALL pad itself
+with the device's safe-area insets,
 so no control sits under a notch, a rounded corner, or the home indicator, and
 the shell SHALL size itself to the viewport height that remains visible, so the
 on-screen keyboard shrinks the shell rather than covering the bottom of the
@@ -879,6 +922,40 @@ editor.
 - **GIVEN** a viewport at or below the compact breakpoint and the navigation view shown
 - **WHEN** the sidebar renders
 - **THEN** Back, Forward, and Today are each at least 44 by 44 CSS pixels
+
+#### Scenario: The rail's controls meet the minimum target
+
+- **GIVEN** a viewport at or below the compact breakpoint and a folder listed
+- **WHEN** the navigation view is shown
+- **THEN** the brand, search, add, and each folder entry are at least 44 by 44
+  CSS pixels, and so is the folder entry's close control
+
+#### Scenario: The calendar's cells meet the minimum target
+
+- **GIVEN** a viewport at or below the compact breakpoint and a folder open
+- **WHEN** the navigation view is shown
+- **THEN** the month controls and every day cell are at least 44 by 44 CSS
+  pixels
+
+#### Scenario: The listings and summaries meet the minimum target
+
+- **GIVEN** a viewport at or below the compact breakpoint and a folder open
+- **WHEN** the navigation or meta view is shown
+- **THEN** each accordion summary, each Files row, each right-panel row, and the
+  Contents disclosure and its controls are at least 44 by 44 CSS pixels
+
+#### Scenario: The open item's name meets the minimum target
+
+- **GIVEN** a viewport at or below the compact breakpoint and a page with a Files
+  row open
+- **WHEN** the shell renders
+- **THEN** the status bar's name control is at least 44 by 44 CSS pixels
+
+#### Scenario: The overlay surfaces' controls meet the minimum target
+
+- **GIVEN** a viewport at or below the compact breakpoint
+- **WHEN** the brand screen, the search spotlight, or a menu renders
+- **THEN** every control and row it shows is at least 44 by 44 CSS pixels
 
 #### Scenario: The bar clears the safe areas
 

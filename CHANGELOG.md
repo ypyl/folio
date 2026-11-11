@@ -6,6 +6,7 @@ and for nothing else. The status bar's version badge reads this file.
 
 ## 2026-11-11
 
+- make the app usable on a phone
 - record the import's source files a batch at a time
 - walk the folder again when a cached directory handle is stale
 - normalize a terminal whitespace line to the page's one empty line
@@ -63,4 +64,3 @@ and for nothing else. The status bar's version badge reads this file.
 - open the app when the folder registry cannot be read
 - keep a pending write in its own folder across a switch
 - open the vault past a page the scan cannot read
-- drop a board read that lands after another board opened
