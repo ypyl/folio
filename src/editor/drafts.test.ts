@@ -47,7 +47,7 @@ describe('DraftStore (design C1)', () => {
     store.edit('a.md', 'edited')
     store.beginSave('a.md')
     expect(store.get('a.md')!.status).toBe('saving')
-    store.succeed('a.md')
+    store.succeed('a.md', 'edited')
     expect(store.get('a.md')).toEqual({ content: 'edited', saved: 'edited', status: 'clean' })
 
     store.edit('a.md', 'edited-again')
@@ -55,6 +55,18 @@ describe('DraftStore (design C1)', () => {
     store.fail('a.md')
     expect(store.get('a.md')!.status).toBe('failed')
     expect(store.get('a.md')!.content).toBe('edited-again') // draft kept
+  })
+
+  it('stays dirty when an edit arrives while the write is in flight', () => {
+    // The write carried 'first'; 'second' was typed before it resolved, so the
+    // file does not hold it and the draft must not report it as saved.
+    const store = new DraftStore()
+    store.open('a.md', '')
+    store.edit('a.md', 'first')
+    store.beginSave('a.md')
+    store.edit('a.md', 'second')
+    store.succeed('a.md', 'first')
+    expect(store.get('a.md')).toEqual({ content: 'second', saved: 'first', status: 'dirty' })
   })
 
   it('clear drops every draft', () => {

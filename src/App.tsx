@@ -835,7 +835,9 @@ function App() {
       drafts.beginSave(path)
       setDraftVersion((v) => v + 1)
       const ok = await savePage(path, content)
-      if (ok) drafts.succeed(path)
+      // The written text, not the draft's: an edit that arrived during the write
+      // must stay dirty so the next flush carries it (design C2).
+      if (ok) drafts.succeed(path, content)
       else drafts.fail(path)
       setDraftVersion((v) => v + 1)
       return ok

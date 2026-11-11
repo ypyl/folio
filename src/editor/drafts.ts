@@ -44,11 +44,15 @@ export class DraftStore {
     if (draft) draft.status = 'saving'
   }
 
-  succeed(path: string): void {
+  /** Record a save that landed: `written` is the text the file now holds, which
+   *  is not necessarily what the draft holds. An edit that arrived while the
+   *  write was in flight leaves the draft dirty, so the caller's next schedule
+   *  writes it and the bar does not claim the newer text is saved. */
+  succeed(path: string, written: string): void {
     const draft = this.drafts.get(path)
     if (!draft) return
-    draft.saved = draft.content
-    draft.status = 'clean'
+    draft.saved = written
+    draft.status = draft.content === written ? 'clean' : 'dirty'
   }
 
   fail(path: string): void {
