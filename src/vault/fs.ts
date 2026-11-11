@@ -70,7 +70,9 @@ export class FileSystemVaultStorage implements VaultStorage {
    *  Caching the promise, not the handle, is what makes it hold under the
    *  scan's concurrency: 16 workers reaching the same directory at once share
    *  the one request instead of stampeding it. Only successful lookups stay
-   *  cached, so a directory created outside the app resolves on the next try. */
+   *  cached, so a directory created outside the app resolves on the next try,
+   *  and a write through a handle whose directory was removed outside the app
+   *  drops the cache and walks again (see `writeFile`). */
   private readonly dirs = new Map<string, Promise<FileSystemDirectoryHandle>>()
 
   constructor(root: FileSystemDirectoryHandle) {
@@ -103,6 +105,21 @@ export class FileSystemVaultStorage implements VaultStorage {
   /** Create or overwrite the file at `path` with text or raw bytes. */
   private async writeFile(path: string, data: string | Blob): Promise<void> {
     const segments = parseFilePath(path)
+    try {
+      await this.writeAt(segments, data)
+    } catch (error) {
+      // A cached directory handle outlives its directory when the folder is
+      // removed outside the app, and every write through it then fails with
+      // NotFoundError. Drop the cache and walk from the root once more, so a
+      // directory that is back — or that this write recreates — heals in the
+      // session instead of failing until a reload.
+      if ((error as { name?: string }).name !== 'NotFoundError') throw error
+      this.dirs.clear()
+      await this.writeAt(segments, data)
+    }
+  }
+
+  private async writeAt(segments: string[], data: string | Blob): Promise<void> {
     const parent = await this.resolveDir(segments.slice(0, -1), { create: true })
     const file = await parent.getFileHandle(lastSegment(segments), { create: true })
     const writable = await file.createWritable()

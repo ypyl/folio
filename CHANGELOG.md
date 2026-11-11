@@ -6,6 +6,7 @@ and for nothing else. The status bar's version badge reads this file.
 
 ## 2026-11-11
 
+- walk the folder again when a cached directory handle is stale
 - normalize a terminal whitespace line to the page's one empty line
 - never let two flushes write the same page at once
 - read the folder again after a failed scan
@@ -63,7 +64,3 @@ and for nothing else. The status bar's version badge reads this file.
 - open the vault past a page the scan cannot read
 - drop a board read that lands after another board opened
 - stop counting a ticked reminder
-
-## 2026-10-25
-
-- render GFM task items as checkboxes

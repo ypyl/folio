@@ -98,6 +98,24 @@ describe('FileSystemVaultStorage', () => {
     await expect(vault.read('a/b/c.md')).resolves.toBe('c')
   })
 
+  it('restarts the directory walk when a cached handle went stale', async () => {
+    // `assets/` is resolved once and its handle cached; deleting the folder
+    // outside the app leaves that handle pointing at nothing, so a write
+    // through it fails the way the browser fails it. The retry walks from the
+    // root, which has no `assets/` child any more, and recreates it.
+    const root = buildTree(VAULT)
+    const vault = new FileSystemVaultStorage(root as unknown as FileSystemDirectoryHandle)
+    await vault.writeBinary('assets/first.png', new Blob(['one']))
+    const stale = root.children.get('assets') as FakeDirectoryHandle
+    root.children.delete('assets')
+    vi.spyOn(stale, 'getFileHandle').mockRejectedValue(
+      new DOMException('Directory not found', 'NotFoundError'),
+    )
+
+    await vault.writeBinary('assets/second.png', new Blob(['two']))
+    expect(await vault.list('')).toContain('assets/second.png')
+  })
+
   it('overwrites an existing file', async () => {
     const vault = fakeVault(VAULT)
     await vault.write('welcome.md', 'v2')
