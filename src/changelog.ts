@@ -15,7 +15,7 @@ export type Change = {
 
 /** How many entries the panel shows. The file keeps more, so this can grow
  *  without regenerating it. */
-export const RECENT_CHANGES_SHOWN = 20
+const RECENT_CHANGES_SHOWN = 20
 
 const DATE_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/
 const BULLET = /^-\s+(.+)$/

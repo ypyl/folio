@@ -94,10 +94,9 @@ test('the version badge lists the build’s recent changes', async ({ page }) =>
   await page.goto('/')
 
   const badge = page.getByRole('button', { name: /show the recent changes$/ })
-  // The panel is named by its heading; the heading's text also appears in an
-  // entry once "recent changes" landed itself, so find it by its accessible
-  // name rather than by that text.
-  const panel = page.getByLabel('Recent changes', { exact: true })
+  // Named by its heading, so it is found by that name rather than by text that
+  // an entry may also carry.
+  const panel = page.getByRole('group', { name: 'Recent changes' })
   await expect(badge).toBeVisible()
   await expect(badge).toHaveAttribute('aria-expanded', 'false')
   await expect(panel).toBeHidden()

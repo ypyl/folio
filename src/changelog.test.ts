@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { RECENT_CHANGES_SHOWN, parseChangelog, recentChanges } from './changelog'
+import source from '../CHANGELOG.md?raw'
+import { parseChangelog, recentChanges } from './changelog'
 
 // The bundled changelog (show-recent-changes-from-the-version-badge): the file
 // is generated from the commit history, and the app reads it as text. The
@@ -75,7 +76,11 @@ describe('recentChanges', () => {
     }
   })
 
-  it('shows no more than the panel holds', () => {
-    expect(recentChanges.length).toBeLessThanOrEqual(RECENT_CHANGES_SHOWN)
+  it('shows the newest entries only, past what the file keeps', () => {
+    // The panel's cap: the file holds more than it shows, and what it shows is
+    // its first entries.
+    const all = parseChangelog(source)
+    expect(recentChanges).toEqual(all.slice(0, recentChanges.length))
+    expect(recentChanges.length).toBeLessThan(all.length)
   })
 })

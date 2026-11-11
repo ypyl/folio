@@ -123,7 +123,9 @@ function VersionBadge() {
         {label}
       </button>
       {open && (
-        <div className={styles.changes} id={panelId} aria-labelledby={headingId}>
+        // A named group rather than a bare box: the heading names the panel in
+        // the accessibility tree, and a test can ask for it by that name.
+        <div className={styles.changes} id={panelId} role="group" aria-labelledby={headingId}>
           <p className={styles.changesHeading} id={headingId}>
             Recent changes
           </p>
