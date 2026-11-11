@@ -109,3 +109,24 @@
   color: var(--stone);
   opacity: 0.55;
 }
+
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   a day cell and the two month controls reach 44, which still fits six rows and
+   the header inside the navigation view's Journal band at a phone's width. The
+   2px column gap goes at this width so all seven cells can reach 44 on a 390px
+   screen; both rows carry it, so the weekdays stay over their columns. */
+@media (max-width: 640px) {
+  .navBtn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .day {
+    min-height: 44px;
+  }
+
+  .weekdays,
+  .grid {
+    gap: 2px 0;
+  }
+}

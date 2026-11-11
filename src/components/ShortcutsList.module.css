@@ -114,3 +114,16 @@ button.kbd:disabled {
   opacity: 0.45;
   cursor: default;
 }
+
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   a bound chip is a control that applies its chord, so it reaches the minimum
+   target. The row grows around it; the reference still reads as a list. */
+@media (max-width: 640px) {
+  button.kbd {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

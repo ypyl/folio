@@ -29,17 +29,21 @@ test.describe('the compact shell on a phone-sized window', () => {
     await installVaultPicker(page)
     await page.goto('/')
 
-    // With nothing open the navigation view leads, so a first run lands on the
-    // folder picker's control.
     const navView = page.locator('.layer-nav')
-    await expect(navView).toBeVisible()
-    await expect(page.locator('.layer-main')).toBeHidden()
+    const main = page.locator('.layer-main')
+
+    // With no folder the brand screen leads: it carries the folder action, the
+    // demo, and the browser requirement, while the navigation view has no
+    // folder content to show (make-the-app-usable-on-a-phone).
+    await expect(main).toBeVisible()
+    await expect(navView).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Open folder', exact: true })).toBeVisible()
     // Neither collapse strip exists on compact, and nothing overflows.
     await expect(page.locator('[aria-controls="folder-rail sidebar-pane"]')).toHaveCount(0)
     await expect(page.locator('[aria-controls="meta-panel"]')).toHaveCount(0)
     await expectNoSidewaysScroll(page)
 
-    // Opening a vault opens today's journal, which returns the editor view.
+    // Opening a vault opens today's journal, which keeps the editor view.
     await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
@@ -65,6 +69,139 @@ test.describe('the compact shell on a phone-sized window', () => {
     await page.getByRole('button', { name: 'Ideas', exact: true }).click()
     await expect(page.locator('.cm-content')).toContainText('Half-formed thoughts.')
     await expect(navView).toBeHidden()
+  })
+
+  test('every control the compact shell shows is thumb-sized', async ({ page }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    // Every visible button, link, summary, input, and role=button box in the
+    // shell is at least 44 by 44 CSS pixels (make-the-app-usable-on-a-phone,
+    // DESIGN.md "Touch targets and safe areas"). Two controls are measured by
+    // their target rather than their mark: the folder entry's close badge keeps
+    // an 18px mark inside a 44px transparent hit area, so its target is the
+    // pseudo-element's box, and the GFM task checkbox inside the editor stays at
+    // its text size by spec, so it is excluded by name.
+    const undersized = () =>
+      page.evaluate(() => {
+        const found: string[] = []
+        const nodes = document.querySelectorAll(
+          'button, a, summary, input, select, textarea, [role="button"]',
+        )
+        for (const node of nodes) {
+          if (node.classList.contains('folio-task')) continue
+          const rect = node.getBoundingClientRect()
+          const style = getComputedStyle(node)
+          if (rect.width === 0 || rect.height === 0) continue
+          if (style.visibility === 'hidden' || style.display === 'none') continue
+          let width = rect.width
+          let height = rect.height
+          if (node.getAttribute('aria-label')?.startsWith('Close folder')) {
+            const hit = getComputedStyle(node, '::before')
+            width = parseFloat(hit.width)
+            height = parseFloat(hit.height)
+          }
+          if (width < 44 || height < 44) {
+            const name =
+              node.getAttribute('aria-label') || (node.textContent ?? '').trim().slice(0, 30)
+            found.push(
+              `${name || node.tagName.toLowerCase()} ${Math.round(width)}x${Math.round(height)}`,
+            )
+          }
+        }
+        return found
+      })
+
+    // The brand screen's actions (measured before a folder was opened).
+    expect(await undersized()).toEqual([])
+
+    // The navigation view: rail, calendar, summaries, and the listing.
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await expect(page.locator('.layer-nav')).toBeVisible()
+    expect(await undersized()).toEqual([])
+
+    // The meta view: summaries, Contents, and the shortcuts reference.
+    await page.getByRole('button', { name: 'Page details', exact: true }).click()
+    await expect(page.locator('.layer-meta')).toBeVisible()
+    expect(await undersized()).toEqual([])
+
+    // The search spotlight.
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Open search' }).click()
+    await page.locator('dialog[open] input').fill('Half')
+    // A result row, its clear control, and the match-case toggle are the
+    // spotlight's own controls; the page's row is the dropdown's target.
+    await expect(page.locator('dialog[open]')).toContainText('Ideas')
+    expect(await undersized()).toEqual([])
+  })
+
+  test('a held press opens the menu a right-click opens, and a tap still taps', async ({
+    page,
+  }) => {
+    await installVaultPicker(page)
+    await page.goto('/')
+    await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
+    await openVault(page)
+    await expect(page.locator('.cm-content')).toBeVisible()
+
+    const hold = async (locator: import('@playwright/test').Locator) => {
+      const box = await locator.boundingBox()
+      expect(box, 'the pressed control has no box').not.toBeNull()
+      const point = { clientX: box!.x + 20, clientY: box!.y + 10 }
+      await locator.dispatchEvent('pointerdown', { pointerType: 'touch', ...point })
+      await page.waitForTimeout(600)
+      await locator.dispatchEvent('pointerup', { pointerType: 'touch', ...point })
+    }
+
+    // A held press on a page row opens the row menu in the navigation view, and
+    // the release does not open the page under it.
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    const ideas = page.getByRole('button', { name: 'Ideas', exact: true })
+    await hold(ideas)
+    const menu = page.getByRole('menu')
+    await expect(menu).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Favorite' })).toBeVisible()
+    await expect(page.locator('.layer-nav')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+
+    // A short press is still a tap: the page opens and no menu appears.
+    await ideas.click()
+    await expect(page.locator('.cm-content')).toContainText('Half-formed thoughts.')
+    await expect(menu).toHaveCount(0)
+
+    // A held press on a day cell opens the reminder menu for that day.
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    const day = page.locator('.layer-nav button[data-date]').nth(10)
+    await hold(day)
+    await expect(menu).toBeVisible()
+    await expect(menu.getByRole('group', { name: 'Reminder' })).toBeVisible()
+  })
+
+  test('a vault image keeps its fitted size and offers no expand control', async ({ page }) => {
+    await page.goto('/')
+    // The demo needs no folder picker, and its Assets page shows a vault image.
+    await page.getByRole('button', { name: 'Open the guided demo' }).click()
+    await expect(page.locator('.cm-content')).toBeVisible()
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Assets', exact: true }).click()
+
+    const image = page.locator('.folio-image img').first()
+    await expect(image).toBeVisible()
+    // A phone has no pointer to hover the control out with, and an image
+    // expanded past the pane could only be panned sideways, so the fitted size
+    // is the only size it shows (make-the-app-usable-on-a-phone). The control's
+    // node view stays mounted so a window crossing back over the breakpoint
+    // keeps its state; the stylesheet is what takes it out of the shell.
+    await expect(page.locator('.folio-image-control')).toBeHidden()
+    const fitted = await image.evaluate((img) => {
+      const pane = img.closest('.cm-scroller') as HTMLElement
+      return { image: img.getBoundingClientRect().width, pane: pane.getBoundingClientRect().width }
+    })
+    expect(fitted.image).toBeLessThanOrEqual(fitted.pane)
   })
 
   test('the browser back step closes a view instead of leaving the app', async ({ page }) => {
@@ -247,6 +384,18 @@ test.describe('the wide composition is unchanged', () => {
 
     // The wide bar keeps the version and the folder statistics.
     await expect(footer(page)).toContainText('v0.')
+  })
+
+  test('a vault image keeps its expand control above the breakpoint', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Open the guided demo' }).click()
+    await expect(page.locator('.cm-content')).toBeVisible()
+    await page.getByRole('button', { name: 'Assets', exact: true }).click()
+    const image = page.locator('.folio-image').first()
+    await image.hover()
+    // The compact hide is a media query, so the control it takes away must still
+    // be here on a wide window (make-the-app-usable-on-a-phone).
+    await expect(page.getByRole('button', { name: 'Expand image' })).toBeVisible()
   })
 })
 

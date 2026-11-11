@@ -80,3 +80,12 @@
 .accordion:not([open]) .body {
   display: none;
 }
+
+/* The compact shell's summaries are controls, so they are touch-sized
+   (make-the-app-usable-on-a-phone, DESIGN.md). The row grows; its own actions
+   keep the negative block margin that holds them inside it. */
+@media (max-width: 640px) {
+  .summary {
+    min-height: 44px;
+  }
+}

@@ -62,6 +62,15 @@
   outline-offset: -2px;
 }
 
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   a menu item is a 44px target, its label and description centered in it. */
+@media (max-width: 640px) {
+  .item {
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
 /* An optional group name (add-reminder-menu-heading): a muted caption above the
    items, so the menu reads as a named group. Not interactive: the items below
    keep the keyboard model. */

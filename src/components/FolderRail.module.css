@@ -213,3 +213,33 @@
   color: var(--dark-warm);
   border-color: var(--dark-warm);
 }
+
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   the rail's column is 44 wide inside its padding, so its controls and the
+   folder entries fill it, and the close badge keeps its 18px mark while the
+   corner it sits in answers to 44. */
+@media (max-width: 640px) {
+  .brand,
+  .search,
+  .add,
+  .avatar,
+  .tour {
+    width: 44px;
+    height: 44px;
+  }
+
+  .entry {
+    width: 44px;
+    height: 44px;
+  }
+
+  .close::before {
+    content: '';
+    position: absolute;
+    /* The badge's 18px box is the border box, so its padding box — what an
+       absolutely positioned child is measured against — is 16px; -14 makes the
+       transparent hit area 44. */
+    inset: -14px;
+    border-radius: 50%;
+  }
+}

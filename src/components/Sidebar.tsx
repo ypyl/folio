@@ -15,7 +15,9 @@ import {
 import { Accordion } from './Accordion'
 import { JournalCalendar } from './JournalCalendar'
 import { RowContextMenu } from './RowContextMenu'
-import { ROW_STRIDE, windowPieces } from './pageWindow'
+import { useLongPress } from './longPress'
+import { COMPACT_ROW_STRIDE, ROW_STRIDE, windowPieces } from './pageWindow'
+import { useCompact } from '../compact'
 import type { Page } from '../page'
 import { isReferenceable } from '../vault/parse'
 import { localDayString } from '../vault/index'
@@ -226,6 +228,12 @@ export const Sidebar = memo(
     // has to be open before anything inside it can take focus.
     const [locate, setLocate] = useState<{ date: string; tick: number } | null>(null)
     const [view, setView] = useState<ListView>(UNMEASURED)
+    // The listing's row height is a media query's decision (a touch-sized row at
+    // the compact breakpoint) and the windowing arithmetic needs the same
+    // number, so the breakpoint is read here as well as in the stylesheet that
+    // draws the row (make-the-app-usable-on-a-phone).
+    const compact = useCompact()
+    const rowStride = compact ? COMPACT_ROW_STRIDE : ROW_STRIDE
 
     const measure = useCallback(() => {
       const next = measureList(bodyRef.current, listRef.current)
@@ -272,8 +280,8 @@ export const Sidebar = memo(
     )
 
     const pieces = useMemo(
-      () => windowPieces({ total: rows.length, ...view, keep: activeIndex }),
-      [rows.length, view, activeIndex],
+      () => windowPieces({ total: rows.length, ...view, stride: rowStride, keep: activeIndex }),
+      [rows.length, view, activeIndex, rowStride],
     )
 
     // The page-row context menu (add-row-context-menu, row-context-menu spec):
@@ -301,36 +309,54 @@ export const Sidebar = memo(
     // Open the menu at the invocation point. Chromium fires `contextmenu` for a
     // right-click and for `Shift+F10`/the Menu key; the keyboard invocation
     // reports zero coordinates, so it anchors at the focused row instead.
+    const openMenuAt = (trigger: HTMLElement, x: number, y: number, path: string) => {
+      setMenu({ path, x, y, trigger })
+    }
+
     const openMenu = (e: ReactMouseEvent<HTMLButtonElement>, path: string) => {
       e.preventDefault()
       const trigger = e.currentTarget
       const rect = trigger.getBoundingClientRect()
       const keyboard = e.clientX === 0 && e.clientY === 0
-      setMenu({
-        path,
-        x: keyboard ? rect.left : e.clientX,
-        y: keyboard ? rect.bottom : e.clientY,
+      openMenuAt(
         trigger,
-      })
+        keyboard ? rect.left : e.clientX,
+        keyboard ? rect.bottom : e.clientY,
+        path,
+      )
     }
 
     // Open the day's menu when a page is open to remind about; otherwise the day
     // cell keeps the browser's own menu (no reminder items). Any day opens it
     // (disable-once-for-past-days); the only thing the past takes away is the
     // `Once, on this day` item below.
+    const openDayMenuAt = (trigger: HTMLElement, x: number, y: number, date: string) => {
+      if (reminderTarget === null) return
+      setDayMenu({ date, x, y, trigger })
+    }
+
     const openDayMenu = (e: ReactMouseEvent<HTMLButtonElement>, date: string) => {
       if (reminderTarget === null) return
       e.preventDefault()
       const trigger = e.currentTarget
       const rect = trigger.getBoundingClientRect()
       const keyboard = e.clientX === 0 && e.clientY === 0
-      setDayMenu({
-        date,
-        x: keyboard ? rect.left : e.clientX,
-        y: keyboard ? rect.bottom : e.clientY,
+      openDayMenuAt(
         trigger,
-      })
+        keyboard ? rect.left : e.clientX,
+        keyboard ? rect.bottom : e.clientY,
+        date,
+      )
     }
+
+    // The touch context-menu gesture (make-the-app-usable-on-a-phone, design
+    // D4): a held press opens the page row's menu, exactly as a right-click
+    // does. One set of handlers serves the whole listing; the row carries its
+    // path on the element the gesture started on.
+    const rowLongPress = useLongPress((point, trigger) => {
+      const path = trigger.dataset.path
+      if (path !== undefined) openMenuAt(trigger, point.x, point.y, path)
+    })
 
     // A kind badge (merge-sidebar-sections): the page is the default kind and
     // carries none; a board and an asset are marked with a leading letter. The
@@ -386,6 +412,7 @@ export const Sidebar = memo(
               data-active={isActive || undefined}
               aria-current={isActive ? 'page' : undefined}
               aria-haspopup="menu"
+              data-path={row.path}
               draggable={draggable}
               onDragStart={
                 draggable
@@ -394,6 +421,7 @@ export const Sidebar = memo(
               }
               onContextMenu={(e) => openMenu(e, row.path)}
               onClick={() => onSelect(row.path)}
+              {...rowLongPress}
             >
               <span className={styles.rowText}>{row.label}</span>
               {reminderRules?.has(row.label.toLowerCase()) ? reminderMark() : null}
@@ -461,7 +489,7 @@ export const Sidebar = memo(
             className={styles.gap}
             role="presentation"
             aria-hidden="true"
-            style={{ height: piece.rows * ROW_STRIDE }}
+            style={{ height: piece.rows * rowStride }}
           />
         ) : (
           piece.indexes.map(row)
@@ -598,6 +626,9 @@ export const Sidebar = memo(
                   activePath={activePath}
                   onSelect={onSelect}
                   onDayContextMenu={openDayMenu}
+                  onDayLongPress={(date, point, trigger) =>
+                    openDayMenuAt(trigger, point.x, point.y, date)
+                  }
                   today={today}
                   todayTick={todayTick}
                   locate={locate}

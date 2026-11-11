@@ -527,6 +527,13 @@ function App() {
     // here with the open page, the last-known page, and search.
     // oxlint-disable-next-line react/set-state-in-effect
     setTrail(EMPTY_TRAIL)
+    // The shown compact view belongs to the item and folder it was chosen
+    // against, so a folder switch, a folder add, or going home drops it and the
+    // landing rule decides again (make-the-app-usable-on-a-phone). Back and
+    // Forward never set it, so a shelf view opened for one folder cannot
+    // survive into the next.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setChosenView(null)
   }, [activeFolder?.id, resetOpenPage])
 
   // The journal is the home (journal-home, spec: static-navigation today-
@@ -706,13 +713,19 @@ function App() {
     [togglePin],
   )
 
-  // The compact landing rule (design D6): with nothing open the navigation view
-  // leads, so a first run lands where the folder picker's control lives; once
-  // an item is open the editor leads. While a vault is restoring a page is about
-  // to open, so the editor leads and the navigation view does not flash.
+  // The compact landing rule (design D6, make-the-app-usable-on-a-phone): the
+  // landing view follows what is open. With no active folder the brand screen
+  // leads — it is where the folder action, the demo, and the browser
+  // requirement live — so a first run on a phone does not open on an empty
+  // sidebar. A folder with nothing open leads with the navigation view, where
+  // its listing is; an open item leads with the editor. While a vault is
+  // restoring a page is about to open, so the editor leads and the brand screen
+  // does not flash.
   const mainPaneHasItem = activePath !== null || mode !== 'page' || importView !== null
   const itemKey = JSON.stringify([activePath, mode, importView?.kind ?? null])
-  const landingView: CompactView = status === 'restoring' || mainPaneHasItem ? 'editor' : 'nav'
+  const noActiveFolder = activeFolder?.storage === undefined
+  const landingView: CompactView =
+    status === 'restoring' || mainPaneHasItem || noActiveFolder ? 'editor' : 'nav'
   const compactView: CompactView = chosenView?.item === itemKey ? chosenView.view : landingView
 
   // Folding belongs to the wide composition: the compact shell has no strips, so
@@ -1466,6 +1479,20 @@ function App() {
               // browser cannot open local folders.
               onDemo={
                 status === 'ready' && activeFolder?.storage === undefined ? handleDemo : undefined
+              }
+              // The compact shell shows one view at a time and its rail —
+              // where the add control lives — is on the navigation view only,
+              // so the brand screen offers the same action itself
+              // (make-the-app-usable-on-a-phone). Absent above the breakpoint,
+              // where the rail is already on screen, and where the browser has
+              // no folder picker.
+              onOpenFolder={
+                compact && canOpen && status === 'ready' && activeFolder?.storage === undefined
+                  ? () => {
+                      resetOpenPage()
+                      void addFolder()
+                    }
+                  : undefined
               }
               // The demo's session-only rule stays in view on every page
               // (make-the-demo-notice-visible). A real vault passes false.

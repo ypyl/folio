@@ -516,6 +516,17 @@
   color: var(--brand);
 }
 
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   a phone has no pointer to hover the control out with, and an image expanded
+   past the pane can only be panned sideways, so the fitted size is the only
+   size the control is offered. The drawing and the expanded state stay as they
+   are for a window that crosses back over the breakpoint. */
+@media (max-width: 640px) {
+  .editor :global(.folio-image-control) {
+    display: none;
+  }
+}
+
 .editor :global(.folio-image-control svg) {
   width: 12px;
   height: 12px;

@@ -284,3 +284,30 @@
 .more:hover {
   background: var(--warm-sand);
 }
+
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   the match-case toggle and the clear control reach 44, the field gives up the
+   width they take (the input's right padding keeps its text out from under the
+   clear control), and every row in the dropdown is a 44px target. */
+@media (max-width: 640px) {
+  .case {
+    width: 44px;
+    height: 44px;
+  }
+
+  .clear {
+    width: 44px;
+    height: 44px;
+    right: 6px;
+  }
+
+  .input {
+    padding-right: 52px;
+  }
+
+  .item,
+  .command,
+  .more {
+    min-height: 44px;
+  }
+}

@@ -329,6 +329,28 @@
   color: var(--stone);
 }
 
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   a panel row reaches 44, and so does the Contents tree's disclosure control —
+   its leaf spacer grows with it, so one heading depth still aligns with the
+   next. The two outline controls keep the summary's own height. */
+@media (max-width: 640px) {
+  .row {
+    min-height: 44px;
+  }
+
+  .disclosure,
+  .disclosureSpacer {
+    width: 44px;
+    height: 44px;
+  }
+
+  .contentTool {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
 .rowText {
   /* A block box is what makes the ellipsis apply: `overflow`/`text-overflow`
      have no effect on a non-replaced inline, so a long name used to run past

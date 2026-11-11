@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { OVERSCAN, ROW_STRIDE, windowPieces, type WindowPiece } from './pageWindow'
+import {
+  COMPACT_ROW_STRIDE,
+  OVERSCAN,
+  ROW_STRIDE,
+  windowPieces,
+  type WindowPiece,
+} from './pageWindow'
 
 /** Every index the pieces render, in order. */
 const rendered = (pieces: WindowPiece[]): number[] =>
@@ -86,5 +92,35 @@ describe('windowPieces (add-history-navigation)', () => {
       keep: 10_000,
     })
     expect(gaps(pieces)).toBe(10_000 - rendered(pieces).length)
+  })
+
+  it('windows a touch-sized row by the stride it is given', () => {
+    // The compact listing draws a 46px row (make-the-app-usable-on-a-phone), so
+    // the window covers fewer rows for the same viewport, and the offset math
+    // follows the taller row rather than the desktop stride.
+    const desktop = windowPieces({ total: 10_000, viewportHeight: 600, scrollTop: 0, listTop: 0 })
+    const compact = windowPieces({
+      total: 10_000,
+      viewportHeight: 600,
+      scrollTop: 0,
+      listTop: 0,
+      stride: COMPACT_ROW_STRIDE,
+    })
+    expect(COMPACT_ROW_STRIDE).toBeGreaterThan(ROW_STRIDE)
+    expect(rendered(compact).length).toBeLessThan(rendered(desktop).length)
+    expect(rendered(compact).length + gaps(compact)).toBe(10_000)
+    // A deep scroll lands on the row a 46px stride puts at that offset.
+    const scrollTop = 4600
+    expect(
+      rendered(
+        windowPieces({
+          total: 10_000,
+          viewportHeight: 600,
+          scrollTop,
+          listTop: 0,
+          stride: COMPACT_ROW_STRIDE,
+        }),
+      ),
+    ).toContain(Math.floor(scrollTop / COMPACT_ROW_STRIDE))
   })
 })

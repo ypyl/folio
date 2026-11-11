@@ -75,6 +75,17 @@
   border-radius: 4px;
 }
 
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   the open item's name is a control, so it fills the app bar's 44px row instead
+   of sitting in it as a line of text. The bar keeps its height. */
+@media (max-width: 640px) {
+  .crumbReveal {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
 .crumbSep {
   flex-shrink: 0;
 }

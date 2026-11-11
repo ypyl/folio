@@ -278,14 +278,27 @@ version, and the panel answers what changed.
 
 ### Touch targets and safe areas
 
-The compact shell is the app's first touch-sized surface, so this rule is about
-the phone and only about the phone. Every control in the compact app bar — the
-status bar's two view controls — and every control the sidebar's JOURNAL row
-carries — Back, Forward, and Today, which are pointer-sized on a wide window — is
-at least 44 by 44 CSS pixels. The app bar keeps the 4px spacing base
+The compact shell is the app's touch-sized surface, so this rule is about the
+phone and only about the phone. Every control it shows is at least 44 by 44 CSS
+pixels: the app bar's two view controls, the Journal row's Back, Forward, and
+Today, the rail's controls and a folder entry's close badge, the calendar's
+month controls and day cells, the accordion summaries, a Files row, the right
+panel's rows and the Contents disclosure and its own controls, the open item's
+name in the status bar, the brand screen's actions, the search spotlight's
+controls and rows, a menu's items, the shortcuts reference's chips, and a
+presentation's controls. The minimum is a **target**, not a mark: a control whose
+drawn mark must stay small — the close badge, the Contents chevron — keeps the
+mark and carries the difference as a transparent hit area, so nothing about the
+drawing, spacing, or row height changes. The app bar keeps the 4px spacing base
 but its row is sized by those targets, not by its text, and its content never
 wraps or scrolls: the compact bar drops what does not fit rather than growing a
 second row. The JOURNAL row keeps its one line and only its targets grow.
+
+A phone has no right-click, so **a press held on a row or a calendar day is the
+context-menu gesture**: it opens the menu a right-click opens, and a press that
+moves or is released early stays the tap it was. The menu opens on release, not
+the instant the hold elapses, so the click that a release carries reaches
+nothing. A page row still carries no visible trigger for its menu.
 
 No control sits under a notch, a rounded corner, or the home indicator. The
 shell pads itself with `env(safe-area-inset-*)` at every edge the bar touches,
@@ -489,10 +502,12 @@ One control, in the image's **top-left** corner: the table handle's recipe, an
 and collapses it back. Left, not right, so an image wider than the pane keeps
 its own control on screen once expanded, without scrolling to it. It appears
 when the pointer is over the image or the control has keyboard focus, and stays
-visible while the image is expanded. Only an image that resolved from the vault
-has one, and the state is presentation only: nothing about it reaches the
-Markdown. A remote image is neither fitted nor given a control
-(`fit-vault-images-to-pane`).
+visible while the image is expanded. At the compact breakpoint it is absent: a
+phone has no pointer to hover it out with, and an image expanded past the pane
+could only be panned sideways, so the fitted size is the only size a phone shows.
+Only an image that resolved from the vault has one, and the state is presentation
+only: nothing about it reaches the Markdown. A remote image is neither fitted nor
+given a control (`fit-vault-images-to-pane`).
 
 ### Keyboard focus
 

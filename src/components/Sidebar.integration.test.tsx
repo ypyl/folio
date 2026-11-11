@@ -928,6 +928,131 @@ describe('Sidebar reveal (reveal-open-page-in-files)', () => {
   })
 })
 
+// A finger has no right-click, so a held press opens the same menu the
+// right-click opens (make-the-app-usable-on-a-phone, design D4), and the click
+// the release ends with reaches nothing.
+describe('page-row touch menu (make-the-app-usable-on-a-phone)', () => {
+  const list = (extra: Partial<Parameters<typeof Sidebar>[0]> = {}) =>
+    render(
+      <Sidebar
+        rows={[pageRow('a.md', 'Alpha'), boardRow('boards/Diagram.excalidraw')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        onOpenBoard={() => {}}
+        activePath={null}
+        onSelect={() => {}}
+        hasVault
+        {...extra}
+      />,
+    )
+
+  const press = (name: string) => screen.getByRole('button', { name })
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('opens the row menu and the release opens nothing else', () => {
+    const onSelect = vi.fn()
+    list({ onSelect })
+    const row = press('Alpha')
+    fireEvent.pointerDown(row, { pointerType: 'touch', clientX: 40, clientY: 40 })
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.pointerUp(row)
+
+    screen.getByRole('menu')
+    expect(screen.getByRole('menuitem', { name: 'Favorite' })).toBeTruthy()
+    // The click that follows the release is swallowed, so the page stays shut.
+    fireEvent.click(row)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('keeps a short press an ordinary tap', () => {
+    const onSelect = vi.fn()
+    list({ onSelect })
+    const row = press('Alpha')
+    fireEvent.pointerDown(row, { pointerType: 'touch', clientX: 40, clientY: 40 })
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    fireEvent.pointerUp(row)
+    fireEvent.click(row)
+    expect(onSelect).toHaveBeenCalledWith('a.md')
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('opens nothing on a board row', () => {
+    list()
+    const row = press(boardName('boards/Diagram.excalidraw'))
+    fireEvent.pointerDown(row, { pointerType: 'touch', clientX: 40, clientY: 40 })
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.pointerUp(row)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+// The same gesture on a calendar day opens the reminder menu (make-the-app-
+// usable-on-a-phone, design D4).
+describe('day-cell touch menu (make-the-app-usable-on-a-phone)', () => {
+  const dayCell = () => screen.getByRole('button', { name: dayLabel(new Date(2026, 8, 6)) })
+
+  const hold = () => {
+    const cell = dayCell()
+    fireEvent.pointerDown(cell, { pointerType: 'touch', clientX: 30, clientY: 50 })
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.pointerUp(cell)
+    return cell
+  }
+
+  const journalSidebar = (reminderTarget: string | null) =>
+    render(
+      <Sidebar
+        rows={[pageRow('pages/Ana.md', 'Ana')]}
+        journalEntries={[journal]}
+        onOpenAsset={() => {}}
+        activePath={journal.path}
+        onSelect={() => {}}
+        hasVault
+        reminderTarget={reminderTarget}
+        today="2026-09-06"
+      />,
+    )
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('opens the day menu without opening the day', () => {
+    const onSelect = vi.fn()
+    journalSidebar('Ana')
+    // onSelect is the sidebar's, not the day's; the day opening is what the
+    // swallowed click would have done, so an empty day menu is the proof.
+    hold()
+    screen.getByRole('menu')
+    expect(within(screen.getByRole('menu')).getByRole('group', { name: 'Reminder' })).toBeTruthy()
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('keeps the day menu away when no page is open to remind about', () => {
+    journalSidebar(null)
+    hold()
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
 // Locating a day in the calendar (focus-the-journal-day-in-the-calendar): the
 // sidebar opens the Journal section and hands the day to the calendar, which
 // does the re-anchor and the focus. A closed section renders nothing focusable,

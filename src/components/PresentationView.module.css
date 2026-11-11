@@ -228,6 +228,17 @@
   height: 24px;
 }
 
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   a presentation can be driven from a phone, so its toolbar and its step
+   controls reach 44 (the drawn glyphs keep their size). */
+@media (max-width: 640px) {
+  .tool,
+  .navButton {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 .status {
   display: flex;
   align-items: center;

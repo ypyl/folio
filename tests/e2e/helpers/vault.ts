@@ -48,9 +48,17 @@ export async function seedVault(page: Page, files: VaultFiles): Promise<void> {
   }, files)
 }
 
-/** Open the seeded vault through the folder rail's add control. */
+/** Open the seeded vault. On a wide window that is the folder rail's add
+ *  control; on a phone, where the compact shell's landing is the brand screen
+ *  and the rail is a view away, it is the same action offered by the brand
+ *  screen (make-the-app-usable-on-a-phone). */
 export async function openVault(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Add folder' }).click()
+  const add = page.getByRole('button', { name: 'Add folder', exact: true })
+  if (await add.isVisible()) {
+    await add.click()
+    return
+  }
+  await page.getByRole('button', { name: 'Open folder', exact: true }).click()
 }
 
 /** The editor's editable Markdown surface. */

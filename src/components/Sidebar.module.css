@@ -324,6 +324,25 @@
   border-radius: 6px;
 }
 
+/* The compact shell is touch-sized (make-the-app-usable-on-a-phone, DESIGN.md):
+   a listing row grows to 44, and the loading placeholders mirror their real
+   geometry so a section does not jump when it lands. The windowed listing's
+   row stride follows in `pageWindow.ts`, because the spacers standing in for
+   skipped rows have to add up to the same extent. */
+@media (max-width: 640px) {
+  .row {
+    min-height: 44px;
+  }
+
+  .skeletonRow {
+    height: 44px;
+  }
+
+  .calDay {
+    height: 44px;
+  }
+}
+
 /* Folded away (add-collapsible-sidebars): the pane must keep generating a box,
    because a `display: none` grid item is skipped by auto-placement and every
    later item shifts a column. `visibility: hidden` keeps its place (and takes

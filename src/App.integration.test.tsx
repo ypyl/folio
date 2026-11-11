@@ -2791,14 +2791,39 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
    *  asynchronously; stub the step so a test can assert it was asked for. */
   const stubBack = () => vi.spyOn(window.history, 'back').mockImplementation(() => {})
 
-  it('settles on the navigation view when nothing is open', async () => {
+  it('settles on the brand screen when no folder is open', async () => {
     stubCompact()
+    // A browser with the folder picker, which is what the phone has: without
+    // it the brand screen shows the browser requirement instead of the
+    // invitation, and that state has its own test.
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
     render(<App />)
     // 'restoring' leads with the editor, because a stored vault is about to open
-    // a page and the navigation view must not flash in front of it. With nothing
-    // stored, the restore settles with nothing open and the navigation view —
-    // where the folder picker's control lives — takes over.
-    await waitFor(() => expect(shownView()).toBe('nav'))
+    // a page. With nothing stored, the restore settles with no folder — and the
+    // brand screen leads, where the folder action, the demo, and the browser
+    // requirement live (make-the-app-usable-on-a-phone).
+    await waitFor(() => expect(shownView()).toBe('editor'))
+    screen.getByText(/Folio is a local-first notes app/)
+    screen.getByText('Open a folder to begin.')
+  })
+
+  it('offers the folder picker from the brand screen on a phone', async () => {
+    stubCompact()
+    // The picker closes without a choice: the test is that the action asks for
+    // one, not what happens to the folder afterwards.
+    const picker = vi.fn(async () => {
+      throw new Error('cancelled')
+    })
+    vi.stubGlobal('showDirectoryPicker', picker)
+    render(<App />)
+    await waitFor(() => expect(shownView()).toBe('editor'))
+    // The rail's add control lives on the navigation view, which a phone shows
+    // one at a time, so the brand screen carries the action itself.
+    const open = await screen.findByRole('button', { name: 'Open folder' })
+    // And the demo stays offered beside it, one step quieter.
+    expect(screen.getByRole('button', { name: 'Open the guided demo' })).toBeTruthy()
+    fireEvent.click(open)
+    await waitFor(() => expect(picker).toHaveBeenCalled())
   })
 
   it('leads with the editor view once a page is open', async () => {
@@ -2910,19 +2935,15 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     const back = stubBack()
     try {
       render(<App />)
-      // Nothing is open, so the navigation view leads without having been
-      // chosen: activating its own control gives way to the editor and must
-      // not take the browser back out of the app.
-      await waitFor(() => expect(shownView()).toBe('nav'))
-      const push = vi.spyOn(window.history, 'pushState')
-      try {
-        fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
-        expect(shownView()).toBe('editor')
-        expect(back).not.toHaveBeenCalled()
-        expect(push).not.toHaveBeenCalled()
-      } finally {
-        push.mockRestore()
-      }
+      // With no folder the brand screen leads without having been chosen: there
+      // is no shelf entry behind it, so neither a Back step nor a view control
+      // takes the browser out of the app.
+      await waitFor(() => expect(shownView()).toBe('editor'))
+      act(() => {
+        window.dispatchEvent(new Event('popstate'))
+      })
+      expect(shownView()).toBe('editor')
+      expect(back).not.toHaveBeenCalled()
     } finally {
       back.mockRestore()
     }
@@ -2971,7 +2992,7 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
   it('shows no tour control on a narrow window', async () => {
     stubCompact()
     render(<App />)
-    await waitFor(() => expect(shownView()).toBe('nav'))
+    await waitFor(() => expect(shownView()).toBe('editor'))
     expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
     // The introduction still shows; only the tour reference goes, because the
     // tour does not exist on the compact shell (add-landing-page-info).

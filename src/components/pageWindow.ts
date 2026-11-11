@@ -8,6 +8,13 @@
  *  14px text = 33px, and `Sidebar.module.css` puts a 2px gap between rows. */
 export const ROW_STRIDE = 35
 
+/** The same stride at the compact breakpoint (make-the-app-usable-on-a-phone):
+ *  a row is a 44px touch target there, and the 2px gap stays, so the spacers
+ *  standing in for skipped rows must add up to 46px each or the listing's
+ *  scroll extent comes up short. The companion media query in
+ *  `Sidebar.module.css` is what makes a real row that height. */
+export const COMPACT_ROW_STRIDE = 46
+
 /** Rows rendered beyond the viewport, so a fast scroll does not show a hole. */
 export const OVERSCAN = 10
 

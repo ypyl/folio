@@ -218,6 +218,17 @@ body {
   transform: translateY(-1px);
 }
 
+/* The compact shell's controls are touch-sized (DESIGN.md "Touch targets and
+   safe areas"): the two variants keep their look and pad themselves out to the
+   minimum target, so the brand screen's actions are as easy to hit as the app
+   bar's (make-the-app-usable-on-a-phone). */
+@media (max-width: 640px) {
+  .btn-primary,
+  .btn-secondary {
+    min-height: 44px;
+  }
+}
+
 .section-placeholder {
   margin: 0;
   font-size: 13px;

@@ -134,6 +134,7 @@ export function EditorPane({
   brandAction,
   onTour,
   onDemo,
+  onOpenFolder,
   demo = false,
   onReady,
   loading = false,
@@ -172,6 +173,12 @@ export function EditorPane({
    *  including where the browser cannot open a local folder, because the demo
    *  is virtual. Absent once a vault is open. */
   onDemo?: () => void
+  /** Opens the folder picker from the brand screen
+   *  (make-the-app-usable-on-a-phone). App supplies it only at the compact
+   *  breakpoint, where the shell hides the rail that otherwise carries the
+   *  action, so its presence is also what makes it the screen's primary action
+   *  and the demo its secondary one. */
+  onOpenFolder?: () => void
   /** The open vault is the session-only demo: show its persistent notice at the
    *  top of the pane (make-the-demo-notice-visible). False for a real vault. */
   demo?: boolean
@@ -481,10 +488,19 @@ export function EditorPane({
                     folder's restore from flashing the open-folder copy. */}
                 {emptyHint !== 'notes' && <p className={styles.description}>{BRAND_DESCRIPTION}</p>}
               </div>
-              {(onDemo || brandAction) && (
+              {(onDemo || brandAction || onOpenFolder) && (
                 <div className={styles.actions}>
+                  {onOpenFolder && (
+                    <button type="button" className="btn-primary" onClick={onOpenFolder}>
+                      Open folder
+                    </button>
+                  )}
                   {onDemo && (
-                    <button type="button" className="btn-primary" onClick={onDemo}>
+                    <button
+                      type="button"
+                      className={onOpenFolder ? 'btn-secondary' : 'btn-primary'}
+                      onClick={onDemo}
+                    >
                       Open the guided demo
                     </button>
                   )}

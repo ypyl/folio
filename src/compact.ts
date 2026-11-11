@@ -17,6 +17,19 @@ export const COMPACT_QUERY = `(max-width: ${COMPACT_BREAKPOINT_PX}px)`
 /** The three views the compact shell shows one at a time (design D1). */
 export type CompactView = 'nav' | 'editor' | 'meta'
 
+/** Whether the primary pointer is a finger, read where a gesture needs it.
+ *  Deliberately not part of `useCompact`: the shell is width-defined, while a
+ *  gesture is pointer-defined — a tablet wider than the breakpoint still has
+ *  no right-click. Guarded like `matchesCompact`, and its absence means a
+ *  fine pointer, which is what every test that does not stub it is asserting. */
+export const COARSE_POINTER_QUERY = '(pointer: coarse)'
+
+export function matchesCoarsePointer(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(COARSE_POINTER_QUERY).matches
+    : false
+}
+
 /** Whether this window is at or below the breakpoint, read at render time.
  *  Guarded rather than assumed: jsdom ships no `matchMedia`, and no
  *  `matchMedia` means the wide composition — which is what every test that

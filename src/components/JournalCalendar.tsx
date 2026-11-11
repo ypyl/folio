@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 
 import type { Page } from '../page'
 import { journalDate, localDayString } from '../vault/index'
 import { dayLabel, monthYearLabel } from './months'
+import { useLongPress, type LongPressPoint } from './longPress'
 import styles from './JournalCalendar.module.css'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -49,6 +50,7 @@ export function JournalCalendar({
   activePath,
   onSelect,
   onDayContextMenu,
+  onDayLongPress,
   today = localDayString(new Date()),
   todayTick = 0,
   locate = null,
@@ -59,6 +61,9 @@ export function JournalCalendar({
   /** Open the day's context menu (add-reminders): Sidebar owns the menu and its
    *  reminder items, so this only reports the invocation and its day. */
   onDayContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>, date: string) => void
+  /** The same menu from the touch context-menu gesture (make-the-app-usable-on-a-
+   *  phone, design D4): a held press on a day cell. */
+  onDayLongPress?: (date: string, point: LongPressPoint, trigger: HTMLElement) => void
   /** The local day as `YYYY-MM-DD`, the cell marked as today. Passed down so it
    *  matches the day menu's past-day guard and refreshes at local midnight
    *  (useToday); a test can pin it. */
@@ -80,6 +85,13 @@ export function JournalCalendar({
   }
 
   const gridRef = useRef<HTMLDivElement | null>(null)
+
+  // A held press on a day is the touch context-menu gesture: the cell carries
+  // its date, and Sidebar owns the menu that opens from it.
+  const dayLongPress = useLongPress((point, trigger) => {
+    const date = trigger.dataset.date
+    if (date !== undefined) onDayLongPress?.(date, point, trigger)
+  })
 
   const activeDate = activePath ? journalDate(activePath) : null
   const [view, setView] = useState(() => monthOf(activeDate ?? today))
@@ -188,6 +200,7 @@ export function JournalCalendar({
               data-date={cell.date}
               onClick={() => openDay(cell.date)}
               onContextMenu={(e) => onDayContextMenu?.(e, cell.date)}
+              {...dayLongPress}
             >
               {Number(cell.date.slice(8))}
             </button>
