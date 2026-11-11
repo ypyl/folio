@@ -6,6 +6,7 @@ and for nothing else. The status bar's version badge reads this file.
 
 ## 2026-11-11
 
+- normalize a terminal whitespace line to the page's one empty line
 - never let two flushes write the same page at once
 - read the folder again after a failed scan
 - keep a draft dirty when its write carried older text
@@ -66,7 +67,3 @@ and for nothing else. The status bar's version badge reads this file.
 ## 2026-10-25
 
 - render GFM task items as checkboxes
-
-## 2026-10-23
-
-- key each Links row by direction as well as path

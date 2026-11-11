@@ -5,10 +5,11 @@
 // (ADR-0009, Markdown is canonical); the editor layer never imports it
 // (ADR-0010), because App normalizes the string it hands the pane.
 
-/** Normalize `text` so it ends with exactly one empty line: strip its trailing
- *  newlines, then append a blank line. A text with nothing but newlines becomes
- *  a single empty line. Whitespace above the terminal line is untouched. */
+/** Normalize `text` so it ends with exactly one empty line: strip the trailing
+ *  run of lines that hold nothing but whitespace, then append a blank line. A
+ *  text with nothing but whitespace keeps it as its content, and whitespace
+ *  above that run is untouched (`Done   ` keeps its spaces). */
 export function withTrailingBlankLine(text: string): string {
-  const body = text.replace(/\n+$/, '')
+  const body = text.replace(/(?:\n[ \t]*)+$/, '')
   return body === '' ? '\n' : `${body}\n\n`
 }

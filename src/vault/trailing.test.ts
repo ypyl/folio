@@ -22,6 +22,14 @@ describe('withTrailingBlankLine (add-trailing-empty-line)', () => {
     expect(withTrailingBlankLine('\n\n')).toBe('\n')
   })
 
+  it('drops a terminal run of blank or whitespace-only lines to one', () => {
+    // A page written by another tool often ends `text\n   \n`: the rule is one
+    // empty line, not a line that merely looks empty.
+    expect(withTrailingBlankLine('Done\n   \n')).toBe('Done\n\n')
+    expect(withTrailingBlankLine('Done\n\t\n  ')).toBe('Done\n\n')
+    expect(withTrailingBlankLine('Done\n \t\n\n ')).toBe('Done\n\n')
+  })
+
   it('keeps whitespace-only content and adds the blank line', () => {
     expect(withTrailingBlankLine('   ')).toBe('   \n\n')
   })
