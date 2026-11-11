@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { StatusBar } from './StatusBar'
 import { version } from '../../package.json'
+import { recentChanges } from '../changelog'
 import styles from './StatusBar.module.css'
 
 // App-level status frame (add-status-bar, ui-shell/page-editing specs): the
@@ -94,7 +95,8 @@ describe('StatusBar', () => {
       expect(status.textContent).toContain('notes')
       expect(status.textContent).toContain('· 12')
       // Display-only: no folder button, no controls on the vault text.
-      expect(container.querySelectorAll('button')).toHaveLength(0)
+      expect(status.querySelectorAll('button')).toHaveLength(0)
+      expect(container.querySelector(`.${styles.vault}`)?.tagName).toBe('DIV')
     })
 
     it('leaves the vault group empty without a vault', () => {
@@ -107,7 +109,10 @@ describe('StatusBar', () => {
     it('shows the running version beside the vault file count', () => {
       const { container } = render(<StatusBar pagePath="a.md" vaultName="notes" noteCount={12} />)
       const badge = screen.getByText(`v${version}`)
-      expect(badge.tagName).toBe('SPAN')
+      // A control now that it discloses the build's changes
+      // (show-recent-changes-from-the-version-badge); the label reads the same.
+      expect(badge.tagName).toBe('BUTTON')
+      expect(badge.textContent).toBe(`v${version}`)
       // Beside the count: the vault group comes first, the badge at the trailing
       // edge, and the badge is not part of the vault group (which stays empty
       // without a vault).
@@ -122,12 +127,87 @@ describe('StatusBar', () => {
     })
   })
 
+  describe('the badge’s recent changes (show-recent-changes-from-the-version-badge)', () => {
+    const badge = () => screen.getByRole('button', { name: `v${version}, show the recent changes` })
+    const panel = () => screen.queryByText('Recent changes')?.parentElement ?? null
+
+    it('starts as a closed disclosure', () => {
+      render(<StatusBar pagePath="a.md" />)
+      expect(badge().getAttribute('aria-expanded')).toBe('false')
+      expect(panel()).toBeNull()
+    })
+
+    it('lists the build’s changes newest first, each with the day it landed', () => {
+      render(<StatusBar pagePath="a.md" />)
+      fireEvent.click(badge())
+      expect(badge().getAttribute('aria-expanded')).toBe('true')
+      const items = within(panel() as HTMLElement).getAllByRole('listitem')
+      expect(items).toHaveLength(recentChanges.length)
+      // Each entry shows its text and its date, and the order is the file's:
+      // newest first, with no entry above a newer one.
+      expect(items.map((item) => item.textContent)).toEqual(
+        recentChanges.map((change) => `${change.text}${change.date}`),
+      )
+      const dates = recentChanges.map((change) => change.date)
+      expect(dates).toEqual([...dates].sort().reverse())
+      expect(items[0].querySelector('time')?.getAttribute('datetime')).toBe(dates[0])
+    })
+
+    it('closes on a second activation', () => {
+      render(<StatusBar pagePath="a.md" />)
+      fireEvent.click(badge())
+      fireEvent.click(badge())
+      expect(badge().getAttribute('aria-expanded')).toBe('false')
+      expect(panel()).toBeNull()
+    })
+
+    it('closes on Escape without moving focus off the badge', () => {
+      render(<StatusBar pagePath="a.md" />)
+      fireEvent.click(badge())
+      badge().focus()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(panel()).toBeNull()
+      expect(document.activeElement).toBe(badge())
+    })
+
+    it('closes on a press outside the panel', () => {
+      render(<StatusBar pagePath="a.md" />)
+      fireEvent.click(badge())
+      fireEvent.pointerDown(document.body)
+      expect(panel()).toBeNull()
+    })
+
+    it('stays open on a press inside the panel', () => {
+      render(<StatusBar pagePath="a.md" />)
+      fireEvent.click(badge())
+      fireEvent.pointerDown(panel() as HTMLElement)
+      expect(panel()).not.toBeNull()
+    })
+
+    it('closes when the window loses focus', () => {
+      render(<StatusBar pagePath="a.md" />)
+      fireEvent.click(badge())
+      fireEvent.blur(window)
+      expect(panel()).toBeNull()
+    })
+
+    it('offers no control, link, or setting of its own', () => {
+      render(<StatusBar pagePath="a.md" saveState="saving" />)
+      fireEvent.click(badge())
+      const box = panel() as HTMLElement
+      expect(box.querySelectorAll('button, a, input, select')).toHaveLength(0)
+      // Reading it changes nothing in the bar: the save state stays as it was.
+      expect(screen.getByRole('status').textContent).toBe('Saving…')
+      expect(badge().getAttribute('aria-expanded')).toBe('true')
+    })
+  })
+
   describe('no help control (move-help-to-right-panel)', () => {
     it('holds no help button in any state', () => {
       const { container, rerender } = render(<StatusBar pagePath={null} />)
-      expect(container.querySelector('button')).toBeNull()
+      expect(container.querySelector('[aria-label="Help"]')).toBeNull()
       rerender(<StatusBar pagePath="a.md" saveState="saving" vaultName="notes" noteCount={1} />)
-      expect(container.querySelector('button')).toBeNull()
+      expect(container.querySelector('[aria-label="Help"]')).toBeNull()
     })
   })
 
@@ -143,10 +223,11 @@ describe('StatusBar', () => {
 
     it('leaves the page name as inert text without a handler', () => {
       render(<StatusBar pagePath="notes/Deep/2026.md" />)
-      expect(screen.queryByRole('button')).toBeNull()
-      expect(
-        screen.getByTitle('notes/Deep/2026.md').querySelector(`.${styles.crumbLast}`)?.textContent,
-      ).toBe('2026.md')
+      const name = screen
+        .getByTitle('notes/Deep/2026.md')
+        .querySelector(`.${styles.crumbLast}`) as HTMLElement
+      expect(name.tagName).toBe('SPAN')
+      expect(name.textContent).toBe('2026.md')
     })
 
     it('keeps the directory crumbs and the other groups inert', () => {
@@ -160,11 +241,13 @@ describe('StatusBar', () => {
           onRevealPage={onRevealPage}
         />,
       )
-      // The page name is the bar's only button here: the directory crumbs, the
-      // status text, and the vault name carry no activation path.
+      // The page name is the bar's only control here besides the version
+      // badge: the directory crumbs, the status text, and the vault name carry
+      // no activation path.
       const buttons = container.querySelectorAll('button')
-      expect(buttons).toHaveLength(1)
+      expect(buttons).toHaveLength(2)
       expect(buttons[0].textContent).toBe('2026.md')
+      expect(buttons[1].getAttribute('aria-expanded')).toBe('false')
       fireEvent.click(container.querySelector(`.${styles.crumbDirs}`) as HTMLElement)
       expect(onRevealPage).not.toHaveBeenCalled()
     })
@@ -187,27 +270,32 @@ describe('StatusBar', () => {
 
     it('leaves a journal day as inert text without the locate handler', () => {
       const { container } = render(<StatusBar pagePath="journals/2026-10-21.md" />)
-      expect(screen.queryByRole('button')).toBeNull()
-      expect(container.querySelector(`.${styles.crumbLast}`)?.textContent).toBe('2026-10-21.md')
+      const day = container.querySelector(`.${styles.crumbLast}`) as HTMLElement
+      expect(day.tagName).toBe('SPAN')
+      expect(day.textContent).toBe('2026-10-21.md')
     })
 
     it("leaves a board's and an asset's name inert", () => {
-      render(<StatusBar pagePath="boards/Plan.excalidraw" />)
-      expect(screen.queryByRole('button')).toBeNull()
-      render(<StatusBar pagePath="assets/chart.png" />)
-      expect(screen.queryByRole('button')).toBeNull()
+      const board = render(<StatusBar pagePath="boards/Plan.excalidraw" />)
+      expect(within(board.container).queryByRole('button', { name: /Reveal|Show/ })).toBeNull()
+      board.unmount()
+      const asset = render(<StatusBar pagePath="assets/chart.png" />)
+      expect(within(asset.container).queryByRole('button', { name: /Reveal|Show/ })).toBeNull()
     })
   })
 
   describe('the bar performs no actions', () => {
-    it('exposes no control of its own', () => {
+    it('exposes no control besides the running version’s disclosure', () => {
       const { container } = render(
         <StatusBar pagePath="notes/a.md" saveState="saving" vaultName="notes" noteCount={3} />,
       )
       // Breadcrumb segments and the vault text are not interactive, and the
-      // bar now renders no control of its own when App supplies no navigation
-      // (add-row-context-menu removed the pin star).
-      expect(container.querySelectorAll('button')).toHaveLength(0)
+      // bar renders no control of its own besides the badge that names the
+      // build (add-row-context-menu removed the pin star,
+      // show-recent-changes-from-the-version-badge made the version a control).
+      const buttons = [...container.querySelectorAll('button')]
+      expect(buttons).toHaveLength(1)
+      expect(buttons[0].textContent).toBe(`v${version}`)
     })
   })
 

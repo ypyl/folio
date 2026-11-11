@@ -1,5 +1,6 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { version } from '../../package.json'
+import { recentChanges } from '../changelog'
 import type { CompactView } from '../compact'
 import type { DraftStatus } from '../editor/drafts'
 import styles from './StatusBar.module.css'
@@ -67,6 +68,80 @@ const SAVE_LABELS: Record<Exclude<DraftStatus, 'clean'>, string> = {
 
 // The pin toggle's label stem was here; favoriting moved to the row's context
 // menu (add-row-context-menu), so the bar no longer names a page for it.
+
+// The running version (version-in-status-bar), now a disclosure
+// (show-recent-changes-from-the-version-badge): the bar's trailing edge names
+// the build, and activating it lists what that build carries. A disclosure, not
+// a dialog — focus stays on the badge, so reading the list never takes the
+// user's place in the document — and every ordinary way out (a second
+// activation, a press outside, Escape, the window losing focus) closes it. The
+// entries come from the bundled changelog, parsed once at module load, so
+// opening the panel costs one render and nothing else. A build whose changelog
+// parsed to nothing keeps the plain label: the bar never offers a control that
+// opens an empty panel.
+function VersionBadge() {
+  const [open, setOpen] = useState(false)
+  const group = useRef<HTMLDivElement>(null)
+  const headingId = useId()
+  const panelId = useId()
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    const onPointerDown = (event: Event) => {
+      if (!group.current?.contains(event.target as Node)) close()
+    }
+    // Escape is read on the document so it works wherever focus went, and in
+    // the capture phase because the editor may stop it from bubbling. It does
+    // not stop the key itself: a surface that also claims Escape still gets it.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('blur', close)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('blur', close)
+    }
+  }, [open])
+
+  const label = `v${version}`
+  if (recentChanges.length === 0) return <span className={styles.version}>{label}</span>
+
+  return (
+    <div className={styles.versionGroup} ref={group}>
+      <button
+        type="button"
+        className={styles.version}
+        aria-label={`${label}, show the recent changes`}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((shown) => !shown)}
+      >
+        {label}
+      </button>
+      {open && (
+        <div className={styles.changes} id={panelId} aria-labelledby={headingId}>
+          <p className={styles.changesHeading} id={headingId}>
+            Recent changes
+          </p>
+          <ul className={styles.changesList}>
+            {recentChanges.map((change) => (
+              <li key={`${change.date} ${change.text}`} className={styles.change}>
+                <span className={styles.changeText}>{change.text}</span>
+                <time className={styles.changeDate} dateTime={change.date}>
+                  {change.date}
+                </time>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function StatusBar({
   pagePath,
@@ -232,11 +307,10 @@ export function StatusBar({
           ) : null}
         </div>
       )}
-      {/* The running version (version-in-status-bar): build identity at the
-          bar's trailing edge, beside the vault's note count. A sibling of the
+      {/* The running version beside the vault's note count. A sibling of the
           vault group rather than a child, so the group stays empty when no
           folder is active. */}
-      {!compact && <span className={styles.version}>{`v${version}`}</span>}
+      {!compact && <VersionBadge />}
     </footer>
   )
 }

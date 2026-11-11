@@ -32,7 +32,7 @@ uses the File System Access API. Every push to `master` builds with
 - Whiteboards: `.excalidraw` boards under `boards/`, referenced with `#!` tokens and edited in the pane
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
-- Favorites, back/forward history, and a status bar: the open page's name in the bar reveals its row in Files, creating the page first when it has no file yet, and a journal day's name shows and focuses that day in the calendar
+- Favorites, back/forward history, and a status bar: the open page's name in the bar reveals its row in Files, creating the page first when it has no file yet, and a journal day's name shows and focuses that day in the calendar; the version at the bar's trailing edge opens a list of what the running build changed (see [Changelog](#changelog))
 - Presentations: turn a page into a keyboard-driven slide deck from its row menu, with `---` separating slides
 - Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (see [Reminders](#reminders))
 - A guided demo vault with a table of contents and a worked example of every feature, in any browser (ADR-0034)
@@ -101,6 +101,18 @@ The line is appended at the end of the day's note and the app leaves your caret
 and scroll position alone, so opening a long note still reads from where you left
 it. A page that holds a rule carries a small bell in the Files listing, in the
 same badge slot the board and file rows use for their kind letters.
+
+## Changelog
+
+The version at the status bar's trailing edge is the app's changelog: activate it
+and a panel opens above the bar listing what the running build changed, newest
+first, each entry with the day it landed. Nothing else is behind it — no link,
+no setting, no stored state, and no network request.
+
+The list ships inside the bundle. [CHANGELOG.md](CHANGELOG.md) is generated from
+the commit history by `npm run changelog`, which keeps `feat:` and `fix:`
+subjects and nothing else, so an entry exists exactly when a user-facing change
+landed and never has to be written twice.
 
 ## Diagnostics
 

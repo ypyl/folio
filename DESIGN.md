@@ -260,6 +260,22 @@ per-platform variant: it is a no-op on macOS and touch, and exactly the fix on
 Windows and Linux. Where the platform ignores `::-webkit-scrollbar` and floats
 its own bar, that bar is what scrolls the region and the app adds nothing.
 
+### The status bar's recent changes
+
+The one floating surface the status bar owns is the panel the version badge
+opens. It is a paper slip, not a dialog: ivory fill, no closed border, 8px
+radius, and the whisper shadow that rule 4 reserves for surfaces which float. It
+hangs from the badge's trailing edge and opens above the bar, so it covers the
+editor's bottom corner and never the bar itself, and its width is fixed so a long
+entry wraps instead of stretching the slip.
+
+The heading stays put while the entries move: the panel is capped in height, the
+list is the region that scrolls, and it carries the reserved lane and the stone
+pill of the recipe above. An entry is its text at 13px `--dark-warm`, with the
+day it landed beneath at 12px `--stone`, on a native marker in `--brand`. There
+are no version headings, no badges, and no links: the badge already names the
+version, and the panel answers what changed.
+
 ### Touch targets and safe areas
 
 The compact shell is the app's first touch-sized surface, so this rule is about

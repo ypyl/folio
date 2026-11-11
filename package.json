@@ -1,7 +1,7 @@
 {
   "name": "folio",
   "private": true,
-  "version": "0.86.2",
+  "version": "0.87.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,8 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
-    "kill:dev": "node scripts/kill-dev.mjs"
+    "kill:dev": "node scripts/kill-dev.mjs",
+    "changelog": "node scripts/changelog.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

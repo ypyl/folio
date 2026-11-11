@@ -124,10 +124,104 @@ leading column's edge (continue-rail-border-in-status-bar). */
 
 /* The running version (version-in-status-bar): build identity at the bar's
    trailing edge, beside the vault's file count. Stone 12px like the rest of the
-   bar; the bar's own gap spaces it from the vault group. */
+   bar; the bar's own gap spaces it from the vault group. It is a button now
+   (show-recent-changes-from-the-version-badge), but it keeps the label's
+   treatment: no fill, no border, the bar's own type, and brand text on hover
+   and focus so it reads as the one control in a row of metadata. */
+.versionGroup {
+  position: relative;
+  display: flex;
+}
+
 .version {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   color: var(--stone);
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.version:hover,
+.version:focus-visible {
+  color: var(--brand);
+}
+
+/* The panel the badge opens. It floats above the bar's trailing edge by a fixed
+   offset from its own container, so no measurement, clamp, or portal is needed;
+   the bar sits at the shell's bottom, so the panel only ever covers the editor's
+   corner. A floating surface in the app's recipe (DESIGN.md, rule 4 and the
+   surfaces section): ivory fill, no closed border, 8px radius, whisper shadow. */
+.changes {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  max-height: 320px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--ivory);
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1); /* --near-black at low opacity */
+}
+
+/* The heading sits outside the scrolling body, so the list's name stays in
+   view while its entries move. */
+.changesHeading {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--near-black);
+}
+
+/* A scroll region the app owns (DESIGN.md, "Scroll regions"): the lane is
+   reserved so entries keep their width once the list overflows, and the bar is
+   the app's own thin pill. `min-height: 0` lets the body shrink inside the
+   panel's max height rather than growing it. */
+.changesList {
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 0 16px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.changesList::-webkit-scrollbar,
+.changesList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.changesList::-webkit-scrollbar-thumb {
+  background-color: var(--stone);
+  border: 4px solid transparent; /* inset the pill within the lane */
+  background-clip: content-box; /* paint only inside the transparent border */
+  border-radius: 999px;
+  min-height: 32px;
+}
+
+/* One change: its text, then the day it landed. Native list markers, brand
+   coloured, the way the app's lists carry them. */
+.change {
+  padding: 2px 0;
+}
+
+.change::marker {
+  color: var(--brand);
+}
+
+.changeText {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dark-warm);
+}
+
+.changeDate {
+  display: block;
+  font-size: 12px;
+  color: var(--stone);
 }
 
 /* The compact app bar (add-compact-mobile-shell, DESIGN.md "Touch targets and

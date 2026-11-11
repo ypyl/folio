@@ -84,3 +84,32 @@ test('the brand screen opens the tour from its reference', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'App tour' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'App tour' })).toContainText('Your folders')
 })
+
+// show-recent-changes-from-the-version-badge: the status bar's version names the
+// build and opens what the build carries. The list comes from the bundled
+// changelog, so the panel opens on real entries with no vault, no network, and
+// no git.
+test('the version badge lists the build’s recent changes', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+
+  const badge = page.getByRole('button', { name: /show the recent changes$/ })
+  // The panel is named by its heading; the heading's text also appears in an
+  // entry once "recent changes" landed itself, so find it by its accessible
+  // name rather than by that text.
+  const panel = page.getByLabel('Recent changes', { exact: true })
+  await expect(badge).toBeVisible()
+  await expect(badge).toHaveAttribute('aria-expanded', 'false')
+  await expect(panel).toBeHidden()
+
+  await badge.click()
+  await expect(badge).toHaveAttribute('aria-expanded', 'true')
+  await expect(panel).toBeVisible()
+  // Entries carry the change and the day it landed, newest first.
+  await expect(panel.getByRole('listitem').first()).toContainText(/\d{4}-\d{2}-\d{2}/)
+
+  await page.keyboard.press('Escape')
+  await expect(panel).toBeHidden()
+  await expect(badge).toHaveAttribute('aria-expanded', 'false')
+  await expect(badge).toBeFocused()
+})
