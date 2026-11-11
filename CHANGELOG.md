@@ -4,6 +4,10 @@ What changed in Folio, newest first. Generated from the commit history by
 `npm run changelog`, so an entry exists for every `feat:` and `fix:` commit
 and for nothing else. The status bar's version badge reads this file.
 
+## 2026-11-11
+
+- show the recent changes from the version badge
+
 ## 2026-11-10
 
 - ship the session trace in every build
@@ -69,4 +73,3 @@ and for nothing else. The status bar's version badge reads this file.
 
 - stop a racing publish from undoing a reminder replacement
 - count the folder's notes, not every file, in the status bar
-- wait for the board mock's props before reading them

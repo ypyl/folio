@@ -387,14 +387,15 @@ search results, on an open board, and on the no-folder state. It SHALL show a
 status group holding the save-state text and the loading label. At viewports
 wider than the compact breakpoint it SHALL also show the open item's file path as
 a breadcrumb and, at its trailing edge, the active folder's name and how many
-notes it holds, with the running version beside them as non-interactive text. At
+notes it holds, with the running version beside them. At
 or below the compact breakpoint it SHALL show the open item's name instead of the
 path, and SHALL show neither the folder's name, nor its note count, nor the
 version. A group SHALL be empty when it has no source, and the bar SHALL sit
 outside the panes' scroll regions, so its content never scrolls. The bar's
-display-only content SHALL perform no action; its only controls SHALL be the open
-page's name where it has a Files row, and — at or below the compact breakpoint —
-the navigation and meta view controls the compact shell adds. The bar SHALL NOT
+display-only content SHALL perform no action; its controls SHALL be the running
+version's disclosure, the open page's name where it has a Files row, and — at or
+below the compact breakpoint — the navigation and meta view controls the compact
+shell adds. The bar SHALL NOT
 hold a Back, Forward, or Today control: those live on the Journal section's
 summary row. At or below the compact breakpoint each view control SHALL show, by the
 shape it draws rather than by colour alone, whether its view is the one shown:
@@ -423,8 +424,8 @@ app's recede tint as its background.
 
 - **GIVEN** a viewport wider than the compact breakpoint
 - **WHEN** the shell renders in any state
-- **THEN** it shows the version beside the folder's name and its note count, as
-  non-interactive text
+- **THEN** it shows the version beside the folder's name and its note count, as a
+  control that discloses the build's recent changes
 
 #### Scenario: The note count is the same before and after the index lands
 
@@ -1213,3 +1214,65 @@ change the row's height.
 - **WHEN** the user reaches a summary row with assistive technology
 - **THEN** the row is one control whose expanded state the marker draws, and the
   marker itself is not a separate control
+
+### Requirement: The version badge is a disclosure control
+
+The status bar's version SHALL be a button that reports whether its panel is
+open and opens, on activation, a panel anchored above the bar's trailing edge.
+Where the badge is not rendered — at or below the compact breakpoint — the
+disclosure SHALL NOT exist. The badge SHALL be reachable and activatable by
+keyboard and SHALL show visible focus.
+
+#### Scenario: Activating the badge opens the recent changes
+
+- **GIVEN** a viewport wider than the compact breakpoint
+- **WHEN** the user activates the version badge
+- **THEN** a panel opens above the bar and the badge reports its panel open
+
+#### Scenario: The compact bar offers no disclosure
+
+- **GIVEN** a viewport at or below the compact breakpoint
+- **WHEN** the shell renders
+- **THEN** no version badge and no recent-changes panel exist
+
+### Requirement: The recent-changes panel lists the build's changes
+
+The panel SHALL list the newest user-facing changes the build carries, newest
+first, each showing the change's text and the date it landed. Past what the panel
+shows at once, the list SHALL scroll inside it, and the bar SHALL neither grow
+nor scroll. The panel SHALL hold no control, link, or setting of its own.
+
+#### Scenario: The list reads newest first with the date each change landed
+
+- **GIVEN** the open panel
+- **WHEN** the user reads it
+- **THEN** each entry shows the change's text and the date it landed, and no
+  entry appears above a newer one
+
+#### Scenario: A long list scrolls inside the panel
+
+- **GIVEN** more recent changes than the panel shows at once
+- **WHEN** the user opens the panel
+- **THEN** the panel's body scrolls and the bar neither grows nor scrolls
+
+### Requirement: Every ordinary dismissal closes the panel
+
+A second activation of the badge, a pointer press anywhere outside the panel,
+`Escape`, or the shell losing focus SHALL close the panel and return the badge's
+reported state to closed. Closing SHALL NOT move keyboard focus, and opening or
+closing SHALL NOT write to the vault or to any stored preference.
+
+#### Scenario: The panel closes without moving focus
+
+- **GIVEN** the open panel and keyboard focus on the badge
+- **WHEN** the user presses `Escape`, or activates the badge again, or presses
+  the pointer outside the panel
+- **THEN** the panel closes, the badge reports it closed, and focus stays on the
+  badge
+
+#### Scenario: Reading the changes changes nothing else
+
+- **GIVEN** an open page with unsaved edits
+- **WHEN** the user opens and closes the panel
+- **THEN** the edits, the open page, and the vault are as they were, and no
+  preference is written
