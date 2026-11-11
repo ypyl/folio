@@ -23,6 +23,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The gate the app's own rules name: warnings are errors, formatting is
+      # checked, and both suites run with the coverage thresholds. A commit that
+      # breaks one of them must not reach the published build.
+      - run: npx oxlint --deny-warnings
+      - run: npm run fmt:check
+      - run: npm test
       - run: npm run build
         env:
           GITHUB_PAGES: '1'
