@@ -295,21 +295,22 @@ width exception: its seven-column grid gives each cell 48px of height and the
 pane's column share, which clears the 44px floor. A Files row is 52px tall, and
 the navigation view keeps a row's box 16px from the trailing edge.
 
-The phone's type follows one scale, not the desktop's print scale: 16px body and
-list text, 14px secondary text and calendar days, 12px section labels, status
-text, and tab labels, and no text below 11px. The editor is 16px with 20px
-headings; the wide window keeps its 15px surface. Icons on the phone are 24px, so
-a 48px target does not hold a pointer-sized drawing.
+The phone's type follows one scale, not the desktop's print scale: 18px body
+text, 17px list text, 15px secondary text, 16px calendar days, 13px section
+labels, status text, and navigation labels, and no text below 12px. The editor is
+18px with 24px headings; the wide window keeps its 15px surface. Icons on the
+phone are 24px, so a 48px target does not hold a pointer-sized drawing. A Files
+row is 56px tall.
 
-The compact app bar names the view: a 64px bar above the content, a 16px
-semibold title (the open item, the folder, "Details", or "Folio") with a 12px
+The compact app bar names the view: a 64px bar above the content, an 18px
+semibold title (the open item, the folder, "Details", or "Folio") with a 13px
 save-state line under it, and the open page's actions at its trailing edge. It is
 the phone's only status surface: the footer below the content is the navigation
 bar, not a status bar, so the two never mix.
 
 The compact navigation bar is the phone's footer: 64px plus the bottom safe-area
 inset, three equal destinations (Notes, Page, Details), each the full bar height
-and a third of its width, with a 24px icon and a 12px label. The shown
+and a third of its width, with a 24px icon and a 13px label. The shown
 destination carries a 56 by 32 rounded active indicator in `--brand-tint` behind
 its icon, with brand ink on the icon and label; the others carry no indicator
 and tertiary ink. The indicator is the shape signal, so the state never rests on

@@ -9,11 +9,11 @@
 export const ROW_STRIDE = 35
 
 /** The same stride at the compact breakpoint (make-the-phone-read-like-an-app):
- *  a row is a 52px target there, and the 2px gap stays, so the spacers standing
- *  in for skipped rows must add up to 54px each or the listing's scroll extent
+ *  a row is a 56px target there, and the 2px gap stays, so the spacers standing
+ *  in for skipped rows must add up to 58px each or the listing's scroll extent
  *  comes up short. The companion media query in `Sidebar.module.css` is what
  *  makes a real row that height. */
-export const COMPACT_ROW_STRIDE = 54
+export const COMPACT_ROW_STRIDE = 58
 
 /** Rows rendered beyond the viewport, so a fast scroll does not show a hole. */
 export const OVERSCAN = 10

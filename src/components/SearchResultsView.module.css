@@ -130,7 +130,7 @@
    a result row and a page control in the pager reach 44. */
 @media (max-width: 640px) {
   .row {
-    min-height: 52px;
+    min-height: 56px;
   }
 
   .pageBtn {

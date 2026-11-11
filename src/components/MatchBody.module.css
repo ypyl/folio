@@ -57,3 +57,23 @@
   color: var(--near-black);
   border-radius: 2px;
 }
+
+/* The compact shell's phone scale (enlarge-the-phone-text): the result rows read
+   at the list's size, and the dropdown's smaller variant stays one step down. */
+@media (max-width: 640px) {
+  .label {
+    font-size: 16px;
+  }
+
+  .labelCompact {
+    font-size: 15px;
+  }
+
+  .snip {
+    font-size: 15px;
+  }
+
+  .snipCompact {
+    font-size: 14px;
+  }
+}

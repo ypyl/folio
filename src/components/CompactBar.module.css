@@ -32,7 +32,7 @@
   display: block;
   padding: 0 8px;
   overflow: hidden;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   color: var(--stone);
   text-overflow: ellipsis;
@@ -51,7 +51,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--near-black);
   text-align: left;
@@ -62,7 +62,7 @@ button.title {
   border-radius: 8px;
   background: transparent;
   font: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--near-black);
   cursor: pointer;

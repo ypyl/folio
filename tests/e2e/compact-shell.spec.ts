@@ -175,17 +175,17 @@ test.describe('the compact shell on a phone-sized window', () => {
         return el ? getComputedStyle(el).fontSize : null
       }, selector)
 
-    // The editor and the app bar title are the body scale (make-the-phone-read-
-    // like-an-app); the app bar's first child is its title.
-    expect(await fontOf('.cm-content')).toBe('16px')
-    expect(await fontOf('.workspace header > *')).toBe('16px')
+    // The editor and the app bar title are the reading scale (enlarge-the-phone-
+    // text); the app bar's first child is its title.
+    expect(await fontOf('.cm-content')).toBe('18px')
+    expect(await fontOf('.workspace header > div > :first-child')).toBe('18px')
 
     // The navigation view's labels follow the same scale.
     await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await expect(page.locator('.layer-nav')).toBeVisible()
-    expect(await fontOf('#sidebar-pane summary')).toBe('12px')
-    expect(await fontOf('#sidebar-pane button[class*="row"]')).toBe('16px')
-    expect(await fontOf('.layer-nav button[data-date]')).toBe('14px')
+    expect(await fontOf('#sidebar-pane summary')).toBe('13px')
+    expect(await fontOf('#sidebar-pane button[class*="row"]')).toBe('17px')
+    expect(await fontOf('.layer-nav button[data-date]')).toBe('16px')
   })
 
   test('the manifest offers the app screens and an id for the install dialog', async ({

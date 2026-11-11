@@ -233,7 +233,11 @@ body {
   .btn-primary,
   .btn-secondary {
     min-height: 48px;
-    font-size: 16px;
+    font-size: 17px;
+  }
+
+  .section-placeholder {
+    font-size: 15px;
   }
 }
 

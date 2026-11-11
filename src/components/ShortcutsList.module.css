@@ -120,11 +120,11 @@ button.kbd:disabled {
    target. The row grows around it; the reference still reads as a list. */
 @media (max-width: 640px) {
   .label {
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .groupHeading {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   button.kbd {
@@ -133,6 +133,6 @@ button.kbd:disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: 14px;
   }
 }

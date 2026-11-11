@@ -626,27 +626,27 @@
    headings follow at 1.25em. The wide composition keeps its 15px surface. */
 @media (max-width: 640px) {
   .editor {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .editor :global(.cm-editor) {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .editor :global(.folio-cm-heading) {
-    font-size: 1.25em;
+    font-size: 1.3em;
   }
 
   .demoNotice {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .demoNoticeLabel {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .description {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   /* The brand block is fit-content in a column flex parent; at the phone width
@@ -659,22 +659,22 @@
   }
 
   .factLabel {
-    font-size: 14px;
-  }
-
-  .factDetail {
-    font-size: 13px;
-  }
-
-  .footerLine {
-    font-size: 13px;
-  }
-
-  .browserWarningTitle {
     font-size: 15px;
   }
 
-  .browserWarningBody {
+  .factDetail {
     font-size: 14px;
+  }
+
+  .footerLine {
+    font-size: 14px;
+  }
+
+  .browserWarningTitle {
+    font-size: 16px;
+  }
+
+  .browserWarningBody {
+    font-size: 15px;
   }
 }

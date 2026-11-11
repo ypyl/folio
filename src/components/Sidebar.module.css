@@ -102,7 +102,7 @@
     width: auto;
     min-width: 48px;
     padding: 0 12px;
-    font-size: 15px;
+    font-size: 16px;
   }
 }
 
@@ -336,16 +336,16 @@
   }
 
   .row {
-    min-height: 52px;
-    font-size: 16px;
+    min-height: 56px;
+    font-size: 17px;
   }
 
   .rowText {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .skeletonRow {
-    height: 52px;
+    height: 56px;
   }
 
   .calDay {

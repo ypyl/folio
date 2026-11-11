@@ -87,7 +87,7 @@
 @media (max-width: 640px) {
   .summary {
     min-height: 48px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .body {
