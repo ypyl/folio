@@ -725,18 +725,18 @@ no-folder state, never loading placeholders.
 
 At or below the compact breakpoint, every control the shell shows SHALL have a
 target of at least 48 by 48 CSS pixels, and the shell's text SHALL follow the
-compact scale: 16px body and list text, 14px secondary text and calendar days,
-12px section labels, status text, and tab labels, and no text below 11px. A
-navigation view's row SHALL keep at least 16 CSS pixels from the shell's
-trailing edge, and a Files row SHALL be 52 CSS pixels tall. The rule covers the
-compact navigation bar's destinations, the app bar's title, actions, and status
-line, the Journal row's controls, the folder rail's controls and a folder
-entry's close control, the accordion summaries, the calendar's month controls
-and day cells, the Files listing's rows, the right panel's rows and its Contents
-disclosure and expand/collapse controls, the brand screen's actions, the search
-spotlight's controls and rows, the menus' items, and the presentation view's
-controls. A target MAY be larger than the mark it draws; where a control's drawn
-mark is smaller than the minimum, an invisible hit area SHALL make up the
+compact scale: 18px body text, 17px list text, 15px secondary text, 16px
+calendar days, 13px section labels, status text, and nav labels, and no text
+below 12px. A navigation view's row SHALL keep at least 16 CSS pixels from the
+shell's trailing edge, and a Files row SHALL be 56 CSS pixels tall. The rule
+covers the compact navigation bar's destinations, the app bar's title, actions,
+and status line, the Journal row's controls, the folder rail's controls and a
+folder entry's close control, the accordion summaries, the calendar's month
+controls and day cells, the Files listing's rows, the right panel's rows and its
+Contents disclosure and expand/collapse controls, the brand screen's actions,
+the search spotlight's controls and rows, the menus' items, and the presentation
+view's controls. A target MAY be larger than the mark it draws; where a control's
+drawn mark is smaller than the minimum, an invisible hit area SHALL make up the
 difference. The calendar's seven-column grid is the one exception to the width:
 its cells SHALL be 48 tall and as wide as the pane's column share, which SHALL
 be at least 44. The compact navigation bar and the app bar SHALL pad themselves
@@ -797,8 +797,8 @@ than covering the bottom of the editor.
 
 - **GIVEN** a viewport at or below the compact breakpoint and a page open
 - **WHEN** the editor, the listing, the calendar, and the app bar render
-- **THEN** the editor's body text is 16px, a list row's text is 16px, a section
-  label is 12px, and no text is smaller than 11px
+- **THEN** the editor's body text is 18px, a list row's text is 17px, a section
+  label is 13px, and no text is smaller than 12px
 
 #### Scenario: The panes keep a 16px margin
 
@@ -1209,11 +1209,11 @@ closing SHALL NOT write to the vault or to any stored preference.
 
 At or below the compact breakpoint the shell SHALL render a 64 CSS pixel app bar
 above every compact view. It SHALL hold a title and, under it, the save-state
-line. The title SHALL be one line at 16px semibold, truncated rather than
+line. The title SHALL be one line at 18px semibold, truncated rather than
 wrapped, naming the view: the open item's title, "Details", the folder's name or
 "Folders", and "Folio" on the brand screen. Where the open item is a page or a
 journal day, the title SHALL be a control at least 48px tall that locates it as
-the status bar's crumb does. The status line SHALL be 12px, outside the title
+the status bar's crumb does. The status line SHALL be 13px, outside the title
 control, and announced as a status: the save-state text, or the indexing label
 while the index builds, and nothing on the brand screen. The bar SHALL pad the
 top safe-area inset.
@@ -1464,7 +1464,7 @@ At or below the compact breakpoint the shell's footer SHALL be a navigation bar,
 64 CSS pixels tall plus the device's bottom safe-area inset, holding exactly
 three equal destinations: Notes (the navigation view), Page (the editor view),
 and Details (the meta view). Each destination SHALL be a full-height segment of
-a third of the bar's width, carrying a 24px icon and a visible 12px label. The
+a third of the bar's width, carrying a 24px icon and a visible 13px label. The
 destination whose view is shown SHALL carry a 56 by 32 rounded active indicator
 in the app's recede tint behind its icon, with its icon and label in the brand
 ink; the other destinations SHALL carry no indicator and use the tertiary ink.
