@@ -1290,9 +1290,11 @@ function App() {
 
   // Destination-completion pool (add-asset-references, design D4): every vault
   // path that is not a page, labelled as the sidebar labels it and carrying the
-  // image flag an image's destination narrows by. Built once per graph, never
-  // per keystroke, exactly like the page pool above.
-  const filePool = useMemo(() => (graph ? fileCandidates(graph) : []), [graph])
+  // image flag an image's destination narrows by. Keyed on the file set, which a
+  // page save does not change (src/vault/index.ts `patchPage`), so a save does
+  // not rebuild it.
+  const vaultFiles = graph?.files
+  const filePool = useMemo(() => (vaultFiles ? fileCandidates(vaultFiles) : []), [vaultFiles])
   const suggestFileRows = useMemo(
     () =>
       (query: string, onlyImages: boolean): Suggestion[] =>
@@ -1301,8 +1303,12 @@ function App() {
   )
 
   // Board-completion pool (add-whiteboards, design D2): one row per resolvable
-  // board name, built once per graph, exactly like the page and file pools.
-  const boardPool = useMemo(() => (graph ? boardCandidates(graph) : []), [graph])
+  // board name. Keyed on the board name map, which a page save does not change.
+  const boardNameIndex = graph?.boardsByName
+  const boardPool = useMemo(
+    () => (boardNameIndex ? boardCandidates(boardNameIndex) : []),
+    [boardNameIndex],
+  )
   const suggestBoardRows = useMemo(
     () =>
       (query: string): Suggestion[] =>

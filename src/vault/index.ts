@@ -252,8 +252,7 @@ export async function upsertPage(
   const normalized = withTrailingBlankLine(content)
   await storage.write(path, normalized)
   const lastModified = await storage.stat(path)
-  const pages = new Map(current.graph.pages)
-  pages.set(path, {
+  const page: IndexPage = {
     path,
     title: stem(path),
     kind: kindOf(path),
@@ -262,14 +261,108 @@ export async function upsertPage(
     assets: parseAssetPaths(normalized),
     boards: parseBoardRefs(normalized),
     lastModified,
-  })
+  }
   const snapshot = new Map(current.snapshot)
   snapshot.set(path, lastModified)
-  // A page the app just wrote is a file the vault now holds, so the listing the
-  // asset check reads includes it (design D2).
-  const files = new Set(current.graph.files)
-  files.add(path)
-  return { graph: fold(pages, files), snapshot, pins: current.pins, reminders: current.reminders }
+  return {
+    graph: patchPage(current.graph, path, page),
+    snapshot,
+    pins: current.pins,
+    reminders: current.reminders,
+  }
+}
+
+/** One saved record folded into the graph (ADR-0004's write-through, which
+ *  "updates one object"): a save must not rebuild the vault's reverse indexes,
+ *  which is vault-sized work on a page-sized change. Only what the record can
+ *  change is touched: a name a new page introduces, the edges the old record
+ *  carried and the new one carries, and — only when the file set itself grew —
+ *  the lists derived from it. Everything else keeps its identity, so the
+ *  graph's consumers memoize as if nothing else had moved. */
+function patchPage(graph: Graph, path: string, page: IndexPage): Graph {
+  const before = graph.pages.get(path)
+  const pages = new Map(graph.pages)
+  pages.set(path, page)
+  // The file set is the same object when the save overwrote a file the vault
+  // already listed, which is every save of a page that has a file.
+  const files = graph.files.has(path) ? graph.files : new Set(graph.files).add(path)
+  // A name belongs to the first page that has it, so an existing name keeps its
+  // owner and a new page only claims a free one.
+  const name = page.title.toLowerCase()
+  const byName = graph.byName.has(name) ? graph.byName : new Map(graph.byName).set(name, path)
+  return {
+    pages,
+    byName,
+    backlinks: rewire(
+      graph.backlinks,
+      path,
+      pageLinkKeys(before, byName),
+      pageLinkKeys(page, byName),
+    ),
+    files,
+    assets: files === graph.files ? graph.assets : listAssets(files),
+    boards: files === graph.files ? graph.boards : listBoards(files),
+    boardsByName: files === graph.files ? graph.boardsByName : boardNameMap(listBoards(files)),
+    boardReferrers: rewire(
+      graph.boardReferrers,
+      path,
+      pageBoardKeys(before, graph.boardsByName),
+      pageBoardKeys(page, graph.boardsByName),
+    ),
+  }
+}
+
+/** The reverse-map keys one record contributes: its reference targets,
+ *  lowercased, with a self-reference dropped exactly as `fold` drops it. */
+function pageLinkKeys(page: IndexPage | undefined, byName: Map<string, string>): string[] {
+  if (page === undefined) return []
+  return page.links
+    .map((link) => link.target.toLowerCase())
+    .filter((target) => byName.get(target) !== page.path)
+}
+
+/** The board paths one record refers to (add-whiteboards, design D9): a name
+ *  resolves through the board namespace, and an unknown name refers to nothing. */
+function pageBoardKeys(page: IndexPage | undefined, boardsByName: Map<string, string>): string[] {
+  if (page === undefined) return []
+  const paths: string[] = []
+  for (const ref of page.boards) {
+    const path = boardsByName.get(ref.target.toLowerCase())
+    if (path !== undefined) paths.push(path)
+  }
+  return paths
+}
+
+/** One reverse map with `path`'s edges moved from `before` to `after`: the
+ *  referrers of a key the page stopped naming lose it, and a key it started
+ *  naming gains it. A referrer list that becomes empty drops its key, so the
+ *  map cannot fill with dead names. An added referrer appends: the arrays are
+ *  read through `rows.ts`, which orders the rows by last-modified before they
+ *  are shown, so their order is not a display order and a fold's scan-order
+ *  insertion is not a property anything reads. */
+function rewire(
+  map: Map<string, string[]>,
+  path: string,
+  before: readonly string[],
+  after: readonly string[],
+): Map<string, string[]> {
+  const dropped = before.filter((key) => !after.includes(key))
+  const added = after.filter((key) => !before.includes(key))
+  if (dropped.length === 0 && added.length === 0) return map
+  const next = new Map(map)
+  for (const key of dropped) {
+    const list = next.get(key)
+    if (list === undefined) continue
+    const kept = list.filter((referrer) => referrer !== path)
+    if (kept.length === 0) next.delete(key)
+    else next.set(key, kept)
+  }
+  for (const key of added) {
+    const list = next.get(key)
+    if (list === undefined) next.set(key, [path])
+    else if (!list.includes(path)) next.set(key, [...list, path])
+  }
+  return next
 }
 
 /** Write-through for pin edits (design D1/D3), mirroring upsertPage: write
@@ -508,6 +601,16 @@ export function resolveReferencePath(name: string, byName: Map<string, string>):
     : (byName.get(name.toLowerCase()) ?? `pages/${name}.md`)
 }
 
+/** Lowercased board name -> path over an already path-ordered board list. */
+function boardNameMap(boards: string[]): Map<string, string> {
+  const boardsByName = new Map<string, string>()
+  for (const path of boards) {
+    const name = boardStem(path).toLowerCase()
+    if (!boardsByName.has(name)) boardsByName.set(name, path)
+  }
+  return boardsByName
+}
+
 /** Fold scanned pages into the graph: name resolution + backlinks (D5). */
 function fold(pages: Map<string, IndexPage>, files: Set<string>): Graph {
   const byName = new Map<string, string>()
@@ -528,11 +631,7 @@ function fold(pages: Map<string, IndexPage>, files: Set<string>): Graph {
   // board name never collides with a page name, and only a `#!` token feeds
   // the reverse set.
   const boards = listBoards(files)
-  const boardsByName = new Map<string, string>()
-  for (const path of boards) {
-    const name = boardStem(path).toLowerCase()
-    if (!boardsByName.has(name)) boardsByName.set(name, path)
-  }
+  const boardsByName = boardNameMap(boards)
   const boardReferrers = new Map<string, string[]>()
   for (const [path, page] of pages) {
     for (const ref of page.boards) {

@@ -153,7 +153,7 @@ describe('fileCandidates', () => {
       journals: { '2026-09-10.md': 'x' },
       notes: { 'draft.docx': 'x' },
     })
-    expect(fileCandidates(graph).map((row) => row.name)).toEqual([
+    expect(fileCandidates(graph.files).map((row) => row.name)).toEqual([
       '2026/shot.png',
       'q3-report.pdf',
       // A file outside `assets/` has no path inside it to be labelled by, so it
@@ -168,20 +168,22 @@ describe('fileCandidates', () => {
       pages: { 'reading.md': 'x' },
       journals: { '2026-09-10.md': 'x' },
     })
-    expect(fileCandidates(graph).map((row) => row.path)).toEqual(['assets/shot.png'])
+    expect(fileCandidates(graph.files).map((row) => row.path)).toEqual(['assets/shot.png'])
   })
 
   it('marks the files an image destination may take', async () => {
     const graph = await graphOf({
       assets: { 'shot.png': 'x', 'q3-report.pdf': 'y', 'notes.txt': 'z' },
     })
-    const byImage = Object.fromEntries(fileCandidates(graph).map((row) => [row.name, row.image]))
+    const byImage = Object.fromEntries(
+      fileCandidates(graph.files).map((row) => [row.name, row.image]),
+    )
     expect(byImage).toEqual({ 'shot.png': true, 'q3-report.pdf': false, 'notes.txt': false })
   })
 
   it('carries the matcher columns, so a query costs no per-candidate work', async () => {
     const graph = await graphOf({ assets: { 'q3-report.pdf': 'x' } })
-    const [row] = fileCandidates(graph)
+    const [row] = fileCandidates(graph.files)
     expect(row.lower).toBe('q3-report.pdf')
     expect(row.starts).toEqual([3])
   })
@@ -218,7 +220,7 @@ describe('board completion pool (add-whiteboards)', () => {
     const graph = await graphOf({
       boards: { 'Migration.excalidraw': '{}', 'Migration topology.excalidraw': '{}' },
     })
-    const rows = boardCandidates(graph)
+    const rows = boardCandidates(graph.boardsByName)
     expect(rows.map((r) => r.name)).toEqual(['Migration topology', 'Migration'])
     expect(rows.map((r) => r.path)).toEqual([
       'boards/Migration topology.excalidraw',
@@ -230,13 +232,13 @@ describe('board completion pool (add-whiteboards)', () => {
     const graph = await graphOf({
       boards: { 'Migration.excalidraw': '{}', 'data migration.excalidraw': '{}' },
     })
-    const pool = boardCandidates(graph)
+    const pool = boardCandidates(graph.boardsByName)
     expect(suggestBoards('mig', pool).map((s) => s.name)).toEqual(['Migration', 'data migration'])
   })
 
   it('offers nothing for an empty query or no board', async () => {
     const graph = await graphOf({ boards: { 'Migration.excalidraw': '{}' } })
-    const pool = boardCandidates(graph)
+    const pool = boardCandidates(graph.boardsByName)
     expect(suggestBoards('', pool)).toEqual([])
     expect(suggestBoards('zzz', pool)).toEqual([])
   })

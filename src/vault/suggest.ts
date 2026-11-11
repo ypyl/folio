@@ -80,11 +80,12 @@ export function candidateNames(graph: Graph, pins: string[]): PageCandidate[] {
  * inside `assets/` — the label the sidebar and the References section already
  * use. That set is exactly the paths a page's asset reference can name, so the
  * picker can only offer a reference the index would report (vault-index).
- * Built once per graph, never per keystroke.
+ * Built from the file set alone, so a save that leaves the set unchanged leaves
+ * the pool's identity — and the completion popup — alone.
  */
-export function fileCandidates(graph: Graph): FileCandidate[] {
+export function fileCandidates(files: Iterable<string>): FileCandidate[] {
   const rows: FileCandidate[] = []
-  for (const path of [...graph.files].sort()) {
+  for (const path of [...files].sort()) {
     if (isPagePath(path)) continue
     const name = assetName(path)
     const lower = name.toLowerCase()
@@ -128,11 +129,12 @@ export function suggestFiles(
 /**
  * The board picker's candidate pool (add-whiteboards, design D2): one row per
  * resolvable board name, labelled — and inserted — by its filename stem, the
- * text a `#!` token carries. Built once per graph, never per keystroke.
+ * text a `#!` token carries. Built from the board name map alone, so a page
+ * save that changes no board leaves the pool alone.
  */
-export function boardCandidates(graph: Graph): PageCandidate[] {
+export function boardCandidates(boardsByName: Map<string, string>): PageCandidate[] {
   const rows: PageCandidate[] = []
-  for (const path of graph.boardsByName.values()) {
+  for (const path of boardsByName.values()) {
     const name = boardStem(path)
     const lower = name.toLowerCase()
     rows.push({ name, path, lower, starts: wordStarts(lower) })

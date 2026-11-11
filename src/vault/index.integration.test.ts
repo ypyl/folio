@@ -653,6 +653,51 @@ describe('buildIndex (diff-rescan)', () => {
     expect(second.graph.backlinks.get('new')).toEqual(['pages/a.md'])
   })
 
+  it('patches the reverse indexes a full fold would build', async () => {
+    const root = buildTree({
+      pages: { 'a.md': 'see #One #!Board', 'b.md': 'also #One', 'One.md': 'one' },
+      boards: { 'Board.excalidraw': '{}' },
+    })
+    const storage = vault(root)
+    const first = await buildIndex(storage)
+    expect(first.graph.backlinks.get('one')).toEqual(['pages/a.md', 'pages/b.md'])
+
+    const saved = await upsertPage(storage, first, 'pages/a.md', 'now #Two #!Other')
+    // A scan over the same folder is the ground truth for the patched graph.
+    // Sorted by key: a map's entry order is not a property anyone reads.
+    const entries = (map: Map<string, string[]>) =>
+      [...map].sort(([left], [right]) => left.localeCompare(right))
+    const folded = await buildIndex(storage, saved)
+    expect([...saved.graph.byName]).toEqual([...folded.graph.byName])
+    expect(entries(saved.graph.backlinks)).toEqual(entries(folded.graph.backlinks))
+    expect(entries(saved.graph.boardReferrers)).toEqual(entries(folded.graph.boardReferrers))
+    expect(saved.graph.backlinks.get('one')).toEqual(['pages/b.md'])
+    expect(saved.graph.backlinks.get('two')).toEqual(['pages/a.md'])
+
+    // The file set did not change, so everything derived from it keeps its
+    // identity: the pools and listings keyed on it rebuild nothing.
+    expect(saved.graph.files).toBe(first.graph.files)
+    expect(saved.graph.assets).toBe(first.graph.assets)
+    expect(saved.graph.boards).toBe(first.graph.boards)
+    expect(saved.graph.boardsByName).toBe(first.graph.boardsByName)
+    expect(saved.graph.byName).toBe(first.graph.byName)
+  })
+
+  it('keeps the reverse maps when a save changes no reference', async () => {
+    const root = buildTree({ pages: { 'a.md': 'see #One', 'One.md': 'one' } })
+    const storage = vault(root)
+    const first = await buildIndex(storage)
+    const saved = await upsertPage(storage, first, 'pages/a.md', 'see #One, again')
+    expect(saved.graph.backlinks).toBe(first.graph.backlinks)
+    expect(saved.graph.boardReferrers).toBe(first.graph.boardReferrers)
+
+    // A page that had no file becomes a file: the listing it joins is rebuilt.
+    const created = await upsertPage(storage, saved, 'pages/Fresh.md', 'see #Fresh')
+    expect(created.graph.files.has('pages/Fresh.md')).toBe(true)
+    expect(created.graph.byName.get('fresh')).toBe('pages/Fresh.md')
+    expect(created.graph.assets).not.toBe(saved.graph.assets)
+  })
+
   it('heals the snapshot so the next refresh skips the written file', async () => {
     const root = buildTree({ pages: { 'a.md': 'v1' } })
     const storage = vault(root)
