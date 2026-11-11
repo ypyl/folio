@@ -387,21 +387,22 @@ search results, on an open board, and on the no-folder state. It SHALL show a
 status group holding the save-state text and the loading label. At viewports
 wider than the compact breakpoint it SHALL also show the open item's file path as
 a breadcrumb and, at its trailing edge, the active folder's name and how many
-notes it holds, with the running version beside them. At
-or below the compact breakpoint it SHALL show the open item's name instead of the
-path, and SHALL show neither the folder's name, nor its note count, nor the
-version. A group SHALL be empty when it has no source, and the bar SHALL sit
-outside the panes' scroll regions, so its content never scrolls. The bar's
-display-only content SHALL perform no action; its controls SHALL be the running
-version's disclosure, the open page's name where it has a Files row, and — at or
-below the compact breakpoint — the navigation and meta view controls the compact
-shell adds. The bar SHALL NOT
-hold a Back, Forward, or Today control: those live on the Journal section's
-summary row. At or below the compact breakpoint each view control SHALL show, by the
-shape it draws rather than by colour alone, whether its view is the one shown:
-the pane inside its frame SHALL be filled while that control's view is open and
-empty while it is closed, and the open control SHALL additionally carry the
-app's recede tint as its background.
+notes it holds, with the running version beside them. At or below the compact
+breakpoint it SHALL show the save-state text and the loading label only, and
+SHALL show neither the open item's name, nor the folder's name, nor its note
+count, nor the version; the app bar carries the open item's name. A group SHALL
+be empty when it has no source, and the bar SHALL sit outside the panes' scroll
+regions, so its content never scrolls. The bar's display-only content SHALL
+perform no action; its controls SHALL be the running version's disclosure, the
+open page's name where it has a Files row, and — at or below the compact
+breakpoint — the notes-view and details controls the compact shell adds, each
+with a visible label beside its glyph and a target of at least 48 by 48. The bar
+SHALL NOT hold a Back, Forward, or Today control: those live on the Journal
+section's summary row. At or below the compact breakpoint each view control SHALL
+show, by the shape it draws rather than by colour alone, whether its view is the
+one shown: the pane inside its frame SHALL be filled while that control's view is
+open and empty while it is closed, and the open control SHALL additionally carry
+the app's recede tint as its background.
 
 #### Scenario: The bar is present in every state
 
@@ -444,8 +445,9 @@ app's recede tint as its background.
 
 - **GIVEN** a viewport at or below the compact breakpoint and a page open
 - **WHEN** the shell renders
-- **THEN** the bar shows the page's name and shows neither the folder's name,
-  nor its note count, nor the version, and it is not a scrolling row
+- **THEN** the bar shows the save state and shows neither the page's name, nor
+  the folder's name, nor its note count, nor the version, and it is not a
+  scrolling row
 
 #### Scenario: The bar carries no session navigation
 
@@ -468,8 +470,8 @@ app's recede tint as its background.
 
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the shell renders
-- **THEN** the status bar carries a navigation view control at its leading edge
-  and a meta view control at its trailing edge
+- **THEN** the status bar carries a notes-view control at its leading edge and a
+  details control at its trailing edge, each with a visible label
 
 #### Scenario: A view control draws its view's state
 
@@ -488,7 +490,8 @@ app's recede tint as its background.
 ### Requirement: The status bar's file name locates the open item in the navigation
 
 When the open item is a page or a journal day, the status bar's file-name crumb
-SHALL be a control. Activating a page's crumb SHALL show the left navigation —
+SHALL be a control, and at or below the compact breakpoint the app bar's title
+SHALL be that control. Activating a page's crumb SHALL show the left navigation —
 unfolding it where the three-pane shell folds it, and showing the navigation view
 where the compact shell shows one view at a time — open the Files section if
 collapsed, scroll the page's row into view, and move keyboard focus to that row.
@@ -524,7 +527,7 @@ directory crumbs SHALL always stay non-interactive.
 
 - **GIVEN** a viewport at or below the compact breakpoint, the editor view is
   shown, and the open page has a Files row
-- **WHEN** the user activates the status bar's page name
+- **WHEN** the user activates the app bar's title
 - **THEN** the navigation view is shown with the row in view and keyboard focus
   on it
 
@@ -584,7 +587,7 @@ directory crumbs SHALL always stay non-interactive.
 
 - **GIVEN** a viewport at or below the compact breakpoint, the editor view is
   shown, and a journal day is open
-- **WHEN** the user activates the status bar's file-name crumb
+- **WHEN** the user activates the app bar's title
 - **THEN** the navigation view is shown with the day's cell in view and keyboard
   focus on it
 
@@ -632,7 +635,11 @@ screen's quietest text.
 The screen SHALL be reachable at startup when no folder is stored, by activating
 the brand, and by closing the active folder. In every no-folder state, whether or
 not the browser can open local folders, the screen SHALL offer the guided demo,
-and activating it SHALL open the demo vault's Welcome page. Where the browser
+and activating it SHALL open the demo vault's Welcome page. Where a stored folder
+is active but its permission is pending, the screen SHALL lead with a
+`Continue with <name>` action, primary, that requests the folder's permission
+and opens it when the browser grants it; the action SHALL be offered only while
+the permission is pending. Where the browser
 cannot open local folders, the screen SHALL state the browser requirement in
 place of the open-folder headline, and SHALL contain no control that promises an
 action the app cannot perform. The guided demo remains available there, because
@@ -729,6 +736,21 @@ than clip it, and the content SHALL stay centered while it fits.
   cannot open local folders
 - **WHEN** the brand screen shows
 - **THEN** it shows the browser requirement and no open-folder action
+
+#### Scenario: The brand screen offers a stored folder
+
+- **GIVEN** a stored folder active with its permission pending
+- **WHEN** the brand screen shows
+- **THEN** it leads with a `Continue with <name>` action, and activating it asks
+  the browser for the folder's permission
+
+#### Scenario: The reconnect action goes once the folder opens
+
+- **GIVEN** the brand screen's `Continue with <name>` action and a granted
+  permission
+- **WHEN** the folder opens
+- **THEN** the brand screen is replaced by the folder's today journal and the
+  action is gone
 
 #### Scenario: The brand screen shows while folders are listed
 
@@ -896,66 +918,86 @@ state, or write to the vault.
 ### Requirement: Compact controls are touch-sized and clear the device's safe areas
 
 At or below the compact breakpoint, every control the shell shows SHALL have a
-target of at least 44 by 44 CSS pixels. The rule covers the controls of the
-status bar and the Journal row, the folder rail's controls and a folder entry's
-close control, the accordion summaries, the calendar's month controls and day
-cells, the Files listing's rows, the right panel's rows and its Contents
-disclosure and expand/collapse controls, the status bar's open-item name, the
-brand screen's actions, the search spotlight's controls and rows, the menus'
-items, and the presentation view's controls. A target MAY be larger than the
-mark it draws; where a control's drawn mark is smaller than the minimum, an
-invisible hit area SHALL make up the difference. The status bar SHALL pad itself
-with the device's safe-area insets,
-so no control sits under a notch, a rounded corner, or the home indicator, and
-the shell SHALL size itself to the viewport height that remains visible, so the
-on-screen keyboard shrinks the shell rather than covering the bottom of the
-editor.
+target of at least 48 by 48 CSS pixels, and the shell's text SHALL follow the
+compact scale: 16px body and list text, 14px secondary text and calendar days,
+12px section labels, status text, and tab labels, and no text below 11px. The
+navigation panes SHALL keep their content at least 16 CSS pixels from the
+shell's edge, and a Files row SHALL be 52 CSS pixels tall. The rule covers the
+controls of the status bar and the Journal row, the folder rail's controls and a
+folder entry's close control, the app bar's title and actions, the accordion
+summaries, the calendar's month controls and day cells, the Files listing's
+rows, the right panel's rows and its Contents disclosure and expand/collapse
+controls, the brand screen's actions, the search spotlight's controls and rows,
+the menus' items, and the presentation view's controls. A target MAY be larger
+than the mark it draws; where a control's drawn mark is smaller than the
+minimum, an invisible hit area SHALL make up the difference. The calendar's
+seven-column grid is the one exception to the width: its cells SHALL be 48 tall
+and as wide as the pane's column share, which SHALL be at least 44. The status
+bar SHALL pad itself with the device's safe-area insets, so no control sits under
+a notch, a rounded corner, or the home indicator, and the shell SHALL size itself
+to the viewport height that remains visible, so the on-screen keyboard shrinks
+the shell rather than covering the bottom of the editor.
 
 #### Scenario: The app bar's controls meet the minimum target
 
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the shell renders
-- **THEN** every control in the status bar is at least 44 by 44 CSS pixels
+- **THEN** every control in the status bar is at least 48 by 48 CSS pixels
 
 #### Scenario: The navigation row's controls meet the minimum target
 
 - **GIVEN** a viewport at or below the compact breakpoint and the navigation view shown
 - **WHEN** the sidebar renders
-- **THEN** Back, Forward, and Today are each at least 44 by 44 CSS pixels
+- **THEN** Back, Forward, and Today are each at least 48 by 48 CSS pixels
 
 #### Scenario: The rail's controls meet the minimum target
 
 - **GIVEN** a viewport at or below the compact breakpoint and a folder listed
 - **WHEN** the navigation view is shown
-- **THEN** the brand, search, add, and each folder entry are at least 44 by 44
+- **THEN** the brand, search, add, and each folder entry are at least 48 by 48
   CSS pixels, and so is the folder entry's close control
 
 #### Scenario: The calendar's cells meet the minimum target
 
 - **GIVEN** a viewport at or below the compact breakpoint and a folder open
 - **WHEN** the navigation view is shown
-- **THEN** the month controls and every day cell are at least 44 by 44 CSS
-  pixels
+- **THEN** the month controls are at least 48 by 48 CSS pixels, and every day
+  cell is 48 tall and at least 44 wide
 
 #### Scenario: The listings and summaries meet the minimum target
 
 - **GIVEN** a viewport at or below the compact breakpoint and a folder open
 - **WHEN** the navigation or meta view is shown
 - **THEN** each accordion summary, each Files row, each right-panel row, and the
-  Contents disclosure and its controls are at least 44 by 44 CSS pixels
+  Contents disclosure and its controls are at least 48 by 48 CSS pixels
 
 #### Scenario: The open item's name meets the minimum target
 
 - **GIVEN** a viewport at or below the compact breakpoint and a page with a Files
   row open
 - **WHEN** the shell renders
-- **THEN** the status bar's name control is at least 44 by 44 CSS pixels
+- **THEN** the app bar's title and its page-actions control are each at least 48
+  by 48 CSS pixels
 
 #### Scenario: The overlay surfaces' controls meet the minimum target
 
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the brand screen, the search spotlight, or a menu renders
-- **THEN** every control and row it shows is at least 44 by 44 CSS pixels
+- **THEN** every control and row it shows is at least 48 by 48 CSS pixels
+
+#### Scenario: The compact text follows the scale
+
+- **GIVEN** a viewport at or below the compact breakpoint and a page open
+- **WHEN** the editor, the listing, the calendar, and the app bar render
+- **THEN** the editor's body text is 16px, a list row's text is 16px, a section
+  label is 12px, and no text is smaller than 11px
+
+#### Scenario: The panes keep a 16px margin
+
+- **GIVEN** a viewport at or below the compact breakpoint and the navigation view shown
+- **WHEN** the listing renders
+- **THEN** each row's box ends at least 16 CSS pixels from the shell's trailing
+  edge
 
 #### Scenario: The bar clears the safe areas
 
@@ -1353,3 +1395,65 @@ closing SHALL NOT write to the vault or to any stored preference.
 - **WHEN** the user opens and closes the panel
 - **THEN** the edits, the open page, and the vault are as they were, and no
   preference is written
+
+### Requirement: The compact app bar names the open view
+
+At or below the compact breakpoint the shell SHALL render a 56 CSS pixel app bar
+above every compact view. Its title SHALL be one line at 16px semibold,
+truncated rather than wrapped, naming the view: the open item's title,
+"Details", the folder's name or "Folders", and "Folio" on the brand screen. Where
+the open item is a page or a journal day, the title SHALL be a control that
+locates it as the status bar's crumb does. The bar SHALL pad the top safe-area
+inset.
+
+#### Scenario: The bar shows the open page's title
+
+- **GIVEN** a viewport at or below the compact breakpoint and a page open
+- **WHEN** the app bar renders
+- **THEN** its title is the page's title and it is one line
+
+#### Scenario: The title locates a page
+
+- **GIVEN** a page open in the editor view
+- **WHEN** the user activates the app bar's title
+- **THEN** the navigation view shows with the page's row in view and focused
+
+#### Scenario: The title locates a journal day
+
+- **GIVEN** a journal day open in the editor view
+- **WHEN** the user activates the app bar's title
+- **THEN** the navigation view shows with the day's cell in view and focused
+
+#### Scenario: The navigation view names its folder
+
+- **GIVEN** a folder active and the navigation view shown
+- **WHEN** the app bar renders
+- **THEN** its title is the folder's name
+
+### Requirement: The compact app bar carries the open page's actions
+
+On the editor view with a page row, the compact app bar SHALL carry a
+page-actions control at its trailing edge, 48 by 48, that opens the page row
+menu's items at the control: Favorite or Unfavorite, Remove reminder when the
+page has a rule, and Present. The control SHALL NOT show for a journal day, a
+board, an asset, the results view, or the brand screen, because none of them has
+a page row's menu.
+
+#### Scenario: The overflow holds the page's actions
+
+- **GIVEN** a page with a Files row open in the editor view
+- **WHEN** the user activates the page-actions control
+- **THEN** the row menu's items open at the control, with Favorite or Unfavorite
+  first
+
+#### Scenario: A journal day has no page actions
+
+- **GIVEN** a journal day open in the editor view
+- **WHEN** the app bar renders
+- **THEN** it carries no page-actions control
+
+#### Scenario: A board has no page actions
+
+- **GIVEN** a board open in the editor view
+- **WHEN** the app bar renders
+- **THEN** it carries no page-actions control
