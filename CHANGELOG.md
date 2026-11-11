@@ -6,6 +6,7 @@ and for nothing else. The status bar's version badge reads this file.
 
 ## 2026-11-11
 
+- read the folder again after a failed scan
 - keep a draft dirty when its write carried older text
 - render a destination the app cannot open as text
 - show the recent changes from the version badge
@@ -69,4 +70,3 @@ and for nothing else. The status bar's version badge reads this file.
 
 - key each Links row by direction as well as path
 - collapse Links by default in the right panel
-- release reminders

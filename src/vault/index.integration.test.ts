@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FakeFileHandle, buildTree, type FakeDirectoryHandle } from './fakeHandle'
 import { FileSystemVaultStorage } from './fs'
 import type { VaultStorage } from './storage'
@@ -30,6 +30,10 @@ import {
   upsertReminders,
   type IndexPage,
 } from './index'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function vault(tree: FakeDirectoryHandle): FileSystemVaultStorage {
   return new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
@@ -276,6 +280,29 @@ describe('pins in the index (design D1/D3)', () => {
   it('a missing meta file means no pins', async () => {
     const index = await buildIndex(vault(buildTree({ pages: { 'a.md': 'a' } })))
     expect(index.pins).toEqual([])
+  })
+
+  it('a meta file that stats but cannot be read does not fail the scan', async () => {
+    const tree = buildTree({
+      pages: { 'a.md': 'a' },
+      '.folio': { 'pins.md': '- pages/a.md\n' },
+    })
+    const storage = vault(tree)
+    // Removed between the stat and the read. The rest of the vault still opens,
+    // and the path has no snapshot entry, so the next scan reads it again.
+    const read = storage.read.bind(storage)
+    vi.spyOn(storage, 'read').mockImplementation(async (path: string) => {
+      if (path === '.folio/pins.md') throw new Error('gone')
+      return read(path)
+    })
+    const first = await buildIndex(storage)
+    expect(first.graph.pages.has('pages/a.md')).toBe(true)
+    expect(first.pins).toEqual([])
+    expect(first.snapshot.has('.folio/pins.md')).toBe(false)
+
+    vi.restoreAllMocks()
+    const second = await buildIndex(storage, first)
+    expect(second.pins).toEqual(['pages/a.md'])
   })
 
   it('carries pins by identity when the meta file is unchanged', async () => {

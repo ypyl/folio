@@ -195,7 +195,16 @@ async function readPins(
   if (previous && previous.snapshot.get(PINS_PATH) === mtime) {
     return previous.pins
   }
-  return parsePins(await storage.read(PINS_PATH))
+  try {
+    return parsePins(await storage.read(PINS_PATH))
+  } catch {
+    // A file that stats but cannot be read (removed between the two calls, a
+    // permission blip) must not fail the whole scan: the previous list stands,
+    // and dropping the snapshot entry makes the next scan read it again rather
+    // than carry a value that was never read.
+    snapshot.delete(PINS_PATH)
+    return previous?.pins ?? []
+  }
 }
 
 /** Read the reminders meta file into the index (add-reminders, ADR-0031). A
@@ -217,7 +226,14 @@ async function readReminders(
   if (previous && previous.snapshot.get(REMINDERS_PATH) === mtime) {
     return previous.reminders
   }
-  return parseReminders(await storage.read(REMINDERS_PATH))
+  try {
+    return parseReminders(await storage.read(REMINDERS_PATH))
+  } catch {
+    // Exactly like pins: an unreadable rules file keeps the previous rules and
+    // re-reads on the next scan instead of failing the whole index build.
+    snapshot.delete(REMINDERS_PATH)
+    return previous?.reminders ?? []
+  }
 }
 
 /** Write-through path for the app's own saves (ADR-0004, design B1): persist

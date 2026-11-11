@@ -17,7 +17,8 @@ import type { TraceSink } from '../trace/session'
 // Idle (no build, no listeners) when storage is undefined; rebuilds from
 // empty when the storage changes; diff-refreshes on window focus and on
 // visibility becoming visible (design D3 - external edits reach the index
-// without restarting, and no timer polls the folder).
+// without restarting, and no timer polls the folder). The one timer here is a
+// failed scan's retry, so an attempt that threw is not the session's last.
 
 type Built = { storage: VaultStorage; graph: Graph; pins: string[]; reminders: ReminderRule[] }
 
@@ -29,6 +30,11 @@ type Published = { storage: VaultStorage; index: VaultIndex }
 // while the index builds.
 const EMPTY_PINS: string[] = []
 const EMPTY_REMINDERS: ReminderRule[] = []
+
+/** How long after a failed scan the folder is read again. Short enough that a
+ *  transient failure costs a blink, long enough that a folder that keeps failing
+ *  (a revoked permission) is not hammered once per frame. */
+export const SCAN_RETRY_MS = 2000
 
 /** The write base for a page or board whose folder is no longer indexed: the
  *  call carries the whole content, so the file lands and the result is dropped
@@ -83,6 +89,10 @@ export function useIndex(
     // or a refresh). Local to the effect, so a folder switch or StrictMode's
     // second mount starts its own scan instead of waiting on the old one.
     let building = false
+    // A failed scan's retry. The folder is read again shortly after, so a
+    // transient failure heals on its own instead of stranding the app on
+    // "Indexing notes" until something else happens to ask for a scan.
+    let retry: ReturnType<typeof setTimeout> | null = null
     // Every folder change invalidates an in-flight write's right to publish,
     // a close included: the write itself still lands in its own folder.
     ++generation.current
@@ -94,6 +104,10 @@ export function useIndex(
     // there is one. The index is disposable (ADR-0004): a fresh build on every
     // folder switch, never cached across storages.
     const build = async (): Promise<void> => {
+      if (retry !== null) {
+        clearTimeout(retry)
+        retry = null
+      }
       if (cancelled || building) return
       const previous = latest.current?.storage === store ? latest.current.index : undefined
       const revAtStart = revision.current
@@ -124,10 +138,11 @@ export function useIndex(
         }
       } catch {
         // A transient failure (a page or the listing vanishing mid-scan, a
-        // permission blip) must not reject: the current index stays, and the
-        // next refresh retries. Retrying the first build the same way is what
-        // stops one bad scan from leaving the app on "Indexing notes" for the
-        // whole session.
+        // permission blip) must not reject: the current index stays. The folder
+        // is read again after a pause, so a failed first scan does not leave
+        // the app on "Indexing notes" for the session, and a failed refresh
+        // catches up without waiting for a focus change.
+        if (!cancelled) retry = setTimeout(() => void build(), SCAN_RETRY_MS)
       } finally {
         building = false
       }
@@ -144,6 +159,7 @@ export function useIndex(
 
     return () => {
       cancelled = true
+      if (retry !== null) clearTimeout(retry)
       window.removeEventListener('focus', build)
       document.removeEventListener('visibilitychange', onVisibility)
     }

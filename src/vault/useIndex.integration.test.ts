@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FakeFileHandle, FakeDirectoryHandle, buildTree } from './fakeHandle'
 import { FileSystemVaultStorage } from './fs'
-import { useIndex } from './useIndex'
+import { SCAN_RETRY_MS, useIndex } from './useIndex'
 
 function vault(tree: ReturnType<typeof buildTree>): FileSystemVaultStorage {
   return new FileSystemVaultStorage(tree as unknown as FileSystemDirectoryHandle)
@@ -124,6 +124,36 @@ describe('useIndex', () => {
       window.dispatchEvent(new Event('focus'))
     })
     await waitFor(() => expect(result.current.graph?.pages.has('pages/a.md')).toBe(true))
+  })
+
+  it('retries a failed first scan on its own, with no focus event', async () => {
+    vi.useFakeTimers()
+    try {
+      const tree = buildTree({ pages: { 'a.md': 'A' } })
+      const storage = vault(tree)
+      const list = FileSystemVaultStorage.prototype.list
+      let fail = true
+      vi.spyOn(FileSystemVaultStorage.prototype, 'list').mockImplementation(async function (
+        this: FileSystemVaultStorage,
+        path: string,
+      ) {
+        if (fail) throw new Error('denied')
+        return list.call(this, path)
+      })
+      const { result } = renderHook(() => useIndex(storage))
+      await flushUntil(() => false, 10)
+      expect(result.current.graph).toBeNull()
+
+      // Nothing else asks for a scan: the retry is the app's own.
+      fail = false
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(SCAN_RETRY_MS)
+      })
+      await flushUntil(() => result.current.graph !== null)
+      expect(result.current.graph?.pages.has('pages/a.md')).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('rebuilds from empty when the storage changes', async () => {
