@@ -64,4 +64,37 @@ describe('createDebouncedSaver (design C1/C2)', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(saved).toEqual([['a.md', 'x']])
   })
+
+  it('never runs two flushes at once, so one page is written in order', async () => {
+    // The timer's flush is waiting on the disk when the tab is hidden and the
+    // hide flush starts: the page must be written by one flush at a time, or the
+    // file ends up with whichever write closes last.
+    const saved: Array<[string, string]> = []
+    let release: (() => void) | null = null
+    const saver = createDebouncedSaver(async (p, c) => {
+      saved.push([p, c])
+      if (release === null) {
+        await new Promise<void>((resolve) => {
+          release = resolve
+        })
+      }
+      return true
+    }, 1000)
+
+    saver.schedule('a.md', 'older')
+    const first = saver.flush()
+    saver.schedule('a.md', 'newer')
+    const second = saver.flush()
+
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(saved).toEqual([['a.md', 'older']])
+    release!()
+    await Promise.all([first, second])
+    expect(saved).toEqual([
+      ['a.md', 'older'],
+      ['a.md', 'newer'],
+    ])
+    saver.dispose()
+  })
 })

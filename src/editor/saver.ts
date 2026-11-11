@@ -10,6 +10,11 @@ type SaveFn = (path: string, content: string) => Promise<boolean>
 export function createDebouncedSaver(save: SaveFn, delay: number) {
   let timer: ReturnType<typeof setTimeout> | null = null
   const pending = new Map<string, string>()
+  // Flushes run one after another. The timer and a `pagehide`/`dispose` flush can
+  // both fire while a write is on its way, and two overlapping flushes could
+  // write the same page concurrently — the file then holds whichever write
+  // closes last, which can be the older text.
+  let queue: Promise<void> = Promise.resolve()
 
   function schedule(path: string, content: string): void {
     pending.set(path, content)
@@ -19,20 +24,25 @@ export function createDebouncedSaver(save: SaveFn, delay: number) {
     }, delay)
   }
 
-  /** Write every scheduled draft in path order, sequentially. */
-  async function flush(): Promise<void> {
+  /** Write every scheduled draft in path order, sequentially, and never
+   *  alongside another flush. */
+  function flush(): Promise<void> {
     if (timer !== null) clearTimeout(timer)
     timer = null
     const items = [...pending]
     pending.clear()
-    for (const [path, content] of items) {
-      await save(path, content)
-    }
+    if (items.length === 0) return queue
+    queue = queue.then(async () => {
+      for (const [path, content] of items) {
+        await save(path, content)
+      }
+    })
+    return queue
   }
 
   /** Stop the timer and write what is pending. Disposing must not drop the last
    *  edits: a folder switch or an unmount would otherwise lose the text typed
-   *  inside the debounce window. The writes are fire-and-forget here, and the
+   *  inside the debounce window. The writes run in the flush queue here, and the
    *  save function's own compare-skip still drops a page that went back to its
    *  saved text. */
   function dispose(): void {

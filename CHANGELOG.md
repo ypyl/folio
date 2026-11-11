@@ -6,6 +6,7 @@ and for nothing else. The status bar's version badge reads this file.
 
 ## 2026-11-11
 
+- never let two flushes write the same page at once
 - read the folder again after a failed scan
 - keep a draft dirty when its write carried older text
 - render a destination the app cannot open as text
@@ -69,4 +70,3 @@ and for nothing else. The status bar's version badge reads this file.
 ## 2026-10-23
 
 - key each Links row by direction as well as path
-- collapse Links by default in the right panel
