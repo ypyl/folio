@@ -36,8 +36,9 @@ test('the no-folder state invites opening a folder', async ({ page }) => {
   await expect(repo).toHaveAttribute('href', 'https://github.com/ypyl/folio')
 })
 
-// add-a-feedback-control: the rail carries one link out to the project's issue
-// tracker, above the tour control, which stays the rail's last control.
+// add-a-feedback-control, tour-lives-in-the-demo: outside the demo the rail's
+// bottom slot holds the link out to the project's issue tracker, and no tour
+// control.
 test('the rail sends feedback to the issue tracker', async ({ page }) => {
   await installVaultPicker(page)
   await page.goto('/')
@@ -47,22 +48,27 @@ test('the rail sends feedback to the issue tracker', async ({ page }) => {
   await expect(feedback).toBeVisible()
   await expect(feedback).toHaveAttribute('href', 'https://github.com/ypyl/folio/issues/new/choose')
   await expect(feedback).toHaveAttribute('target', '_blank')
+  // The tour is the demo's, so the normal view carries no tour control.
+  await expect(rail.getByRole('button', { name: 'Take the tour' })).toHaveCount(0)
 
-  // The link sits in the bottom group above the tour control: the same column,
-  // a shorter y.
+  // The link is the rail's last control, just above the status bar's top edge.
   const feedbackBox = await feedback.boundingBox()
-  const tourBox = await rail.getByRole('button', { name: 'Take the tour' }).boundingBox()
+  const statusBox = await page.locator('.app-shell > footer').boundingBox()
   expect(feedbackBox).not.toBeNull()
-  expect(tourBox).not.toBeNull()
-  expect(feedbackBox!.y + feedbackBox!.height).toBeLessThanOrEqual(tourBox!.y + 1)
+  expect(statusBox).not.toBeNull()
+  expect(feedbackBox!.y + feedbackBox!.height).toBeLessThanOrEqual(statusBox!.y + 1)
 })
 
-// add-app-tour: the cut-out's real geometry needs a browser (jsdom has no
-// layout). The rail's control opens the tour, the cut-out tracks the rail's own
-// box, the steps move, and ending the tour returns focus to the control.
-test('the rail starts a tour over the shell regions', async ({ page }) => {
+// add-app-tour, tour-lives-in-the-demo: the tour is the guided demo's, and the
+// cut-out's real geometry needs a browser (jsdom has no layout). Opening the
+// demo puts the tour control in the rail's bottom slot; its cut-out tracks the
+// rail's own box, the steps move, and ending the tour returns focus to the
+// control.
+test('the demo starts a tour over the shell regions', async ({ page }) => {
   await installVaultPicker(page)
   await page.goto('/')
+  await page.getByRole('button', { name: 'Open the guided demo' }).click()
+  await expect(page.locator('.cm-content')).toContainText('Welcome to the Folio demo')
 
   const control = page.locator('#folder-rail').getByRole('button', { name: 'Take the tour' })
   await expect(control).toBeVisible()
@@ -94,16 +100,19 @@ test('the rail starts a tour over the shell regions', async ({ page }) => {
   await expect(control).toBeFocused()
 })
 
-// add-landing-page-info: the brand screen's own reference opens the same tour.
-test('the brand screen opens the tour from its reference', async ({ page }) => {
+// tour-lives-in-the-demo: the brand screen names where the tour is taken and
+// offers no control that opens it.
+test('the brand screen names the demo as where the tour is taken', async ({ page }) => {
   await installVaultPicker(page)
   await page.goto('/')
 
   const brand = page.locator('[data-tour="editor"]')
   await expect(brand.getByText(/Folio is a local-first notes app/)).toBeVisible()
-  await brand.getByRole('button', { name: 'Take the tour' }).click()
-  await expect(page.getByRole('dialog', { name: 'App tour' })).toBeVisible()
-  await expect(page.getByRole('dialog', { name: 'App tour' })).toContainText('Your folders')
+  await expect(
+    brand.getByText(/the tour starts from the \? at the bottom of the left rail/),
+  ).toBeVisible()
+  await expect(brand.getByRole('button', { name: 'Take the tour' })).toHaveCount(0)
+  await expect(page.getByRole('dialog', { name: 'App tour' })).toHaveCount(0)
 })
 
 // show-recent-changes-from-the-version-badge: the status bar's version names the

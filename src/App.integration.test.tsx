@@ -377,12 +377,7 @@ describe('the brand screen introduction (add-landing-page-info)', () => {
     vi.unstubAllGlobals()
   })
 
-  const brandTour = () =>
-    within(document.querySelector('[data-tour="editor"]') as HTMLElement).getByRole('button', {
-      name: 'Take the tour',
-    })
-
-  it('describes the app and opens the tour from the brand screen', async () => {
+  it('describes the app and names where the tour is taken', async () => {
     vi.stubGlobal('showDirectoryPicker', vi.fn())
     render(<App />)
     await screen.findByText('Open a folder to begin.')
@@ -398,10 +393,11 @@ describe('the brand screen introduction (add-landing-page-info)', () => {
     // add-issue-report-note: the repository area says where issues go.
     screen.getByText(/Found a bug or have a feature request\?/)
 
-    // The brand screen is a second tour entry point, alongside the rail's:
-    // both open the one tour.
-    fireEvent.click(brandTour())
-    screen.getByRole('dialog', { name: 'App tour' })
+    // The tour is the demo's (tour-lives-in-the-demo): the brand screen names
+    // it and offers no control that opens it.
+    screen.getByText(/the tour starts from the \? at the bottom of the left rail/)
+    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'App tour' })).toBeNull()
   })
 })
 
@@ -2634,7 +2630,7 @@ describe('page contents (add-page-contents)', () => {
 // The app tour (add-app-tour spec): the rail's control, the overlay's steps, the
 // region hooks it resolves, and the search chord's interaction. jsdom has no
 // layout, so the cut-out's real geometry is held in tests/e2e/workspace.spec.ts.
-describe('the app tour (add-app-tour spec)', () => {
+describe('the app tour (add-app-tour, tour-lives-in-the-demo)', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -2642,14 +2638,21 @@ describe('the app tour (add-app-tour spec)', () => {
   const tourControl = () =>
     within(document.getElementById('folder-rail')!).getByRole('button', { name: 'Take the tour' })
 
+  /** The tour exists only inside the guided demo, so opening it starts there. */
+  const openDemo = async () => {
+    render(<App />)
+    await screen.findByRole('button', { name: 'Open the guided demo' })
+    editorInstances.list.length = 0
+    fireEvent.click(screen.getByRole('button', { name: 'Open the guided demo' }))
+    await waitFor(() => expect(editor().content).toContain('Welcome to the Folio demo'))
+  }
+
   it('opens from the rail control and walks the shell regions', async () => {
     vi.stubGlobal('showDirectoryPicker', vi.fn())
-    render(<App />)
-    await screen.findByText('Open a folder to begin.')
+    await openDemo()
 
-    // Every region a step points at renders in the no-folder state, so a first
-    // run can take the whole tour (the editor hook is on the brand screen's
-    // <main>).
+    // Every region a step points at renders in the demo, so the whole tour can
+    // be walked from it.
     for (const selector of [
       '#folder-rail',
       '#sidebar-pane',
@@ -2671,9 +2674,23 @@ describe('the app tour (add-app-tour spec)', () => {
     expect(document.activeElement).toBe(tourControl())
   })
 
-  it('is closed by the search chord so the overlays do not stack', async () => {
-    render(<App />)
+  it('offers the tour only while the demo is the active folder', async () => {
+    vi.stubGlobal('showDirectoryPicker', vi.fn())
+    await openDemo()
+
+    // The demo's rail carries the tour; the feedback anchor is not in the slot.
+    const rail = () => within(document.getElementById('folder-rail')!)
+    rail().getByRole('button', { name: 'Take the tour' })
+    expect(rail().queryByRole('link', { name: 'Send feedback on GitHub' })).toBeNull()
+
+    // A real folder takes the slot back: no tour control, feedback instead.
     await openFixture()
+    expect(rail().queryByRole('button', { name: 'Take the tour' })).toBeNull()
+    rail().getByRole('link', { name: 'Send feedback on GitHub' })
+  })
+
+  it('is closed by the search chord so the overlays do not stack', async () => {
+    await openDemo()
     fireEvent.click(tourControl())
     screen.getByRole('dialog', { name: 'App tour' })
 
@@ -2998,8 +3015,9 @@ describe('the compact shell (add-compact-mobile-shell spec)', () => {
     await waitFor(() => expect(shownView()).toBe('editor'))
     expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
     // The introduction still shows; only the tour reference goes, because the
-    // tour does not exist on the compact shell (add-landing-page-info).
+    // tour does not exist on the compact shell (tour-lives-in-the-demo).
     screen.getByText(/Folio is a local-first notes app/)
+    expect(screen.queryByText(/the tour starts from/)).toBeNull()
   })
 
   it('leaves the wide composition alone', async () => {

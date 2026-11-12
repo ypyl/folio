@@ -213,33 +213,29 @@ describe('FolderRail bottom group', () => {
     expect(feedback.getAttribute('rel')).toBe('noopener noreferrer')
   })
 
-  it('renders the feedback control in every state', () => {
+  it('renders the feedback control in every state where no tour is offered', () => {
     const { rerender } = render(<FolderRail {...railProps({ status: 'restoring' })} />)
     screen.getByRole('link', { name: 'Send feedback on GitHub' })
 
     rerender(
-      <FolderRail
-        {...railProps({
-          folders: [folder('Work', 'granted', 'a')],
-          onAdd: vi.fn(),
-          onTour: vi.fn(),
-        })}
-      />,
+      <FolderRail {...railProps({ folders: [folder('Work', 'granted', 'a')], onAdd: vi.fn() })} />,
     )
     screen.getByRole('link', { name: 'Send feedback on GitHub' })
   })
 
-  it('puts the feedback control directly above the tour control', () => {
-    render(<FolderRail {...railProps({ onTour: vi.fn() })} />)
-    const feedback = screen.getByRole('link', { name: 'Send feedback on GitHub' })
-    const tour = screen.getByRole('button', { name: 'Take the tour' })
-    // Siblings in one bottom group, feedback first: the tour stays the rail's
-    // last control.
-    expect(feedback.parentElement).toBe(tour.parentElement)
-    expect(feedback.nextElementSibling).toBe(tour)
+  it('holds one control: the tour while App offers it, feedback otherwise', () => {
+    const { rerender } = render(<FolderRail {...railProps({ onTour: vi.fn() })} />)
+    // The demo's rail carries the tour and no feedback anchor
+    // (tour-lives-in-the-demo): the slot holds one control, never both.
+    screen.getByRole('button', { name: 'Take the tour' })
+    expect(screen.queryByRole('link', { name: 'Send feedback on GitHub' })).toBeNull()
+
+    rerender(<FolderRail {...railProps()} />)
+    screen.getByRole('link', { name: 'Send feedback on GitHub' })
+    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
   })
 
-  it('puts the tour control last', () => {
+  it('puts the bottom control last', () => {
     render(<FolderRail {...railProps({ onTour: vi.fn() })} />)
     const nav = screen.getByRole('navigation', { name: 'Open folders' })
     const controls = nav.querySelectorAll('button')
@@ -251,8 +247,8 @@ describe('FolderRail bottom group', () => {
   it('renders no tour control when App offers none', () => {
     render(<FolderRail {...railProps()} />)
     expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
-    // The bottom group still holds the feedback control, so the compact rail's
-    // navigation view keeps its way out to the issue tracker.
+    // The bottom group then holds the feedback control, so the rail keeps its
+    // way out to the issue tracker.
     screen.getByRole('link', { name: 'Send feedback on GitHub' })
   })
 })

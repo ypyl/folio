@@ -48,8 +48,8 @@ uses the File System Access API. Every push to `master` builds with
 - Presentations: turn a page into a keyboard-driven slide deck from its row menu, with `---` separating slides
 - Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (see [Reminders](#reminders))
 - A guided demo vault with a table of contents and a worked example of every feature, in any browser (ADR-0034)
-- A guided tour of the shell, from the folder rail or the brand screen
-- Feedback from inside the app: the speech bubble at the rail's bottom opens the project's issue tracker, where a bug report or a feature request form asks for the facts a fix needs (see [Feedback](#feedback))
+- A guided tour of the shell, taken from the guided demo's rail
+- Feedback from inside the app: the speech bubble at the rail's bottom opens the project's issue tracker, where a bug report or a feature request form asks for the facts a fix needs; inside the demo that slot holds the tour instead (see [Feedback](#feedback))
 - An optional session trace for troubleshooting: one plain-text log per session under `.folio/logs/`, kept for seven days, recording what the app wrote and what failed (see [Diagnostics](#diagnostics))
 - Collapsible side panes; a PWA that installs and works offline
 
@@ -193,7 +193,9 @@ dropped in by hand appears.
 Folio sends nothing home: no telemetry, no crash reporting, no account. Reports
 travel the other way. The speech bubble at the bottom of the folder rail opens
 the project's [new-issue page](https://github.com/ypyl/folio/issues/new/choose)
-in a new tab, and the brand screen's footer links the same project.
+in a new tab, and the brand screen's footer links the same project. The rail's
+bottom slot belongs to the guided demo's tour while the demo is open, so close
+the demo to send feedback from there.
 
 Two forms are offered, a bug report and a feature request, and blank issues are
 turned off so a report arrives with the facts a fix needs. A bug report asks what

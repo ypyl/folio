@@ -529,15 +529,14 @@ describe('EditorPane', () => {
     ).toBeNull()
   })
 
-  it('shows the app introduction and the tour reference (add-landing-page-info)', () => {
-    const onTour = vi.fn()
-    render(
+  it('shows the app introduction and names where the tour is taken (tour-lives-in-the-demo)', () => {
+    const { rerender } = render(
       <EditorPane
         page={null}
         emptyHint="open-folder"
         initialContent=""
         onChange={() => {}}
-        onTour={onTour}
+        tourHint
       />,
     )
     screen.getByText(/Folio is a local-first notes app/)
@@ -550,22 +549,25 @@ describe('EditorPane', () => {
       'Wiki links#word or #[[Page]]',
       'Whiteboards#!board',
     ])
-    fireEvent.click(screen.getByRole('button', { name: 'Take the tour' }))
-    expect(onTour).toHaveBeenCalledTimes(1)
+    // The tour is the demo's (tour-lives-in-the-demo): the screen names it and
+    // offers no control that opens it.
+    screen.getByText(/the tour starts from the \? at the bottom of the left rail/)
+    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+
+    // At or below the breakpoint the tour does not exist, so the screen says
+    // nothing about it.
+    rerender(
+      <EditorPane page={null} emptyHint="open-folder" initialContent="" onChange={() => {}} />,
+    )
+    expect(screen.queryByText(/the tour starts from/)).toBeNull()
   })
 
   it('hides the introduction during the transitional notes hint (add-landing-page-info)', () => {
     render(
-      <EditorPane
-        page={null}
-        emptyHint="notes"
-        initialContent=""
-        onChange={() => {}}
-        onTour={() => {}}
-      />,
+      <EditorPane page={null} emptyHint="notes" initialContent="" onChange={() => {}} tourHint />,
     )
     expect(screen.queryByText(/Folio is a local-first notes app/)).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+    expect(screen.queryByText(/the tour starts from/)).toBeNull()
     // simplify-the-brand-screen: the facts belong with the introduction, so
     // they are absent from the transitional hint too.
     expect(screen.queryByRole('listitem')).toBeNull()

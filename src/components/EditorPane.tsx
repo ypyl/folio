@@ -131,7 +131,7 @@ export function EditorPane({
   initialContent,
   onChange,
   emptyHint = 'notes',
-  onTour,
+  tourHint = false,
   onDemo,
   onOpenFolder,
   reconnect,
@@ -160,11 +160,12 @@ export function EditorPane({
    *  picker — the browser requirement instead of an instruction that cannot be
    *  followed (warn-unsupported-browser). */
   emptyHint?: 'notes' | 'open-folder' | 'browser-unsupported'
-  /** Opens the app tour from the brand screen (add-landing-page-info). App
-   *  supplies it only on wide viewports, where the tour is available, the same
-   *  optional-callback shape `FolderRail.onTour` uses; absent, the brand screen
-   *  shows its copy without the tour reference. */
-  onTour?: () => void
+  /** The brand screen names where the app tour is taken
+   *  (tour-lives-in-the-demo): App supplies it above the compact breakpoint,
+   *  where the guided demo's rail carries the tour control. Absent, the footer
+   *  carries the issue line alone, because the tour does not exist there and the
+   *  screen never names a control a user cannot reach. */
+  tourHint?: boolean
   /** Opens the guided demo (add-guided-demo). Offered in every no-folder state,
    *  including where the browser cannot open a local folder, because the demo
    *  is virtual. Absent once a vault is open. */
@@ -530,13 +531,10 @@ export function EditorPane({
                 </ul>
               )}
               <div className={styles.footerNote}>
-                {emptyHint !== 'notes' && onTour && (
+                {emptyHint !== 'notes' && tourHint && (
                   <p className={styles.footerLine}>
-                    New here?{' '}
-                    <button type="button" className={styles.tourLink} onClick={onTour}>
-                      Take the tour
-                    </button>
-                    , or use the ? in the left rail.
+                    New here? The guided demo is a worked example of every feature; the tour starts
+                    from the ? at the bottom of the left rail.
                   </p>
                 )}
                 {/* The issue-reporting line (add-issue-report-note): where

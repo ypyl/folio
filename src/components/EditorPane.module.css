@@ -243,14 +243,12 @@
 }
 
 /* The app's one link treatment (DESIGN.md "Links"): brand ink, no underline,
-   hover tint. The repository link (add-github-link) is an anchor; the tour
-   reference (add-landing-page-info) is a button, so it carries the button
-   resets on top. The negative inline margin cancels the padding, so the tint
-   has its breathing room without widening the sentence around the control —
-   a punctuation mark after the control then hugs its text instead of floating
-   away from it (simplify-the-brand-screen). */
-.repoLink,
-.tourLink {
+   hover tint. The repository link (add-github-link) is the footer's only control.
+   The negative inline margin cancels the padding, so the tint has its breathing
+   room without widening the sentence around the control — a punctuation mark
+   after the control then hugs its text instead of floating away from it
+   (simplify-the-brand-screen). */
+.repoLink {
   margin: 0 -5px;
   padding: 2px 5px;
   border-radius: 6px;
@@ -258,16 +256,8 @@
   text-decoration: none;
 }
 
-.repoLink:hover,
-.tourLink:hover {
+.repoLink:hover {
   background: var(--brand-tint);
-}
-
-.tourLink {
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
 }
 
 /* Loading state (indexing-loading-state): replaces the empty hint while the

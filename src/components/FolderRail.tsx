@@ -20,9 +20,11 @@ interface FolderRailProps {
   /** Absent where the browser has no local-folder picker
    *  (warn-unsupported-browser): the rail then shows no add control. */
   onAdd?: () => void
-  /** Opens the app tour (add-app-tour). App supplies it only on wide
-   *  viewports, where the tour is available, so the control is absent on the
-   *  compact shell — the same optional-callback shape `onAdd` uses. */
+  /** Opens the app tour (add-app-tour). App supplies it only while the guided
+   *  demo vault is the active folder above the compact breakpoint, where the
+   *  tour exists (tour-lives-in-the-demo): the bottom group then holds this
+   *  control in place of the feedback anchor. The same optional-callback shape
+   *  `onAdd` uses. */
   onTour?: () => void
   /** The whole left navigation is folded (collapse-rail-with-sidebar): the rail
    *  keeps its grid slot via `visibility: hidden` and leaves the tab order, the
@@ -42,9 +44,9 @@ interface FolderRailProps {
 // where the browser can open a folder at all (warn-unsupported-browser), the
 // same optional-callback shape the status bar's pin uses. The column itself
 // always renders so the workspace grid keeps its leading column. The bottom
-// group holds the feedback control, which is present in every state and only
-// leaves the app (add-a-feedback-control), and then the tour control, the rail's
-// last control (add-app-tour).
+// group holds exactly one control: the tour control while the guided demo is the
+// active folder (add-app-tour, tour-lives-in-the-demo), and the feedback anchor
+// in every other state (add-a-feedback-control).
 export function FolderRail({
   status,
   folders,
@@ -143,34 +145,13 @@ export function FolderRail({
           </div>
         </>
       )}
-      {/* The rail's bottom group: the feedback control, then the app tour's
-          entry point, held to the bottom edge however many folders are listed.
-          Feedback is an anchor because it navigates to another origin, so it
-          needs no handler and no state. */}
+      {/* The rail's bottom group: one control held to the bottom edge however
+          many folders are listed. The demo's tour takes the slot while it is
+          open; feedback takes it in every other state. Feedback is an anchor
+          because it navigates to another origin, so it needs no handler and no
+          state. */}
       <div className={styles.railBottom}>
-        <a
-          className={styles.feedback}
-          href={ISSUE_CHOOSER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Send feedback on GitHub"
-          aria-label="Send feedback on GitHub"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={styles.feedbackIcon}
-            role="presentation"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M4 5h16v11h-9l-5 4v-4H4z" />
-          </svg>
-        </a>
-        {onTour && (
+        {onTour ? (
           <button
             type="button"
             className={styles.tour}
@@ -180,6 +161,29 @@ export function FolderRail({
           >
             <span aria-hidden="true">?</span>
           </button>
+        ) : (
+          <a
+            className={styles.feedback}
+            href={ISSUE_CHOOSER_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Send feedback on GitHub"
+            aria-label="Send feedback on GitHub"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className={styles.feedbackIcon}
+              role="presentation"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 5h16v11h-9l-5 4v-4H4z" />
+            </svg>
+          </a>
         )}
       </div>
     </nav>

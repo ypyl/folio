@@ -1,11 +1,12 @@
-// The app tour's steps (add-app-tour). One step per shell region, in the order
-// the regions are read: the folder rail, the sidebar, the editor area, the
-// right panel, and the status bar. Each `target` is a CSS selector for the
-// region's boxed element — the `.view-layer` wrappers are `display: contents`
-// on wide viewports and have no box to measure — and `side` is where the card
-// prefers to sit relative to that region (it flips and clamps when there is no
-// room). The copy is state-neutral: it reads correctly with no folder and no
-// page open, which is when a first run is most likely to open the tour.
+// The app tour's steps (add-app-tour, tour-lives-in-the-demo). One step per
+// shell region, in the order the regions are read: the folder rail, the sidebar,
+// the editor area, the right panel, and the status bar. Each `target` is a CSS
+// selector for the region's boxed element — the `.view-layer` wrappers are
+// `display: contents` on wide viewports and have no box to measure — and `side`
+// is where the card prefers to sit relative to that region (it flips and clamps
+// when there is no room). The tour is opened only from the guided demo's rail, so
+// the copy may name the demo vault and the rail's `?` as things the reader has
+// in front of them.
 
 /** Which side of its region a step's card prefers. */
 export type TourSide = 'right' | 'left' | 'top' | 'bottom' | 'center'
@@ -34,7 +35,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="editor"]',
     title: 'Your page',
-    body: 'Pages open here as plain Markdown and save as you type. Type #word or #[[Page]] to reference a page, and #!word for a board. The guided demo, from the brand screen, is a worked example of every feature.',
+    body: 'Pages open here as plain Markdown and save as you type. Type #word or #[[Page]] to reference a page, and #!word for a board. This is the guided demo: a worked example of every feature.',
     side: 'center',
   },
   {

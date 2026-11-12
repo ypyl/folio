@@ -180,10 +180,11 @@ function App() {
   // why.
   const [chosenView, setChosenView] = useState<{ view: CompactView; item: string } | null>(null)
   const compact = useCompact()
-  // Both the rail and the brand screen open the one tour; the compact shell has
-  // no tour, so neither shows a control there (add-app-tour,
-  // add-landing-page-info).
-  const onTour = compact ? undefined : () => setTourOpen(true)
+  // The tour is part of the guided demo (tour-lives-in-the-demo): the rail's
+  // bottom slot carries it while the demo vault is the active folder, and only
+  // above the compact breakpoint, where the tour exists at all. Every other
+  // state leaves that slot to the feedback control.
+  const onTour = demoActive && !compact ? () => setTourOpen(true) : undefined
   // The calendar's Today re-anchor tick (move-nav-controls-to-the-sidebar):
   // Today lives in the sidebar's navigation row, directly above the calendar it
   // re-anchors. App owns the tick and passes it down; it changes only on a
@@ -1411,9 +1412,10 @@ function App() {
             // no vault is usable, matching search's scoped rule.
             onSearch={() => setSearchOpen(true)}
             searchDisabled={!canSearch}
-            // The tour is a wide-viewport surface (add-app-tour): the compact
-            // shell shows one view at a time, so App passes no callback there
-            // and the rail renders no tour control.
+            // The tour is the demo's control (tour-lives-in-the-demo): App
+            // supplies it only while the demo vault is open on a wide viewport,
+            // so the rail's bottom slot holds the tour there and feedback
+            // everywhere else.
             onTour={onTour}
             // Closing a folder forgets it; closing the active one returns home
             // (close-folders). The activeFolder?.id effect resets the page.
@@ -1562,10 +1564,10 @@ function App() {
               // The demo's session-only rule stays in view on every page
               // (make-the-demo-notice-visible). A real vault passes false.
               demo={demoActive}
-              // The brand screen's tour reference (add-landing-page-info): the
-              // same callback the rail gets, so both entry points open one tour,
-              // and absent on compact where the tour does not exist.
-              onTour={onTour}
+              // The brand screen's tour reference is a sentence, not a control
+              // (tour-lives-in-the-demo): it names the guided demo and its rail's
+              // tour control, above the breakpoint only, where that control exists.
+              tourHint={!compact}
               loading={indexing}
             />
           )}

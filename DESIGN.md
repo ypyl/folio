@@ -157,22 +157,32 @@ The facts are label/detail pairs — 13px/600 `--near-black` over 12px `--stone`
 laid out as three columns (`repeat(auto-fit, minmax(140px, 1fr))`, 460px cap)
 that collapse to one column without a media query. They carry no icon, no fill,
 no border, and no divider: a chip would only restate the label beside it. The
-tour reference and the issue-reporting line close the screen at 12px `--stone`.
+footer closes the screen at 12px `--stone`: the tour pointer, which names the
+guided demo and the rail control that starts the tour, and the issue-reporting
+line. The pointer appears above the compact breakpoint only, where the tour
+exists, and it is a sentence rather than a control, because the tour is opened
+from the demo's rail and never from here.
 
 The pane scrolls rather than clips, and centers on an inner wrapper's
 `margin: auto` — `justify-content: center` cuts the first band off once the
 content is taller than the pane.
 
-### The rail's feedback control
+### The rail's bottom slot
 
-The rail's bottom group carries one control that leaves the app: a link to the
-project's new-issue page, directly above the tour control, which stays the rail's
-last control. It takes the tour control's surface (hairline `--border`,
-`--ivory` fill, `--dark-warm` ink) and the rail's 40px box, 48px on the compact
-shell, with a 20px speech bubble drawn in the search trigger's stroke style,
-24px on the compact shell. Brand tint and brand ink on hover, the standard focus
-ring. It is an anchor rather than a button, because it opens another origin in a
-new tab.
+The rail's bottom group holds exactly one control, kept at the rail's bottom edge
+however many folders are listed, and which control it is depends on the vault:
+while the guided demo is the active folder, and only above the compact breakpoint,
+the slot holds the `?` that starts the tour; in every other state it holds the
+feedback link out to the project's new-issue page. The tour is the demo's, so a
+real folder's rail has no tour control at all.
+
+Both take the same surface (hairline `--border`, `--ivory` fill, `--dark-warm`
+ink) and the rail's 40px box, 48px on the compact shell, so the slot never
+changes shape when it changes hands. The tour control is the `?` at 18px, like
+the rail's other text glyphs; the feedback control is a 20px speech bubble drawn
+in the search trigger's stroke style, 24px on the compact shell. Brand tint and
+brand ink on hover, the standard focus ring. The feedback control is an anchor
+rather than a button, because it opens another origin in a new tab.
 
 ### The board canvas
 
