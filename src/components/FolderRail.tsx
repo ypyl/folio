@@ -2,6 +2,11 @@ import { FolioMark } from '../FolioMark'
 import styles from './FolderRail.module.css'
 import type { VaultFolder, VaultStatus } from '../vault/useVault'
 
+/** The project's new-issue page (add-a-feedback-control): GitHub's chooser, which
+ *  offers the bug report and feature request forms. A plain link, so it opens in
+ *  a new tab like any other anchor and the app never leaves its state. */
+export const ISSUE_CHOOSER_URL = 'https://github.com/ypyl/folio/issues/new/choose'
+
 interface FolderRailProps {
   status: VaultStatus
   folders: VaultFolder[]
@@ -37,7 +42,9 @@ interface FolderRailProps {
 // where the browser can open a folder at all (warn-unsupported-browser), the
 // same optional-callback shape the status bar's pin uses. The column itself
 // always renders so the workspace grid keeps its leading column. The bottom
-// group holds the tour control, the rail's last control (add-app-tour).
+// group holds the feedback control, which is present in every state and only
+// leaves the app (add-a-feedback-control), and then the tour control, the rail's
+// last control (add-app-tour).
 export function FolderRail({
   status,
   folders,
@@ -136,9 +143,33 @@ export function FolderRail({
           </div>
         </>
       )}
-      {/* The rail's bottom group: the app tour's entry point, held to the
-          bottom edge however many folders are listed. */}
+      {/* The rail's bottom group: the feedback control, then the app tour's
+          entry point, held to the bottom edge however many folders are listed.
+          Feedback is an anchor because it navigates to another origin, so it
+          needs no handler and no state. */}
       <div className={styles.railBottom}>
+        <a
+          className={styles.feedback}
+          href={ISSUE_CHOOSER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Send feedback on GitHub"
+          aria-label="Send feedback on GitHub"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className={styles.feedbackIcon}
+            role="presentation"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 5h16v11h-9l-5 4v-4H4z" />
+          </svg>
+        </a>
         {onTour && (
           <button
             type="button"

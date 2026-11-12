@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { FolderRail } from './FolderRail'
+import { FolderRail, ISSUE_CHOOSER_URL } from './FolderRail'
 import styles from './FolderRail.module.css'
 import { buildTree } from '../vault/fakeHandle'
 import type { VaultFolder } from '../vault/useVault'
@@ -204,6 +204,41 @@ describe('FolderRail', () => {
 })
 
 describe('FolderRail bottom group', () => {
+  it('opens the issue chooser from the feedback control in a new tab', () => {
+    render(<FolderRail {...railProps()} />)
+    const feedback = screen.getByRole('link', { name: 'Send feedback on GitHub' })
+    expect(feedback.getAttribute('href')).toBe(ISSUE_CHOOSER_URL)
+    expect(feedback.getAttribute('href')).toBe('https://github.com/ypyl/folio/issues/new/choose')
+    expect(feedback.getAttribute('target')).toBe('_blank')
+    expect(feedback.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  it('renders the feedback control in every state', () => {
+    const { rerender } = render(<FolderRail {...railProps({ status: 'restoring' })} />)
+    screen.getByRole('link', { name: 'Send feedback on GitHub' })
+
+    rerender(
+      <FolderRail
+        {...railProps({
+          folders: [folder('Work', 'granted', 'a')],
+          onAdd: vi.fn(),
+          onTour: vi.fn(),
+        })}
+      />,
+    )
+    screen.getByRole('link', { name: 'Send feedback on GitHub' })
+  })
+
+  it('puts the feedback control directly above the tour control', () => {
+    render(<FolderRail {...railProps({ onTour: vi.fn() })} />)
+    const feedback = screen.getByRole('link', { name: 'Send feedback on GitHub' })
+    const tour = screen.getByRole('button', { name: 'Take the tour' })
+    // Siblings in one bottom group, feedback first: the tour stays the rail's
+    // last control.
+    expect(feedback.parentElement).toBe(tour.parentElement)
+    expect(feedback.nextElementSibling).toBe(tour)
+  })
+
   it('puts the tour control last', () => {
     render(<FolderRail {...railProps({ onTour: vi.fn() })} />)
     const nav = screen.getByRole('navigation', { name: 'Open folders' })
@@ -216,5 +251,8 @@ describe('FolderRail bottom group', () => {
   it('renders no tour control when App offers none', () => {
     render(<FolderRail {...railProps()} />)
     expect(screen.queryByRole('button', { name: 'Take the tour' })).toBeNull()
+    // The bottom group still holds the feedback control, so the compact rail's
+    // navigation view keeps its way out to the issue tracker.
+    screen.getByRole('link', { name: 'Send feedback on GitHub' })
   })
 })

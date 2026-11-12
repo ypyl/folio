@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in Folio does not work as it should.
+title: '[Bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Folio keeps your vault on your own disk and sends
+        nothing home, so what you write here is everything the project knows
+        about the problem. Please do not paste the contents of your notes unless
+        the bug needs them.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The shortest sequence that shows the problem.
+      placeholder: |
+        1. Open a folder
+        2. Open a page
+        3. ...
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Folio version
+      description: The build named in the version badge at the right end of the status bar, for example v0.94.0. A phone shows no badge, so leave this blank there.
+      placeholder: v0.94.0
+    validations:
+      required: false
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      description: Opening a local folder needs Chrome, Edge, or Brave. The guided demo runs in any browser.
+      placeholder: Chrome 141 on Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors
+      description: Anything the browser's developer console reports, if you can see it.
+      render: shell
+    validations:
+      required: false

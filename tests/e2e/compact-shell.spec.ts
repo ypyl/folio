@@ -66,6 +66,11 @@ test.describe('the compact shell on a phone-sized window', () => {
     // The Notes destination covers the editor; a row opens its page.
     await page.getByRole('button', { name: 'Notes', exact: true }).click()
     await expect(navView).toBeVisible()
+    // add-a-feedback-control: the compact rail keeps its way out to the issue
+    // tracker in the bottom group, and carries no tour control.
+    const compactRail = page.locator('#folder-rail')
+    await expect(compactRail.getByRole('link', { name: 'Send feedback on GitHub' })).toBeVisible()
+    await expect(compactRail.getByRole('button', { name: 'Take the tour' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Ideas', exact: true }).click()
     await expect(page.locator('.cm-content')).toContainText('Half-formed thoughts.')
     await expect(navView).toBeHidden()

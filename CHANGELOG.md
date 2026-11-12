@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.94.0 (2026-11-12)
+
+- send feedback from the rail
+
 ## v0.93.0 (2026-11-12)
 
 - group the changelog by version
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.76.0 (2026-10-27)
 
 - import a date-named page as its journal day
-
-## v0.75.0 (2026-10-27)
-
-- download an SVG instead of opening it as a document

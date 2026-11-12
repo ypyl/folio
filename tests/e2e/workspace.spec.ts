@@ -36,6 +36,27 @@ test('the no-folder state invites opening a folder', async ({ page }) => {
   await expect(repo).toHaveAttribute('href', 'https://github.com/ypyl/folio')
 })
 
+// add-a-feedback-control: the rail carries one link out to the project's issue
+// tracker, above the tour control, which stays the rail's last control.
+test('the rail sends feedback to the issue tracker', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+
+  const rail = page.locator('#folder-rail')
+  const feedback = rail.getByRole('link', { name: 'Send feedback on GitHub' })
+  await expect(feedback).toBeVisible()
+  await expect(feedback).toHaveAttribute('href', 'https://github.com/ypyl/folio/issues/new/choose')
+  await expect(feedback).toHaveAttribute('target', '_blank')
+
+  // The link sits in the bottom group above the tour control: the same column,
+  // a shorter y.
+  const feedbackBox = await feedback.boundingBox()
+  const tourBox = await rail.getByRole('button', { name: 'Take the tour' }).boundingBox()
+  expect(feedbackBox).not.toBeNull()
+  expect(tourBox).not.toBeNull()
+  expect(feedbackBox!.y + feedbackBox!.height).toBeLessThanOrEqual(tourBox!.y + 1)
+})
+
 // add-app-tour: the cut-out's real geometry needs a browser (jsdom has no
 // layout). The rail's control opens the tour, the cut-out tracks the rail's own
 // box, the steps move, and ending the tour returns focus to the control.

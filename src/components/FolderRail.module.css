@@ -32,6 +32,7 @@
 .search,
 .add,
 .avatar,
+.feedback,
 .tour {
   flex-shrink: 0;
   width: 40px;
@@ -85,8 +86,8 @@
   height: 20px;
 }
 
-/* The rail's bottom group (add-prerelease-mode, now the tour control alone):
-   held to the rail's bottom edge with the meta panel footer's recipe
+/* The rail's bottom group (add-prerelease-mode, now the feedback and tour
+   controls): held to the rail's bottom edge with the meta panel footer's recipe
    (`margin-top: auto` + sticky) so a long folder list scrolling above it never
    pushes it out of reach. The fill is the rail's own `--ivory`, so rows pass
    beneath it cleanly. */
@@ -102,9 +103,34 @@
   background: var(--ivory);
 }
 
+/* Feedback control (add-a-feedback-control): a link out to the issue tracker,
+   on the tour control's own surface so it reads as a rail control rather than a
+   second accent. It sits above the tour control, which stays the last one. */
+.feedback {
+  border: 1px solid var(--border);
+  background: var(--ivory);
+  color: var(--dark-warm);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.feedback:hover {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+/* The speech bubble, drawn in the search trigger's stroke style: a 20px glyph
+   in the rail's ink, so the control needs no word. */
+.feedbackIcon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 /* Tour control (add-app-tour): the rail's last control, on the search
    trigger's own surface so it reads as a rail control rather than a second
-   accent. It sits in the bottom group above. */
+   accent. It sits in the bottom group below. */
 .tour {
   border: 1px solid var(--border);
   background: var(--ivory);
@@ -227,6 +253,7 @@
   .search,
   .add,
   .avatar,
+  .feedback,
   .tour {
     width: 48px;
     height: 48px;
@@ -242,6 +269,11 @@
   }
 
   .searchIcon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .feedbackIcon {
     width: 24px;
     height: 24px;
   }

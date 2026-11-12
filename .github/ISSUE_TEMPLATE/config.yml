@@ -1,0 +1,6 @@
+# Every report goes through a form, so it arrives with the facts a fix needs.
+blank_issues_enabled: false
+contact_links:
+  - name: Try Folio first
+    url: https://ypyl.github.io/folio/
+    about: The live build, with a guided demo that writes nothing to your disk.

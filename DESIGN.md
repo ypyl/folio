@@ -163,6 +163,17 @@ The pane scrolls rather than clips, and centers on an inner wrapper's
 `margin: auto` — `justify-content: center` cuts the first band off once the
 content is taller than the pane.
 
+### The rail's feedback control
+
+The rail's bottom group carries one control that leaves the app: a link to the
+project's new-issue page, directly above the tour control, which stays the rail's
+last control. It takes the tour control's surface (hairline `--border`,
+`--ivory` fill, `--dark-warm` ink) and the rail's 40px box, 48px on the compact
+shell, with a 20px speech bubble drawn in the search trigger's stroke style,
+24px on the compact shell. Brand tint and brand ink on hover, the standard focus
+ring. It is an anchor rather than a button, because it opens another origin in a
+new tab.
+
 ### The board canvas
 
 A whiteboard's canvas is the app's parchment, not the editor's white: a board

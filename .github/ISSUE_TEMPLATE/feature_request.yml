@@ -1,0 +1,40 @@
+name: Feature request
+description: Something Folio should do that it does not do today.
+title: '[Feature] '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Folio is deliberately small: no backend, no app database, no accounts,
+        and the Markdown folder stays the source of truth. A request that keeps
+        those rules is far more likely to land.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The work you are doing and where the app gets in the way, rather than the feature you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should Folio do?
+      description: The behavior you expect. A sketch or a screenshot of a comparable tool helps.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do instead today?
+      description: The workaround, or another tool that handles it, if there is one.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Folio version
+      description: The build named in the version badge at the right end of the status bar, if you are reporting from a build. A phone shows no badge, so leave this blank there.
+      placeholder: v0.94.0
+    validations:
+      required: false
