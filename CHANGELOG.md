@@ -4,6 +4,10 @@ What changed in Folio, newest first. Generated from the commit history by
 `npm run changelog`, so an entry exists for every `feat:` and `fix:` commit
 and for nothing else. The status bar's version badge reads this file.
 
+## 2026-11-12
+
+- give the installed icon opaque corners
+
 ## 2026-11-11
 
 - move the Logseq import to a repo script
@@ -63,4 +67,3 @@ and for nothing else. The status bar's version badge reads this file.
 - import a date-named page as its journal day
 - download an SVG instead of opening it as a document
 - add a folder even when a stored handle cannot be compared
-- keep dropped links in the order the files landed

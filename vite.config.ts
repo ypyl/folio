@@ -83,19 +83,25 @@ export default defineConfig({
             label: 'A page in the editor, with its title and actions',
           },
         ],
+        // Opaque, full-bleed squares: the mark sits in the 80% maskable safe
+        // zone and the navy reaches every edge, so a launcher that masks the
+        // icon (or draws it inside a legacy circle) has no transparent corner
+        // to composite a light background through.
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'app-icon-192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'app-icon-512.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any',
           },
           {
-            src: 'pwa-maskable-512x512.png',
+            src: 'app-icon-maskable-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
