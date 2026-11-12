@@ -139,18 +139,23 @@ describe('StatusBar', () => {
       expect(panel()).toBeNull()
     })
 
-    it('lists the build’s changes newest first, with nothing to operate', () => {
+    it('lists the build’s changes newest first, grouped by version', () => {
       open()
       expect(badge().getAttribute('aria-expanded')).toBe('true')
-      const items = within(panel() as HTMLElement).getAllByRole('listitem')
-      // Each entry shows its text and the day it landed, in the file's order:
-      // newest first, with no entry above a newer one.
-      expect(items.map((item) => item.textContent)).toEqual(
-        recentChanges.map((change) => `${change.text}${change.date}`),
+      const groups = Array.from((panel() as HTMLElement).querySelectorAll(`.${styles.changeGroup}`))
+      // Each group names the version that shipped its changes and the day they
+      // landed; each change sits under its version, newest group first.
+      expect(
+        groups.map((group) => group.querySelector(`.${styles.changeVersion}`)?.textContent),
+      ).toEqual(recentChanges.map((group) => `v${group.version}${group.date}`))
+      const changes = groups.map((group) => group.querySelectorAll(`.${styles.change}`))
+      expect(changes.map((items) => Array.from(items).map((item) => item.textContent))).toEqual(
+        recentChanges.map((group) => group.texts),
       )
-      const dates = recentChanges.map((change) => change.date)
+      const dates = groups.map((group) => group.querySelector('time')?.getAttribute('datetime'))
+      expect(dates).toEqual(recentChanges.map((group) => group.date))
       expect(dates).toEqual([...dates].sort().reverse())
-      expect(items[0].querySelector('time')?.getAttribute('datetime')).toBe(dates[0])
+      expect(groups[0].querySelector('time')?.textContent).toBe(recentChanges[0].date)
       // The panel is read, never operated.
       expect(panel()!.querySelectorAll('button, a, input, select')).toHaveLength(0)
     })

@@ -104,8 +104,11 @@ test('the version badge lists the build’s recent changes', async ({ page }) =>
   await badge.click()
   await expect(badge).toHaveAttribute('aria-expanded', 'true')
   await expect(panel).toBeVisible()
-  // Entries carry the change and the day it landed, newest first.
-  await expect(panel.getByRole('listitem').first()).toContainText(/\d{4}-\d{2}-\d{2}/)
+  // Entries are grouped by the version that shipped them, newest first, and
+  // each group carries the day its changes landed.
+  const firstGroup = panel.getByRole('listitem').first()
+  await expect(firstGroup).toContainText(/v\d+\.\d+\.\d+/)
+  await expect(firstGroup).toContainText(/\d{4}-\d{2}-\d{2}/)
 
   await page.keyboard.press('Escape')
   await expect(panel).toBeHidden()

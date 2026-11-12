@@ -184,9 +184,37 @@ leading column's edge (continue-rail-border-in-status-bar). */
 .changesList {
   min-height: 0;
   margin: 0;
-  padding: 0 0 0 16px;
+  padding: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
+}
+
+/* One version's changes: the version and the day lead, the changes sit under
+   them on native markers. The outer list is the scroll region, so its items
+   carry no marker of their own. */
+.changeGroup {
+  padding: 0;
+  list-style: none;
+}
+
+.changeGroup + .changeGroup {
+  margin-top: 8px;
+}
+
+.changeVersion {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--near-black);
+}
+
+.changeTexts {
+  margin: 0;
+  padding: 0 0 0 16px;
 }
 
 .changesList::-webkit-scrollbar,
@@ -202,8 +230,8 @@ leading column's edge (continue-rail-border-in-status-bar). */
   min-height: 32px;
 }
 
-/* One change: its text, then the day it landed. Native list markers, brand
-   coloured, the way the app's lists carry them. */
+/* One change: its text, under the version heading that names its build.
+   Native list markers, brand coloured, the way the app's lists carry them. */
 .change {
   padding: 2px 0;
 }
@@ -219,7 +247,7 @@ leading column's edge (continue-rail-border-in-status-bar). */
 }
 
 .changeDate {
-  display: block;
   font-size: 12px;
+  font-weight: 400;
   color: var(--stone);
 }

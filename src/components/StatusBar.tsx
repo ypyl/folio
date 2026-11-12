@@ -86,12 +86,21 @@ function VersionBadge() {
             Recent changes
           </p>
           <ul className={styles.changesList}>
-            {recentChanges.map((change) => (
-              <li key={`${change.date} ${change.text}`} className={styles.change}>
-                <span className={styles.changeText}>{change.text}</span>
-                <time className={styles.changeDate} dateTime={change.date}>
-                  {change.date}
-                </time>
+            {recentChanges.map((group) => (
+              <li key={`${group.version} ${group.date}`} className={styles.changeGroup}>
+                <p className={styles.changeVersion}>
+                  <span>v{group.version}</span>
+                  <time className={styles.changeDate} dateTime={group.date}>
+                    {group.date}
+                  </time>
+                </p>
+                <ul className={styles.changeTexts}>
+                  {group.texts.map((text) => (
+                    <li key={text} className={styles.change}>
+                      <span className={styles.changeText}>{text}</span>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>

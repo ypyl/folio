@@ -1,48 +1,64 @@
 // The build's recent changes (show-recent-changes-from-the-version-badge,
-// workspace spec). CHANGELOG.md is generated from the commit history and
-// committed, so the bundle carries it as text and the app needs no git, no
-// network, and no vault file to say what changed. One parse at module load;
-// the status bar's panel renders a slice of the result.
+// group-the-changelog-by-version, workspace spec). CHANGELOG.md is generated
+// from the commit history and committed, so the bundle carries it as text and
+// the app needs no git, no network, and no vault file to say what changed. One
+// parse at module load; the status bar's panel renders a slice of the result.
 import source from '../CHANGELOG.md?raw'
 
-/** One user-facing change that landed in this build. */
-export type Change = {
-  /** The day it landed, `YYYY-MM-DD` as the file writes it. */
+/** One version's user-facing changes, newest first in the file. */
+export type ChangeGroup = {
+  /** The version the entry's commit carried, without its `v` prefix. */
+  version: string
+  /** The day the group's newest change landed, `YYYY-MM-DD`. */
   date: string
-  /** The change's text, the commit subject without its type prefix. */
-  text: string
+  /** The changes' texts, the commit subjects without their type prefix. */
+  texts: string[]
 }
 
-/** How many entries the panel shows. The file keeps more, so this can grow
- *  without regenerating it. */
+/** How many changes the panel shows. The file keeps more, so this can grow
+ *  without regenerating it. A group is never split across the cap. */
 const RECENT_CHANGES_SHOWN = 20
 
-const DATE_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/
+const VERSION_HEADING = /^##\s+v(\d+\.\d+\.\d+)\s+\((\d{4}-\d{2}-\d{2})\)\s*$/
 const BULLET = /^-\s+(.+)$/
 
-/** Read the date groups and their bullets, newest first as the file writes
+/** Read the version groups and their bullets, newest first as the file writes
  *  them. Anything else — the header, blank lines, a bullet before the first
- *  date — contributes nothing, so a hand-edited file degrades instead of
- *  throwing. */
-export function parseChangelog(text: string): Change[] {
-  const changes: Change[] = []
-  let date: string | null = null
+ *  heading, a heading with no bullets — contributes nothing, so a hand-edited
+ *  file degrades instead of throwing. */
+export function parseChangelog(text: string): ChangeGroup[] {
+  const groups: ChangeGroup[] = []
+  let current: ChangeGroup | null = null
   // Split on CRLF too: the file is generated on Windows as often as not.
   for (const line of text.split(/\r?\n/)) {
-    const heading = DATE_HEADING.exec(line)
+    const heading = VERSION_HEADING.exec(line)
     if (heading) {
-      date = heading[1]
+      current = { version: heading[1], date: heading[2], texts: [] }
+      groups.push(current)
       continue
     }
-    if (date === null) continue
+    if (current === null) continue
     const bullet = BULLET.exec(line)
-    if (bullet) changes.push({ date, text: bullet[1].trim() })
+    if (bullet) current.texts.push(bullet[1].trim())
   }
-  return changes
+  return groups.filter((group) => group.texts.length > 0)
 }
 
-/** What the version badge's panel lists: the newest changes the build carries. */
-export const recentChanges: readonly Change[] = parseChangelog(source).slice(
-  0,
+/** The newest `limit` changes, keeping each version's group whole. */
+function take(groups: readonly ChangeGroup[], limit: number): ChangeGroup[] {
+  const shown: ChangeGroup[] = []
+  let count = 0
+  for (const group of groups) {
+    if (count >= limit) break
+    const texts = group.texts.slice(0, limit - count)
+    if (texts.length > 0) shown.push({ ...group, texts })
+    count += texts.length
+  }
+  return shown
+}
+
+/** What the version badge's panel lists: the newest groups the build carries. */
+export const recentChanges: readonly ChangeGroup[] = take(
+  parseChangelog(source),
   RECENT_CHANGES_SHOWN,
 )

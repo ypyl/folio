@@ -271,10 +271,12 @@ entry wraps instead of stretching the slip.
 
 The heading stays put while the entries move: the panel is capped in height, the
 list is the region that scrolls, and it carries the reserved lane and the stone
-pill of the recipe above. An entry is its text at 13px `--dark-warm`, with the
-day it landed beneath at 12px `--stone`, on a native marker in `--brand`. There
-are no version headings, no badges, and no links: the badge already names the
-version, and the panel answers what changed.
+pill of the recipe above. The list is grouped by the version that shipped each
+change. A group leads with `v<version>` at 12px/600 `--near-black` and the day it
+landed at 12px `--stone` on the same row; its changes sit beneath at 13px
+`--dark-warm` on a native marker in `--brand`, indented from the heading. The
+version is what the eye lands on, and the date supports it. There are no badges,
+links, or controls: the panel answers what changed and in which build.
 
 ### Touch targets, type, and safe areas
 
