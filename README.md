@@ -4,6 +4,18 @@ A lightweight, local-first alternative to Logseq. Your Markdown folder is the da
 
 Live build: <https://ypyl.github.io/folio/>.
 
+## Screenshots
+
+![Folio at desktop width: the journal and files on the left, a page open in the middle, and its contents on the right](docs/screenshot-desktop.png)
+
+On a phone the same vault uses three views — **Notes**, **Page**, and
+**Details** — behind a bottom navigation bar.
+
+<p align="center">
+  <img src="public/screenshot-notes.png" width="280" alt="Folio on a phone: the Notes view, with the journal calendar and the page list">
+  <img src="public/screenshot-page.png" width="280" alt="Folio on a phone: the Page view, with a page open and the bottom navigation bar">
+</p>
+
 ## Try the demo
 
 Open the live build and choose **Open the guided demo**. It is a virtual vault
