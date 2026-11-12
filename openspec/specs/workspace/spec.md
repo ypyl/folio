@@ -643,43 +643,56 @@ than covering the bottom of the editor.
 - **THEN** the shell's height is the visible height, the navigation bar stays
   visible, and the caret's line is not covered by the keyboard
 
-### Requirement: An app tour explains the shell's regions
+### Requirement: The guided demo offers the tour of the shell
 
-The workspace SHALL offer an app tour, opened by activating the folder rail's
-tour control or the brand screen's tour reference. The tour SHALL be a modal
-overlay with an accessible name, and while it is open it SHALL contain focus and
-require dismissal. It SHALL present an ordered sequence of steps, each naming
-one region of the shell — the folder rail, the sidebar, the editor area, the
-right panel, and the status bar — and explaining what that region holds. The
-step naming the sidebar SHALL name the session navigation its Journal row holds
-— Back, Forward, and Today — as well as the calendar and the listing. The step naming the editor
+The workspace SHALL offer an app tour only while the guided demo vault is the
+active folder. Its one entry point SHALL be the rail's tour control, which the
+rail carries only at viewports wider than the compact breakpoint, and the brand
+screen SHALL NOT offer a control that opens it. The tour SHALL be a modal overlay
+with an accessible name, and while it is open it SHALL contain focus and require
+dismissal. It SHALL present an ordered sequence of steps, each naming one region
+of the shell — the folder rail, the sidebar, the editor area, the right panel,
+and the status bar — and explaining what that region holds. The step naming the
+sidebar SHALL name the session navigation its Journal row holds — Back, Forward,
+and Today — as well as the calendar and the listing. The step naming the editor
 area SHALL also name the reference forms the page surface accepts — `#word` and
 `#[[Page]]` for a page, and `#!word` and `#![[Board]]` for a board — so the tour
-teaches linking as well as the pane, and SHALL name the guided demo vault as the
-place where every feature can be tried. Each step SHALL highlight the region it
-names, and a step whose region is not on screen SHALL still show its explanation
-rather than fail. Every step except the first SHALL offer a way back to the
-previous step, every step except the last a way forward, and the tour SHALL offer
-a way to end it at any step, including by Escape. Opening the tour SHALL move
-focus into it, and ending it SHALL return focus to the control that opened it.
-The tour SHALL be presentational only: it SHALL change no page's content, write
-nothing to the vault, and store nothing, and it SHALL NOT launch on its own. The
-tour SHALL be available only at viewports wider than the compact breakpoint,
-where its entry points exist; it SHALL add no work to the editing or typing path.
+teaches linking as well as the pane, and SHALL name the demo vault the tour is
+walking as a worked example of every feature. Each step SHALL highlight the
+region it names, and a step whose region is not on screen SHALL still show its
+explanation rather than fail. Every step except the first SHALL offer a way back
+to the previous step, every step except the last a way forward, and the tour
+SHALL offer a way to end it at any step, including by Escape. Opening the tour
+SHALL move focus into it, and ending it SHALL return focus to the control that
+opened it. The tour SHALL be presentational only: it SHALL change no page's
+content, write nothing to the vault, and store nothing, and it SHALL NOT launch
+on its own. The tour SHALL add no work to the editing or typing path.
 
-#### Scenario: The rail's tour control opens the tour
+#### Scenario: The demo's rail control opens the tour
 
-- **GIVEN** a viewport wider than the compact breakpoint
+- **GIVEN** the guided demo vault is open at a viewport wider than the compact
+  breakpoint
 - **WHEN** the user activates the rail's tour control
 - **THEN** the tour opens at its first step, naming the folder rail and
   highlighting it
 
-#### Scenario: The brand screen's tour reference opens the tour
+#### Scenario: A real folder's rail carries no tour control
 
-- **GIVEN** a viewport wider than the compact breakpoint and no folder open
-- **WHEN** the user activates the brand screen's tour reference
-- **THEN** the tour opens at its first step, naming the folder rail and
-  highlighting it
+- **GIVEN** a real folder is open at a viewport wider than the compact breakpoint
+- **WHEN** the rail renders
+- **THEN** it shows no tour control and offers no other way to open the tour
+
+#### Scenario: The compact shell carries no tour control
+
+- **GIVEN** a viewport at or below the compact breakpoint and the guided demo open
+- **WHEN** the navigation view is shown
+- **THEN** the rail shows no tour control and the tour cannot be opened
+
+#### Scenario: The brand screen does not open the tour
+
+- **GIVEN** no folder is open at a viewport wider than the compact breakpoint
+- **WHEN** the user looks at the brand screen
+- **THEN** no control there opens the tour
 
 #### Scenario: Steps move forward and back
 
@@ -698,11 +711,11 @@ where its entry points exist; it SHALL add no work to the editing or typing path
 - **WHEN** the user reaches the step naming the editor area
 - **THEN** its explanation names the forms that reference a page and a board
 
-#### Scenario: The editor step points at the guided demo
+#### Scenario: The editor step names the demo vault
 
 - **WHEN** the user reaches the step naming the editor area
-- **THEN** its explanation names the guided demo vault as the place to try every
-  feature
+- **THEN** its explanation names the demo vault the tour is walking as a worked
+  example of every feature
 
 #### Scenario: Skipping ends the tour
 
@@ -731,10 +744,11 @@ where its entry points exist; it SHALL add no work to the editing or typing path
 
 #### Scenario: The tour disturbs nothing
 
-- **GIVEN** a page is open with unsaved edits and the search spotlight is closed
+- **GIVEN** a demo page is open with unsaved edits and the search spotlight is
+  closed
 - **WHEN** the user opens the tour, moves through its steps, and ends it
 - **THEN** the open page and its content are unchanged, the spotlight stays
-  closed, and nothing is written to the vault
+  closed, and nothing is written anywhere
 
 #### Scenario: The tour is never shown on its own
 
@@ -754,32 +768,30 @@ where its entry points exist; it SHALL add no work to the editing or typing path
 - **WHEN** the user types in the editor with the tour closed
 - **THEN** the tour performs no work on the typing path
 
-### Requirement: The rail lists open folders and ends with the tour control
+### Requirement: The rail's bottom group holds the feedback control, or the demo's tour
 
 The rail SHALL render the Folio brand as its first control, then the search
 trigger, then the add control and one entry per open folder, and a bottom group
-held to the rail's bottom edge: a feedback control, then, at viewports wider than
-the compact breakpoint, a tour control as its last control. Where the browser
-cannot open local folders, the rail SHALL show no add control and the app SHALL
-not invoke the picker. At or below the compact breakpoint the rail SHALL show no
-tour control. Activating an entry SHALL make that folder active, and a folder
-whose stored permission is pending SHALL request permission rather than opening
-the picker. Opening the same folder twice SHALL NOT add a second entry. Switching
-folders SHALL reset the open page to the new folder's today journal. The rail
-SHALL render no entries until stored folders have resolved, SHALL keep a fixed
-control size, and SHALL scroll vertically only. The tour control SHALL keep its
-place at the rail's bottom edge however many folders are listed, SHALL carry an
-accessible name naming the action it performs, and SHALL show visible keyboard
-focus.
+held to the rail's bottom edge that SHALL hold exactly one control. While the
+guided demo vault is the active folder, and only at viewports wider than the
+compact breakpoint, that control SHALL be the tour control. In every other state,
+and at or below the compact breakpoint whether or not the demo is open, it SHALL
+be the feedback control. Where the browser cannot open local folders, the rail
+SHALL show no add control and the app SHALL not invoke the picker. Activating an
+entry SHALL make that folder active, and a folder whose stored permission is
+pending SHALL request permission rather than opening the picker. Opening the same
+folder twice SHALL NOT add a second entry. Switching folders SHALL reset the open
+page to the new folder's today journal. The rail SHALL render no entries until
+stored folders have resolved, SHALL keep a fixed control size, and SHALL scroll
+vertically only. The bottom control SHALL keep its place at the rail's bottom
+edge however many folders are listed, SHALL carry an accessible name naming the
+action it performs, and SHALL show visible keyboard focus.
 
-The feedback control SHALL be present in the bottom group in every app state,
-including with no folder open, while stored folders restore, and with the demo or
-a real folder active, at every viewport. Activating it SHALL open the project's
-new-issue page, where the bug report and feature request forms are offered, in a
-new browser tab, SHALL NOT navigate the app away from its state, and SHALL change
-nothing in the vault, the open page, or the app's stored preferences. It SHALL
-carry an accessible name naming the action it performs and SHALL show visible
-keyboard focus.
+The feedback control SHALL open the project's new-issue page, where the bug
+report and feature request forms are offered, in a new browser tab, SHALL NOT
+navigate the app away from its state, and SHALL change nothing in the vault, the
+open page, or the app's stored preferences. The tour control SHALL open the app
+tour and SHALL exist only where the tour exists.
 
 #### Scenario: The add control opens the picker and lists the folder
 
@@ -812,45 +824,32 @@ keyboard focus.
 - **WHEN** the shell renders
 - **THEN** the rail shows no add control while keeping its column
 
-#### Scenario: The tour control sits at the rail's bottom
+#### Scenario: The demo's rail carries the tour control
 
-- **GIVEN** a viewport wider than the compact breakpoint and several folders listed
+- **GIVEN** the guided demo vault is open at a viewport wider than the compact
+  breakpoint
 - **WHEN** the shell renders
-- **THEN** the tour control is the rail's last control, held to its bottom edge
-  after every folder entry
+- **THEN** the rail's bottom group holds the tour control and no feedback control
 
-#### Scenario: The compact rail carries no tour control
+#### Scenario: A real folder's rail carries the feedback control
 
-- **GIVEN** a viewport at or below the compact breakpoint
-- **WHEN** the navigation view is shown
-- **THEN** the rail shows no tour control
-
-#### Scenario: Nothing follows the tour control
-
-- **GIVEN** a viewport wider than the compact breakpoint
-- **WHEN** the rail renders
-- **THEN** the tour control is the last control and no other control sits below
-  the folder entries
-
-#### Scenario: The feedback control sits above the tour control
-
-- **GIVEN** a viewport wider than the compact breakpoint and several folders listed
+- **GIVEN** a real folder is open at a viewport wider than the compact breakpoint
 - **WHEN** the shell renders
-- **THEN** the feedback control is held to the rail's bottom after every folder
-  entry, directly above the tour control
+- **THEN** the rail's bottom group holds the feedback control and no tour control
 
 #### Scenario: The compact rail carries the feedback control
 
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the navigation view is shown
-- **THEN** the rail shows the feedback control in its bottom group, which holds
-  that control alone
+- **THEN** the rail's bottom group holds the feedback control, whether or not the
+  guided demo is open
 
-#### Scenario: The feedback control opens the issue page in a new tab
+#### Scenario: The bottom control sits at the rail's bottom
 
-- **WHEN** the user activates the feedback control
-- **THEN** the project's new-issue page opens in a new browser tab and the app
-  stays in the state it was in
+- **GIVEN** several folders listed
+- **WHEN** the shell renders
+- **THEN** the bottom group's control is the rail's last control, held to its
+  bottom edge after every folder entry
 
 #### Scenario: The feedback control is present with no folder and while restoring
 
@@ -858,10 +857,17 @@ keyboard focus.
 - **WHEN** the shell renders
 - **THEN** the rail shows its feedback control
 
+#### Scenario: The feedback control opens the issue page in a new tab
+
+- **WHEN** the user activates the feedback control
+- **THEN** the project's new-issue page opens in a new browser tab and the app
+  stays in the state it was in
+
 #### Scenario: Reporting writes nothing
 
 - **WHEN** the user activates the feedback control
 - **THEN** no vault file, no stored folder reference, and no app preference changes
+
 ### Requirement: The unsupported-browser state is a visible warning
 
 Where the browser cannot open local folders, the no-folder state SHALL show a
@@ -1407,8 +1413,9 @@ the set is read by scanning, and SHALL NOT carry an icon, a border, or a card.
 The items SHALL occupy one row where the pane is wide enough for three and one
 column where it is not, so no item is truncated at any width.
 
-The tour reference and the repository line SHALL sit below the facts as the
-screen's quietest text.
+The repository line SHALL sit below the facts as the screen's quietest text.
+Where the app tour exists, a line above it SHALL name the guided demo as where
+the tour is taken.
 
 The screen SHALL be reachable at startup when no folder is stored, by activating
 the brand, and by closing the active folder. In every no-folder state, whether or
@@ -1421,11 +1428,11 @@ the permission is pending. Where the browser
 cannot open local folders, the screen SHALL state the browser requirement in
 place of the open-folder headline, and SHALL contain no control that promises an
 action the app cannot perform. The guided demo remains available there, because
-it needs no local folder. Where the app tour is available (viewports wider than
-the compact breakpoint), the screen SHALL also offer a tour reference that opens
-the app tour, and that reference SHALL name the rail's tour control as the
-tour's other home. At or below the compact breakpoint, where the shell shows one
-view at a time and the folder rail is not on screen, the screen SHALL also offer
+it needs no local folder. Where the app tour exists (viewports wider than the compact breakpoint), the
+screen SHALL name the guided demo and the tour control its rail carries as where
+the tour is taken, and SHALL offer no control that opens the tour itself. At or below the compact
+breakpoint, where the shell shows one view at a time and the folder rail is not
+on screen, the screen SHALL also offer
 an open-folder action where the browser can open folders, as the action the
 screen's own headline names, and activating it SHALL open the folder picker and
 add the chosen folder exactly as the rail's add control does.
@@ -1490,13 +1497,14 @@ than clip it, and the content SHALL stay centered while it fits.
 
 - **GIVEN** a viewport wider than the compact breakpoint
 - **WHEN** the brand screen shows
-- **THEN** it offers a control that opens the app tour
+- **THEN** it names the guided demo and the tour control its rail carries as
+  where the tour is taken, and offers no control that opens the tour itself
 
 #### Scenario: The compact brand screen has no tour reference
 
 - **GIVEN** a viewport at or below the compact breakpoint
 - **WHEN** the brand screen shows
-- **THEN** it shows no control that opens the app tour
+- **THEN** it shows no tour reference
 
 #### Scenario: The compact brand screen opens a folder
 
