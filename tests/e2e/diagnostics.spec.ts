@@ -31,8 +31,13 @@ test('records a session of edits in the vault', async ({ page }) => {
   await seedVault(page, { 'pages/Ana.md': 'Ana\n' })
   await openVault(page)
 
-  // Nothing to turn on: opening the folder started the session.
-  await expect(page.getByRole('button', { name: 'Experimental features' })).toHaveCount(0)
+  // Nothing to turn on: opening the folder started the session. The rail's
+  // experimental switch reports off, and the trace is written anyway, because
+  // tracing needs no flag and no switch (release-the-session-trace).
+  await expect(page.getByRole('button', { name: 'Experimental features' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
 
   const files = page.locator('details', {
     has: page.locator('summary', { hasText: 'Files' }),

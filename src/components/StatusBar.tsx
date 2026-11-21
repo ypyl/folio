@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { version } from '../../package.json'
 import { recentChanges } from '../changelog'
+import type { ActivityEntry } from '../agent/activity'
 import type { DraftStatus } from '../editor/drafts'
 import { saveStateLabel } from './saveLabel'
 import styles from './StatusBar.module.css'
@@ -25,21 +26,14 @@ import styles from './StatusBar.module.css'
 // The pin toggle's label stem was here; favoriting moved to the row's context
 // menu (add-row-context-menu), so the bar no longer names a page for it.
 
-// The running version (version-in-status-bar), now a disclosure
-// (show-recent-changes-from-the-version-badge): the bar's trailing edge names
-// the build, and activating it lists what that build carries. A disclosure, not
-// a dialog — focus stays on the badge, so reading the list never takes the
-// user's place in the document — and every ordinary way out (a second
-// activation, a press outside, Escape, the window losing focus) closes it. The
-// entries come from the bundled changelog, parsed once at module load, so
-// opening the panel costs one render and nothing else. A build whose changelog
-// parsed to nothing keeps the plain label: the bar never offers a control that
-// opens an empty panel.
-function VersionBadge() {
+// The disclosure behaviour both of the bar's trailing controls share
+// (show-recent-changes-from-the-version-badge, add-agent-activity-log): open on
+// activation, and close on every ordinary way out, a second activation, a press
+// outside, Escape, or the window losing focus. Focus stays on the control, so
+// reading either panel never takes the user's place in the document.
+function useDisclosure() {
   const [open, setOpen] = useState(false)
   const group = useRef<HTMLDivElement>(null)
-  const headingId = useId()
-  const panelId = useId()
 
   useEffect(() => {
     if (!open) return
@@ -62,6 +56,28 @@ function VersionBadge() {
       window.removeEventListener('blur', close)
     }
   }, [open])
+
+  return { open, setOpen, group }
+}
+
+/** A time of day as the record prints it (`14:02`), local, so a row reads as
+ *  "when" without a locale-dependent format a test cannot pin. */
+function timeText(at: number): string {
+  const date = new Date(at)
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+// The running version (version-in-status-bar), now a disclosure
+// (show-recent-changes-from-the-version-badge): the bar's trailing edge names
+// the build, and activating it lists what that build carries. The entries come
+// from the bundled changelog, parsed once at module load, so opening the panel
+// costs one render and nothing else. A build whose changelog parsed to nothing
+// keeps the plain label: the bar never offers a control that opens an empty
+// panel.
+function VersionBadge() {
+  const { open, setOpen, group } = useDisclosure()
+  const headingId = useId()
+  const panelId = useId()
 
   const label = `v${version}`
   if (recentChanges.length === 0) return <span className={styles.version}>{label}</span>
@@ -110,6 +126,72 @@ function VersionBadge() {
   )
 }
 
+// The session's record of what an agent did on the user's behalf
+// (add-agent-activity-log): the bar's other disclosure, beside the version. It
+// renders only where the app supplies the record, which it does only while the
+// agent gate is on, so a build with the gate off draws no control at all. Each
+// row names the action, the path, and the time, and activating one opens the
+// page it names; the record itself is review-only (ADR-0036), so a row offers
+// nothing else.
+function ActivityBadge({
+  entries,
+  onOpen,
+}: {
+  entries: readonly ActivityEntry[]
+  onOpen: (path: string) => void
+}) {
+  const { open, setOpen, group } = useDisclosure()
+  const headingId = useId()
+  const panelId = useId()
+  const label = `agent: ${entries.length}`
+
+  return (
+    <div className={styles.activityGroup} ref={group}>
+      <button
+        type="button"
+        className={styles.activity}
+        aria-label={`${label}, show what the agent did`}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((shown) => !shown)}
+      >
+        {label}
+      </button>
+      {open && (
+        <div className={styles.activityPanel} id={panelId} role="group" aria-labelledby={headingId}>
+          <p className={styles.changesHeading} id={headingId}>
+            Agent activity
+          </p>
+          {entries.length === 0 ? (
+            <p className={styles.activityEmpty}>No agent actions this session.</p>
+          ) : (
+            <ul className={styles.changesList}>
+              {entries.map((entry) => (
+                <li key={`${entry.at} ${entry.tool} ${entry.path}`} className={styles.activityRow}>
+                  <button
+                    type="button"
+                    className={styles.activityRowButton}
+                    onClick={() => onOpen(entry.path)}
+                  >
+                    <span className={styles.activityTool}>{entry.tool}</span>
+                    <span className={styles.activityPath}>{entry.path}</span>
+                    <span className={styles.activityMeta}>
+                      <span>
+                        +{entry.added} −{entry.removed}
+                      </span>
+                      <time dateTime={new Date(entry.at).toISOString()}>{timeText(entry.at)}</time>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function StatusBar({
   pagePath,
   saveState = 'clean',
@@ -119,6 +201,8 @@ export function StatusBar({
   noteCount,
   onRevealPage,
   onLocateDay,
+  activity,
+  onOpenActivityPath,
 }: {
   /** The open page's vault-relative path, or null when no page is open. */
   pagePath: string | null
@@ -143,6 +227,12 @@ export function StatusBar({
    *  the day's cell. App supplies it for a journal day and omits it otherwise, so
    *  a page's crumb and a day's are never both controls. */
   onLocateDay?: () => void
+  /** The session's agent record (add-agent-activity-log). Absent while the agent
+   *  gate is off, which is what keeps the control off the bar: the app supplies
+   *  it only with the gate on. */
+  activity?: readonly ActivityEntry[]
+  /** Open the page an activity row names. */
+  onOpenActivityPath?: (path: string) => void
 }) {
   const segments = pagePath?.split('/') ?? []
   const hasDirs = segments.length > 1
@@ -219,7 +309,12 @@ export function StatusBar({
       </div>
       {/* The running version beside the vault's note count. A sibling of the
           vault group rather than a child, so the group stays empty when no
-          folder is active. */}
+          folder is active. The agent's record sits beside it while the gate is
+          on (add-agent-activity-log), so the bar's trailing edge holds the
+          build's identity and what was done to the vault in this session. */}
+      {activity !== undefined && onOpenActivityPath !== undefined && (
+        <ActivityBadge entries={activity} onOpen={onOpenActivityPath} />
+      )}
       <VersionBadge />
     </footer>
   )

@@ -252,3 +252,84 @@ describe('FolderRail bottom group', () => {
     screen.getByRole('link', { name: 'Send feedback on GitHub' })
   })
 })
+
+describe('FolderRail experimental switch (add-agent-activity-log)', () => {
+  const gated = [{ flag: 'agentTools' as const, label: 'Agent tools', detail: 'Records it' }]
+
+  it('flips the switch and reports its state', () => {
+    const onTogglePrerelease = vi.fn()
+    const { rerender } = render(
+      <FolderRail {...railProps({ prerelease: false, onTogglePrerelease, experimental: gated })} />,
+    )
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    expect(control.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(control)
+    expect(onTogglePrerelease).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <FolderRail {...railProps({ prerelease: true, onTogglePrerelease, experimental: gated })} />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Experimental features' }).getAttribute('aria-pressed'),
+    ).toBe('true')
+  })
+
+  it('renders the switch only when App offers it', () => {
+    render(<FolderRail {...railProps()} />)
+    expect(screen.queryByRole('button', { name: 'Experimental features' })).toBeNull()
+  })
+
+  it('takes its own slot above the bottom group, keeping the tour last', () => {
+    render(
+      <FolderRail
+        {...railProps({
+          prerelease: true,
+          onTogglePrerelease: vi.fn(),
+          experimental: gated,
+          onTour: vi.fn(),
+        })}
+      />,
+    )
+    const nav = screen.getByRole('navigation', { name: 'Open folders' })
+    const controls = [...nav.querySelectorAll('button')]
+    const switchAt = controls.indexOf(screen.getByRole('button', { name: 'Experimental features' }))
+    const tourAt = controls.indexOf(screen.getByRole('button', { name: 'Take the tour' }))
+    expect(switchAt).toBeGreaterThanOrEqual(0)
+    expect(switchAt).toBe(tourAt - 1)
+    expect(tourAt).toBe(controls.length - 1)
+  })
+
+  it('shows the descriptions on hover and on keyboard focus', () => {
+    render(
+      <FolderRail
+        {...railProps({ prerelease: false, onTogglePrerelease: vi.fn(), experimental: gated })}
+      />,
+    )
+    const control = screen.getByRole('button', { name: 'Experimental features' })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+
+    fireEvent.mouseEnter(control)
+    screen.getByRole('tooltip')
+    screen.getByText('Agent tools')
+    screen.getByText('Records it')
+    // The control is described by what it shows, so the popup adds a
+    // description rather than a second name.
+    expect(control.getAttribute('aria-describedby')).toBe(
+      screen.getByRole('tooltip').getAttribute('id'),
+    )
+
+    fireEvent.mouseLeave(control)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+
+    fireEvent.focus(control)
+    screen.getByRole('tooltip')
+    fireEvent.blur(control)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('shows no popup when the build gates nothing', () => {
+    render(<FolderRail {...railProps({ prerelease: false, onTogglePrerelease: vi.fn() })} />)
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Experimental features' }))
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+})

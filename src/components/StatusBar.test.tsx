@@ -298,3 +298,91 @@ describe('StatusBar', () => {
     })
   })
 })
+
+describe('agent activity disclosure (add-agent-activity-log)', () => {
+  const entries = [
+    {
+      at: Date.UTC(2026, 10, 14, 13, 2),
+      tool: 'edit_note',
+      path: 'pages/Inbox.md',
+      added: 2,
+      removed: 1,
+    },
+    {
+      at: Date.UTC(2026, 10, 14, 12, 40),
+      tool: 'add_reminder',
+      path: '.folio/reminders.md',
+      added: 1,
+      removed: 0,
+    },
+  ]
+
+  const control = () => screen.getByRole('button', { name: /^agent: / })
+
+  it('renders no control while the app supplies no record', () => {
+    render(<StatusBar pagePath="a.md" />)
+    expect(screen.queryByRole('button', { name: /^agent: / })).toBeNull()
+  })
+
+  it('reports the count and opens the record', () => {
+    render(<StatusBar pagePath="a.md" activity={entries} onOpenActivityPath={vi.fn()} />)
+    expect(control().textContent).toBe('agent: 2')
+    expect(control().getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(control())
+    expect(control().getAttribute('aria-expanded')).toBe('true')
+    const panel = screen.getByRole('group', { name: 'Agent activity' })
+    const rows = Array.from(panel.querySelectorAll('li'))
+    // Newest first, each naming the action, the path, and the time.
+    expect(rows[0].textContent).toContain('edit_note')
+    expect(rows[0].textContent).toContain('pages/Inbox.md')
+    expect(rows[0].querySelector('time')?.textContent).toMatch(/^\d{2}:\d{2}$/)
+    expect(rows[1].textContent).toContain('add_reminder')
+  })
+
+  it('opens the page a row names and offers nothing else', () => {
+    const onOpen = vi.fn()
+    render(<StatusBar pagePath="a.md" activity={entries} onOpenActivityPath={onOpen} />)
+    fireEvent.click(control())
+    const panel = screen.getByRole('group', { name: 'Agent activity' })
+    const row = within(panel).getByRole('button', { name: /edit_note/ })
+    fireEvent.click(row)
+    expect(onOpen).toHaveBeenCalledWith('pages/Inbox.md')
+    // Review only (ADR-0036): no revert, no dismiss, no diff control.
+    expect(within(panel).getAllByRole('button')).toHaveLength(entries.length)
+  })
+
+  it.each([
+    ['a second activation', () => fireEvent.click(control())],
+    ['a press outside the panel', () => fireEvent.pointerDown(document.body)],
+    ['the window losing focus', () => fireEvent.blur(window)],
+  ])('closes on %s', (_how, dismiss) => {
+    render(<StatusBar pagePath="a.md" activity={entries} onOpenActivityPath={vi.fn()} />)
+    fireEvent.click(control())
+    expect(screen.getByRole('group', { name: 'Agent activity' })).toBeTruthy()
+    dismiss()
+    expect(screen.queryByRole('group', { name: 'Agent activity' })).toBeNull()
+  })
+
+  it('closes on Escape', () => {
+    render(<StatusBar pagePath="a.md" activity={entries} onOpenActivityPath={vi.fn()} />)
+    fireEvent.click(control())
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('group', { name: 'Agent activity' })).toBeNull()
+  })
+
+  it('says so when the session recorded nothing', () => {
+    render(<StatusBar pagePath="a.md" activity={[]} onOpenActivityPath={vi.fn()} />)
+    expect(control().textContent).toBe('agent: 0')
+    fireEvent.click(control())
+    screen.getByText('No agent actions this session.')
+  })
+
+  it('opening and closing writes nothing', () => {
+    const onOpen = vi.fn()
+    render(<StatusBar pagePath="a.md" activity={entries} onOpenActivityPath={onOpen} />)
+    fireEvent.click(control())
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(0)
+  })
+})

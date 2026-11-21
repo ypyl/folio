@@ -48,6 +48,9 @@ import { useVault } from './vault/useVault'
 import { createDemoVault, DEMO_ID, DEMO_NAME, DEMO_WELCOME_PATH } from './demo/content'
 import { useIndex } from './vault/useIndex'
 import { createSessionTrace, describeError } from './trace/session'
+import { features, experimentalFeatures } from './features'
+import { usePrerelease } from './prerelease'
+import { useActivity } from './agent/useActivity'
 import { describeSchedule } from './components/recurrences'
 import { version } from '../package.json'
 import { canOpenFolders } from './vault/fs'
@@ -121,6 +124,17 @@ function App() {
     storage,
     session ?? undefined,
   )
+  // The app's experimental switch, and the effective gate for the agent's
+  // capability (add-agent-activity-log, AGENTS.md): the build-time flag ships
+  // off, the switch turns it on without a rebuild, and one value is computed
+  // here so every surface of the capability reads the same gate (D3).
+  const [prerelease, setPrerelease] = usePrerelease()
+  const agentEnabled = features.agentTools || prerelease
+  // What an agent did on the user's behalf, newest first. Session state, and
+  // empty while the gate is off: nothing can record without the surface that
+  // performs an action (add-webmcp-tools).
+  const activity = useActivity(agentEnabled, session)
+  const { reset: resetActivity } = activity
   // The session opens with the folder and ends when the folder goes away.
   // `start` and `end` are idempotent, so React's StrictMode double mount writes
   // one file and one header.
@@ -131,6 +145,12 @@ function App() {
       void session.end('folder-changed')
     }
   }, [session, activeFolder?.name])
+  // A folder switch starts a new session, and the paths an entry names belong to
+  // the folder they were recorded in, so the record goes with it.
+  useEffect(() => {
+    resetActivity()
+    return resetActivity
+  }, [session, resetActivity])
   const [activePath, setActivePath] = useState<string | null>(null)
   // Session trail of the pages opened so far, plus the cursor marking the open
   // one (add-history-navigation). In memory only, and cleared when the active
@@ -1417,6 +1437,12 @@ function App() {
             // so the rail's bottom slot holds the tour there and feedback
             // everywhere else.
             onTour={onTour}
+            // The experimental switch (add-agent-activity-log): app-level, so it
+            // renders in every shell state, and its popup lists what the
+            // flags module says it turns on.
+            prerelease={prerelease}
+            onTogglePrerelease={() => setPrerelease(!prerelease)}
+            experimental={experimentalFeatures}
             // Closing a folder forgets it; closing the active one returns home
             // (close-folders). The activeFolder?.id effect resets the page.
             onClose={(id) => void closeFolder(id)}
@@ -1618,6 +1644,11 @@ function App() {
           noteCount={graph ? graph.pages.size : activeFolder?.noteCount}
           onRevealPage={canRevealPage ? handleRevealPage : undefined}
           onLocateDay={journalDay !== null ? handleLocateDay : undefined}
+          // The agent's record, only while the gate is on
+          // (add-agent-activity-log): the bar renders the control from what it
+          // is given, so a gate-off build draws nothing.
+          activity={agentEnabled ? activity.entries : undefined}
+          onOpenActivityPath={agentEnabled ? handleSelect : undefined}
         />
       )}
       {/* Search spotlight (replace-header-with-spotlight): a modal overlay in

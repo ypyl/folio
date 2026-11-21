@@ -1,5 +1,7 @@
+import { useId, useRef, useState } from 'react'
 import { FolioMark } from '../FolioMark'
 import styles from './FolderRail.module.css'
+import type { ExperimentalFeature } from '../features'
 import type { VaultFolder, VaultStatus } from '../vault/useVault'
 
 /** The project's new-issue page (add-a-feedback-control): GitHub's chooser, which
@@ -26,6 +28,14 @@ interface FolderRailProps {
    *  control in place of the feedback anchor. The same optional-callback shape
    *  `onAdd` uses. */
   onTour?: () => void
+  /** The experimental switch, and the control that flips it (prerelease).
+   *  Absent means the control is not offered. */
+  prerelease?: boolean
+  onTogglePrerelease?: () => void
+  /** What the switch turns on, as the control's popup lists it
+   *  (explain-the-experimental-switch): passed in, so the rail renders the
+   *  flags module's own descriptions instead of keeping a second list. */
+  experimental?: readonly ExperimentalFeature[]
   /** The whole left navigation is folded (collapse-rail-with-sidebar): the rail
    *  keeps its grid slot via `visibility: hidden` and leaves the tab order, the
    *  same way the sidebar does. */
@@ -47,6 +57,10 @@ interface FolderRailProps {
 // group holds exactly one control: the tour control while the guided demo is the
 // active folder (add-app-tour, tour-lives-in-the-demo), and the feedback anchor
 // in every other state (add-a-feedback-control).
+//
+// The experimental switch (add-agent-activity-log, restored from
+// add-prerelease-mode) sits in a slot of its own immediately above that group,
+// so the group keeps exactly one control and the tour control stays the last one.
 export function FolderRail({
   status,
   folders,
@@ -56,12 +70,36 @@ export function FolderRail({
   searchDisabled = false,
   onAdd,
   onTour,
+  prerelease = false,
+  onTogglePrerelease,
+  experimental = [],
   collapsed = false,
   onActivate,
   onClose,
 }: FolderRailProps) {
+  const railRef = useRef<HTMLElement>(null)
+  const prereleaseRef = useRef<HTMLButtonElement>(null)
+  const tipId = useId()
+  // The popup's anchor, set while it is shown (explain-the-experimental-switch,
+  // design D3). `fixed` from the control's own box is what escapes the rail's
+  // scroll box without a portal: no ancestor here is transformed.
+  const [tip, setTip] = useState<{ left: number; bottom: number } | null>(null)
+
+  const showTip = () => {
+    const control = prereleaseRef.current
+    const rail = railRef.current
+    if (!control || !rail || experimental.length === 0) return
+    const box = control.getBoundingClientRect()
+    setTip({
+      left: rail.getBoundingClientRect().right + 8,
+      bottom: window.innerHeight - box.bottom,
+    })
+  }
+  const hideTip = () => setTip(null)
+
   return (
     <nav
+      ref={railRef}
       id="folder-rail"
       className={collapsed ? `${styles.rail} ${styles.collapsed}` : styles.rail}
       aria-label="Open folders"
@@ -145,46 +183,97 @@ export function FolderRail({
           </div>
         </>
       )}
-      {/* The rail's bottom group: one control held to the bottom edge however
-          many folders are listed. The demo's tour takes the slot while it is
-          open; feedback takes it in every other state. Feedback is an anchor
-          because it navigates to another origin, so it needs no handler and no
-          state. */}
-      <div className={styles.railBottom}>
-        {onTour ? (
+      {/* The rail's foot: the experimental switch in a slot of its own, then
+          the bottom group, held to the bottom edge however many folders are
+          listed (add-agent-activity-log). The switch renders in every shell
+          state, compact included, because it is app-level (prerelease). */}
+      <div className={styles.railFoot}>
+        {onTogglePrerelease && (
           <button
+            ref={prereleaseRef}
             type="button"
-            className={styles.tour}
-            onClick={onTour}
-            title="Take the tour"
-            aria-label="Take the tour"
-          >
-            <span aria-hidden="true">?</span>
-          </button>
-        ) : (
-          <a
-            className={styles.feedback}
-            href={ISSUE_CHOOSER_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Send feedback on GitHub"
-            aria-label="Send feedback on GitHub"
+            className={styles.prerelease}
+            onClick={onTogglePrerelease}
+            onMouseEnter={showTip}
+            onMouseLeave={hideTip}
+            onFocus={showTip}
+            onBlur={hideTip}
+            aria-pressed={prerelease}
+            aria-describedby={tip === null ? undefined : tipId}
+            aria-label="Experimental features"
           >
             <svg
-              viewBox="0 0 24 24"
-              className={styles.feedbackIcon}
-              role="presentation"
               aria-hidden="true"
+              viewBox="0 0 24 24"
+              className={styles.prereleaseIcon}
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.75"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M4 5h16v11h-9l-5 4v-4H4z" />
+              <path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3" />
+              <path d="M7 15h10" />
             </svg>
-          </a>
+          </button>
         )}
+        {/* The descriptions the switch turns on, while it is hovered or
+            focused. A tooltip, not a menu: it takes no pointer input, so a
+            press still lands on the control (explain-the-experimental-switch
+            D4). */}
+        {tip !== null && (
+          <div
+            id={tipId}
+            role="tooltip"
+            className={styles.prereleaseTip}
+            style={{ left: tip.left, bottom: tip.bottom }}
+          >
+            <ul className={styles.tipList}>
+              {experimental.map((feature) => (
+                <li key={feature.flag} className={styles.tipRow}>
+                  <span className={styles.tipLabel}>{feature.label}</span>
+                  <span className={styles.tipDetail}>{feature.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className={styles.railBottom}>
+          {onTour ? (
+            <button
+              type="button"
+              className={styles.tour}
+              onClick={onTour}
+              title="Take the tour"
+              aria-label="Take the tour"
+            >
+              <span aria-hidden="true">?</span>
+            </button>
+          ) : (
+            <a
+              className={styles.feedback}
+              href={ISSUE_CHOOSER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Send feedback on GitHub"
+              aria-label="Send feedback on GitHub"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className={styles.feedbackIcon}
+                role="presentation"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 5h16v11h-9l-5 4v-4H4z" />
+              </svg>
+            </a>
+          )}
+        </div>
       </div>
     </nav>
   )

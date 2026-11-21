@@ -52,6 +52,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0033](0033-a-task-marker-is-a-checkbox.md) | A GFM task marker is a checkbox, and the marker is the text | Accepted |
 | [0034](0034-the-guided-demo-is-an-in-memory-vault.md) | The guided demo is an in-memory vault | Accepted |
 | [0035](0035-the-session-trace-is-pruned.md) | The session trace lives in `.folio/logs/` and is pruned | Accepted |
+| [0036](0036-agent-actions-are-app-actions-with-an-actor.md) | An agent's action is an app action with an actor and a record | Proposed |
 
 ## Adding a new ADR
 

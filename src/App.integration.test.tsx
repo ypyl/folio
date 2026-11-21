@@ -3698,3 +3698,34 @@ describe('the session trace (add-session-trace-logs)', () => {
     vi.unstubAllGlobals()
   }, 15000)
 })
+
+describe('the experimental switch and the agent record (add-agent-activity-log)', () => {
+  it('flips the switch, reports its state, and persists it', async () => {
+    render(<App />)
+    const control = await screen.findByRole('button', { name: 'Experimental features' })
+    // The shipped default: the switch is off, so the capability is off.
+    expect(control.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(control)
+    expect(control.getAttribute('aria-pressed')).toBe('true')
+    expect(localStorage.getItem('folio.prerelease')).toBe('1')
+  })
+
+  it('draws no agent control while the gate is off', async () => {
+    render(<App />)
+    await screen.findByRole('button', { name: 'Experimental features' })
+    expect(screen.queryByRole('button', { name: /^agent: / })).toBeNull()
+  })
+
+  it('draws the agent control with the gate on, and closing it writes nothing', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Experimental features' }))
+    const control = await screen.findByRole('button', { name: /^agent: 0/ })
+    fireEvent.click(control)
+    screen.getByText('No agent actions this session.')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText('No agent actions this session.')).toBeNull()
+    // Only the switch's own preference is stored; the record writes nothing.
+    expect(localStorage.getItem('folio.prerelease')).toBe('1')
+    expect(localStorage.length).toBe(1)
+  })
+})

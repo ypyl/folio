@@ -283,12 +283,15 @@ its own bar, that bar is what scrolls the region and the app adds nothing.
 
 ### The status bar's recent changes
 
-The one floating surface the status bar owns is the panel the version badge
-opens. It is a paper slip, not a dialog: ivory fill, no closed border, 8px
-radius, and the whisper shadow that rule 4 reserves for surfaces which float. It
-hangs from the badge's trailing edge and opens above the bar, so it covers the
-editor's bottom corner and never the bar itself, and its width is fixed so a long
-entry wraps instead of stretching the slip.
+The status bar owns two disclosures, and both open the same floating surface: the
+version badge's recent changes, and, while the agent gate is on, the session's
+agent activity.
+
+The floating surface is a paper slip, not a dialog: ivory fill, no closed border,
+8px radius, and the whisper shadow that rule 4 reserves for surfaces which float.
+It hangs from its control's trailing edge and opens above the bar, so it covers
+the editor's bottom corner and never the bar itself, and its width is fixed so a
+long entry wraps instead of stretching the slip.
 
 The heading stays put while the entries move: the panel is capped in height, the
 list is the region that scrolls, and it carries the reserved lane and the stone
@@ -298,6 +301,13 @@ landed at 12px `--stone` on the same row; its changes sit beneath at 13px
 `--dark-warm` on a native marker in `--brand`, indented from the heading. The
 version is what the eye lands on, and the date supports it. There are no badges,
 links, or controls: the panel answers what changed and in which build.
+
+The agent activity panel is the same slip with rows instead of groups: each row
+is a control that opens the page it names, so it carries the menu row's padding
+and radius and the warm interactive fill on hover, with the action at 13px
+`--near-black`, the path beneath it at 12px `--dark-warm`, and the counts and the
+time at 11px `--stone`. It is a record to read, not a ledger to act on: a row
+opens its page and offers no revert.
 
 ### Touch targets, type, and safe areas
 

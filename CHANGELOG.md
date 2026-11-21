@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.96.0 (2026-11-21)
+
+- record what an agent did, behind the experimental switch
+
 ## v0.95.0 (2026-11-12)
 
 - take the tour inside the guided demo
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.77.3 (2026-10-27)
 
 - attach dropped files instead of inserting their text
-
-## v0.77.0 (2026-10-27)
-
-- refresh the index on return, not on a timer
