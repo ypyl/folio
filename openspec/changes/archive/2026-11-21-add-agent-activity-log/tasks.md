@@ -63,7 +63,7 @@
   `npm run build`, and the e2e suite asserting the switch explains itself, flips,
   persists, and that the record's control exists only with the gate on (its
   entries come with `add-webmcp-tools`, which is the only producer); all pass.
-- [ ] 5.2 Bump `version` in `package.json` (minor), run `npm run changelog`, and
+- [x] 5.2 Bump `version` in `package.json` (minor), run `npm run changelog`, and
   commit the feature with its tests, docs, delta specs, and design.
 - [x] 5.3 Run `npx oxlint --deny-warnings --format=agent`.
 

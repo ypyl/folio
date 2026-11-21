@@ -787,6 +787,11 @@ vertically only. The bottom control SHALL keep its place at the rail's bottom
 edge however many folders are listed, SHALL carry an accessible name naming the
 action it performs, and SHALL show visible keyboard focus.
 
+The rail SHALL also carry the experimental switch as its own slot immediately
+above the bottom group, so the group keeps exactly one control and the tour
+control stays the rail's last control. The switch SHALL render in every shell
+state and at every width the rail renders at.
+
 The feedback control SHALL open the project's new-issue page, where the bug
 report and feature request forms are offered, in a new browser tab, SHALL NOT
 navigate the app away from its state, and SHALL change nothing in the vault, the
@@ -850,6 +855,19 @@ tour and SHALL exist only where the tour exists.
 - **WHEN** the shell renders
 - **THEN** the bottom group's control is the rail's last control, held to its
   bottom edge after every folder entry
+
+#### Scenario: The experimental switch sits above the bottom group
+
+- **GIVEN** the guided demo vault is open
+- **WHEN** the rail renders
+- **THEN** the experimental switch sits between the folder entries and the bottom
+  group, and the tour control remains the rail's last control
+
+#### Scenario: The experimental switch is present with no folder
+
+- **GIVEN** no folder is open, or stored folders have not yet resolved
+- **WHEN** the rail renders
+- **THEN** its experimental switch is present above the bottom group
 
 #### Scenario: The feedback control is present with no folder and while restoring
 
@@ -1163,7 +1181,7 @@ a page row's menu.
 ### Requirement: The status bar spans the wide workspace
 
 At viewports wider than the compact breakpoint, the shell SHALL render a thin
-status bar as a full-width row beneath the workspace, present in every state —
+status bar as a full-width row beneath the workspace, present in every state:
 with a folder open, while it loads, on search results, on an open board, and on
 the no-folder state. It SHALL show the open item's file path as a breadcrumb, a
 status group holding the save-state text and the loading label, and at its
@@ -1171,10 +1189,11 @@ trailing edge the active folder's name and how many notes it holds, with the
 running version beside them. A group SHALL be empty when it has no source, and
 the bar SHALL sit outside the panes' scroll regions, so its content never
 scrolls. The bar's display-only content SHALL perform no action; its controls
-SHALL be the running version's disclosure and the open page's name where it has
-a Files row. The bar SHALL NOT hold a Back, Forward, or Today control: those live
-on the Journal section's summary row. At or below the compact breakpoint the bar
-SHALL NOT render; the compact navigation bar takes its place.
+SHALL be the running version's disclosure, the open page's name where it has a
+Files row, and, while the gate is on, the session activity's disclosure. The bar
+SHALL NOT hold a Back, Forward, or Today control: those live on the Journal
+section's summary row. At or below the compact breakpoint the bar SHALL NOT
+render; the compact navigation bar takes its place.
 
 #### Scenario: The bar is present in every state
 
@@ -1235,6 +1254,20 @@ SHALL NOT render; the compact navigation bar takes its place.
 - **GIVEN** a viewport wider than the compact breakpoint and a page open
 - **WHEN** the shell renders
 - **THEN** the open page's name is a control that reveals its row in Files
+
+#### Scenario: The activity disclosure appears only while the gate is on
+
+- **GIVEN** a viewport wider than the compact breakpoint
+- **WHEN** the shell renders with the gate off and again with it on
+- **THEN** the bar carries no activity control in the first state and carries it
+  in the second
+
+#### Scenario: The compact shell carries no status bar controls
+
+- **GIVEN** a viewport at or below the compact breakpoint
+- **WHEN** the shell renders
+- **THEN** no status bar is drawn, so the activity disclosure is absent and the
+  compact app bar is unchanged
 
 ### Requirement: The compact shell shows one view at a time, chosen from its navigation bar
 
