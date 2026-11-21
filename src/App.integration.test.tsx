@@ -11,6 +11,7 @@ import { dayLabel, monthYearLabel } from './components/months'
 import { localDayString } from './vault/index'
 import type { EditorAdapter } from './editor/editor'
 import { COMPACT_QUERY } from './compact'
+import { FakeModelContext } from './agent/fakeModelContext'
 
 // jsdom 30 has no <dialog> modal API, so `showModal()` cannot open the
 // presentation dialog and role queries would treat it as hidden. Stub the two
@@ -159,6 +160,7 @@ type FakeView = EditorAdapter & {
   insertions: string[]
   appends: string[]
   chords: string[]
+  replacements: [string, string][]
   highlights: number[][]
   focuses: number
   emitChange: (markdown: string) => void
@@ -3727,5 +3729,124 @@ describe('the experimental switch and the agent record (add-agent-activity-log)'
     // Only the switch's own preference is stored; the record writes nothing.
     expect(localStorage.getItem('folio.prerelease')).toBe('1')
     expect(localStorage.length).toBe(1)
+  })
+})
+
+describe('the agent tool surface (add-webmcp-tools)', () => {
+  function installContext() {
+    const context = new FakeModelContext()
+    Object.defineProperty(document, 'modelContext', {
+      configurable: true,
+      writable: true,
+      value: context,
+    })
+    return context
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(document, 'modelContext')
+  })
+
+  async function gateOn() {
+    fireEvent.click(await screen.findByRole('button', { name: 'Experimental features' }))
+  }
+
+  it('registers nothing while the gate is off', async () => {
+    const context = installContext()
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    // An agent listing the page's tools sees an empty set.
+    expect(context.names()).toEqual([])
+    vi.unstubAllGlobals()
+  })
+
+  it('registers the surface with the gate on and retires it when the gate goes off', async () => {
+    const context = installContext()
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    await gateOn()
+    await waitFor(() => expect(context.names()).toHaveLength(9))
+    // The same control takes the surface away again, before the next frame.
+    fireEvent.click(screen.getByRole('button', { name: 'Experimental features' }))
+    await waitFor(() => expect(context.names()).toEqual([]))
+    vi.unstubAllGlobals()
+  })
+
+  it('edits the open page as one transaction, records it, and shows it in the record', async () => {
+    const context = installContext()
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Ideas' }))
+    await waitFor(() => expect(editor().content).toContain('Half-formed thoughts'))
+    await gateOn()
+    await waitFor(() => expect(context.find('edit_note')).toBeTruthy())
+
+    await act(async () => {
+      await context.call('edit_note', {
+        name: 'Ideas',
+        old_string: 'Half-formed thoughts worth keeping.',
+        new_string: 'Settled thoughts worth keeping.',
+      })
+    })
+    // The change reached the document once, as an editor transaction: no file
+    // write happened behind the pane's back.
+    expect(editor().replacements).toEqual([
+      ['Half-formed thoughts worth keeping.', 'Settled thoughts worth keeping.'],
+    ])
+    expect(editor().content).toContain('Settled thoughts')
+
+    // The record names the tool and the page it touched.
+    fireEvent.click(screen.getByRole('button', { name: /^agent: 1/ }))
+    const panel = screen.getByRole('group', { name: 'Agent activity' })
+    expect(within(panel).getByRole('button', { name: /edit_note/ })).toBeTruthy()
+    expect(panel.textContent).toContain('pages/Ideas.md')
+    // Review only: the row opens the page and offers nothing else.
+    expect(within(panel).getAllByRole('button')).toHaveLength(1)
+    vi.unstubAllGlobals()
+  })
+
+  it('writes a page that is not open through the app path, so the listing is true', async () => {
+    const context = installContext()
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    await gateOn()
+    await waitFor(() => expect(context.find('create_note')).toBeTruthy())
+
+    await act(async () => {
+      const result = await context.call('create_note', {
+        name: 'Field notes',
+        text: 'Observed on the walk.',
+      })
+      expect(result).toMatchObject({ ok: true, path: 'pages/Field notes.md' })
+    })
+    // The Files listing gains the row without a reload: the write went through
+    // the write-through path, not a bare file write.
+    await screen.findByRole('button', { name: 'Field notes' })
+    fireEvent.click(screen.getByRole('button', { name: 'Field notes' }))
+    await waitFor(() => expect(editor().content).toContain('Observed on the walk.'))
+    vi.unstubAllGlobals()
+  })
+
+  it('refuses a stale match and writes nothing', async () => {
+    const context = installContext()
+    render(<App />)
+    await openFixture()
+    await screen.findByRole('button', { name: 'Welcome' })
+    await gateOn()
+    await waitFor(() => expect(context.find('edit_note')).toBeTruthy())
+    await act(async () => {
+      const result = await context.call('edit_note', {
+        name: 'Inbox',
+        old_string: 'text that is not there',
+        new_string: 'replacement',
+      })
+      expect(result).toMatchObject({ ok: false, error: 'not-found' })
+    })
+    // Nothing was recorded, because nothing changed.
+    expect(screen.getByRole('button', { name: /^agent: 0/ })).toBeTruthy()
+    vi.unstubAllGlobals()
   })
 })

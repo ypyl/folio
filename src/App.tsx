@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Fuse from 'fuse.js'
 import { Sidebar, type SidebarHandle, type SidebarRow } from './components/Sidebar'
 import { EditorPane, type EditorPaneHandle } from './components/EditorPane'
 import { MetaPanel, type LinkRow } from './components/MetaPanel'
@@ -51,6 +52,9 @@ import { createSessionTrace, describeError } from './trace/session'
 import { features, experimentalFeatures } from './features'
 import { usePrerelease } from './prerelease'
 import { useActivity } from './agent/useActivity'
+import { registerAgentTools } from './agent/modelContext'
+import { agentTools } from './agent/tools'
+import type { AgentDeps } from './agent/actions'
 import { describeSchedule } from './components/recurrences'
 import { version } from '../package.json'
 import { canOpenFolders } from './vault/fs'
@@ -76,7 +80,14 @@ import {
   suggestPages,
   type Suggestion,
 } from './vault/suggest'
-import { assetSearchDoc, boardSearchDoc, type SearchResult } from './search/core'
+import {
+  assetSearchDoc,
+  boardSearchDoc,
+  fuseOptions,
+  searchDocs,
+  type SearchDoc,
+  type SearchResult,
+} from './search/core'
 
 const SAVE_DELAY_MS = 1000
 
@@ -1344,6 +1355,71 @@ function App() {
         : [],
     [graph],
   )
+
+  // The agent's tool surface (add-webmcp-tools, ADR-0036). The declarations are
+  // built once per gate flip and each call reads this render's state through a
+  // ref, so a registration outlives every save and every page switch without
+  // being redone. The gate-off build registers nothing at all.
+  //
+  // The search index is built on the first search call and kept until the
+  // corpus identity changes, as the spotlight's own is: a save never pays for a
+  // build, and an agent's first search pays at most one.
+  const agentSearchIndex = useRef<{ corpus: SearchDoc[]; fuse: Fuse<SearchDoc> } | null>(null)
+  const agentSearch = useCallback(
+    (query: string) => {
+      if (agentSearchIndex.current?.corpus !== searchCorpus) {
+        agentSearchIndex.current = {
+          corpus: searchCorpus,
+          fuse: new Fuse(searchCorpus, fuseOptions(false)),
+        }
+      }
+      return searchDocs(agentSearchIndex.current.fuse, query)
+    },
+    [searchCorpus],
+  )
+  // What the tools read at call time: the live vault, index, drafts, and editor.
+  // Written from an effect, not during render: React may run a render and throw
+  // it away, and a ref written by a discarded render hands a tool call the
+  // closures of a state the app never showed (the pane's own asset reader does
+  // the same).
+  const agentDeps = useRef<AgentDeps | null>(null)
+  useEffect(() => {
+    agentDeps.current = {
+      storage: rawStorage ?? null,
+      graph,
+      drafts,
+      // A board or the results view is not an open page, so an edit then takes
+      // the closed-page shape.
+      openPath: mode === 'page' ? activePath : null,
+      folder: activeFolder?.name ?? '',
+      today,
+      remindersDue: openDayReminders,
+      reminders,
+      replaceOpen: (find, replace) => editorRef.current?.replaceMarkdown(find, replace) ?? false,
+      appendOpen: (markdown) => editorRef.current?.appendMarkdown(markdown),
+      open: handleSelect,
+      savePage,
+      saveReminders,
+      search: agentSearch,
+      backlinks: (page) => (graph ? pageBacklinks(graph, page) : []),
+      forwardlinks: (page) => (graph ? pageForwardlinks(graph, page) : []),
+      record: (tool, path, added, removed) =>
+        activity.record({ at: Date.now(), tool, path, added, removed }),
+    }
+  })
+  // Registration is the whole gate (design D6): one controller for the surface,
+  // aborted when the switch goes off or the app unmounts, which retires every
+  // tool before the next frame. A browser without the interface registers
+  // nothing and the app is unchanged.
+  useEffect(() => {
+    if (!agentEnabled) return
+    const controller = new AbortController()
+    const { retire } = registerAgentTools(
+      agentTools(() => agentDeps.current),
+      controller,
+    )
+    return retire
+  }, [agentEnabled])
 
   // Reference-completion pool (add-reference-autocomplete, design D2/D8): the
   // index's resolvable names in page order, rebuilt only when the graph or the

@@ -49,6 +49,12 @@ export interface EditorAdapter {
    *  happened to be. It leaves the caret and the scroll position alone: opening
    *  a day must not move the reader (reminders spec). */
   appendMarkdown(markdown: string): void
+  /** Replace the single occurrence of `find` with `replace` in the document as
+   *  one transaction, leaving the caret with the text it was in (the editor's
+   *  own selection mapping moves it) and reporting false when the text is
+   *  absent or not unique, so a caller reports a stale match rather than
+   *  guessing at where the change belongs (agent-tools: edit_note). */
+  replaceMarkdown(find: string, replace: string): boolean
   /** Frame each of `blocks` and scroll the first into view; an empty list
    *  clears the frames (frame-every-matching-block). A view operation: it never
    *  changes the document, so it is not an undo step and never reaches

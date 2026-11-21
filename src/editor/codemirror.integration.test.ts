@@ -1265,3 +1265,39 @@ describe('appending an occurrence leaves the view alone (release-reminders)', ()
     expect(view().state.doc.toString()).toBe('a line\n#Ana\n#Bea')
   })
 })
+
+describe('a range replacement is one transaction (agent-tools: edit_note)', () => {
+  const view = () => (adapter as unknown as { view: EditorView }).view
+
+  it('replaces the single occurrence and reports true', async () => {
+    await open('one\ntwo\nthree\n')
+    expect(adapter!.replaceMarkdown('two', 'TWO')).toBe(true)
+    expect(view().state.doc.toString()).toBe('one\nTWO\nthree\n')
+  })
+
+  it('maps the caret through the change instead of sending it home', async () => {
+    await open('one\ntwo\nthree\n')
+    const at = view().state.doc.toString().indexOf('three')
+    view().dispatch({ selection: { anchor: at } })
+    adapter!.replaceMarkdown('one', 'first line')
+    // The caret stayed with `three`: text before it shifted, and the replace
+    // reset nothing.
+    expect(view().state.doc.toString().slice(view().state.selection.main.head)).toBe('three\n')
+  })
+
+  it('is one undo step, so Mod-z takes back only the agent change', async () => {
+    await open('one\ntwo\n')
+    adapter!.replaceMarkdown('two', 'TWO')
+    const { undo } = await import('@codemirror/commands')
+    undo(view())
+    expect(view().state.doc.toString()).toBe('one\ntwo\n')
+  })
+
+  it('changes nothing when the text is absent or not unique', async () => {
+    await open('same\nsame\n')
+    expect(adapter!.replaceMarkdown('same', 'x')).toBe(false)
+    expect(adapter!.replaceMarkdown('missing', 'x')).toBe(false)
+    expect(adapter!.replaceMarkdown('', 'x')).toBe(false)
+    expect(view().state.doc.toString()).toBe('same\nsame\n')
+  })
+})

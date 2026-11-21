@@ -18,6 +18,9 @@ export class FakeEditor implements EditorAdapter {
   readonly insertions: string[] = []
   /** Every appendMarkdown call, in order (add-reminders). */
   readonly appends: string[] = []
+  /** Every replaceMarkdown call, in order, as `[find, replace]` (agent-tools):
+   *  lets a test assert the open-page edit shape reached the document once. */
+  readonly replacements: [string, string][] = []
   /** The drop point each insertMarkdown call carried, in the same order;
    *  `null` for a call that had none (drag-references-into-editor). */
   readonly insertionPoints: (DropPoint | null)[] = []
@@ -116,6 +119,19 @@ export class FakeEditor implements EditorAdapter {
     const prefix = this.content !== '' && !this.content.endsWith('\n') ? '\n' : ''
     this.emitChange(this.content + prefix + markdown)
     this.appends.push(markdown)
+  }
+
+  /** Mirror the real adapter's rule: the text must occur exactly once. The fake
+   *  keeps no selection, so what it can model is the document change.
+   *  (agent-tools: edit_note) */
+  replaceMarkdown(find: string, replace: string): boolean {
+    if (find === '') return false
+    const at = this.content.indexOf(find)
+    if (at < 0) return false
+    if (this.content.indexOf(find, at + find.length) >= 0) return false
+    this.replacements.push([find, replace])
+    this.emitChange(this.content.slice(0, at) + replace + this.content.slice(at + find.length))
+    return true
   }
 
   // The real adapter replays the chord through the editor's keymap; the fake

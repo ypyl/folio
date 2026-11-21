@@ -77,6 +77,10 @@ export type EditorPaneHandle = {
    *  reminder list records an occurrence through this, so it does not depend
    *  on where the caret is. */
   appendMarkdown: (markdown: string) => void
+  /** Replace one occurrence of `find` with `replace` as one transaction
+   *  (agent-tools: edit_note), reporting false when the text is absent or not
+   *  unique. */
+  replaceMarkdown: (find: string, replace: string) => boolean
   /** The open document's top-level blocks for a presentation
    *  (add-presentations); reading them changes nothing. */
   staticBlocks: () => StaticBlock[]
@@ -239,6 +243,8 @@ export function EditorPane({
     () => ({
       applyChord: (chord: string) => adapterRef.current?.applyChord(chord) ?? false,
       appendMarkdown: (markdown: string) => adapterRef.current?.appendMarkdown(markdown),
+      replaceMarkdown: (find: string, replace: string) =>
+        adapterRef.current?.replaceMarkdown(find, replace) ?? false,
       staticBlocks: () => adapterRef.current?.staticBlocks() ?? [],
       focus: () => adapterRef.current?.focus(),
     }),

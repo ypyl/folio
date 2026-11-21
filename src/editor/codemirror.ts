@@ -21,7 +21,13 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+  isolateHistory,
+} from '@codemirror/commands'
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
@@ -1187,6 +1193,29 @@ export class CodeMirrorAdapter implements EditorAdapter {
     const end = view.state.doc.length
     const prefix = end > 0 && view.state.doc.lineAt(end).length > 0 ? '\n' : ''
     view.dispatch({ changes: { from: end, insert: prefix + markdown } })
+  }
+
+  /** Replace one occurrence as one transaction (agent-tools: edit_note). The
+   *  dispatch carries no explicit selection, so CodeMirror maps the caret
+   *  through the change: text before the caret shifts it, and a replacement the
+   *  caret sits inside keeps it at that point rather than sending it home. A
+   *  match that is absent or not unique changes nothing and reports false, so
+   *  the caller reports a stale match instead of guessing. */
+  replaceMarkdown(find: string, replace: string): boolean {
+    const view = this.view
+    if (!view || find === '') return false
+    const text = view.state.doc.toString()
+    const from = text.indexOf(find)
+    if (from < 0) return false
+    if (text.indexOf(find, from + find.length) >= 0) return false
+    // `isolateHistory` keeps the replacement its own undo step: CodeMirror groups
+    // changes made within half a second of each other, so without it a Mod-z
+    // after an agent's edit would take the user's typing with it.
+    view.dispatch({
+      changes: { from, to: from + find.length, insert: replace },
+      annotations: isolateHistory.of('full'),
+    })
+    return true
   }
 
   /** Frame each of `blocks` and scroll the first one's first line into view; an

@@ -81,10 +81,12 @@ turns one read into a vault dump.
 
 **D5: Refusals are typed, not silent.**
 The text tools refuse a path under `.folio/` (its files have their own writers),
-a path that is not Markdown (assets are files, ADR-0022), a match that is not
-found, a page whose save is in flight, and an unknown tool. Each returns a
-distinguishable failure the agent can act on, because a silent no-op is what makes
-an agent retry blindly.
+a name that is shaped like a path, a path that is not Markdown (assets are files,
+ADR-0022), a match that is absent or not unique, an unknown tool, and a tool
+called with no folder open. Each returns a distinguishable failure the agent can
+act on, because a silent no-op is what makes an agent retry blindly.
+`create_note` also refuses a page that already has text: its name says create,
+and the alternative is erasing a page the caller did not read.
 
 **D6: The gate owns the registration, and revocation is immediate.**
 While the gate is on, `App` registers the tools once with one `AbortController`;

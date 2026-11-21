@@ -1,6 +1,8 @@
 # ADR-0036: An agent's action is an app action with an actor and a record
 
-- Status: Proposed (flips to Accepted when `add-webmcp-tools` lands)
+- Status: Accepted (2026-11-21: the record and the tool surface both shipped,
+  and the surface's registration was checked against a real model-context
+  interface, not only a fake)
 - Date: 2026-11-14
 
 ## Context
@@ -102,3 +104,7 @@ Rejected alternatives:
   editor, or the merge with typing is lost and the write shapes collapse to one.
 - If WebMCP's shape moves or the trial ends, only the registration module is
   thrown away; the actions, the record, and the review surface are the app's own.
+  The shape has already moved once: this machine's Chromium 145 exposes the
+  preview on `navigator.modelContext`, while the origin trial moved it to
+  `document.modelContext`. The app reads both, and a browser with neither
+  registers nothing.
