@@ -10,37 +10,54 @@ Everything that touches the page runs in the page's own world through
 tool objects cannot cross into the extension, so the page looks one up by name and
 calls it.
 
-## What you need
+## Edge, which is what this is written for
 
-- **Chromium 149 or later with the interface enabled.** On this machine Chrome
-  157 exposes `document.modelContext` with `getTools`, `executeTool`, and
-  `registerTool` after either:
-  - `chrome://flags/#enable-webmcp-testing` → Enabled → Relaunch, or
-  - launching Chrome with `--enable-features=WebMCP` (verified working on 157).
-- **A page that declares tools.** In Folio, that means the experimental switch is
-  on: the flask control on the folder rail, `aria-pressed="true"`. With it off the
-  page registers nothing and this harness will truthfully say so.
+Verified on Microsoft Edge 157.0.4341.60. The interface is **off by default** in
+Edge's build and needs the feature turned on at launch:
+
+- `edge://flags/#enable-webmcp-testing` → **Enabled** → **Restart**, or
+- launch Edge with the feature flag, which is what `edge-webmcp.cmd` in this folder
+  does: `msedge.exe --enable-features=WebMCP`.
+
+A running browser ignores the flag, so Edge has to be restarted. Tabs are restored,
+so reopening the app is one click.
+
+The same recipe works on Chrome 149 and later (`chrome://flags/#enable-webmcp-testing`,
+or `--enable-features=WebMCP`). Firefox and Safari have no such interface, and the
+harness will say so.
 
 ## Install
 
-Chrome no longer loads an extension from the command line, so it is the usual
-unpacked path:
-
-1. Open `chrome://extensions`.
-2. Turn on **Developer mode** (top right).
+1. Open `edge://extensions` (or `chrome://extensions`).
+2. Turn on **Developer mode**.
 3. **Load unpacked**, choose this folder (`devtools/webmcp-agent`).
 4. Pin it, so the toolbar icon is one press away.
 
-The popup closes when it loses focus, like any popup. To keep it open while you
-work, open it as a page instead: `chrome-extension://<id>/popup.html`.
+Edge also loads it from the command line
+(`msedge.exe --load-extension="<this folder>"`), which is handy for a throwaway
+profile; branded Chrome 137 and later ignores that switch, so the unpacked path is
+the one to rely on.
+
+## The origins it can touch
+
+The manifest names them, and nothing else:
+
+- `http://localhost/*` and `http://127.0.0.1/*` — the dev server and any other local
+  build. Vite's `--port 0` picks a new port each run, which these patterns cover.
+- `https://ypyl.github.io/*` — the live build.
+
+The popup can be opened as a toolbar popup or as a page
+(`edge-extension://<id>/popup.html`); both work, because the permission is a host
+permission rather than the click-scoped `activeTab`.
 
 ## Use
 
 1. Start the app: `npm run dev:test` prints the port it took, e.g.
-   `http://localhost:50608/`.
-2. Open it, open a folder or the guided demo, and turn the experimental switch on.
-3. Click the extension. It reads the page and lists its nine tools with their
-   hints (`readOnly`, `consequential`, `untrustedContent`).
+   `http://localhost:61465/`.
+2. Open it, open a folder or the guided demo, and turn the experimental switch on
+   (the flask control on the folder rail, `aria-pressed="true"`).
+3. Click the extension. It reads the page and lists its nine tools with their hints
+   (`readOnly`, `consequential`, `untrustedContent`).
 4. Pick a tool; the input box fills with its required fields as JSON. Edit, then
    **Run**.
 
@@ -52,6 +69,7 @@ Good first calls, in the guided demo:
 | `search_notes` | `{"query":"calendar"}` | At most ten rows of name, path, and kind |
 | `read_note` | `{"name":"Home"}` | One page, as a line window with a character cap |
 | `append_note` | `{"name":"Home","text":"From the probe."}` | The text in the open page, `agent: 1` in the status bar |
+| `create_note` | `{"name":"Edge note","text":"From Edge."}` | A new row in Files, with no reload |
 | `edit_note` | `{"name":"Home","old_string":"…","new_string":"…"}` | One transaction in the open document; `Ctrl+Z` takes it back |
 | `add_reminder` | `{"name":"Home","recurrence":"weekly","anchor":"2026-11-24"}` | `.folio/reminders.md` keeps its header and canonical form |
 
@@ -72,7 +90,8 @@ What to check while you do it:
 
 ## Why this is not the shipping experience
 
-The surface is behind Chrome's trial flag, so this harness asks you to enable one.
-When the API ships, the same tools become visible to whatever agent the browser
-offers, and Gemini in Chrome is already installed on this machine; this extension
-exists so the tools can be exercised before that path is generally available.
+The surface is behind a browser feature flag, so this harness asks you to enable
+one. When the API ships, the same tools become visible to whatever agent the
+browser offers, and Edge's Copilot and Gemini in Chrome are already installed here;
+this extension exists so the tools can be exercised before that path is generally
+available.

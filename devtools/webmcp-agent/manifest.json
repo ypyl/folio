@@ -3,9 +3,17 @@
   "name": "Folio agent probe",
   "version": "1.0.0",
   "description": "Lists the WebMCP tools the open page declares, and runs one with the JSON you give it. A local harness for a browser agent, not an agent of its own.",
-  "permissions": ["scripting", "tabs"],
+  "permissions": [
+    "scripting",
+    "tabs"
+  ],
   "action": {
     "default_title": "Folio agent probe",
     "default_popup": "popup.html"
-  }
+  },
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://ypyl.github.io/*"
+  ]
 }
