@@ -38,22 +38,22 @@ type Overrides = Partial<AgentDeps> & { files?: Record<string, string> }
  *  replaced by recorders: what they are handed is what the tool wrote. */
 function deps(overrides: Overrides = {}) {
   const { files = {}, ...rest } = overrides
+  // A file the fake storage holds is a file the fake index lists, as the scan
+  // would: the actions read the index to tell "no file" from "unreadable".
+  const indexed = rest.graph ?? graphOf()
+  const withFiles = { ...indexed, files: new Set([...indexed.files, ...Object.keys(files)]) }
   const writes: { path: string; content: string }[] = []
   const reminderWrites: ReminderRule[][] = []
   const records: { tool: string; path: string; added: number; removed: number }[] = []
   const opens: string[] = []
   const base: AgentDeps = {
+    graph: withFiles,
     storage: {
       read: async (path: string) => {
-        if (!(path in files)) {
-          const missing = new Error(`no file ${path}`)
-          missing.name = 'NotFoundError'
-          throw missing
-        }
+        if (!(path in files)) throw new Error(`no file ${path}`)
         return files[path]
       },
     },
-    graph: graphOf(),
     drafts: new DraftStore(),
     openPath: null,
     folder: 'notes',

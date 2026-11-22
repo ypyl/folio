@@ -160,9 +160,10 @@ async function currentText(deps: AgentDeps, path: string): Promise<string | null
   try {
     return await deps.storage.read(path)
   } catch (error) {
-    // A page that has no file yet is an empty page. Anything else is a real
-    // failure: an append must never write over a page it could not read.
-    if ((error as { name?: string })?.name === 'NotFoundError') return null
+    // The index is the app's own answer to "does this page have a file", so a
+    // page it does not list is an empty page and anything else stays a failure:
+    // an append must never write over a page it could not read.
+    if (!deps.graph?.files.has(path)) return null
     throw error
   }
 }

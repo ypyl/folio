@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.97.2 (2026-11-22)
+
+- tell a page with no file from a page that cannot be read
+
 ## v0.97.0 (2026-11-21)
 
 - let a browser agent act on notes, through the app's own actions
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.79.0 (2026-10-27)
 
 - expand or collapse every Contents subtree at once
-
-## v0.78.0 (2026-10-27)
-
-- write a due reminder as a task item so it can be ticked
