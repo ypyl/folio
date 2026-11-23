@@ -28,6 +28,12 @@ declare global {
 
 export type VaultStatus = 'restoring' | 'ready'
 
+/** How long the restore may hold the app on its transitional state before the
+ *  state settles anyway. Long enough for a real folder's first scan (the demo
+ *  vault's own is instant; a network share's is not), short enough that a stuck
+ *  one is not a trap. One deadline per mount, not a poll. */
+export const RESTORE_DEADLINE_MS = 15_000
+
 export interface VaultFolder {
   id: string
   name: string
@@ -50,23 +56,40 @@ export function useVault() {
 
   useEffect(() => {
     let cancelled = false
+    // The restore waits on things this app does not control: the folder
+    // registry's IndexedDB, a stored handle whose permission query never
+    // settles, and a first scan of a folder that is large or on a network
+    // share. Any of those leaving the promise pending would strand the app on
+    // its transitional state, where the rail holds neither the picker nor a
+    // folder entry and there is no way back. So the state settles on a
+    // deadline, and a restore that answers late still fills the list in, unless
+    // the user has already opened something.
+    const settle = (restored: VaultFolder[] = []) => {
+      if (cancelled) return
+      setFolders((prev) => (prev.length === 0 ? restored : prev))
+      setStatus('ready')
+    }
+    const deadline = setTimeout(() => settle(), RESTORE_DEADLINE_MS)
     void restore()
       .then(([restored, active]) => {
         if (cancelled) return
-        setFolders(restored)
-        setActiveId(active)
+        clearTimeout(deadline)
+        setFolders((prev) => (prev.length === 0 ? restored : prev))
+        setActiveId((prev) => prev ?? active)
         setStatus('ready')
       })
       .catch(() => {
-        // A folder registry that cannot be read (site data blocked, a failed
-        // open) leaves nothing to restore, which is the empty state, not a
-        // reason to stay on "restoring" forever: the rail must still offer the
-        // picker. Nothing is lost; the folders are still on disk.
-        if (cancelled) return
-        setStatus('ready')
+        // A folder registry that cannot be read (site data blocked, a blocked
+        // upgrade, a failed open) leaves nothing to restore, which is the empty
+        // state, not a reason to stay on "restoring" forever: the rail must
+        // still offer the picker. Nothing is lost; the folders are still on
+        // disk.
+        clearTimeout(deadline)
+        settle()
       })
     return () => {
       cancelled = true
+      clearTimeout(deadline)
     }
   }, [])
 

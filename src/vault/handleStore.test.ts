@@ -41,6 +41,7 @@ function makeIndexedDB() {
       const req = {
         onsuccess: null as null | (() => void),
         onerror: null as null | (() => void),
+        onblocked: null as null | (() => void),
         onupgradeneeded: null as null | (() => void),
         result: db,
         error: null,
@@ -83,6 +84,30 @@ describe('handleStore', () => {
     expect(await store.getLastActiveId()).toBeNull()
     await store.clearVaultHandle('a')
     expect(await store.listVaultHandles()).toEqual([])
+  })
+
+  it('rejects a blocked upgrade instead of waiting on it forever', async () => {
+    // Another tab holding the registry open blocks the version upgrade: the
+    // open request fires `blocked` and then waits. A wait here is what strands
+    // the app on its restoring state, so the open answers a failure.
+    vi.stubGlobal('indexedDB', {
+      open: () => {
+        const req = {
+          onsuccess: null as null | (() => void),
+          onerror: null as null | (() => void),
+          onblocked: null as null | (() => void),
+          onupgradeneeded: null as null | (() => void),
+          result: undefined,
+          error: null,
+        }
+        queueMicrotask(() => req.onblocked?.())
+        return req
+      },
+    })
+    const store = await load()
+    // The registry read fails, which the vault hook turns into the no-folder
+    // state, where the rail still offers the picker.
+    await expect(store.listVaultHandles()).rejects.toThrow(/locked/)
   })
 
   it('opens again after a failed open instead of staying broken', async () => {

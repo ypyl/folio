@@ -66,6 +66,14 @@ function openDb(): Promise<IDBDatabase | null> {
       }
       open.onsuccess = () => resolve(open.result)
       open.onerror = () => reject(open.error)
+      // A version upgrade blocked by another tab's open connection fires this
+      // and then waits, which would leave the promise pending forever: the app
+      // would sit in its restoring state with no picker and no folder list.
+      // Fail instead, so the caller settles to the no-folder state and the
+      // rail still offers the picker (the catch below forgets the promise, so a
+      // later call tries again).
+      open.onblocked = () =>
+        reject(new DOMException('the folder registry is locked by another tab', 'AbortError'))
     })
     // A failed open must not poison every later call (site data blocked, a
     // blocked upgrade from an older tab): forget it, so the next call tries

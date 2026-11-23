@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { act } from 'react'
-import { useVault } from './useVault'
+import { RESTORE_DEADLINE_MS, useVault } from './useVault'
 import { buildTree, type FakeDirectoryHandle } from './fakeHandle'
 import { buildIndex } from './index'
 import { DemoVaultStorage } from '../demo/storage'
@@ -11,11 +11,16 @@ const store = vi.hoisted(() => {
   const rows = new Map<string, { id: string; name: string; handle: unknown }>()
   let lastActive: string | null = null
   let failList = false
+  let hang = false
   return {
     listVaultHandles: async () => {
       if (failList) {
         failList = false
         throw new Error('registry unavailable')
+      }
+      if (hang) {
+        hang = false
+        return new Promise<never>(() => {})
       }
       return [...rows.values()]
     },
@@ -42,10 +47,16 @@ const store = vi.hoisted(() => {
     failListOnce: () => {
       failList = true
     },
+    /** A registry read that never settles: a blocked IndexedDB upgrade, or a
+     *  stored handle whose permission query hangs. */
+    hangListOnce: () => {
+      hang = true
+    },
     reset: () => {
       rows.clear()
       lastActive = null
       failList = false
+      hang = false
     },
   }
 })
@@ -206,6 +217,26 @@ describe('boot restore', () => {
     // picker instead of sitting on a boot that never finishes.
     expect(result.current.folders).toEqual([])
     expect(result.current.activeId).toBeNull()
+  })
+
+  it('settles ready when the folder registry never answers, so the picker returns', async () => {
+    vi.useFakeTimers()
+    try {
+      store.seed('big', 'granted')
+      store.hangListOnce()
+      const { result } = renderHook(() => useVault())
+      // The transitional state holds the app where the rail has neither entry
+      // nor picker, so it may not last forever.
+      expect(result.current.status).toBe('restoring')
+      act(() => {
+        vi.advanceTimersByTime(RESTORE_DEADLINE_MS)
+      })
+      expect(result.current.status).toBe('ready')
+      expect(result.current.folders).toEqual([])
+      expect(result.current.activeId).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('drops a denied folder while others still reopen', async () => {
