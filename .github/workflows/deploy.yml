@@ -5,17 +5,27 @@ on:
     branches: [master]
   workflow_dispatch:
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # The gates and the artifact belong to a job of their own, and deploy runs
+  # after it. That is not tidiness: when `upload-pages-artifact` and
+  # `deploy-pages` run in the same job, the artifact lookup can come back empty
+  # a fraction of a second after the upload finalizes, and deploy fails with
+  # "No artifacts named github-pages were found for this workflow run"
+  # (actions/deploy-pages#451, the intermittent same-job race; re-running that
+  # failed job uploads a second artifact and makes it worse, #338). The lookup
+  # in a following job happens seconds later and does not race. GitHub's own
+  # Pages starter workflows use the same two-job shape.
+  build:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,9 +42,17 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: '1'
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
