@@ -118,6 +118,12 @@ export function useVault() {
     }
     if (!target.handle) return
     const granted = await permission(target.handle, 'request')
+    if (granted !== 'denied' && granted !== 'granted') {
+      // Could not tell, or the browser wants another gesture: the row stays
+      // listed and pending, so the next click can ask again. Nothing is dropped
+      // on a click that did not actually get an answer.
+      return
+    }
     if (granted === 'granted') {
       const open = await openVault(target.handle)
       upsert(setFolders, {
@@ -231,13 +237,27 @@ export function useVault() {
 // Boot flow: restore every granted stored folder (storage created lazily —
 // the ctor does no IO), list a count only for the folder that becomes active,
 // hold 'prompt' folders for the reconnect click, drop 'denied' ones. The
-// active folder is the last-active one when present, else the first granted.
+// active folder is the last-active one when present, else the first granted,
+// else the first pending one, so a folder that needs one click to reopen is
+// still the one the pane offers that click for.
+//
+// A start must never cost the reader their folders. Two failures used to: a
+// registry read that failed once settled the app into the no-folder state for
+// the session (the rows were still stored), and a permission *query* that threw
+// was read as a refusal and deleted the row. So the read is retried once, a
+// query that cannot answer keeps the folder as pending, and only a real
+// 'denied' — which the browser reports, not an error — drops anything
+// (fix: a stored folder survives a start that cannot ask).
 async function restore(): Promise<[VaultFolder[], string | null]> {
-  const rows = await listVaultHandles()
+  const rows = await readRegistry()
   const lastActiveId = await getLastActiveId()
   const restored: VaultFolder[] = []
   for (const row of rows) {
     const state = await permission(row.handle, 'query')
+    // A real refusal is the one thing that drops a stored folder (the vault
+    // requirement: a denied folder is dropped). 'error' is not a refusal: the
+    // folder may be on a drive that is not mounted yet, or the profile may need
+    // a gesture to answer, so it stays listed and pending.
     if (state === 'denied') {
       await clearVaultHandle(row.id)
       continue
@@ -248,20 +268,44 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
             id: row.id,
             name: row.name,
             handle: row.handle,
-            permission: state,
+            permission: 'granted',
             storage: new FileSystemVaultStorage(row.handle),
           }
-        : { id: row.id, name: row.name, handle: row.handle, permission: state },
+        : { id: row.id, name: row.name, handle: row.handle, permission: 'prompt' },
     )
   }
   const active =
     restored.find((f) => f.id === lastActiveId) ??
     restored.find((f) => f.permission === 'granted') ??
+    restored[0] ??
     null
   if (active?.storage) {
-    active.noteCount = await countNotes(active.storage)
+    try {
+      active.noteCount = await countNotes(active.storage)
+    } catch {
+      // A count is decoration: a scan that fails at startup (a share that is
+      // not reachable yet) must not take the folder with it. The index build
+      // that follows reports its own failure.
+    }
   }
   return [restored, active?.id ?? null]
+}
+
+/** How long to wait before reading the folder registry a second time: enough
+ *  for a closing window to release its connection, or for the profile to finish
+ *  starting, without making a genuinely broken registry feel slow. */
+const REGISTRY_RETRY_MS = 400
+
+/** The stored folders, read once more if the first read failed. A blocked open,
+ *  a failed `getAll`, or a registry that is not readable yet all reject; the
+ *  rows are still on disk, so one retry usually finds them. */
+async function readRegistry(): Promise<Awaited<ReturnType<typeof listVaultHandles>>> {
+  try {
+    return await listVaultHandles()
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, REGISTRY_RETRY_MS))
+    return listVaultHandles()
+  }
 }
 
 /** isSameEntry behind a guard: some handles (and test fakes) do not expose it,
@@ -290,18 +334,21 @@ async function openVault(handle: FileSystemDirectoryHandle) {
   return { storage, noteCount: await countNotes(storage) }
 }
 
-/** A permission request's outcome, or 'denied' when the browser throws
- *  (jsdom has neither method). */
+/** A permission answer, or 'error' when the browser could not answer at all. */
 async function permission(
   handle: FileSystemDirectoryHandle,
   kind: 'query' | 'request',
-): Promise<PermissionState> {
+): Promise<PermissionState | 'error'> {
   try {
     return kind === 'query'
       ? await handle.queryPermission({ mode: 'readwrite' })
       : await handle.requestPermission({ mode: 'readwrite' })
   } catch {
-    return 'denied'
+    // Could not answer (jsdom has neither method; a real browser refuses to
+    // answer without a gesture, or the handle's folder is unreachable). That is
+    // not a refusal, so it never drops a folder: the caller treats it as
+    // pending and asks again on a click.
+    return 'error'
   }
 }
 

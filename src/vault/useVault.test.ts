@@ -247,6 +247,56 @@ describe('boot restore', () => {
     expect(result.current.folders.map((f) => f.name)).toEqual(['alive'])
   })
 
+  it('keeps a folder whose permission cannot be queried, as pending', async () => {
+    // A query that throws is not a refusal: the folder may be on a drive that is
+    // not mounted yet, or the profile may need a gesture to answer. Deleting the
+    // stored row on it cost the reader their folder (fix: a stored folder
+    // survives a start that cannot ask).
+    const seeded = store.seed('work', 'prompt')
+    seeded.handle.queryPermission = async () => {
+      throw new Error('the folder is unreachable')
+    }
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    const folder = result.current.folders.find((f) => f.name === 'work')!
+    expect(folder).toBeTruthy()
+    expect(folder.permission).toBe('prompt')
+    expect(folder.storage).toBeUndefined()
+  })
+
+  it('keeps a folder whose note count cannot be read', async () => {
+    const seeded = store.seed('work', 'granted')
+    seeded.handle.entries = () => {
+      throw new Error('the share is not connected')
+    }
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    const folder = result.current.folders.find((f) => f.name === 'work')!
+    expect(folder.storage).toBeTruthy()
+    expect(folder.noteCount).toBeUndefined()
+    expect(result.current.activeId).toBe('work')
+  })
+
+  it('reads the registry again when the first read fails', async () => {
+    store.seed('work', 'granted')
+    store.setLastActiveId('work')
+    store.failListOnce()
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.folders.map((f) => f.name)).toEqual(['work']), {
+      timeout: 3000,
+    })
+    expect(result.current.activeId).toBe('work')
+  })
+
+  it('offers a pending folder as the active one when nothing is granted', async () => {
+    store.seed('work', 'prompt')
+    const { result } = renderHook(() => useVault())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    // Active without storage: the pane's one-tap "Continue with" is the way in.
+    expect(result.current.activeId).toBe('work')
+    expect(result.current.folders[0].storage).toBeUndefined()
+  })
+
   it('counts notes, not everything the folder holds', async () => {
     store.seed('home', 'granted')
     store.setLastActiveId('home')

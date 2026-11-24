@@ -105,12 +105,44 @@ previously opened folders remain listed, and picking one that is already listed
 SHALL activate the existing entry instead of adding a duplicate. Until a folder
 is open, the app SHALL show its no-folder state.
 
+A start SHALL NOT cost the user a folder it could not reach. A folder registry
+whose read fails SHALL be read once more before the app settles, and a folder
+whose permission cannot be answered for SHALL be kept as pending rather than
+treated as denied: only a permission the browser reports as denied SHALL drop a
+folder. A folder whose note count cannot be read SHALL still be restored, without
+a count. Where no folder's permission holds, a stored pending folder SHALL be the
+active one, so the pane can offer the one click that reopens it.
+
 #### Scenario: Granted folders reopen silently on start
 
 - **WHEN** the app starts and folders have been opened before with permission
   still granted
 - **THEN** each reopens without interaction and the last active one becomes
   active
+
+#### Scenario: A failed registry read is retried before the app settles
+
+- **GIVEN** a stored folder and a registry read that fails once
+- **WHEN** the app starts
+- **THEN** the registry is read again and the folder is restored
+
+#### Scenario: A folder that cannot answer for its permission is kept
+
+- **GIVEN** a stored folder whose permission query fails
+- **WHEN** the app starts
+- **THEN** the folder stays listed as pending, and is not dropped
+
+#### Scenario: A folder whose count cannot be read is still restored
+
+- **GIVEN** a stored granted folder whose scan fails
+- **WHEN** the app starts
+- **THEN** the folder is listed and active, with no count
+
+#### Scenario: A pending folder is the one offered when nothing is granted
+
+- **GIVEN** one stored folder whose permission is pending and no granted folder
+- **WHEN** the app starts
+- **THEN** that folder is active, so the pane offers the one-click reconnect
 
 #### Scenario: A folder with pending permission reconnects without re-picking
 
