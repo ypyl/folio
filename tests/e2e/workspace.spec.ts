@@ -34,11 +34,18 @@ test('the no-folder state invites opening a folder', async ({ page }) => {
   const repo = page.getByRole('link', { name: 'Folio on GitHub' })
   await expect(repo).toBeVisible()
   await expect(repo).toHaveAttribute('href', 'https://github.com/ypyl/folio')
+
+  // tour-lives-in-the-demo: the brand screen names where the tour is taken and
+  // offers no control that opens it.
+  await expect(
+    page.getByText(/the tour starts from the \? at the bottom of the left rail/),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Take the tour' })).toHaveCount(0)
+  await expect(page.getByRole('dialog', { name: 'App tour' })).toHaveCount(0)
 })
 
-// add-a-feedback-control, tour-lives-in-the-demo: outside the demo the rail's
-// bottom slot holds the link out to the project's issue tracker, and no tour
-// control.
+// add-a-feedback-control: outside the demo the rail's bottom slot holds the
+// link out to the project's issue tracker.
 test('the rail sends feedback to the issue tracker', async ({ page }) => {
   await installVaultPicker(page)
   await page.goto('/')
@@ -48,8 +55,6 @@ test('the rail sends feedback to the issue tracker', async ({ page }) => {
   await expect(feedback).toBeVisible()
   await expect(feedback).toHaveAttribute('href', 'https://github.com/ypyl/folio/issues/new/choose')
   await expect(feedback).toHaveAttribute('target', '_blank')
-  // The tour is the demo's, so the normal view carries no tour control.
-  await expect(rail.getByRole('button', { name: 'Take the tour' })).toHaveCount(0)
 
   // The link is the rail's last control, just above the status bar's top edge.
   const feedbackBox = await feedback.boundingBox()
@@ -98,21 +103,6 @@ test('the demo starts a tour over the shell regions', async ({ page }) => {
   await card.getByRole('button', { name: 'Skip' }).click()
   await expect(card).toBeHidden()
   await expect(control).toBeFocused()
-})
-
-// tour-lives-in-the-demo: the brand screen names where the tour is taken and
-// offers no control that opens it.
-test('the brand screen names the demo as where the tour is taken', async ({ page }) => {
-  await installVaultPicker(page)
-  await page.goto('/')
-
-  const brand = page.locator('[data-tour="editor"]')
-  await expect(brand.getByText(/Folio is a local-first notes app/)).toBeVisible()
-  await expect(
-    brand.getByText(/the tour starts from the \? at the bottom of the left rail/),
-  ).toBeVisible()
-  await expect(brand.getByRole('button', { name: 'Take the tour' })).toHaveCount(0)
-  await expect(page.getByRole('dialog', { name: 'App tour' })).toHaveCount(0)
 })
 
 // show-recent-changes-from-the-version-badge: the status bar's version names the

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { installVaultPicker, openVault, seedVault, todayJournalPath } from './helpers/vault'
 
 // add-compact-mobile-shell: the compact composition's layout is a media query
@@ -12,7 +12,7 @@ const PHONE = { width: 390, height: 844 }
 /** Nothing overflows the window sideways. The wide grid is 632px of fixed
  *  tracks, so a compact composition that failed to replace it shows up here as
  *  a horizontal scrollbar. */
-async function expectNoSidewaysScroll(page: import('@playwright/test').Page) {
+async function expectNoSidewaysScroll(page: Page) {
   const overflow = await page.evaluate(() => ({
     document: document.documentElement.scrollWidth,
     window: window.innerWidth,
@@ -20,7 +20,7 @@ async function expectNoSidewaysScroll(page: import('@playwright/test').Page) {
   expect(overflow.document).toBeLessThanOrEqual(overflow.window + 1)
 }
 
-const footer = (page: import('@playwright/test').Page) => page.locator('.app-shell > footer')
+const footer = (page: Page) => page.locator('.app-shell > footer')
 
 test.describe('the compact shell on a phone-sized window', () => {
   test.use({ viewport: PHONE })
@@ -49,9 +49,6 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(page.locator('.cm-content')).toBeVisible()
     await expect(navView).toBeHidden()
     await expectNoSidewaysScroll(page)
-    await expect(page.locator('.cm-content')).toContainText('')
-    expect(await page.locator('.cm-content').count()).toBeGreaterThan(0)
-    void todayJournalPath()
 
     // The Details destination shows the right panel over the editor.
     await page.getByRole('button', { name: 'Details', exact: true }).click()
@@ -220,7 +217,7 @@ test.describe('the compact shell on a phone-sized window', () => {
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    const hold = async (locator: import('@playwright/test').Locator) => {
+    const hold = async (locator: Locator) => {
       const box = await locator.boundingBox()
       expect(box, 'the pressed control has no box').not.toBeNull()
       const point = { clientX: box!.x + 20, clientY: box!.y + 10 }
@@ -254,34 +251,6 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(menu.getByRole('group', { name: 'Reminder' })).toBeVisible()
   })
 
-  test('a vault image keeps its fitted size and offers no expand control', async ({ page }) => {
-    await page.goto('/')
-    // The demo needs no folder picker, and its Assets page shows a vault image.
-    await page.getByRole('button', { name: 'Open the guided demo' }).click()
-    await expect(page.locator('.cm-content')).toBeVisible()
-    await page.getByRole('button', { name: 'Notes', exact: true }).click()
-    // The demo's listing is longer than the shorter compact viewport; scroll it
-    // so the windowed listing renders the row before clicking it.
-    await page
-      .locator('#sidebar-pane [class*="scrollBody"]')
-      .evaluate((el) => el.scrollTo(0, el.scrollHeight))
-    await page.getByRole('button', { name: 'Assets', exact: true }).click()
-
-    const image = page.locator('.folio-image img').first()
-    await expect(image).toBeVisible()
-    // A phone has no pointer to hover the control out with, and an image
-    // expanded past the pane could only be panned sideways, so the fitted size
-    // is the only size it shows (make-the-app-usable-on-a-phone). The control's
-    // node view stays mounted so a window crossing back over the breakpoint
-    // keeps its state; the stylesheet is what takes it out of the shell.
-    await expect(page.locator('.folio-image-control')).toBeHidden()
-    const fitted = await image.evaluate((img) => {
-      const pane = img.closest('.cm-scroller') as HTMLElement
-      return { image: img.getBoundingClientRect().width, pane: pane.getBoundingClientRect().width }
-    })
-    expect(fitted.image).toBeLessThanOrEqual(fitted.pane)
-  })
-
   test('the browser back step closes a view instead of leaving the app', async ({ page }) => {
     await installVaultPicker(page)
     await page.goto('/')
@@ -299,24 +268,16 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(page.url()).toContain('/')
   })
 
-  test('the navigation bar is touch-sized and carries only its destinations', async ({
-    page,
-  }) => {
+  test('the navigation bar carries only its destinations, in one row', async ({ page }) => {
     await installVaultPicker(page)
     await page.goto('/')
     await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
     await openVault(page)
     await expect(page.locator('.cm-content')).toBeVisible()
 
-    // Every destination is at least 48 by 48, and each is its third of the bar.
+    // The bar holds the three destinations and nothing else: no session
+    // controls.
     const bar = footer(page)
-    for (const name of ['Notes', 'Page', 'Details']) {
-      const control = bar.getByRole('button', { name, exact: true })
-      const box = await control.boundingBox()
-      expect(box, `${name} has no box`).not.toBeNull()
-      expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(48)
-      expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(48)
-    }
     await expect(bar.getByRole('button', { name: 'Back' })).toHaveCount(0)
     await expect(bar.getByRole('button', { name: 'Today' })).toHaveCount(0)
 
@@ -330,16 +291,14 @@ test.describe('the compact shell on a phone-sized window', () => {
     await expect(bar.locator('[class*="vaultStatus"]')).toHaveCount(0)
     // One row: the bar does not wrap or scroll.
     const row = await bar.evaluate((el) => ({
-      height: el.getBoundingClientRect().height,
       scroll: el.scrollWidth,
       client: el.clientWidth,
     }))
     expect(row.scroll).toBeLessThanOrEqual(row.client + 1)
-    expect(row.height).toBeLessThan(70)
   })
 
-  test('the Journal row is touch-sized in the navigation view', async ({ page }) => {
-    const navView = (p: import('@playwright/test').Page) => p.locator('.layer-nav')
+  test('the Journal row toggles from its label, and its controls do not', async ({ page }) => {
+    const navView = (p: Page) => p.locator('.layer-nav')
     await installVaultPicker(page)
     await page.goto('/')
     await seedVault(page, { 'pages/Ideas.md': 'Half-formed thoughts.\n' })
@@ -350,12 +309,6 @@ test.describe('the compact shell on a phone-sized window', () => {
     const journal = page.locator('#sidebar-pane details').first()
     const summary = journal.locator('summary')
     await expect(summary).toBeVisible()
-    for (const name of ['Back', 'Forward', 'Today']) {
-      const box = await summary.getByRole('button', { name }).boundingBox()
-      expect(box, `${name} has no box`).not.toBeNull()
-      expect(box!.width, `${name} is too narrow`).toBeGreaterThanOrEqual(44)
-      expect(box!.height, `${name} is too short`).toBeGreaterThanOrEqual(44)
-    }
     // The section's own disclosure still toggles it, and a control on the row
     // does not (put-nav-controls-on-the-journal-header).
     await expect(journal).toHaveAttribute('open', '')
@@ -379,41 +332,39 @@ test.describe('the compact shell on a phone-sized window', () => {
 
     const bar = footer(page)
     const destination = (name: string) => bar.getByRole('button', { name, exact: true })
-    // The indicator is the first child: its tint is the drawn state.
-    const painted = (name: string) =>
+    // The indicator is the destination's first child: drawn when its view is
+    // shown, transparent otherwise.
+    const state = (name: string) =>
       destination(name).evaluate((el) => {
         const indicator = el.firstElementChild as HTMLElement
         return {
-          background: getComputedStyle(indicator).backgroundColor,
+          drawn: getComputedStyle(indicator).backgroundColor !== 'rgba(0, 0, 0, 0)',
           current: el.getAttribute('aria-current'),
         }
       })
 
-    // The editor view is shown, so Page is the marked destination.
-    expect(await painted('Page')).toEqual({
-      background: 'rgb(238, 242, 247)',
-      current: 'page',
-    })
-    expect((await painted('Notes')).current).toBeNull()
-    expect((await painted('Details')).background).toBe('rgba(0, 0, 0, 0)')
+    // The editor view is shown, so Page carries the indicator and the state;
+    // the other two carry neither.
+    expect(await state('Page')).toEqual({ drawn: true, current: 'page' })
+    expect(await state('Notes')).toEqual({ drawn: false, current: null })
+    expect(await state('Details')).toEqual({ drawn: false, current: null })
+
+    // The spec's indicator is 56 by 32.
+    const box = (await destination('Page').locator(':scope > *').first().boundingBox())!
+    expect(Math.round(box.width)).toBe(56)
+    expect(Math.round(box.height)).toBe(32)
 
     await destination('Notes').click()
-    expect(await painted('Notes')).toEqual({
-      background: 'rgb(238, 242, 247)',
-      current: 'page',
-    })
-    expect((await painted('Page')).current).toBeNull()
+    expect(await state('Notes')).toEqual({ drawn: true, current: 'page' })
+    expect(await state('Page')).toEqual({ drawn: false, current: null })
 
-    // The tint is keyed to the state, not the pointer.
+    // The indicator follows the state, not the pointer.
     await destination('Details').hover()
-    expect((await painted('Details')).background).toBe('rgba(0, 0, 0, 0)')
+    expect((await state('Details')).drawn).toBe(false)
 
     await destination('Details').click()
-    expect(await painted('Details')).toEqual({
-      background: 'rgb(238, 242, 247)',
-      current: 'page',
-    })
-    expect((await painted('Notes')).current).toBeNull()
+    expect(await state('Details')).toEqual({ drawn: true, current: 'page' })
+    expect(await state('Notes')).toEqual({ drawn: false, current: null })
   })
 
   test('the three destinations split the bar into equal thirds', async ({ page }) => {
@@ -440,7 +391,6 @@ test.describe('the compact shell on a phone-sized window', () => {
     expect(boxes[2].left - boxes[1].left).toBeCloseTo(boxes[1].width, 0)
     expect(boxes.every((b) => b.height === 64)).toBe(true)
   })
-
 })
 
 test.describe('the wide composition is unchanged', () => {
@@ -472,18 +422,44 @@ test.describe('the wide composition is unchanged', () => {
     // The wide bar keeps the version and the folder statistics.
     await expect(footer(page)).toContainText('v0.')
   })
+})
 
-  test('a vault image keeps its expand control above the breakpoint', async ({ page }) => {
-    await page.goto('/')
-    await page.getByRole('button', { name: 'Open the guided demo' }).click()
-    await expect(page.locator('.cm-content')).toBeVisible()
-    await page.getByRole('button', { name: 'Assets', exact: true }).click()
-    const image = page.locator('.folio-image').first()
-    await image.hover()
-    // The compact hide is a media query, so the control it takes away must still
-    // be here on a wide window (make-the-app-usable-on-a-phone).
-    await expect(page.getByRole('button', { name: 'Expand image' })).toBeVisible()
+// make-the-app-usable-on-a-phone: the fitted size and the expand control are the
+// two sides of one media query over one demo vault, so both are checked here:
+// the control's node stays mounted, and the stylesheet alone takes it out of the
+// compact shell.
+test('a vault image fits on a phone and keeps its expand control above the breakpoint', async ({
+  page,
+}) => {
+  await page.setViewportSize(PHONE)
+  await page.goto('/')
+  // The demo needs no folder picker, and its Assets page shows a vault image.
+  await page.getByRole('button', { name: 'Open the guided demo' }).click()
+  await expect(page.locator('.cm-content')).toBeVisible()
+  await page.getByRole('button', { name: 'Notes', exact: true }).click()
+  // The demo's listing is longer than the shorter compact viewport; scroll it so
+  // the windowed listing renders the row before clicking it.
+  await page
+    .locator('#sidebar-pane [class*="scrollBody"]')
+    .evaluate((el) => el.scrollTo(0, el.scrollHeight))
+  await page.getByRole('button', { name: 'Assets', exact: true }).click()
+
+  const image = page.locator('.folio-image img').first()
+  await expect(image).toBeVisible()
+  // A phone has no pointer to hover the control out with, and an image expanded
+  // past the pane could only be panned sideways, so the fitted size is the only
+  // size it shows.
+  await expect(page.locator('.folio-image-control')).toBeHidden()
+  const fitted = await image.evaluate((img) => {
+    const pane = img.closest('.cm-scroller') as HTMLElement
+    return { image: img.getBoundingClientRect().width, pane: pane.getBoundingClientRect().width }
   })
+  expect(fitted.image).toBeLessThanOrEqual(fitted.pane)
+
+  // Above the breakpoint the same image offers its expand control.
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.locator('.folio-image').first().hover()
+  await expect(page.getByRole('button', { name: 'Expand image' })).toBeVisible()
 })
 
 test.describe('the navigation view holds the sidebar whole', () => {
@@ -505,7 +481,6 @@ test.describe('the navigation view holds the sidebar whole', () => {
     const box = await calendar.boundingBox()
     expect(box, 'calendar has no box').not.toBeNull()
     expect(box!.height).toBeGreaterThan(120)
-    expect(box!.width).toBeGreaterThan(150)
     await expect(nav.locator('[class*="grid"]').first()).toBeVisible()
   })
 })

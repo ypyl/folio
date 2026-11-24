@@ -77,9 +77,8 @@ test('a row presents the page as a deck that replaces the workspace', async ({ p
       .evaluate((el) => el.getBoundingClientRect().bottom > 0),
   ).toBe(true)
 
-  // A slide is read-only: no editor, no text field, nothing to type into.
-  await expect(deck(page).locator('.cm-content')).toHaveCount(0)
-  await expect(deck(page).getByRole('textbox')).toHaveCount(0)
+  // A slide is read-only: nothing in the deck takes typing.
+  await expect(deck(page).locator('[contenteditable="true"], input, textarea')).toHaveCount(0)
 
   // Closing returns the workspace, on the page that was presented: a page that
   // was not open opened first, and stays open after the deck.

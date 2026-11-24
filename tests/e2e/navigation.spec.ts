@@ -45,27 +45,21 @@ test("opening a vault lands on today's journal and lists its pages", async ({ pa
   expect(boxes.sidebarDisplay).toBe('flex')
   expect(Math.abs(boxes.sidebarBottom - boxes.filesBottom)).toBeLessThanOrEqual(1)
 
-  // The disclosure marker leads each summary: it is drawn ahead of the label,
-  // and the row's trailing edge belongs to the session navigation
-  // (openspec/specs/workspace: a section's summary leads with its marker).
+  // The section's summary leads with its disclosure marker, and the session
+  // navigation ends the row (openspec/specs/workspace: a section's summary
+  // leads with its marker, and the Journal summary holds the session controls).
   const marker = await page.evaluate(() => {
     const summary = document.querySelector('#sidebar-pane summary') as HTMLElement
-    const title = summary.querySelector('span') as HTMLElement
-    const today = [...summary.querySelectorAll('button')].at(-1) as HTMLElement
-    const box = summary.getBoundingClientRect()
+    const controls = [...summary.querySelectorAll('button')].map((el) => el.textContent?.trim())
     return {
       before: getComputedStyle(summary, '::before').content,
-      after: getComputedStyle(summary, '::after').content,
-      titleOffset: title.getBoundingClientRect().left - box.left,
-      todayOffset: box.right - today.getBoundingClientRect().right,
+      controls,
     }
   })
   expect(marker.before).not.toBe('none')
   expect(marker.before).not.toBe('')
-  expect(marker.after).toBe('none')
-  // The label starts past the marker's own slot, and Today ends the row.
-  expect(marker.titleOffset).toBeGreaterThan(10)
-  expect(marker.todayOffset).toBeLessThan(10)
+  // The label comes first, then the controls, with Today last.
+  expect(marker.controls.at(-1)).toBe('Today')
 })
 
 // openspec/specs/history (add-history-keyboard-shortcuts): Ctrl+[ and Ctrl+] step

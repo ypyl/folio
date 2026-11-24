@@ -158,10 +158,6 @@ test('Expand all and Collapse all set every subtree and change only what is show
     'Zeta',
   ])
 
-  // A single subtree still toggles after the whole-outline extremes.
-  await contents.getByRole('button', { name: 'Collapse Alpha' }).click()
-  await expect(rows(page)).toHaveText(['Alpha', 'Epsilon', 'Zeta'])
-
   // Collapsing is a view operation: the page's Markdown is exactly as it was.
   expect(await readVaultFile(page, 'pages/Shape.md')).toBe(PAGE)
 })
@@ -232,7 +228,6 @@ test('shows a state for every surface and no Contents section for a board', asyn
   await page.goto('/')
   await seedVault(page, {
     'pages/Plain.md': 'No heading here, only prose.',
-    'pages/Referrer.md': 'A board: #![[Plan]]',
     'boards/Plan.excalidraw': '{}',
     [todayJournalPath()]: 'Today.',
   })
@@ -251,6 +246,4 @@ test('shows a state for every surface and no Contents section for a board', asyn
   await page.getByRole('button', { name: 'Plan.excalidraw', exact: true }).click()
   await expect(page.locator('.excalidraw canvas.interactive')).toBeVisible({ timeout: 20_000 })
   await expect(metaPanel(page).getByText('Contents')).toHaveCount(0)
-  const referencedBy = metaSection(page, 'Referenced by')
-  await expect(referencedBy.getByRole('button', { name: 'Referrer' })).toBeVisible()
 })

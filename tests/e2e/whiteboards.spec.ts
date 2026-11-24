@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   editor,
+  filesSection,
   installVaultPicker,
   listVaultFiles,
   openVault,
@@ -53,12 +54,6 @@ test('a blank board shows a note that names its reference and does not block the
 
 /** The board badge in the editor: a reference whose target is a board. */
 const boardChip = (page: Page) => page.locator('.cm-content .ref[data-ref-kind="board"]')
-
-/** The sidebar's Files listing. */
-const filesSection = (page: Page) =>
-  page
-    .locator('#sidebar-pane details')
-    .filter({ has: page.locator('summary', { hasText: 'Files' }) })
 
 test('a board reference renders as its own badge and a code block keeps it literal', async ({
   page,

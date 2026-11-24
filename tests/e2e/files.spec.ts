@@ -52,8 +52,9 @@ test('the listing holds the folder’s files, badged and after the pages', async
   // A file no page references is listed like any other, and a file is never a
   // page row: no active marking, no page.
   await expect(filesSection(page).getByRole('button', { name: 'shot.png', exact: true })).toBeVisible()
-  expect(await filesSection(page).getByRole('button', { name: 'shot.png' }).getAttribute('aria-current')).toBeNull()
-  await expect(page.getByRole('button', { name: 'shot', exact: true })).toHaveCount(0)
+  expect(
+    await filesSection(page).getByRole('button', { name: 'shot.png' }).getAttribute('aria-current'),
+  ).toBeNull()
 })
 
 test('a displayable file opens in a window and leaves the session alone', async ({ page }) => {

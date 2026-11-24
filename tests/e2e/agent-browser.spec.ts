@@ -80,19 +80,16 @@ test('the app registers its tools with the browser’s own model context', async
     ])
 
     // Turning the switch off retires the surface: the app aborts the controller
-    // the registrations were made under, so the browser drops them.
+    // the registrations were made under, so the browser drops every tool.
     await page
       .locator('#folder-rail')
       .getByRole('button', { name: 'Experimental features' })
       .click()
     await expect
       .poll(async () =>
-        page.evaluate(() => {
-          const nav = (navigator as unknown as { modelContext?: unknown }).modelContext
-          return nav === undefined || typeof nav === 'object'
-        }),
+        page.evaluate(() => (window as unknown as { __retired: string[] }).__retired.length),
       )
-      .toBe(true)
+      .toBe(9)
   } finally {
     await browser.close()
   }

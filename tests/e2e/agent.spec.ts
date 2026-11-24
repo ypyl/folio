@@ -123,7 +123,6 @@ test('a tool call changes the page and the record names it', async ({ page }) =>
       window as unknown as { __agent: { call: (n: string, i: unknown) => Promise<unknown> } }
     ).__agent.call('create_note', { name: 'Field notes', text: 'Observed on the walk.' }),
   )
-  console.log('CREATED', JSON.stringify(created))
   expect(created).toMatchObject({ ok: true, path: 'pages/Field notes.md' })
 
   const files = page.locator('details', { has: page.locator('summary', { hasText: 'Files' }) })
