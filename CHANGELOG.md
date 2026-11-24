@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.98.0 (2026-11-24)
+
+- draw a page's mermaid diagrams, in the page and in a presentation
+
 ## v0.97.4 (2026-11-23)
 
 - never strand the app on its restoring state
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.80.2 (2026-10-27)
 
 - drop an unused import from the demo storage
-
-## v0.80.0 (2026-10-27)
-
-- open a guided demo vault with a table of contents
