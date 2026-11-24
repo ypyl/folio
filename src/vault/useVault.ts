@@ -259,6 +259,10 @@ async function restore(): Promise<[VaultFolder[], string | null]> {
     // folder may be on a drive that is not mounted yet, or the profile may need
     // a gesture to answer, so it stays listed and pending.
     if (state === 'denied') {
+      // The browser reports a refusal, which is the one outcome that costs a
+      // stored folder (vault requirement). It is rare enough to be worth saying
+      // out loud, because the reader sees only that a folder went away.
+      console.warn(`folio: the browser denies access to the folder "${row.name}"; forgetting it`)
       await clearVaultHandle(row.id)
       continue
     }
@@ -302,9 +306,16 @@ const REGISTRY_RETRY_MS = 400
 async function readRegistry(): Promise<Awaited<ReturnType<typeof listVaultHandles>>> {
   try {
     return await listVaultHandles()
-  } catch {
+  } catch (first) {
+    // Say so: a start that cannot read the folder list is the one failure a
+    // reader cannot explain from the app's own state, so it is the one that has
+    // to be visible to whoever reports it.
+    console.warn('folio: the folder list could not be read; trying again', first)
     await new Promise((resolve) => setTimeout(resolve, REGISTRY_RETRY_MS))
-    return listVaultHandles()
+    return listVaultHandles().catch((second: unknown) => {
+      console.warn('folio: the folder list still cannot be read', second)
+      throw second
+    })
   }
 }
 
@@ -343,11 +354,12 @@ async function permission(
     return kind === 'query'
       ? await handle.queryPermission({ mode: 'readwrite' })
       : await handle.requestPermission({ mode: 'readwrite' })
-  } catch {
+  } catch (error) {
     // Could not answer (jsdom has neither method; a real browser refuses to
     // answer without a gesture, or the handle's folder is unreachable). That is
     // not a refusal, so it never drops a folder: the caller treats it as
     // pending and asks again on a click.
+    console.warn(`folio: the browser could not answer a ${kind} for a stored folder`, error)
     return 'error'
   }
 }
