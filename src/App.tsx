@@ -539,7 +539,7 @@ function App() {
   // today file is never masked by an empty draft (design D1). Re-activating
   // the already-active folder keeps activePath non-null, so the open page is
   // preserved. A day with no file stays unmaterialized: the draft seeds from
-  // '' and pendingBlank renders it, materializing on first save like a
+  // '' and the unmaterialized page renders it, materializing on first save like a
   // calendar day.
   useEffect(() => {
     if (graph === null || activePath !== null) return
@@ -586,31 +586,33 @@ function App() {
   const openDraft = activePath === null ? undefined : drafts.get(activePath)
 
   // Unmaterialized page (links-pane, D2): a path deliberately opened this
-  // session that has no file on disk, seeded clean from nothing. A path is
-  // new-page iff its draft was seeded from an absent file (`saved === ''`),
-  // which distinguishes it from a page deleted externally after opening. The
-  // blank page disappears the moment its first save lands: `upsertPage`
-  // creates the file and the graph gains the page, so `displayed` resolves
-  // to the real page above. No separate pending-set bookkeeping to leak.
-  const pendingBlank: IndexPage | null =
+  // session that the index does not list. It is synthesized from the draft, so
+  // the pane has a page to show, and its `content` is the text the folder was
+  // last known to hold for it: '' when no file is there (a new page, seeded
+  // clean from nothing, which materializes on its first save), and the text an
+  // untraced read found when a file appeared after the last scan (see the
+  // blank-page read below). The page disappears the moment its first save
+  // lands: `upsertPage` creates the file and the graph gains the page, so
+  // `displayed` resolves to the real page above. No separate pending-set
+  // bookkeeping to leak.
+  const unmaterialized: IndexPage | null =
     activePath !== null &&
     !isBoardTarget(activePath) &&
     graph !== null &&
     !graph.pages.has(activePath) &&
-    openDraft !== undefined &&
-    openDraft.saved === ''
+    openDraft !== undefined
       ? {
           path: activePath,
           title: stem(activePath),
           kind: kindOf(activePath),
-          content: '',
+          content: openDraft.saved,
           links: [],
           assets: [],
           boards: [],
           lastModified: 0,
         }
       : null
-  const page = displayed ?? pendingBlank
+  const page = displayed ?? unmaterialized
 
   // The open journal day's date (add-reminders), or null when the open page is
   // not a journal day. It is the day a reminder anchors on and the day whose due
@@ -935,7 +937,7 @@ function App() {
 
   // The open page's draft feeds the editor's initial content (existing draft
   // wins) and the indicator (dirty/saving/failed, else clean). `page` is
-  // `displayed ?? pendingBlank` (set above): a real graph page, a vanished
+  // `displayed ?? unmaterialized` (set above): a real graph page, a vanished
   // page's last-known content, or the blank page for a not-yet-created path.
   // The seed is normalized to end with one empty line (add-trailing-empty-line)
   // so the editor shows it when a file that lacks one opens; the file is not
@@ -947,7 +949,7 @@ function App() {
   )
   const saveState = openDraft?.status ?? 'clean'
   // A page with no file yet is "new": its save indicator reads as creating it.
-  const newPage = pendingBlank !== null
+  const newPage = unmaterialized !== null && openDraft?.saved === ''
 
   // An edit made outside the app (fix: an edit made outside the app is not
   // overwritten). A refresh reads the folder again and the index gains the new
@@ -972,6 +974,45 @@ function App() {
     setSeedVersion((v) => v + 1)
     // oxlint-enable react/set-state-in-effect
   }, [activePath, diskContent, drafts])
+
+  // A blank page is the index's word that the path holds no file, and the index
+  // is a picture of the folder from the last scan: an open, focused tab never
+  // scans again, so a file another tool created since then is invisible here and
+  // the reader's first keystroke would write over content the app never read
+  // (fix: a page that exists on disk is not written over). One untraced read per
+  // opened blank page settles it — untraced because a page that has no file is
+  // the ordinary case, not a failure worth a line in the session log. A file
+  // with text becomes the page's text; a path that really holds nothing keeps
+  // its blank page, and its first save creates the file as before.
+  const blankPath = unmaterialized?.path ?? null
+  const blankChecked = useRef<string | null>(null)
+  useEffect(() => {
+    if (blankPath === null) {
+      blankChecked.current = null
+      return
+    }
+    if (blankChecked.current === blankPath) return
+    blankChecked.current = blankPath
+    const reader = rawStorage
+    if (!reader) return
+    void reader.read(blankPath).then(
+      (text) => {
+        // Another page is open by the time the answer lands: this text is not
+        // that page's to show.
+        if (activePathRef.current !== blankPath || text === '') return
+        const draft = drafts.get(blankPath)
+        // The reader has typed: their text is the text to keep, exactly as for
+        // a draft with unsaved edits when the page changes outside the app.
+        if (!draft || draft.status !== 'clean') return
+        drafts.reseed(blankPath, text)
+        setDraftVersion((v) => v + 1)
+        setSeedVersion((v) => v + 1)
+      },
+      () => {
+        // No file: the blank page is the folder's answer, not a failure.
+      },
+    )
+  }, [blankPath, drafts, rawStorage])
 
   // The open page's reminder target (add-reminders, design D2): the calendar day
   // menu acts on the open page, and whether it already has a rule decides the

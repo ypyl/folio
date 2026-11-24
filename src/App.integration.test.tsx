@@ -926,6 +926,36 @@ describe('an edit made outside the app (vault spec)', () => {
     expect(editor().content).toBe('mine, still unsaved')
     vi.unstubAllGlobals()
   })
+
+  it('opens a page the index has not seen instead of showing it blank', async () => {
+    const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
+    try {
+      render(<App />)
+      const tree = await openFixture(
+        buildTree({ pages: { 'Draft.md': 'See #Ghost for the rest.' } }),
+      )
+      fireEvent.click(await screen.findByRole('button', { name: 'Draft' }))
+      await waitFor(() => expect(editor().content).toContain('See'))
+
+      // Another tool creates the file after the scan, so the index still
+      // believes the path holds nothing.
+      pagesDir(tree).children.set(
+        'Ghost.md',
+        new FakeFileHandle('Ghost.md', 'Written by another tool\n'),
+      )
+      const stale = editor()
+      fireEvent.click(links().getByRole('button', { name: 'Ghost' }))
+
+      // The page is shown with the file's text, not blank, and nothing was
+      // written over it.
+      await waitFor(() => expect(editor()).not.toBe(stale))
+      await waitFor(() => expect(editor().setContents[0]).toBe('Written by another tool\n\n'))
+      expect(vaultWrites(write)).toEqual([])
+    } finally {
+      write.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
 })
 
 describe('a page ends with an empty line (add-trailing-empty-line)', () => {
