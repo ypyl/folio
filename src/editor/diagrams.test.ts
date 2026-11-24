@@ -91,7 +91,8 @@ describe('a drawing is filled in once per source', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(engine.calls).toEqual([])
-    expect(box.innerHTML).toBe('')
+    // It waits with the app's placeholder rather than an empty box.
+    expect(box.querySelector('.skeleton')).not.toBeNull()
     diagrams.release()
   })
 
@@ -128,6 +129,55 @@ describe('the engine is asked one drawing at a time', () => {
     expect(engine.peak()).toBe(1)
     one.release()
     two.release()
+  })
+})
+
+describe('a drawing that is on its way', () => {
+  it('shows the app’s placeholder and reports itself busy', () => {
+    const engine = fakeEngine(() => '<svg></svg>')
+    const observer = fakeObserver(false)
+    const diagrams = createDiagrams({ engine, observer: observer.factory })
+    const box = document.createElement('figure')
+    box.dataset.state = 'waiting'
+
+    diagrams.register(FLOW, box)
+
+    expect(box.querySelector('.skeleton')).not.toBeNull()
+    expect(box.getAttribute('aria-busy')).toBe('true')
+    expect(box.getAttribute('aria-label')).toBe('Drawing diagram')
+    diagrams.release()
+  })
+
+  it('replaces the placeholder with the drawing, and stops being busy', async () => {
+    const engine = fakeEngine(() => '<svg id="done"></svg>')
+    const observer = fakeObserver()
+    const diagrams = createDiagrams({ engine, observer: observer.factory })
+    const box = document.createElement('figure')
+
+    diagrams.register(FLOW, box)
+    expect(box.querySelector('.skeleton')).not.toBeNull()
+
+    await vi.waitFor(() => expect(box.dataset.state).toBe('drawn'))
+    expect(box.querySelector('.skeleton')).toBeNull()
+    expect(box.innerHTML).toContain('done')
+    expect(box.hasAttribute('aria-busy')).toBe(false)
+    expect(box.hasAttribute('aria-label')).toBe(false)
+    diagrams.release()
+  })
+
+  it('replaces the placeholder with the source when the engine refuses', async () => {
+    const engine = fakeEngine(() => new Error('no'))
+    const observer = fakeObserver()
+    const diagrams = createDiagrams({ engine, observer: observer.factory })
+    const box = document.createElement('figure')
+
+    diagrams.register(FLOW, box)
+    await vi.waitFor(() => expect(box.dataset.state).toBe('failed'))
+
+    expect(box.querySelector('.skeleton')).toBeNull()
+    expect(box.querySelector('.folio-diagram-source')).not.toBeNull()
+    expect(box.hasAttribute('aria-busy')).toBe(false)
+    diagrams.release()
   })
 })
 

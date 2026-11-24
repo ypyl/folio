@@ -74,6 +74,17 @@ const NOTE_CLASS = 'folio-diagram-note'
  *  that cannot be rendered keeps its source). */
 const FAILED_NOTE = 'This diagram could not be drawn.'
 
+/** The class the app's loading placeholder carries (`index.css`: warm fill, 8px
+ *  radius, one pulse, stopped for reduced motion). A drawing that is on its way
+ *  shows this rather than an empty box, so a wait reads as work
+ *  (show-what-is-loading). */
+const LOADING_CLASS = 'skeleton'
+const LOADING_BOX_CLASS = 'folio-diagram-loading'
+
+/** What a pending drawing is announced as, for a reader who cannot see the
+ *  placeholder. */
+const LOADING_LABEL = 'Drawing diagram'
+
 /** The mermaid configuration the app draws with (design D6): DESIGN.md's tokens
  *  by their hex values, which cannot be read from CSS by the engine. `base`
  *  rather than a stock theme, because a stock theme cannot be reached by CSS
@@ -196,9 +207,29 @@ export function createDiagrams(options: Options = {}): Diagrams {
     return observer
   }
 
+  /** Show that a box's drawing is on its way: the app's placeholder, and a busy
+   *  flag so assistive technology says the block is in progress rather than
+   *  empty. */
+  const paintLoading = (box: HTMLElement): void => {
+    box.dataset.state = 'waiting'
+    box.setAttribute('aria-busy', 'true')
+    box.setAttribute('aria-label', LOADING_LABEL)
+    const placeholder = document.createElement('span')
+    placeholder.className = `${LOADING_CLASS} ${LOADING_BOX_CLASS}`
+    placeholder.setAttribute('aria-hidden', 'true')
+    box.replaceChildren(placeholder)
+  }
+
+  /** Drop the busy state: whatever the box shows now is the answer. */
+  const settleBox = (box: HTMLElement): void => {
+    box.removeAttribute('aria-busy')
+    box.removeAttribute('aria-label')
+  }
+
   /** Write a finished drawing into one box. */
   const paint = (entry: Entry, box: HTMLElement): void => {
     box.dataset.state = 'drawn'
+    settleBox(box)
     box.innerHTML = entry.svg ?? ''
   }
 
@@ -207,6 +238,7 @@ export function createDiagrams(options: Options = {}): Diagrams {
    *  still reaches the editor (spec: the text is still editable). */
   const paintFailure = (entry: Entry, box: HTMLElement): void => {
     box.dataset.state = 'failed'
+    settleBox(box)
     box.textContent = ''
     const source = document.createElement('pre')
     source.className = SOURCE_CLASS
@@ -318,6 +350,8 @@ export function createDiagrams(options: Options = {}): Diagrams {
       paintFailure(entry, box)
       return
     }
+    // Waiting: the placeholder, not an empty box of the same height.
+    paintLoading(box)
     observerFor().observe(box)
   }
 

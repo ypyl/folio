@@ -291,12 +291,20 @@ body {
   height: auto;
 }
 
-/* While a drawing is on its way, the box keeps a placeholder's height so the page
-   below it does not jump when the drawing lands. */
+/* While a drawing is on its way, the box holds the app's loading placeholder
+   (show-what-is-loading): the same warm fill and pulse as every other wait, at
+   the box's own height, so the page below it does not jump when the drawing
+   lands and the wait reads as work rather than as a gap. */
 .folio-diagram[data-state='waiting'],
 .folio-diagram[data-state='queued'],
 .folio-diagram[data-state='drawing'] {
   min-height: 72px;
+}
+
+.folio-diagram-loading {
+  display: block;
+  width: 100%;
+  height: 96px;
 }
 
 /* A source the engine refuses reads as its own text — its Markdown, kept — under

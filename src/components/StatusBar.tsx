@@ -197,6 +197,7 @@ export function StatusBar({
   saveState = 'clean',
   newPage = false,
   indexing = false,
+  restoring = false,
   vaultName,
   noteCount,
   onRevealPage,
@@ -211,6 +212,9 @@ export function StatusBar({
   newPage?: boolean
   /** The active folder's index is building (indexing-loading-state). */
   indexing?: boolean
+  /** The app is reopening its stored folder (show-what-is-loading): the phase
+   *  before the index builds, named in the same status slot. */
+  restoring?: boolean
   vaultName?: string
   /** How many notes the active folder holds (the index's page count, or the
    *  folder's own count by the same rule while the index builds). */
@@ -239,7 +243,7 @@ export function StatusBar({
   // One copy for this bar and the compact app bar (give-the-phone-a-navigation-
   // bar): indexing outranks the save state, and a page with no file reads as a
   // new page.
-  const statusText = saveStateLabel({ saveState, newPage, indexing })
+  const statusText = saveStateLabel({ saveState, newPage, indexing, restoring })
 
   return (
     <footer data-tour="status" className={styles.bar}>

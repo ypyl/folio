@@ -51,6 +51,7 @@ import { useIndex } from './vault/useIndex'
 import { createSessionTrace, describeError } from './trace/session'
 import { features, experimentalFeatures } from './features'
 import { usePrerelease } from './prerelease'
+import { useDelayedFlag } from './useDelayedFlag'
 import { useActivity } from './agent/useActivity'
 import { registerAgentTools } from './agent/modelContext'
 import { agentTools } from './agent/tools'
@@ -1336,6 +1337,11 @@ function App() {
   // placeholders instead of empty content. No active folder (brand empty
   // state) and pending-permission folders (no storage) stay outside it.
   const indexing = graph === null && activeFolder?.storage !== undefined
+  // While the app reopens its stored folder, the same panes show the same
+  // placeholders (show-what-is-loading, design D1): a start that settles inside
+  // the hold shows nothing at all, so a warm folder goes straight to content.
+  const restoring = useDelayedFlag(status === 'restoring')
+  const shellLoading = restoring || indexing
 
   // Search corpus: pages with content from the live graph, plus one document
   // per vault asset (search-assets-by-name, design D1) — the same `assets/`
@@ -1485,6 +1491,7 @@ function App() {
                     saveState: mode === 'board' ? boardSaveState : saveState,
                     newPage,
                     indexing,
+                    restoring,
                   })
             }
           />
@@ -1558,7 +1565,7 @@ function App() {
             onRemind={handleRemind}
             onRemoveReminderFor={handleRemoveReminderFor}
             hasVault={graph !== null}
-            loading={indexing}
+            loading={shellLoading}
             today={today}
             todayTick={todayTick}
           />
@@ -1676,7 +1683,7 @@ function App() {
               // (tour-lives-in-the-demo): it names the guided demo and its rail's
               // tour control, above the breakpoint only, where that control exists.
               tourHint={!compact}
-              loading={indexing}
+              loading={shellLoading}
             />
           )}
         </div>
@@ -1696,7 +1703,7 @@ function App() {
             onSelect={handleSelect}
             onLocate={handleLocate}
             onOpenAsset={handleOpenAsset}
-            loading={indexing}
+            loading={shellLoading}
             shortcuts={<ShortcutsList onApply={applyShortcut} canApply={canApply} />}
             /* oxlint-enable react/refs */
             collapsed={rightFolded}
@@ -1719,6 +1726,7 @@ function App() {
           saveState={mode === 'board' ? boardSaveState : saveState}
           newPage={newPage}
           indexing={indexing}
+          restoring={restoring}
           // The active vault's name and the notes it holds: the index's page
           // count once it lands, and the folder's own count of notes by the same
           // rule before that (count-the-folders-notes-in-the-status-bar).

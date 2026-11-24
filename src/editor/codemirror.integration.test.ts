@@ -1382,10 +1382,15 @@ describe('a mermaid fence draws its diagram', () => {
     await vi.waitFor(() => expect(el.querySelector('figure.folio-diagram')).not.toBeNull())
   })
 
-  it('asks for no drawing while nothing is in view', async () => {
-    const { calls, observed } = await openDrawing(FLOW, { visible: false })
+  it('asks for no drawing while nothing is in view, and waits with a placeholder', async () => {
+    const { el, calls, observed } = await openDrawing(FLOW, { visible: false })
     expect(observed).toContain('folio-diagram')
     expect(calls).toEqual([])
+    // The block says it is being drawn rather than sitting there empty
+    // (show-what-is-loading).
+    const box = el.querySelector('figure.folio-diagram')
+    expect(box?.querySelector('.skeleton')).not.toBeNull()
+    expect(box?.getAttribute('aria-busy')).toBe('true')
   })
 
   it('keeps the drawn element when an edit leaves the fence alone', async () => {

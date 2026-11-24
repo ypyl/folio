@@ -452,8 +452,11 @@ are mapped into the engine's own theme variables in `src/editor/diagrams.ts`
 (hex values mirror the tokens above, so the two must not drift), so a drawing
 cannot become the one foreign surface on the page. While a drawing is on its way
 the box keeps a placeholder's height, so the prose below it does not jump when the
-drawing lands. A source the engine refuses reads as its own text, kept under one
-line in `--stone` saying it could not be drawn.
+drawing lands. While it is on its way the box holds the app's loading placeholder
+— the same warm fill and single pulse every other wait uses, at the box's own
+height — so a wait reads as work rather than as a gap. A source the engine
+refuses reads as its own text, kept under one line in `--stone` saying it could
+not be drawn.
 
 ### Search match
 

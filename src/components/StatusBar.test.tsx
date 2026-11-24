@@ -86,6 +86,14 @@ describe('StatusBar', () => {
       render(<StatusBar pagePath="a.md" saveState="saving" indexing />)
       expect(screen.getByRole('status').textContent).toBe('Indexing notes…')
     })
+
+    it('names the reopening of the stored folder, ahead of the index build', () => {
+      render(<StatusBar pagePath={null} restoring />)
+      expect(screen.getByRole('status').textContent).toBe('Opening your notes…')
+
+      render(<StatusBar pagePath={null} restoring indexing />)
+      expect(screen.getAllByRole('status').at(-1)?.textContent).toBe('Opening your notes…')
+    })
   })
 
   describe('vault group', () => {
