@@ -114,7 +114,16 @@ export default defineConfig({
         // (add-whiteboards, design D6): installing the PWA should not download
         // a ~3 MB canvas app and its fonts for a vault that may never hold a
         // board. It is fetched on the first board open instead.
-        globIgnores: ['**/excalidraw-*.js', '**/excalidraw-*.css', '**/excalidraw-assets/**'],
+        globIgnores: [
+          '**/excalidraw-*.js',
+          '**/excalidraw-*.css',
+          '**/excalidraw-assets/**',
+          // The diagram engine is reached the same way (add-mermaid-diagrams): a
+          // page that holds a mermaid fence fetches it, a vault that holds none
+          // never does, so the offline install carries neither engine.
+          '**/mermaid-*.js',
+          '**/mermaid-*.css',
+        ],
         navigateFallback: `${base}index.html`,
       },
       devOptions: {
@@ -152,6 +161,21 @@ export default defineConfig({
                 ),
               priority: 10,
               includeDependenciesRecursively: false,
+            },
+            {
+              // The diagram engine (add-mermaid-diagrams, design D8): a page's
+              // mermaid fence is drawn by the same package the board editor
+              // pastes mermaid text with, so the group is the engine and the
+              // libraries only a diagram needs. Priority above `excalidraw`
+              // takes them out of the board chunk, so opening one diagram does
+              // not fetch the board editor; a shared library stays in `vendor`.
+              name: 'mermaid',
+              priority: 9,
+              includeDependenciesRecursively: false,
+              test: (id: string) =>
+                /node_modules[\\/](?:mermaid|@mermaid-js|dagre-d3-es|cytoscape|cytoscape-cose-bilkent|cytoscape-fcose|katex|khroma|@upsetjs|d3|d3-[a-z-]+|@iconify|marked|fastdom)[\\/]/.test(
+                  id,
+                ),
             },
             {
               name: 'excalidraw',

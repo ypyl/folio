@@ -33,6 +33,7 @@ import { languages } from '@codemirror/language-data'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import {
   EditorState,
+  Facet,
   StateEffect,
   StateField,
   type Extension,
@@ -74,6 +75,8 @@ import {
 } from '../vault/parse'
 import { chordToKeyEventInit } from './chord'
 import { codeHighlightStyles } from './codeHighlight'
+import type { Diagrams } from './diagrams'
+import { isDiagram } from './diagrams'
 import type { DropPoint, EditorAdapter, SuggestionSources, StaticBlock } from './editor'
 
 /** The located block's frame: the class every line of it carries, and the two
@@ -575,9 +578,10 @@ const tableField = StateField.define<TableState>({
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 })
 
-/** Whether a caret position counts as "on" a table: either edge included, so a
- *  press on the rendered table brings its source back. */
-function touches(entry: TableEntry, caret: number): boolean {
+/** Whether a caret position counts as "on" a replaced block: either edge
+ *  included, so a press on the rendered block brings its source back. Shared by
+ *  the table and the diagram, which are revealed by the same rule. */
+function touches(entry: { from: number; to: number }, caret: number): boolean {
   return caret >= entry.from && caret <= entry.to
 }
 
@@ -618,6 +622,222 @@ function tablesIn(
  *  table after it are neighbours, not the same block. */
 function overlaps(a: { from: number; to: number }, b: { from: number; to: number }): boolean {
   return a.from < b.to && a.to > b.from
+}
+
+/** The drawing runtime the pane supplies (add-mermaid-diagrams, design D10). A
+ *  facet rather than a module variable, so the field reads the runtime the
+ *  adapter installed for this view, and a view with none installs nothing —
+ *  which is what the gate turns off. */
+export const diagramRuntime = Facet.define<Diagrams | null, Diagrams | null>({
+  combine: (values) => values[0] ?? null,
+})
+
+/** The class the drawn box carries; the app's stylesheet draws it, on both
+ *  surfaces that show one (the pane and the deck). */
+const DIAGRAM_CLASS = 'folio-diagram'
+
+/** A fenced `mermaid` block shown as its drawing, while the selection is off it.
+ *  A block widget like the table's, because it replaces its own line breaks and
+ *  only a field may do that.
+ *
+ *  The drawing is not produced here: building a widget's DOM is synchronous and
+ *  the engine is not, so the box registers with the runtime and is filled when
+ *  the engine answers (design D2). That also keeps an unrelated edit free: the
+ *  widget compares by source text, so CodeMirror reuses the drawn box. */
+class DiagramWidget extends WidgetType {
+  private readonly source: string
+  private readonly code: string
+  private readonly diagrams: Diagrams
+
+  constructor(source: string, code: string, diagrams: Diagrams) {
+    super()
+    this.source = source
+    this.code = code
+    this.diagrams = diagrams
+  }
+
+  eq(other: DiagramWidget): boolean {
+    return (
+      other.source === this.source && other.code === this.code && other.diagrams === this.diagrams
+    )
+  }
+
+  /** A drawing owns its lines, like a table's rendered form. */
+  get block(): boolean {
+    return true
+  }
+
+  toDOM(): HTMLElement {
+    const box = document.createElement('figure')
+    box.className = DIAGRAM_CLASS
+    box.dataset.state = 'waiting'
+    this.diagrams.register(this.source, box, this.code)
+    return box
+  }
+
+  /** CodeMirror dropped the box: release the drawing with it, so what is held
+   *  follows the screen rather than the page. */
+  destroy(dom: HTMLElement): void {
+    this.diagrams.unregister(dom)
+  }
+
+  ignoreEvent(): boolean {
+    // A press is the editor's: it places the caret on the fence, which shows the
+    // source so the diagram can be edited (spec: pressing a diagram reveals it).
+    return false
+  }
+}
+
+/** A fenced block that draws: the block's whole text (the cache key, and what the
+ *  box shows when the drawing fails) and the body the engine draws. Null when the
+ *  block draws nothing — the rule itself is the runtime's `isDiagram`, so the
+ *  pane and the deck cannot disagree about what draws (spec: a mermaid fence
+ *  renders as a diagram). */
+function diagramSource(
+  state: EditorState,
+  fence: SyntaxNode,
+): { source: string; code: string } | null {
+  const info = fence.getChild('CodeInfo')
+  const code = fence
+    .getChildren('CodeText')
+    .map((line) => state.doc.sliceString(line.from, line.to))
+    .join('\n')
+  if (!isDiagram(info ? state.doc.sliceString(info.from, info.to) : null, code)) return null
+  return { source: state.doc.sliceString(fence.from, fence.to), code }
+}
+
+/** A diagram the field knows about: its document range, and whether the caret is
+ *  showing its source. Plain data, so an update carries untouched entries
+ *  forward without rebuilding anything per fence. */
+type DiagramEntry = { from: number; to: number; shown: boolean }
+
+/** The field's value: which fences draw, and the decorations for the ones whose
+ *  source is hidden. */
+type DiagramState = { entries: DiagramEntry[]; decorations: DecorationSet }
+
+/** The `FencedCode` node starting at `from`, or null when the position no longer
+ *  holds one (a mapped entry whose fence the edit removed). The innermost node at
+ *  a fence's start is its opening mark, so the walk climbs to the block. */
+function fenceAt(state: EditorState, from: number): SyntaxNode | null {
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(from, 1);
+    node;
+    node = node.parent
+  ) {
+    if (node.name === 'FencedCode') return node.from === from ? node : null
+  }
+  return null
+}
+
+/** Replace decorations for the fences that are drawing. */
+function diagramRanges(state: EditorState, entries: DiagramEntry[]): Range<Decoration>[] {
+  const range: Range<Decoration>[] = []
+  const diagrams = state.facet(diagramRuntime)
+  if (!diagrams) return range
+  for (const entry of entries) {
+    if (entry.shown) continue
+    const fence = fenceAt(state, entry.from)
+    const drawable = fence ? diagramSource(state, fence) : null
+    if (!drawable) continue
+    range.push(
+      Decoration.replace({
+        widget: new DiagramWidget(drawable.source, drawable.code, diagrams),
+        block: true,
+      }).range(entry.from, entry.to),
+    )
+  }
+  return range
+}
+
+/** Which fences draw, and which of them show their source. Recomputation is
+ *  scoped the way the table field's is: a document change re-reads the lines the
+ *  edit touched, and a selection change re-decides only the fences the caret
+ *  moved between, returning the same value when nothing flipped so an ordinary
+ *  keystroke rebuilds nothing. */
+const diagramField = StateField.define<DiagramState>({
+  create: (state) => {
+    const entries = fencesIn(state, 0, state.doc.length, state.selection.main.head)
+    return { entries, decorations: Decoration.set(diagramRanges(state, entries), true) }
+  },
+
+  update(value, tr) {
+    const caret = tr.state.selection.main.head
+
+    if (!tr.docChanged) {
+      const before = tr.startState.selection.main.head
+      const flipped = value.entries.filter(
+        (entry) => touches(entry, before) !== touches(entry, caret),
+      )
+      // Nothing the caret moved on or off: keep the value's identity, so an
+      // ordinary selection change rebuilds nothing.
+      if (flipped.length === 0) return value
+      const moved = new Set(flipped.map((entry) => entry.from))
+      // The rebuilt entries carry the reveal state they flipped to; `diagramRanges`
+      // reads `shown`, so passing the entries the flip produced is what makes the
+      // widget come back when the caret leaves the fence.
+      const next = value.entries.map((entry) =>
+        moved.has(entry.from) ? { ...entry, shown: touches(entry, caret) } : entry,
+      )
+      return {
+        entries: next,
+        decorations: value.decorations.update({
+          filter: (from) => !moved.has(from),
+          add: diagramRanges(
+            tr.state,
+            next.filter((entry) => moved.has(entry.from) && !entry.shown),
+          ),
+          sort: true,
+        }),
+      }
+    }
+
+    let from = tr.state.doc.length
+    let to = 0
+    tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+      from = Math.min(from, fromB)
+      to = Math.max(to, toB)
+    })
+    const region = widen(tr.state, from, to)
+    const kept = value.entries
+      .map((entry) => ({
+        ...entry,
+        from: tr.changes.mapPos(entry.from, -1),
+        to: tr.changes.mapPos(entry.to, 1),
+      }))
+      .filter((entry) => entry.to <= region.from || entry.from >= region.to)
+    const rebuilt = fencesIn(tr.state, region.from, region.to, caret)
+    return {
+      entries: [...kept, ...rebuilt].sort((a, b) => a.from - b.from),
+      decorations: value.decorations.map(tr.changes).update({
+        filter: (rangeFrom) => rangeFrom < region.from || rangeFrom >= region.to,
+        add: diagramRanges(tr.state, rebuilt),
+        sort: true,
+      }),
+    }
+  },
+
+  provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+})
+
+/** Every drawable fence in `[from, to]`, with its current reveal state. Empty
+ *  while no runtime is installed, so a gated-off view walks nothing. */
+function fencesIn(state: EditorState, from: number, to: number, caret: number): DiagramEntry[] {
+  const entries: DiagramEntry[] = []
+  if (!state.facet(diagramRuntime)) return entries
+  syntaxTree(state).iterate({
+    from,
+    to,
+    enter: (node) => {
+      if (node.name !== 'FencedCode') return
+      if (diagramSource(state, node.node) === null) return
+      entries.push({
+        from: node.from,
+        to: node.to,
+        shown: caret >= node.from && caret <= node.to,
+      })
+    },
+  })
+  return entries
 }
 
 /** The decoration set for one document view, and the reference ranges it found
@@ -1082,6 +1302,9 @@ export class CodeMirrorAdapter implements EditorAdapter {
   private referenceClickListener: ((target: string, kind: 'page' | 'board') => void) | null = null
   private boardLinkListener: ((path: string) => void) | null = null
   private assetReader: ((path: string) => Promise<Blob>) | null = null
+  /** The drawing runtime the pane supplies (add-mermaid-diagrams). Null until it
+   *  does, which leaves the diagram field out of the view entirely. */
+  private diagrams: Diagrams | null = null
   private sources: SuggestionSources = { pages: () => [], files: () => [] }
   /** The text a `setContent` seeded, so its echo is not reported as an edit. */
   private seed: string | null = null
@@ -1111,6 +1334,10 @@ export class CodeMirrorAdapter implements EditorAdapter {
       syntaxHighlighting(folioHighlight),
       livePreview,
       tableField,
+      // The diagram field exists only where a runtime was supplied, so a gated-off
+      // view carries neither the field nor a fence rendering (design D10).
+      diagramRuntime.of(this.diagrams),
+      ...(this.diagrams ? [diagramField] : []),
       highlightField,
       autocompletion({ override: [completionSource(this.sources)] }),
       folioTheme,
@@ -1272,6 +1499,10 @@ export class CodeMirrorAdapter implements EditorAdapter {
 
   setAssetReader(reader: (path: string) => Promise<Blob>): void {
     this.assetReader = reader
+  }
+
+  setDiagrams(diagrams: Diagrams | null): void {
+    this.diagrams = diagrams
   }
 
   setSuggestionSource(sources: SuggestionSources): void {

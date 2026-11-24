@@ -19,6 +19,7 @@ import {
   syncAssetImages,
   type AssetImages,
 } from '../editor/assetImages'
+import { createDiagrams, type Diagrams } from '../editor/diagrams'
 import styles from './PresentationView.module.css'
 
 function Chevron({ dir }: { dir: 'left' | 'right' }) {
@@ -33,6 +34,7 @@ export function PresentationView({
   slides,
   onClose,
   readAsset,
+  diagrams: showDiagrams = false,
 }: {
   /** The deck, derived once by App from the page's blocks (design D3/D5). */
   slides: string[]
@@ -40,10 +42,16 @@ export function PresentationView({
   onClose: () => void
   /** Read a vault file's bytes so a slide image can render (design D4). */
   readAsset?: (path: string) => Promise<Blob>
+  /** Draw a slide's mermaid fences (add-mermaid-diagrams, design D9/D10). Off,
+   *  a fence shows the source the deck's renderer produced for it. */
+  diagrams?: boolean
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const slideRef = useRef<HTMLDivElement>(null)
   const imagesRef = useRef<AssetImages | null>(null)
+  /** The drawing runtime for the slide host: a slide is a string of HTML, so it
+   *  registers here rather than through the editor's widget. */
+  const diagramsRef = useRef<Diagrams | null>(null)
   const [index, setIndex] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
 
@@ -52,25 +60,35 @@ export function PresentationView({
 
   // Open the dialog on mount and release its image URLs on the way out. The
   // deck is captured by App before this mounts, so nothing here reads the page.
+  // `showDiagrams` is read once, like a deck's slides: the gate cannot flip
+  // while a modal deck is open, and a new runtime would drop the drawings.
+  /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
     const dialog = dialogRef.current
     const cache = createAssetImages()
     imagesRef.current = cache
+    const diagrams = showDiagrams ? createDiagrams({ root: slideRef.current }) : null
+    diagramsRef.current = diagrams
     if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal()
     return () => {
       releaseAssetImages(cache)
       imagesRef.current = null
+      diagrams?.release()
+      diagramsRef.current = null
       if (dialog?.open && typeof dialog.close === 'function') dialog.close()
     }
   }, [])
+  /* oxlint-enable react/exhaustive-deps */
 
-  // Point the shown slide's vault images at their bytes (design D4). Re-running
-  // is free: resolved paths cost one map lookup in the shared cache.
+  // Point the shown slide's vault images at their bytes, and draw its diagrams
+  // (design D4, D9). Re-running is free: a resolved path costs one map lookup in
+  // the shared cache, and a fence is registered only once per rendered slide.
   useEffect(() => {
     const host = slideRef.current
     const cache = imagesRef.current
-    if (!host || !cache || !readAsset) return
-    syncAssetImages(host, cache, readAsset)
+    if (!host) return
+    if (readAsset && cache) syncAssetImages(host, cache, readAsset)
+    diagramsRef.current?.sync(host)
   }, [current, readAsset])
 
   // Fullscreen is a view state of the dialog, never of the page (design D6).

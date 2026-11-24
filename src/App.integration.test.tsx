@@ -3850,3 +3850,25 @@ describe('the agent tool surface (add-webmcp-tools)', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('diagrams are gated (add-mermaid-diagrams)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.clear()
+  })
+
+  it('supplies the editor no drawing runtime while the gate is off', async () => {
+    render(<App />)
+    await openFixture()
+    const supplied = editor() as unknown as { diagramsSupplied(): unknown }
+    expect(supplied.diagramsSupplied()).toBeNull()
+  })
+
+  it('supplies one while the experimental switch is on', async () => {
+    localStorage.setItem('folio.prerelease', '1')
+    render(<App />)
+    await openFixture()
+    const supplied = editor() as unknown as { diagramsSupplied(): unknown }
+    expect(supplied.diagramsSupplied()).not.toBeNull()
+  })
+})

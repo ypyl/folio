@@ -437,6 +437,24 @@ comment `--stone`, string `--olive`, number `--dark-warm`, function/class
 mirror the tokens above, so the two must not drift); a fence with no language
 stays monochrome.
 
+### Diagrams
+
+A fenced `mermaid` block reads as its drawing at rest and as its source at the
+caret, the way a table and an image already do. The drawing takes the width it is
+given: one wider than the pane scales down to fit and never scrolls sideways. It
+sits on the page's own surface — no fill, no border, no radius — because a
+diagram is content the page drew, not chrome over it, and one marks itself apart
+from the prose by being drawn rather than by a frame.
+
+Colours are the same tokens as everything else: brand lines and borders,
+brand-tint fills, warm ink, parchment behind the labels, the interface font. They
+are mapped into the engine's own theme variables in `src/editor/diagrams.ts`
+(hex values mirror the tokens above, so the two must not drift), so a drawing
+cannot become the one foreign surface on the page. While a drawing is on its way
+the box keeps a placeholder's height, so the prose below it does not jump when the
+drawing lands. A source the engine refuses reads as its own text, kept under one
+line in `--stone` saying it could not be drawn.
+
 ### Search match
 
 Opening a search result locates the match: **every block holding one is framed**

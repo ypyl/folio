@@ -27,6 +27,9 @@ export default defineConfig({
     // a user runs: the session trace has no build flag to set
     // (release-the-session-trace).
     command: `npm run dev -- --port ${PORT} --strictPort`,
+    // The diagram engine ships off (add-mermaid-diagrams): the run turns it on
+    // so the capability is exercised while the shipped build hides it.
+    env: { VITE_DIAGRAMS: '1' },
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 60_000,

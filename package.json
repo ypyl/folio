@@ -1,7 +1,7 @@
 {
   "name": "folio",
   "private": true,
-  "version": "0.97.4",
+  "version": "0.98.0",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -32,6 +32,7 @@
     "@lezer/common": "^1.5.3",
     "@lezer/highlight": "^1.2.3",
     "fuse.js": "^7.5.0",
+    "mermaid": "^11.17.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

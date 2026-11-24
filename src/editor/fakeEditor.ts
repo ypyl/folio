@@ -4,6 +4,7 @@
 // adapter module.
 
 import type { DropPoint, EditorAdapter, StaticBlock, SuggestionSources } from './editor'
+import type { Diagrams } from './diagrams'
 import { blockStartLines } from '../lineAnchors'
 import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
@@ -34,6 +35,7 @@ export class FakeEditor implements EditorAdapter {
   blocks: StaticBlock[] = []
   /** How many times the shell took focus back (add-compact-mobile-shell). */
   focuses = 0
+  private diagrams: Diagrams | null = null
   private listeners: ((markdown: string) => void)[] = []
   private renderListeners: (() => void)[] = []
   private referenceListeners: ((target: string, kind: ReferenceKind) => void)[] = []
@@ -159,6 +161,15 @@ export class FakeEditor implements EditorAdapter {
 
   setAssetReader(reader: (path: string) => Promise<Blob>): void {
     this.assetReaders.push(reader)
+  }
+
+  setDiagrams(diagrams: Diagrams | null): void {
+    this.diagrams = diagrams
+  }
+
+  /** Test hook: the drawing runtime the pane supplied, if any. */
+  diagramsSupplied(): Diagrams | null {
+    return this.diagrams
   }
 
   setSuggestionSource(sources: SuggestionSources): void {

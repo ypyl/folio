@@ -15,6 +15,7 @@ import {
   syncAssetImages,
   type AssetImages,
 } from '../editor/assetImages'
+import { createDiagrams, type Diagrams } from '../editor/diagrams'
 import { noVaultReader } from '../vault/assetOpen'
 import styles from './EditorPane.module.css'
 
@@ -151,6 +152,7 @@ export function EditorPane({
   suggestFiles,
   highlight,
   ref,
+  diagrams: showDiagrams = false,
 }: {
   page: Page | null
   initialContent: string
@@ -202,6 +204,11 @@ export function EditorPane({
    *  (render-vault-images). Absent without a vault: references then render as
    *  they did before, and no read is attempted. */
   readAsset?: (path: string) => Promise<Blob>
+  /** Whether a fenced `mermaid` block draws its diagram (add-mermaid-diagrams).
+   *  The effective gate, computed once in App: off means the pane supplies the
+   *  editor no runtime, so a fence reads as source and the engine is never
+   *  fetched. */
+  diagrams?: boolean
   /** Open the page a reference badge points at (add-reference-badges), or the
    *  board a board badge points at (add-whiteboards). `kind` says which. */
   onOpenReference?: (target: string, kind: ReferenceKind) => void
@@ -229,6 +236,9 @@ export function EditorPane({
   // runs from the adapter's change listener rather than from render — and one
   // allocation per mount, not per render.
   const assetsRef = useRef<AssetImages | null>(null)
+  /** The drawing runtime for this page, created with the editor and released
+   *  with it (add-mermaid-diagrams): what a drawing holds follows this pane. */
+  const diagramsRef = useRef<Diagrams | null>(null)
   // The reader is captured once per mount but must read through the live prop:
   // a folder switch changes the vault behind it.
   const readAssetRef = useRef(readAsset)
@@ -332,6 +342,12 @@ export function EditorPane({
     // on screen, not every reference the page happens to contain.
     const assets = createAssetImages({ root: paneRef.current })
     assetsRef.current = assets
+    // Diagrams (add-mermaid-diagrams, design D4/D10): the pane owns the
+    // runtime's lifetime the way it owns the image cache's. Off, no runtime is
+    // supplied and the editor installs no diagram field at all.
+    const diagrams = showDiagrams ? createDiagrams({ root: paneRef.current }) : null
+    diagramsRef.current = diagrams
+    adapter.setDiagrams(diagrams)
     // Placeholder bookkeeping rides the same edit stream that reaches App:
     // markdown empty ⇒ the doc is empty ⇒ show the hint.
     adapter.onChange((markdown) => {
@@ -376,6 +392,8 @@ export function EditorPane({
       // Release this page's image URLs with its editor (design D5).
       assetsRef.current = null
       releaseAssetImages(assets)
+      diagramsRef.current = null
+      diagrams?.release()
       void adapter.destroy()
     }
   }, [])

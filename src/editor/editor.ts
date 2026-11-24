@@ -6,6 +6,7 @@
 
 import type { ReferenceKind } from '../vault/parse'
 import type { Suggestion } from '../vault/suggest'
+import type { Diagrams } from './diagrams'
 
 /** The app's completion sources (add-reference-autocomplete,
  *  add-asset-references): page names for a reference being typed, and the
@@ -89,6 +90,12 @@ export interface EditorAdapter {
    *  the editor never writes through it, so the file on disk stays canonical
    *  (ADR-0001), and a folder switch simply replaces the reader. */
   setAssetReader(reader: (path: string) => Promise<Blob>): void
+  /** The app supplies the drawing runtime a fenced `mermaid` block registers
+   *  with (add-mermaid-diagrams), or null to install none. The pane owns the
+   *  runtime's lifetime, exactly as it owns the image cache's: the editor reads
+   *  no file and draws nothing itself, so the gate can turn diagrams off by
+   *  supplying nothing. Call before `mount`. */
+  setDiagrams(diagrams: Diagrams | null): void
   /** The app supplies completion candidates through this. Unlike the `on*`
    *  methods this runs the other way: the editor asks, the app answers, and the
    *  editor never calls back out for a suggestion. Read-only and names only

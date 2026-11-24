@@ -80,8 +80,9 @@ export type AssetImages = {
 
 /** The real IntersectionObserver. Where it does not exist (jsdom, a browser too
  *  old for it) every observed element is reported as visible at once, which is
- *  the eager resolution this module had before the viewport window (design D6). */
-const browserObserver: ObserverFactory = (callback, root, rootMargin) => {
+ *  the eager resolution this module had before the viewport window (design D6).
+ *  Exported so the diagram cache follows the same rule (add-mermaid-diagrams). */
+export const browserObserver: ObserverFactory = (callback, root, rootMargin) => {
   if (typeof IntersectionObserver === 'undefined') {
     return {
       observe: (target) => callback(target, true),

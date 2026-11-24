@@ -274,3 +274,48 @@ body {
     animation: none;
   }
 }
+
+/* A fenced mermaid block's drawing (add-mermaid-diagrams). Global, because the
+   pane and a slide both show one: the box takes the width it is given, scales a
+   wider drawing down to it, and never scrolls sideways (spec: a diagram fits the
+   pane's width). No fill, border, or radius — a drawing is content the page
+   drew, not chrome over it (DESIGN.md "Diagrams"). */
+.folio-diagram {
+  margin: 12px 0;
+  overflow: hidden; /* the scale below keeps this a safety net, not a scroll area */
+}
+
+.folio-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* While a drawing is on its way, the box keeps a placeholder's height so the page
+   below it does not jump when the drawing lands. */
+.folio-diagram[data-state='waiting'],
+.folio-diagram[data-state='queued'],
+.folio-diagram[data-state='drawing'] {
+  min-height: 72px;
+}
+
+/* A source the engine refuses reads as its own text — its Markdown, kept — under
+   one line saying it could not be drawn. */
+.folio-diagram-source {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--inline-code-bg);
+  color: var(--olive);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.folio-diagram-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--stone);
+}

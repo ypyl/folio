@@ -3,6 +3,18 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PresentationView } from './PresentationView'
 
+// The diagram engine is replaced at the module seam: the deck builds its own
+// runtime, so this is the only place a test can answer for the engine
+// (add-mermaid-diagrams, design D9). `vi.hoisted` keeps the mock visible to the
+// hoisted factory.
+const { drawMock } = vi.hoisted(() => ({ drawMock: vi.fn() }))
+vi.mock('mermaid', () => ({
+  default: {
+    initialize: () => {},
+    render: (id: string, source: string) => drawMock(id, source),
+  },
+}))
+
 afterEach(() => {
   vi.restoreAllMocks()
 })
@@ -142,5 +154,51 @@ describe('PresentationView stylesheet (add-presentations)', () => {
 
   it('scrolls a tall slide within itself', () => {
     expect(css).toMatch(/\.slide\s*\{[^}]*overflow-y:\s*auto/s)
+  })
+})
+
+describe('a slide draws its diagrams (add-mermaid-diagrams)', () => {
+  afterEach(() => {
+    drawMock.mockReset()
+  })
+
+  it('replaces a slide\u2019s mermaid fence with its drawing', async () => {
+    drawMock.mockResolvedValue({ svg: '<svg id="slide-drawn"></svg>' })
+    const deck = [
+      '<pre><code class="language-mermaid">flowchart TD\n  A --> B</code></pre>',
+      '<p>next</p>',
+    ]
+    render(<PresentationView slides={deck} onClose={() => {}} diagrams />)
+
+    const dialog = screen.getByRole('dialog', { name: 'Presentation' })
+    await waitFor(() => expect(dialog.querySelector('figure.folio-diagram')).not.toBeNull())
+    expect(dialog.querySelector('pre')).toBeNull()
+    expect(dialog.querySelector('figure.folio-diagram')?.innerHTML).toContain('slide-drawn')
+    expect(drawMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the source rather than an empty box when the engine refuses', async () => {
+    drawMock.mockRejectedValue(new Error('refused'))
+    const deck = ['<pre><code class="language-mermaid">not a diagram</code></pre>']
+    render(<PresentationView slides={deck} onClose={() => {}} diagrams />)
+
+    const dialog = screen.getByRole('dialog', { name: 'Presentation' })
+    await waitFor(() =>
+      expect(dialog.querySelector('figure.folio-diagram')?.getAttribute('data-state')).toBe(
+        'failed',
+      ),
+    )
+    expect(dialog.textContent).toContain('not a diagram')
+    expect(dialog.querySelector('.folio-diagram-note')).not.toBeNull()
+  })
+
+  it('leaves the fence as source while the gate is off', () => {
+    const deck = ['<pre><code class="language-mermaid">flowchart TD</code></pre>']
+    render(<PresentationView slides={deck} onClose={() => {}} />)
+
+    const dialog = screen.getByRole('dialog', { name: 'Presentation' })
+    expect(dialog.querySelector('pre')).not.toBeNull()
+    expect(dialog.querySelector('figure.folio-diagram')).toBeNull()
+    expect(drawMock).not.toHaveBeenCalled()
   })
 })

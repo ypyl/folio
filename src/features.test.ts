@@ -22,6 +22,20 @@ describe('build-time feature flags', () => {
     expect(features.agentTools).toBe(false)
   })
 
+  it('reads VITE_DIAGRAMS into features.diagrams', async () => {
+    vi.stubEnv('VITE_DIAGRAMS', '1')
+    vi.resetModules()
+    const { features } = await import('./features')
+    expect(features.diagrams).toBe(true)
+  })
+
+  it('leaves diagrams off when the build sets no flag', async () => {
+    vi.stubEnv('VITE_DIAGRAMS', '')
+    vi.resetModules()
+    const { features } = await import('./features')
+    expect(features.diagrams).toBe(false)
+  })
+
   // The rail's experimental popup reads this list (explain-the-experimental-
   // switch): a flag added without its description would hide from the popup, so
   // the two sets must be equal in both directions.

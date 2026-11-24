@@ -53,6 +53,7 @@ Each ADR is a short, self-contained record: why the decision matters, what was d
 | [0034](0034-the-guided-demo-is-an-in-memory-vault.md) | The guided demo is an in-memory vault | Accepted |
 | [0035](0035-the-session-trace-is-pruned.md) | The session trace lives in `.folio/logs/` and is pruned | Accepted |
 | [0036](0036-agent-actions-are-app-actions-with-an-actor.md) | An agent's action is an app action with an actor and a record | Accepted |
+| [0037](0037-a-diagram-is-a-render-of-a-fence.md) | A diagram is a render of a fence, not a file | Accepted |
 
 ## Adding a new ADR
 

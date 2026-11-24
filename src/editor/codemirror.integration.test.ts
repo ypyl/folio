@@ -11,6 +11,7 @@ import { EditorView } from '@codemirror/view'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createAssetImages, releaseAssetImages, syncAssetImages } from './assetImages'
 import { CodeMirrorAdapter, completionSource } from './codemirror'
+import { createDiagrams } from './diagrams'
 import type { SuggestionSources } from './editor'
 
 // jsdom has no layout, so it has no text rects. CodeMirror's own press handling
@@ -1299,5 +1300,104 @@ describe('a range replacement is one transaction (agent-tools: edit_note)', () =
     expect(adapter!.replaceMarkdown('missing', 'x')).toBe(false)
     expect(adapter!.replaceMarkdown('', 'x')).toBe(false)
     expect(view().state.doc.toString()).toBe('same\nsame\n')
+  })
+})
+
+describe('a mermaid fence draws its diagram', () => {
+  const FLOW = 'lead\n\n```mermaid\nflowchart TD\n  A --> B\n```\n'
+
+  /** Mount with a runtime whose engine answers without a browser and whose
+   *  observer decides what is in view (design D2-D4). */
+  async function openDrawing(
+    markdown: string,
+    options: { visible?: boolean; fails?: boolean } = {},
+  ) {
+    const calls: string[] = []
+    const observed: string[] = []
+    host = document.createElement('div')
+    document.body.append(host)
+    adapter = new CodeMirrorAdapter()
+    const diagrams = createDiagrams({
+      engine: {
+        render: (_id, source) => {
+          calls.push(source)
+          if (options.fails) return Promise.reject(new Error('the engine refused it'))
+          return Promise.resolve('<svg id="drawn"></svg>')
+        },
+      },
+      observer: (callback) => ({
+        observe: (target) => {
+          observed.push((target as HTMLElement).className)
+          if (options.visible !== false) callback(target, true)
+        },
+        unobserve: () => {},
+        disconnect: () => {},
+      }),
+    })
+    adapter.setDiagrams(diagrams)
+    await adapter.mount(host)
+    await adapter.setContent(markdown)
+    return { el: host, calls, observed }
+  }
+
+  it('draws the fence and hides its source', async () => {
+    const { el } = await openDrawing(FLOW)
+    const box = el.querySelector('figure.folio-diagram')
+    expect(box).not.toBeNull()
+    await vi.waitFor(() => expect(box?.innerHTML).toContain('drawn'))
+    expect(el.querySelector('.cm-content')?.textContent).not.toContain('flowchart')
+  })
+
+  it('leaves another language and an empty mermaid fence as source', async () => {
+    const { el, calls } = await openDrawing(
+      'lead\n\n```js\nconst a = 1\n```\n\n```mermaid\n\n```\n',
+    )
+    expect(el.querySelector('figure.folio-diagram')).toBeNull()
+    expect(el.querySelector('.cm-content')?.textContent).toContain('const a = 1')
+    expect(calls).toEqual([])
+  })
+
+  it('shows the source while the caret is in the fence, and draws again after', async () => {
+    const { el } = await openDrawing(FLOW)
+    const view = (adapter as unknown as { view: EditorView }).view
+    const fenceStart = view.state.doc.toString().indexOf('```mermaid')
+    expect(el.querySelector('figure.folio-diagram')).not.toBeNull()
+
+    view.dispatch({ selection: { anchor: fenceStart + 5 } })
+    expect(el.querySelector('figure.folio-diagram')).toBeNull()
+    expect(el.querySelector('.cm-content')?.textContent).toContain('flowchart TD')
+
+    view.dispatch({ selection: { anchor: 0 } })
+    await vi.waitFor(() => expect(el.querySelector('figure.folio-diagram')).not.toBeNull())
+  })
+
+  it('asks for no drawing while nothing is in view', async () => {
+    const { calls, observed } = await openDrawing(FLOW, { visible: false })
+    expect(observed).toContain('folio-diagram')
+    expect(calls).toEqual([])
+  })
+
+  it('keeps the drawn element when an edit leaves the fence alone', async () => {
+    const { el, calls } = await openDrawing(FLOW)
+    const before = el.querySelector('figure.folio-diagram')
+    // The caret is at the document start, outside the fence: typing there
+    // changes the text before it and nothing about the fence (the typing budget).
+    adapter?.insertMarkdown('x')
+    expect(calls).toHaveLength(1)
+    expect(el.querySelector('figure.folio-diagram')).toBe(before)
+  })
+
+  it('shows the source and a note when the engine refuses the diagram', async () => {
+    const { el } = await openDrawing(FLOW, { fails: true })
+    const box = el.querySelector('figure.folio-diagram') as HTMLElement | null
+    await vi.waitFor(() => expect(box?.dataset.state).toBe('failed'))
+    expect(el.querySelector('.folio-diagram-source')?.textContent).toContain('flowchart TD')
+    expect(el.querySelector('.folio-diagram-note')?.textContent).toContain('could not be drawn')
+  })
+
+  it('draws nothing when the pane supplies no runtime', async () => {
+    const el = await open(FLOW)
+    expect(el.querySelector('figure.folio-diagram')).toBeNull()
+    expect(el.querySelector('.cm-content')?.textContent).toContain('flowchart TD')
   })
 })
