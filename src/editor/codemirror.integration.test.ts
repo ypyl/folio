@@ -1400,4 +1400,30 @@ describe('a mermaid fence draws its diagram', () => {
     expect(el.querySelector('figure.folio-diagram')).toBeNull()
     expect(el.querySelector('.cm-content')?.textContent).toContain('flowchart TD')
   })
+
+  it('draws the page already open when the runtime arrives later', async () => {
+    // The experimental switch is a preference, not a navigation: turning it on
+    // while a page is open must draw that page, not wait for the next one
+    // (design D10).
+    const el = await open(FLOW)
+    expect(el.querySelector('figure.folio-diagram')).toBeNull()
+
+    const diagrams = createDiagrams({
+      engine: { render: () => Promise.resolve('<svg id="late"></svg>') },
+      observer: (callback) => ({
+        observe: (target) => callback(target, true),
+        unobserve: () => {},
+        disconnect: () => {},
+      }),
+    })
+    adapter?.setDiagrams(diagrams)
+    await vi.waitFor(() => expect(el.innerHTML).toContain('late'))
+
+    // And turning it back off returns the fence to its source, with no reopen.
+    adapter?.setDiagrams(null)
+    await vi.waitFor(() =>
+      expect(el.querySelector('.cm-content')?.textContent).toContain('flowchart TD'),
+    )
+    diagrams.release()
+  })
 })

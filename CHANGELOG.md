@@ -5,6 +5,14 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.98.3 (2026-11-24)
+
+- turning the diagram switch on draws the page already open
+
+## v0.98.2 (2026-11-24)
+
+- deploy Pages from a job after the build
+
 ## v0.98.0 (2026-11-24)
 
 - draw a page's mermaid diagrams, in the page and in a presentation
@@ -156,11 +164,3 @@ badge reads this file.
 ## v0.80.6 (2026-10-27)
 
 - make the browser requirement a visible warning
-
-## v0.80.4 (2026-10-27)
-
-- keep the demo's session-only notice in view
-
-## v0.80.2 (2026-10-27)
-
-- drop an unused import from the demo storage

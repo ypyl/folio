@@ -3871,4 +3871,20 @@ describe('diagrams are gated (add-mermaid-diagrams)', () => {
     const supplied = editor() as unknown as { diagramsSupplied(): unknown }
     expect(supplied.diagramsSupplied()).not.toBeNull()
   })
+
+  it('reaches the page already open when the switch is flipped', async () => {
+    // The switch is a preference, not a navigation: flipping it while a page is
+    // open must reach that page's editor rather than wait for the next mount.
+    render(<App />)
+    await openFixture()
+    const supplied = editor() as unknown as { diagramsSupplied(): unknown }
+    expect(supplied.diagramsSupplied()).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Experimental features' }))
+    await waitFor(() => expect(supplied.diagramsSupplied()).not.toBeNull())
+
+    // And turning it off takes the runtime back, so nothing keeps drawing.
+    fireEvent.click(screen.getByRole('button', { name: 'Experimental features' }))
+    await waitFor(() => expect(supplied.diagramsSupplied()).toBeNull())
+  })
 })

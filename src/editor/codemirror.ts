@@ -32,6 +32,7 @@ import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/lang
 import { languages } from '@codemirror/language-data'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import {
+  Compartment,
   EditorState,
   Facet,
   StateEffect,
@@ -635,6 +636,14 @@ export const diagramRuntime = Facet.define<Diagrams | null, Diagrams | null>({
 /** The class the drawn box carries; the app's stylesheet draws it, on both
  *  surfaces that show one (the pane and the deck). */
 const DIAGRAM_CLASS = 'folio-diagram'
+
+/** Everything a view needs to draw diagrams, in one unit: the runtime the boxes
+ *  register with, and the field that installs them. It lives behind a
+ *  compartment so the pane can turn drawings on for an editor that is already
+ *  open — the experimental switch flips a prop, not the page (design D10). */
+function diagramExtension(diagrams: Diagrams | null): Extension {
+  return [diagramRuntime.of(diagrams), ...(diagrams ? [diagramField] : [])]
+}
 
 /** A fenced `mermaid` block shown as its drawing, while the selection is off it.
  *  A block widget like the table's, because it replaces its own line breaks and
@@ -1305,6 +1314,9 @@ export class CodeMirrorAdapter implements EditorAdapter {
   /** The drawing runtime the pane supplies (add-mermaid-diagrams). Null until it
    *  does, which leaves the diagram field out of the view entirely. */
   private diagrams: Diagrams | null = null
+  /** Where that runtime and its field sit, so the pane can turn drawings on for
+   *  an editor that is already mounted. */
+  private readonly diagramCompartment = new Compartment()
   private sources: SuggestionSources = { pages: () => [], files: () => [] }
   /** The text a `setContent` seeded, so its echo is not reported as an edit. */
   private seed: string | null = null
@@ -1335,9 +1347,10 @@ export class CodeMirrorAdapter implements EditorAdapter {
       livePreview,
       tableField,
       // The diagram field exists only where a runtime was supplied, so a gated-off
-      // view carries neither the field nor a fence rendering (design D10).
-      diagramRuntime.of(this.diagrams),
-      ...(this.diagrams ? [diagramField] : []),
+      // view carries neither the field nor a fence rendering (design D10). It
+      // rides in a compartment, so supplying one later reconfigures this view
+      // instead of requiring the page to be reopened.
+      this.diagramCompartment.of(diagramExtension(this.diagrams)),
       highlightField,
       autocompletion({ override: [completionSource(this.sources)] }),
       folioTheme,
@@ -1502,7 +1515,13 @@ export class CodeMirrorAdapter implements EditorAdapter {
   }
 
   setDiagrams(diagrams: Diagrams | null): void {
+    if (diagrams === this.diagrams) return
     this.diagrams = diagrams
+    // A mounted view takes the change now: the switch that turns diagrams on is
+    // a preference, not a navigation, so the open page must not need reopening.
+    this.view?.dispatch({
+      effects: this.diagramCompartment.reconfigure(diagramExtension(diagrams)),
+    })
   }
 
   setSuggestionSource(sources: SuggestionSources): void {

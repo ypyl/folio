@@ -320,6 +320,22 @@ export function EditorPane({
     suggestBoardsRef.current = suggestBoards
   })
 
+  // The drawing runtime (add-mermaid-diagrams, design D4/D10): created and
+  // released with the gate rather than with the editor, so turning the
+  // experimental switch on draws the page that is already open instead of
+  // waiting for the next navigation. Declared before the mount effect so the
+  // editor mounts with whatever this leaves in the ref.
+  useEffect(() => {
+    const runtime = showDiagrams ? createDiagrams({ root: paneRef.current }) : null
+    diagramsRef.current = runtime
+    adapterRef.current?.setDiagrams(runtime)
+    return () => {
+      diagramsRef.current = null
+      adapterRef.current?.setDiagrams(null)
+      runtime?.release()
+    }
+  }, [showDiagrams])
+
   // Mount the editor once per page instance (App keys by page path, so the
   // props captured here are this page's for the editor's whole life). Content
   // is applied after the editor exists (mount -> setContent). The cleanup
@@ -342,12 +358,11 @@ export function EditorPane({
     // on screen, not every reference the page happens to contain.
     const assets = createAssetImages({ root: paneRef.current })
     assetsRef.current = assets
-    // Diagrams (add-mermaid-diagrams, design D4/D10): the pane owns the
-    // runtime's lifetime the way it owns the image cache's. Off, no runtime is
-    // supplied and the editor installs no diagram field at all.
-    const diagrams = showDiagrams ? createDiagrams({ root: paneRef.current }) : null
-    diagramsRef.current = diagrams
-    adapter.setDiagrams(diagrams)
+    // Diagrams (add-mermaid-diagrams, design D4/D10): the runtime is created by
+    // its own effect, which may already have run (it is declared above), so the
+    // adapter is handed whatever the pane holds now. Off, that is nothing, and
+    // the editor installs no diagram field at all.
+    adapter.setDiagrams(diagramsRef.current)
     // Placeholder bookkeeping rides the same edit stream that reaches App:
     // markdown empty ⇒ the doc is empty ⇒ show the hint.
     adapter.onChange((markdown) => {
@@ -392,8 +407,6 @@ export function EditorPane({
       // Release this page's image URLs with its editor (design D5).
       assetsRef.current = null
       releaseAssetImages(assets)
-      diagramsRef.current = null
-      diagrams?.release()
       void adapter.destroy()
     }
   }, [])
