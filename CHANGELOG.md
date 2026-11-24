@@ -5,6 +5,14 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.99.6 (2026-11-24)
+
+- an edit made outside the app is not overwritten
+
+## v0.99.5 (2026-11-24)
+
+- the first press on a diagram opens its source
+
 ## v0.99.4 (2026-11-24)
 
 - a reference below a diagram still opens
@@ -156,11 +164,3 @@ badge reads this file.
 ## v0.83.4 (2026-11-03)
 
 - even out the status bar's insets
-
-## v0.83.2 (2026-11-03)
-
-- put the session navigation on the Journal row
-
-## v0.83.0 (2026-11-03)
-
-- put the session navigation under the journal calendar

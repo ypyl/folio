@@ -949,6 +949,30 @@ function App() {
   // A page with no file yet is "new": its save indicator reads as creating it.
   const newPage = pendingBlank !== null
 
+  // An edit made outside the app (fix: an edit made outside the app is not
+  // overwritten). A refresh reads the folder again and the index gains the new
+  // text, but the pane was seeded once and would keep the old text — and its
+  // draft would record that old text as saved, so the next keystroke would write
+  // it back over the newer file. When the open page has nothing unsaved, the
+  // folder's text is the text to show: the draft is re-seeded from it and
+  // `seedVersion` remounts the pane on the new seed. A draft with unsaved edits
+  // is the reader's and is left alone, so their own text still wins.
+  const diskContent = activePath === null ? undefined : graph?.pages.get(activePath)?.content
+  const [seedVersion, setSeedVersion] = useState(0)
+  useEffect(() => {
+    if (activePath === null || diskContent === undefined) return
+    const draft = drafts.get(activePath)
+    if (!draft || draft.status !== 'clean') return
+    // The folder holds the text this session wrote: nothing changed outside the
+    // app, and remounting here would cost the reader their caret for nothing.
+    if (withTrailingBlankLine(draft.saved) === withTrailingBlankLine(diskContent)) return
+    drafts.reseed(activePath, diskContent)
+    // oxlint-disable react/set-state-in-effect
+    setDraftVersion((v) => v + 1)
+    setSeedVersion((v) => v + 1)
+    // oxlint-enable react/set-state-in-effect
+  }, [activePath, diskContent, drafts])
+
   // The open page's reminder target (add-reminders, design D2): the calendar day
   // menu acts on the open page, and whether it already has a rule decides the
   // menu's Remove item. Read from `activePath`/`graph`, not the last-known page
@@ -1608,8 +1632,10 @@ function App() {
           ) : (
             <EditorPane
               // Keyed by path: each page gets a fresh editor seeded with its
-              // draft-or-index content; switching pages remounts it.
-              key={page?.path}
+              // draft-or-index content; switching pages remounts it. The seed
+              // version remounts it too, when a refresh re-seeds the draft from
+              // an edit made outside the app.
+              key={`${page?.path ?? ''}#${seedVersion}`}
               ref={editorRef}
               page={page}
               initialContent={initialContent}

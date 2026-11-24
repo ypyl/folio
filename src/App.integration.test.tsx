@@ -862,6 +862,72 @@ describe('auto-save (page-editing spec)', () => {
   })
 })
 
+describe('an edit made outside the app (vault spec)', () => {
+  it("shows the folder's text on the open page and writes nothing", async () => {
+    const write = vi.spyOn(FileSystemVaultStorage.prototype, 'write')
+    try {
+      render(<App />)
+      const tree = await openFixture()
+      fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+      await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+      const stale = editor()
+
+      // Another tool rewrites the file while the tab is open. The window
+      // regaining focus is what makes the app read the folder again, and the
+      // index then holds the new text.
+      const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
+      await act(async () => {
+        await file.writeContent('# Rewritten outside the app\n')
+      })
+      await act(async () => {
+        window.dispatchEvent(new Event('focus'))
+      })
+
+      // The pane is re-seeded from the folder rather than left on the old text,
+      // and taking the folder's text writes nothing.
+      await waitFor(() => expect(editor()).not.toBe(stale))
+      await waitFor(() => expect(editor().setContents[0]).toBe('# Rewritten outside the app\n\n'))
+      expect(vaultWrites(write)).toEqual([])
+
+      // Typing now carries the folder's text: the external edit survives.
+      editor().emitChange('# Rewritten outside the app\n\nA local line\n\n')
+      await waitFor(() => expect(screen.getByText('Unsaved changes')).toBeTruthy())
+      await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 })
+      expect(await (await file.getFile()).text()).toBe(
+        '# Rewritten outside the app\n\nA local line\n\n',
+      )
+    } finally {
+      write.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it("keeps the reader's unsaved draft when the same page changed outside", async () => {
+    render(<App />)
+    const tree = await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().setContents[0]).toContain('This is Folio'))
+    const open = editor()
+
+    // An unsaved edit is in the pane while the file changes underneath it.
+    open.emitChange('mine, still unsaved')
+    const file = pagesDir(tree).children.get('Welcome.md') as FakeFileHandle
+    await act(async () => {
+      await file.writeContent('theirs\n')
+    })
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    // The pane is not remounted and the draft is intact: the reader's text is
+    // the one being edited, so it is never replaced under their caret.
+    await act(async () => {})
+    expect(editor()).toBe(open)
+    expect(editor().content).toBe('mine, still unsaved')
+    vi.unstubAllGlobals()
+  })
+})
+
 describe('a page ends with an empty line (add-trailing-empty-line)', () => {
   it('shows the empty line on open and leaves the file untouched', async () => {
     render(<App />)

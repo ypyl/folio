@@ -17,6 +17,20 @@ describe('DraftStore (design C1)', () => {
     expect(store.edit('a.md', 'original')).toBe('clean')
   })
 
+  it("takes the folder's text again when re-seeded (an edit made outside)", () => {
+    const store = new DraftStore()
+    store.open('a.md', 'original')
+    store.beginSave('a.md')
+
+    const draft = store.reseed('a.md', 'written by another tool')
+    expect(draft).toEqual({
+      content: 'written by another tool',
+      saved: 'written by another tool',
+      status: 'clean',
+    })
+    expect(store.get('a.md')).toBe(draft)
+  })
+
   it('ignores edits to pages that were never opened', () => {
     const store = new DraftStore()
     expect(store.edit('ghost.md', 'x')).toBe('clean')

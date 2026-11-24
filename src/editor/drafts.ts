@@ -39,6 +39,15 @@ export class DraftStore {
     return draft.status
   }
 
+  /** Take the folder's text for an open page again, clean (fix: an edit made
+   *  outside the app is not overwritten). The caller decides when this is safe
+   *  — only a draft with nothing unsaved may be replaced. */
+  reseed(path: string, savedContent: string): Draft {
+    const draft: Draft = { content: savedContent, saved: savedContent, status: 'clean' }
+    this.drafts.set(path, draft)
+    return draft
+  }
+
   beginSave(path: string): void {
     const draft = this.drafts.get(path)
     if (draft) draft.status = 'saving'
