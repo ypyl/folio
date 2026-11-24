@@ -65,6 +65,70 @@ describe('createDebouncedSaver (design C1/C2)', () => {
     expect(saved).toEqual([['a.md', 'x']])
   })
 
+  it('keeps a failed save pending and retries it on its own', async () => {
+    vi.useFakeTimers()
+    const attempts: Array<[string, string]> = []
+    let fail = true
+    const saver = createDebouncedSaver(async (p, c) => {
+      attempts.push([p, c])
+      return !fail
+    }, 1000)
+
+    saver.schedule('a.md', 'typed while the share was down')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(attempts).toHaveLength(1)
+    // The text is still unsaved, so the saver holds it.
+    expect(saver.pending()).toBe(1)
+
+    // The failure clears by itself: the retry writes the text without a keystroke.
+    fail = false
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(attempts).toEqual([
+      ['a.md', 'typed while the share was down'],
+      ['a.md', 'typed while the share was down'],
+    ])
+    expect(saver.pending()).toBe(0)
+    saver.dispose()
+  })
+
+  it('stops retrying a write that keeps failing, and a flush still tries again', async () => {
+    vi.useFakeTimers()
+    const attempts: string[] = []
+    const saver = createDebouncedSaver(async (p) => {
+      attempts.push(p)
+      return false
+    }, 1000)
+
+    saver.schedule('a.md', 'x')
+    // The first write plus its retries, then nothing more on a timer.
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(attempts).toHaveLength(4)
+    expect(saver.pending()).toBe(1)
+
+    // Hiding the tab flushes what is still pending: one more attempt.
+    await saver.flush()
+    expect(attempts).toHaveLength(5)
+    saver.dispose()
+  })
+
+  it('a new edit earns a fresh set of retries', async () => {
+    vi.useFakeTimers()
+    const attempts: string[] = []
+    const saver = createDebouncedSaver(async (_p, c) => {
+      attempts.push(c)
+      return false
+    }, 1000)
+
+    saver.schedule('a.md', 'first')
+    await vi.advanceTimersByTimeAsync(10_000)
+    const stuck = attempts.length
+    saver.schedule('a.md', 'second')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(attempts.length).toBeGreaterThan(stuck)
+    expect(attempts.at(-1)).toBe('second')
+    saver.dispose()
+  })
+
   it('never runs two flushes at once, so one page is written in order', async () => {
     // The timer's flush is waiting on the disk when the tab is hidden and the
     // hide flush starts: the page must be written by one flush at a time, or the

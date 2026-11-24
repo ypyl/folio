@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.99.9 (2026-11-24)
+
+- a save that fails is retried instead of waiting for the next keypress
+
 ## v0.99.8 (2026-11-24)
 
 - a page that exists on disk is never opened blank and written over
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.83.8 (2026-11-04)
 
 - put Contents' expand and collapse all on its summary row
-
-## v0.83.6 (2026-11-03)
-
-- lead every accordion summary with its disclosure marker
