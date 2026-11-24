@@ -646,6 +646,12 @@ export const diagramRuntime = Facet.define<Diagrams | null, Diagrams | null>({
  *  surfaces that show one (the pane and the deck). */
 const DIAGRAM_CLASS = 'folio-diagram'
 
+/** One size watch per diagram box, so the editor re-measures when a drawing
+ *  fills the box it mounted. A block that grows behind the editor's back leaves
+ *  its cached line positions wrong: a press below it resolves to the wrong
+ *  document position, and the reference under the press never opens. */
+const boxSizes = new WeakMap<HTMLElement, ResizeObserver>()
+
 /** Everything a view needs to draw diagrams, in one unit: the runtime the boxes
  *  register with, and the field that installs them. It lives behind a
  *  compartment so the pane can turn drawings on for an editor that is already
@@ -708,6 +714,16 @@ class DiagramWidget extends WidgetType {
       view.dispatch({ selection: { anchor: this.caret } })
       view.focus()
     })
+    // A drawing is filled in after this box is mounted, so the block grows with
+    // the editor's measurements already taken. Ask for a measure when that
+    // happens, or the lines below the drawing keep coordinates the editor no
+    // longer agrees with — the reference a reader presses there never opens
+    // (fix: a reference below a diagram still opens).
+    if (typeof ResizeObserver !== 'undefined') {
+      const watcher = new ResizeObserver(() => EditorView.findFromDOM(box)?.requestMeasure())
+      watcher.observe(box)
+      boxSizes.set(box, watcher)
+    }
     return box
   }
 
@@ -715,6 +731,8 @@ class DiagramWidget extends WidgetType {
    *  follows the screen rather than the page. */
   destroy(dom: HTMLElement): void {
     this.diagrams.unregister(dom)
+    boxSizes.get(dom)?.disconnect()
+    boxSizes.delete(dom)
   }
 
   ignoreEvent(): boolean {
@@ -1051,7 +1069,14 @@ function render(view: EditorView): Rendered {
         marks.push({
           from: start,
           to: line.from + ref.to,
-          decoration: Decoration.mark({ class: REFERENCE_CLASS }),
+          // The chip carries its own target, the way a table cell's does: a press
+          // on it is then answered from the DOM instead of from a document
+          // position, so a chip is clickable whatever the editor's cached line
+          // measurements say (fix: a reference below a diagram still opens).
+          decoration: Decoration.mark({
+            class: REFERENCE_CLASS,
+            attributes: { 'data-ref-target': ref.target, 'data-ref-kind': ref.kind },
+          }),
         })
         refs.push({
           from: start,

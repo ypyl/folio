@@ -85,3 +85,30 @@ test('a page that opens on a diagram shows it without a click', async ({ page })
   await expect(drawn.locator('svg')).toBeVisible()
   await expect(editor(page)).not.toContainText('flowchart TD')
 })
+
+// A drawing is filled in after its box is mounted, so the block grows without
+// CodeMirror's knowledge. The lines below it then sit where the editor's cached
+// measurements do not expect them, and a press on a reference in them does
+// nothing until something else forces a measure (reported 2026-11-25: a
+// reference below a diagram never opened, the same reference above it did).
+test('a reference below a diagram still opens', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, {
+    'pages/Flow.md':
+      '# Flow\n\n```mermaid\nflowchart TD\n  A[Open vault] --> B{Index built?}\n  B -->|no| C[Scan the folder]\n  C --> B\n  B -->|yes| D[Render the page]\n  D --> E[(Markdown files)]\n  E --> C\n```\n\nBelow the drawing, #second is a reference.\n',
+    'pages/second.md': 'Second page.',
+  })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Flow' }).click()
+
+  // The drawing lands first: that is what makes the block grow.
+  await expect(page.locator('figure.folio-diagram[data-state="drawn"]')).toBeVisible({
+    timeout: 20_000,
+  })
+
+  const chip = page.locator('.ref', { hasText: '#second' })
+  await expect(chip).toBeVisible()
+  await chip.click()
+  await expect(editor(page)).toContainText('Second page.')
+})
