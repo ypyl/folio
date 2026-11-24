@@ -152,7 +152,6 @@ export function EditorPane({
   suggestFiles,
   highlight,
   ref,
-  diagrams: showDiagrams = false,
 }: {
   page: Page | null
   initialContent: string
@@ -204,11 +203,6 @@ export function EditorPane({
    *  (render-vault-images). Absent without a vault: references then render as
    *  they did before, and no read is attempted. */
   readAsset?: (path: string) => Promise<Blob>
-  /** Whether a fenced `mermaid` block draws its diagram (add-mermaid-diagrams).
-   *  The effective gate, computed once in App: off means the pane supplies the
-   *  editor no runtime, so a fence reads as source and the engine is never
-   *  fetched. */
-  diagrams?: boolean
   /** Open the page a reference badge points at (add-reference-badges), or the
    *  board a board badge points at (add-whiteboards). `kind` says which. */
   onOpenReference?: (target: string, kind: ReferenceKind) => void
@@ -320,21 +314,21 @@ export function EditorPane({
     suggestBoardsRef.current = suggestBoards
   })
 
-  // The drawing runtime (add-mermaid-diagrams, design D4/D10): created and
-  // released with the gate rather than with the editor, so turning the
-  // experimental switch on draws the page that is already open instead of
-  // waiting for the next navigation. Declared before the mount effect so the
-  // editor mounts with whatever this leaves in the ref.
+  // The drawing runtime (add-mermaid-diagrams, design D4/D10; shipped on by
+  // release-mermaid-diagrams): created and released with the pane. It costs a
+  // viewport observer and nothing else until a fence asks for a drawing, which
+  // is why the pane mounts it whether or not a page holds a mermaid block.
+  // Declared before the mount effect so the editor mounts with it in the ref.
   useEffect(() => {
-    const runtime = showDiagrams ? createDiagrams({ root: paneRef.current }) : null
+    const runtime = createDiagrams({ root: paneRef.current })
     diagramsRef.current = runtime
     adapterRef.current?.setDiagrams(runtime)
     return () => {
       diagramsRef.current = null
       adapterRef.current?.setDiagrams(null)
-      runtime?.release()
+      runtime.release()
     }
-  }, [showDiagrams])
+  }, [])
 
   // Mount the editor once per page instance (App keys by page path, so the
   // props captured here are this page's for the editor's whole life). Content

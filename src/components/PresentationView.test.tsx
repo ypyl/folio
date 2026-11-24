@@ -168,7 +168,7 @@ describe('a slide draws its diagrams (add-mermaid-diagrams)', () => {
       '<pre><code class="language-mermaid">flowchart TD\n  A --> B</code></pre>',
       '<p>next</p>',
     ]
-    render(<PresentationView slides={deck} onClose={() => {}} diagrams />)
+    render(<PresentationView slides={deck} onClose={() => {}} />)
 
     const dialog = screen.getByRole('dialog', { name: 'Presentation' })
     await waitFor(() => expect(dialog.querySelector('figure.folio-diagram')).not.toBeNull())
@@ -180,7 +180,7 @@ describe('a slide draws its diagrams (add-mermaid-diagrams)', () => {
   it('shows the source rather than an empty box when the engine refuses', async () => {
     drawMock.mockRejectedValue(new Error('refused'))
     const deck = ['<pre><code class="language-mermaid">not a diagram</code></pre>']
-    render(<PresentationView slides={deck} onClose={() => {}} diagrams />)
+    render(<PresentationView slides={deck} onClose={() => {}} />)
 
     const dialog = screen.getByRole('dialog', { name: 'Presentation' })
     await waitFor(() =>
@@ -190,15 +190,5 @@ describe('a slide draws its diagrams (add-mermaid-diagrams)', () => {
     )
     expect(dialog.textContent).toContain('not a diagram')
     expect(dialog.querySelector('.folio-diagram-note')).not.toBeNull()
-  })
-
-  it('leaves the fence as source while the gate is off', () => {
-    const deck = ['<pre><code class="language-mermaid">flowchart TD</code></pre>']
-    render(<PresentationView slides={deck} onClose={() => {}} />)
-
-    const dialog = screen.getByRole('dialog', { name: 'Presentation' })
-    expect(dialog.querySelector('pre')).not.toBeNull()
-    expect(dialog.querySelector('figure.folio-diagram')).toBeNull()
-    expect(drawMock).not.toHaveBeenCalled()
   })
 })

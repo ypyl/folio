@@ -239,6 +239,45 @@ describe('the deck pass', () => {
     diagrams.release()
   })
 
+  it('puts the fence back when it is released before the drawing lands', () => {
+    // A surface that stays on screen is handed to a new runtime when React
+    // re-runs a mount effect (StrictMode does it on every mount). The pass has
+    // already replaced the fence with its placeholder, so releasing has to undo
+    // that, or the next runtime has nothing to find and the block waits for a
+    // drawing nobody asked for.
+    const engine = fakeEngine(() => '<svg></svg>')
+    const observer = fakeObserver(false)
+    const host = document.createElement('div')
+    host.innerHTML = '<pre><code class="language-mermaid">flowchart TD</code></pre>'
+    const fence = host.querySelector('pre')
+
+    const first = createDiagrams({ engine, observer: observer.factory })
+    first.sync(host)
+    expect(host.querySelector('pre')).toBeNull()
+
+    first.release()
+    expect(host.querySelector('pre')).toBe(fence)
+    expect(host.querySelector('figure.folio-diagram')).toBeNull()
+  })
+
+  it('draws the fence a released runtime put back', async () => {
+    const engine = fakeEngine(() => '<svg id="second"></svg>')
+    const observer = fakeObserver(true)
+    const host = document.createElement('div')
+    host.innerHTML = '<pre><code class="language-mermaid">flowchart TD</code></pre>'
+
+    const first = createDiagrams({ engine, observer: observer.factory })
+    first.sync(host)
+    first.release()
+
+    const second = createDiagrams({ engine, observer: observer.factory })
+    second.sync(host)
+    await vi.waitFor(() =>
+      expect(host.querySelector('figure.folio-diagram')?.innerHTML).toContain('second'),
+    )
+    second.release()
+  })
+
   it('leaves another language, and an empty mermaid fence, as source', () => {
     const engine = fakeEngine(() => '<svg></svg>')
     const observer = fakeObserver()

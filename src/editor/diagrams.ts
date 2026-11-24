@@ -179,6 +179,11 @@ export function createDiagrams(options: Options = {}): Diagrams {
   const entries = new Map<string, Entry>()
   /** Which source a box was registered for, so a dropped box can release it. */
   const boxed = new WeakMap<HTMLElement, string>()
+  /** The element `sync` replaced, per box it built (the deck's path): releasing
+   *  this runtime puts the fence back, so a surface that stays on screen can be
+   *  handed to a new runtime and drawn again (React StrictMode mounts an effect
+   *  twice, and the second pass has no fence to find otherwise). */
+  const synthesized = new Map<HTMLElement, HTMLElement>()
   const queue: string[] = []
   let engine: DiagramEngine | null = options.engine ?? null
   let observer: Observatory | null = null
@@ -359,6 +364,7 @@ export function createDiagrams(options: Options = {}): Diagrams {
     const source = boxed.get(box)
     if (source === undefined) return
     boxed.delete(box)
+    synthesized.delete(box)
     observer?.unobserve(box)
     const entry = entries.get(source)
     if (!entry) return
@@ -390,6 +396,7 @@ export function createDiagrams(options: Options = {}): Diagrams {
       const original = code.parentElement
       if (!original) continue
       original.replaceWith(box)
+      synthesized.set(box, original)
       register(source, box)
     }
   }
@@ -398,6 +405,12 @@ export function createDiagrams(options: Options = {}): Diagrams {
     released = true
     observer?.disconnect()
     observer = null
+    // A fence this runtime replaced but never drew goes back as it was found, so
+    // the host is the same DOM a fresh runtime syncs over.
+    for (const [box, original] of synthesized) {
+      if (box.dataset.state === 'waiting') box.replaceWith(original)
+    }
+    synthesized.clear()
     entries.clear()
     queue.length = 0
   }

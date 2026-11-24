@@ -3982,40 +3982,18 @@ describe('the agent tool surface (add-webmcp-tools)', () => {
   })
 })
 
-describe('diagrams are gated (add-mermaid-diagrams)', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    localStorage.clear()
-  })
-
-  it('supplies the editor no drawing runtime while the gate is off', async () => {
-    render(<App />)
-    await openFixture()
-    const supplied = editor() as unknown as { diagramsSupplied(): unknown }
-    expect(supplied.diagramsSupplied()).toBeNull()
-  })
-
-  it('supplies one while the experimental switch is on', async () => {
-    localStorage.setItem('folio.prerelease', '1')
+describe('diagrams render in every build (release-mermaid-diagrams)', () => {
+  it('supplies the editor a drawing runtime with no switch to flip', async () => {
     render(<App />)
     await openFixture()
     const supplied = editor() as unknown as { diagramsSupplied(): unknown }
     expect(supplied.diagramsSupplied()).not.toBeNull()
-  })
 
-  it('reaches the page already open when the switch is flipped', async () => {
-    // The switch is a preference, not a navigation: flipping it while a page is
-    // open must reach that page's editor rather than wait for the next mount.
-    render(<App />)
-    await openFixture()
-    const supplied = editor() as unknown as { diagramsSupplied(): unknown }
-    expect(supplied.diagramsSupplied()).toBeNull()
-
+    // The app-level experimental switch no longer decides this: flipping it
+    // leaves the page's drawing runtime in place.
     fireEvent.click(screen.getByRole('button', { name: 'Experimental features' }))
-    await waitFor(() => expect(supplied.diagramsSupplied()).not.toBeNull())
-
-    // And turning it off takes the runtime back, so nothing keeps drawing.
+    expect(supplied.diagramsSupplied()).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Experimental features' }))
-    await waitFor(() => expect(supplied.diagramsSupplied()).toBeNull())
+    expect(supplied.diagramsSupplied()).not.toBeNull()
   })
 })

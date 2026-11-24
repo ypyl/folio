@@ -45,6 +45,7 @@ uses the File System Access API. Every push to `master` builds with
 - Assets: drag, drop, or paste files into a page; browse them in the sidebar and open them from a page
 - Full-text search over pages and journals, and by name over assets and boards, with operators that lead with the kind or field you name (see [Searching](#searching))
 - Favorites, back/forward history, and a status bar: the open page's name in the bar reveals its row in Files, creating the page first when it has no file yet, and a journal day's name shows and focuses that day in the calendar; the version at the bar's trailing edge opens a list of what the running build changed (see [Changelog](#changelog))
+- Diagrams: a fenced `mermaid` block draws in the page and on a slide, with its source back at the caret; the engine loads only when a diagram is shown (see [Diagrams](#diagrams))
 - Presentations: turn a page into a keyboard-driven slide deck from its row menu, with `---` separating slides
 - Reminders: set from the Journal calendar's day menu, scheduled by a rule (`once`, `daily`, `weekly`, `monthly`, `yearly`) in `.folio/reminders.md`, and written into the day's note when it comes (see [Reminders](#reminders))
 - A guided demo vault with a table of contents and a worked example of every feature, in any browser (ADR-0034)
@@ -113,6 +114,30 @@ The line is appended at the end of the day's note and the app leaves your caret
 and scroll position alone, so opening a long note still reads from where you left
 it. A page that holds a rule carries a small bell in the Files listing, in the
 same badge slot the board and file rows use for their kind letters.
+
+## Diagrams
+
+A fenced code block whose info string is `mermaid` draws as a diagram in the
+page, and on a slide when the page is presented:
+
+````markdown
+```mermaid
+flowchart TD
+  A[Open vault] --> B[Index]
+  B --> C[Draw]
+```
+````
+
+Put the caret in the block and its source comes back to edit; move the caret out
+and the drawing returns. A page that opens on a diagram shows it without a
+press, and scrolling past one costs nothing until it is on screen.
+
+The drawing is a render of text the page already holds: no file, no board, no
+index entry, and the Markdown is never rewritten. A diagram the engine refuses
+keeps its source under one quiet line saying it could not be drawn, so a bad
+diagram is text rather than a broken box. The engine is fetched the first time a
+diagram is drawn, never at startup, and a vault with no diagram never downloads
+it.
 
 ## Changelog
 

@@ -48,7 +48,9 @@ one another.
 
 - The engine is fetched only when a drawing is needed and stays out of the offline
   install, like the board chunk. A vault with no diagram pays nothing, which is
-  what makes it acceptable for a feature shipped behind a flag.
+  what made it acceptable to ship behind a flag first; the capability now ships
+  in every build (release-mermaid-diagrams), so the flag and the experimental
+  switch no longer touch it.
 - The diagram's content is page text, so page search already finds it and a hit
   lands the caret in the fence, showing the source. Nothing extra was built for
   that.

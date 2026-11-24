@@ -142,9 +142,6 @@ function App() {
   // here so every surface of the capability reads the same gate (D3).
   const [prerelease, setPrerelease] = usePrerelease()
   const agentEnabled = features.agentTools || prerelease
-  // Diagrams (add-mermaid-diagrams): the effective gate, computed here like the
-  // agent's and passed down, so the pane, the deck, and the flag cannot disagree.
-  const diagramsEnabled = features.diagrams || prerelease
   // What an agent did on the user's behalf, newest first. Session state, and
   // empty while the gate is off: nothing can record without the surface that
   // performs an action (add-webmcp-tools).
@@ -1707,9 +1704,6 @@ function App() {
               // asset references through the active folder's storage, and does
               // nothing without one.
               readAsset={storage ? (path) => storage.readBinary(path) : undefined}
-              // A fenced mermaid block draws its diagram (add-mermaid-diagrams):
-              // off, the pane supplies no runtime, so a fence reads as source.
-              diagrams={diagramsEnabled}
               // While restoring, avoid a one-frame "open a folder" flash; once
               // settled, only an actually usable folder keeps the notes hint,
               // and a browser with no folder picker gets the requirement instead
@@ -1864,7 +1858,6 @@ function App() {
           slides={slides}
           onClose={() => setSlides(null)}
           readAsset={storage ? (path) => storage.readBinary(path) : undefined}
-          diagrams={diagramsEnabled}
         />
       ) : null}
     </div>

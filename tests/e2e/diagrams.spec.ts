@@ -3,8 +3,8 @@ import { editor, installVaultPicker, openVault, readVaultFile, seedVault } from 
 
 // openspec/specs/diagrams: a fenced `mermaid` block draws its diagram in the
 // page and on a slide, the Markdown stays canonical, and the source comes back
-// at the caret. The run sets `VITE_DIAGRAMS=1` (playwright.config.ts), so the
-// engine is exercised while the shipped build keeps the capability off.
+// at the caret. Diagrams ship on (release-mermaid-diagrams), so the run turns
+// nothing on: it exercises the build a user runs.
 
 const PAGE = `# Flow
 
@@ -133,4 +133,29 @@ test('the first press on a diagram a page opened on shows its source', async ({ 
   // The first press, with the caret still where the page seeded it.
   await drawn.click()
   await expect(editor(page)).toContainText('flowchart TD')
+})
+
+// openspec/specs/diagrams: a slide draws its diagram in every build, with no
+// switch to flip (release-mermaid-diagrams).
+test('a slide draws its diagram, with no switch to flip', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, {
+    'pages/Flow.md': PAGE,
+    'journals/1970-01-01.md': 'Unused.',
+  })
+  await openVault(page)
+  await expect(page.getByRole('button', { name: 'Flow' })).toBeVisible()
+
+  const files = page.locator('#sidebar-pane')
+  await files.getByRole('button', { name: 'Flow' }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Present' }).click()
+
+  const deck = page.getByRole('dialog', { name: 'Presentation' })
+  await expect(deck).toBeVisible()
+  const drawn = deck.locator('figure.folio-diagram[data-state="drawn"]')
+  await expect(drawn).toBeVisible({ timeout: 20_000 })
+  await expect(drawn.locator('svg')).toBeVisible()
+  // The slide shows the drawing, not the fence's source.
+  await expect(deck.locator('pre')).toHaveCount(0)
 })
