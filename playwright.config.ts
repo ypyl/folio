@@ -3,8 +3,9 @@ import { defineConfig, devices } from '@playwright/test'
 // End-to-end tests against a real Chromium. The app's File System Access layer
 // runs against the origin's private file system, driven through the real UI:
 // each test seeds a vault folder and opens it with the folder rail's add
-// control (see tests/e2e/helpers/vault.ts). Happy paths only, grouped one suite
-// per openspec capability.
+// control (see tests/e2e/helpers/vault.ts). One suite per openspec capability,
+// happy paths plus the cases jsdom cannot hold: layout, a download or a window,
+// a handle that survives a reload, a scan triggered by focus.
 const PORT = 4173
 const BASE_URL = `http://localhost:${PORT}`
 

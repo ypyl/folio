@@ -1,7 +1,7 @@
 {
   "name": "folio",
   "private": true,
-  "version": "0.99.12",
+  "version": "0.99.13",
   "license": "MIT",
   "type": "module",
   "scripts": {

@@ -255,3 +255,78 @@ test('a reference with a name the folder cannot hold stays text and saves', asyn
   expect(await readVaultFile(page, 'pages/Interview - Amjad A. | Bkdkfd.md')).toBe('')
   await expect(page.getByText('Save failed')).toHaveCount(0)
 })
+
+// openspec/specs/editing: a bare URL reads as a link and opens on Ctrl+Click
+// while a plain click only edits; the file keeps exactly the characters typed.
+test('a bare URL opens on Ctrl+Click and a plain click only edits', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, { 'pages/Links.md': 'Read https://example.com/folio when you can.\n' })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Links', exact: true }).click()
+  await expect(editor(page)).toContainText('Read')
+
+  const url = page.locator('.cm-content .folio-cm-url')
+  await expect(url).toHaveText('https://example.com/folio')
+  // The app's link ink, not the body text: the characters are unchanged.
+  const ink = await url.evaluate((el) => getComputedStyle(el).color)
+  expect(ink).not.toBe(
+    await editor(page).evaluate((el) => getComputedStyle(el).color),
+  )
+
+  // A plain press places the caret and opens nothing.
+  const popups: string[] = []
+  page.on('popup', (popup) => popups.push(popup.url()))
+  await url.click()
+  await page.waitForTimeout(300)
+  expect(popups).toEqual([])
+
+  // Ctrl+Click opens the target in a new window and leaves the app where it is.
+  const [tab] = await Promise.all([page.waitForEvent('popup'), url.click({ modifiers: ['Control'] })])
+  expect(tab.url()).toBe('https://example.com/folio')
+  await tab.close()
+  await expect(editor(page)).toContainText('Read https://example.com/folio when you can.')
+  expect(await readVaultFile(page, 'pages/Links.md')).toBe(
+    'Read https://example.com/folio when you can.\n',
+  )
+})
+
+// openspec/specs/editing: pasting inserts the clipboard's plain text verbatim,
+// with no interpretation of what it looks like.
+test('paste inserts the clipboard’s text literally', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, { 'pages/Paste.md': 'Start here.\n' })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Paste', exact: true }).click()
+  await expect(editor(page)).toContainText('Start here.')
+
+  await editor(page).click()
+  await page.keyboard.press('Control+End')
+  // A clipboard carrying both plain text and HTML: the text is what lands, and
+  // its Markdown is inserted as written rather than interpreted.
+  await page.evaluate(() => {
+    const transfer = new DataTransfer()
+    transfer.setData('text/plain', '\n# Not a heading\n\n`code` and **bold**')
+    transfer.setData('text/html', '<h1>Formatted</h1><p>Other text</p>')
+    document
+      .querySelector('.cm-content')!
+      .dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }),
+      )
+  })
+
+  // The editor shows the pasted Markdown as text: the heading's `#` is there,
+  // and none of the HTML arrived.
+  await expect(editor(page)).toContainText('# Not a heading')
+  await expect(editor(page)).toContainText('and **bold**')
+  expect(await editor(page).innerText()).not.toContain('Formatted')
+
+  // The saved file holds it as typed, and a reopen shows the same text.
+  await expect
+    .poll(() => readVaultFile(page, 'pages/Paste.md'))
+    .toContain('# Not a heading\n\n`code` and **bold**')
+  await page.reload()
+  await page.getByRole('button', { name: 'Paste', exact: true }).click()
+  await expect(editor(page)).toContainText('# Not a heading')
+})

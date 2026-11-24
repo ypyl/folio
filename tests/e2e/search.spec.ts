@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { editor, installVaultPicker, openVault, seedVault } from './helpers/vault'
+import {
+  editor,
+  installVaultPicker,
+  openVault,
+  seedVault,
+  todayJournalPath,
+} from './helpers/vault'
 
 // openspec/specs/search: the spotlight searches the vault and opens a result.
 test('searching the vault opens a matching page', async ({ page }) => {
@@ -146,4 +152,64 @@ test('the match case toggle narrows the results to the typed case', async ({ pag
   await expect(page.getByRole('option', { name: /Lower/ })).toBeVisible()
   // The results view is fed the same narrowed set.
   await expect(page.getByRole('button', { name: /See all 1 result/ })).toBeVisible()
+})
+
+// openspec/specs/search: the see-all row opens the full results view, which is
+// paged, numbered, and keyboard-driven without touching the vault.
+test('the full results view lists every match, pages, and answers the keyboard', async ({
+  page,
+}) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  const notes: Record<string, string> = { [todayJournalPath()]: 'Today.' }
+  for (let i = 0; i < 60; i++) notes[`pages/Note ${String(i).padStart(2, '0')}.md`] = `Docker note ${i}.`
+  await seedVault(page, notes)
+  await openVault(page)
+  await expect(page.getByRole('button', { name: /^Note \d\d$/ }).first()).toBeVisible()
+
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Search notes' }).fill('docker')
+  // The dropdown is capped; the see-all row names the full set.
+  await expect(page.getByRole('button', { name: /See all 60 results/ })).toBeVisible()
+  await page.getByRole('button', { name: /See all 60 results/ }).click()
+
+  // The main pane becomes the results view: every match, paged at fifty, with
+  // the query and the range in the summary.
+  const view = page.getByRole('main', { name: 'Search results' })
+  await expect(view).toBeVisible()
+  await expect(view).toContainText('60 matches')
+  await expect(view).toContainText('showing 1–50')
+  await expect(view.getByRole('button', { name: /^Note / })).toHaveCount(50)
+  await expect(view.getByRole('button', { name: /Prev/ })).toBeDisabled()
+
+  // Next and the numbered chips move between pages.
+  await view.getByRole('button', { name: /Next/ }).click()
+  await expect(view).toContainText('showing 51–60')
+  await expect(view.getByRole('button', { name: /^Note / })).toHaveCount(10)
+  await expect(view.getByRole('button', { name: '2', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await view.getByRole('button', { name: '1', exact: true }).click()
+  await expect(view).toContainText('showing 1–50')
+  await expect(view.getByRole('button', { name: '1', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+
+  // The keyboard moves the active row and Enter opens it, landing on the page
+  // with the match framed.
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(editor(page)).toContainText('Docker note')
+  await expect(page.locator('.folio-search-hit')).toHaveCount(1)
+
+  // Opening the view again and leaving through Back to notes returns to the
+  // page that was open, with nothing written.
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Search notes' }).fill('docker')
+  await page.getByRole('button', { name: /See all 60 results/ }).click()
+  await page.getByRole('button', { name: 'Back to notes' }).click()
+  await expect(view).toHaveCount(0)
+  await expect(editor(page)).toContainText('Docker note')
 })

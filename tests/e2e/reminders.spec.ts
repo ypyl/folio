@@ -88,3 +88,59 @@ test('sets, replaces, materializes, and removes a reminder', async ({ page }) =>
   await page.getByRole('button', { name: 'Today' }).click()
   await expect(editor(page)).toContainText('#Ana')
 })
+
+test('the app badge counts the open day’s reminders and clears', async ({ page }) => {
+  // The badge is the app-icon Badging API: Chromium exposes it, but a window
+  // cannot show one headless, so the call itself is what this records.
+  await page.addInitScript(() => {
+    const badge = { count: 0 }
+    Object.defineProperty(window, '__badge', { configurable: true, value: badge })
+    Object.defineProperty(navigator, 'setAppBadge', {
+      configurable: true,
+      value: async (count: number) => {
+        badge.count = count
+      },
+    })
+    Object.defineProperty(navigator, 'clearAppBadge', {
+      configurable: true,
+      value: async () => {
+        badge.count = 0
+      },
+    })
+  })
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, {
+    'pages/Take pills.md': 'Take them.',
+    'pages/Water plants.md': 'Water them.',
+    // Two daily rules anchored long ago, so both match today.
+    '.folio/reminders.md':
+      '# Reminders - order is reminder order\n\n- daily 2020-01-01 #[[Take pills]]\n- daily 2020-01-01 #[[Water plants]]\n',
+    [todayJournalPath()]: '',
+  })
+  await openVault(page)
+
+  const badge = () =>
+    page.evaluate(() => (window as unknown as { __badge: { count: number } }).__badge.count)
+
+  // Both are due on today: the day's note takes both lines and the badge counts
+  // two.
+  await expect(editor(page)).toContainText('#[[Take pills]]')
+  await expect(editor(page)).toContainText('#[[Water plants]]')
+  await expect.poll(badge).toBe(2)
+
+  // Ticking one is the user's record of it: the badge drops to one once the
+  // save lands.
+  await editor(page).locator('input[type="checkbox"]').first().click()
+  await expect
+    .poll(() => readVaultFile(page, todayJournalPath()))
+    .toContain('- [x] #[[Take pills]]')
+  await expect.poll(badge).toBe(1)
+
+  // A day the rules do not match clears the badge.
+  await page
+    .locator('details', { has: page.locator('summary', { hasText: 'Files' }) })
+    .getByRole('button', { name: 'Take pills', exact: true })
+    .click()
+  await expect.poll(badge).toBe(0)
+})

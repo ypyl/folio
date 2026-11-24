@@ -14,10 +14,9 @@ export const features = {
    * The agent's tool surface (add-webmcp-tools) and the record of what it did
    * (add-agent-activity-log): pages a browser agent reads and writes on the
    * user's behalf, the session's account of those actions, and the status bar's
-   * disclosure onto it. Off in the shipped build. A run can turn it on with
-   * `VITE_AGENT_TOOLS=1` (the e2e does), and the app's experimental switch turns
-   * it on without a rebuild, so the engine stays exercised while the shipped
-   * build registers no tool and shows no surface.
+   * disclosure onto it. Off in the shipped build. The e2e turns it on through
+   * the app's experimental switch, so the engine stays exercised while the
+   * shipped build registers no tool and shows no surface.
    */
   agentTools: import.meta.env.VITE_AGENT_TOOLS === '1',
 
