@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.99.4 (2026-11-24)
+
+- a reference below a diagram still opens
+
 ## v0.99.2 (2026-11-24)
 
 - a start never costs the reader a stored folder
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.83.0 (2026-11-03)
 
 - put the session navigation under the journal calendar
-
-## v0.82.0 (2026-10-29)
-
-- search by exact case with a match-case toggle

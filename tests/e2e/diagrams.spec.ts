@@ -112,3 +112,25 @@ test('a reference below a diagram still opens', async ({ page }) => {
   await chip.click()
   await expect(editor(page)).toContainText('Second page.')
 })
+
+// A page that opens on its own diagram seeds the caret at the fence's first
+// character, which the reveal rule counts as outside it. The first press on the
+// drawing must still open it for editing (reported 2026-11-25: the first press
+// did nothing, a press after clicking elsewhere did).
+test('the first press on a diagram a page opened on shows its source', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, {
+    'pages/Only.md': '```mermaid\nflowchart TD\n  A[Open] --> B[Draw]\n```\n',
+  })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Only' }).click()
+
+  const drawn = page.locator('figure.folio-diagram[data-state="drawn"]')
+  await expect(drawn).toBeVisible({ timeout: 20_000 })
+  await expect(editor(page)).not.toContainText('flowchart TD')
+
+  // The first press, with the caret still where the page seeded it.
+  await drawn.click()
+  await expect(editor(page)).toContainText('flowchart TD')
+})

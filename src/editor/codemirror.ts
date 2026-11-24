@@ -703,17 +703,12 @@ class DiagramWidget extends WidgetType {
     box.className = DIAGRAM_CLASS
     box.dataset.state = 'waiting'
     this.diagrams.register(this.source, box, this.code)
-    // A press reveals the source, and it is the widget's own job: the fence is
-    // hidden only while the caret is *inside* it (so a page that opens on a
-    // fence shows its drawing), which means the press cannot be left to the
-    // editor's edge-of-widget placement.
-    box.addEventListener('mousedown', (event) => {
-      const view = EditorView.findFromDOM(box)
-      if (!view) return
-      event.preventDefault()
-      view.dispatch({ selection: { anchor: this.caret } })
-      view.focus()
-    })
+    // Where a press on the drawing puts the caret. The adapter answers that
+    // press from this attribute and claims it, because the fence is hidden only
+    // while the caret is *inside* it: leaving the press to the editor's own
+    // placement would land on the block's edge, which counts as outside, and a
+    // page that opens on a diagram would need two presses to reveal it.
+    box.dataset.caret = String(this.caret)
     // A drawing is filled in after this box is mounted, so the block grows with
     // the editor's measurements already taken. Ask for a measure when that
     // happens, or the lines below the drawing keep coordinates the editor no
@@ -736,10 +731,11 @@ class DiagramWidget extends WidgetType {
   }
 
   ignoreEvent(): boolean {
-    // The press is the widget's own (see `toDOM`): the editor must not also
-    // place the caret, which it would put on the fence's edge — a position the
-    // drawing still occupies.
-    return true
+    // The event is let through so the adapter's press handler sees it and can
+    // claim it (a widget whose events are ignored never reaches that handler);
+    // claiming it is what keeps the editor from placing the caret on the fence's
+    // edge, a position the drawing still occupies.
+    return false
   }
 }
 
@@ -824,7 +820,7 @@ const diagramField = StateField.define<DiagramState>({
     if (!tr.docChanged) {
       const before = tr.startState.selection.main.head
       const flipped = value.entries.filter(
-        (entry) => touches(entry, before) !== touches(entry, caret),
+        (entry) => insideFence(entry, before) !== insideFence(entry, caret),
       )
       // Nothing the caret moved on or off: keep the value's identity, so an
       // ordinary selection change rebuilds nothing.
@@ -1605,6 +1601,18 @@ export class CodeMirrorAdapter implements EditorAdapter {
     // A widget's own elements are inside the editor's DOM but not in its
     // document, so they are read from the event target.
     if (event.target instanceof Element) {
+      // A press on a drawing opens the fence's source. Claimed here (a true
+      // return stops the editor's own press handling), so the caret lands where
+      // the reveal rule counts as inside the fence: the first press on a
+      // diagram, even one a page opened on, shows its source.
+      const drawing = event.target.closest<HTMLElement>(`.${DIAGRAM_CLASS}[data-caret]`)
+      if (drawing) {
+        const at = Number(drawing.dataset.caret)
+        event.preventDefault()
+        if (Number.isFinite(at)) view.dispatch({ selection: { anchor: at } })
+        view.focus()
+        return true
+      }
       const chip = event.target.closest(`.${REFERENCE_CLASS}[data-ref-target]`)
       if (chip) {
         event.preventDefault()
