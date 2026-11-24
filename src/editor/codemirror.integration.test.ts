@@ -1357,6 +1357,17 @@ describe('a mermaid fence draws its diagram', () => {
     expect(calls).toEqual([])
   })
 
+  it('draws a page that opens on a fence, caret at its start and all', async () => {
+    // The case a reader hits first: a page whose only content is a diagram. The
+    // seed puts the caret at the document start, which is the fence's own start,
+    // and that must still draw rather than fall back to the source.
+    const { el } = await openDrawing('```mermaid\nflowchart TD\n  A --> B\n```\n')
+    expect(el.querySelector('figure.folio-diagram')).not.toBeNull()
+    await vi.waitFor(() =>
+      expect(el.querySelector('figure.folio-diagram')?.innerHTML).toContain('drawn'),
+    )
+  })
+
   it('shows the source while the caret is in the fence, and draws again after', async () => {
     const { el } = await openDrawing(FLOW)
     const view = (adapter as unknown as { view: EditorView }).view

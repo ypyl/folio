@@ -526,7 +526,7 @@ const tableField = StateField.define<TableState>({
     if (!tr.docChanged) {
       const before = tr.startState.selection.main.head
       const flipped = value.entries.filter(
-        (entry) => touches(entry, before) !== touches(entry, caret),
+        (entry) => insideFence(entry, before) !== insideFence(entry, caret),
       )
       const frames = withFrames(value.entries, located)
       // Nothing the caret moved on or off, and no frame moved either: keep the
@@ -584,6 +584,15 @@ const tableField = StateField.define<TableState>({
  *  the table and the diagram, which are revealed by the same rule. */
 function touches(entry: { from: number; to: number }, caret: number): boolean {
   return caret >= entry.from && caret <= entry.to
+}
+
+/** Whether a caret is *inside* a fence, which is what reveals a diagram's source.
+ *  Stricter than the table's `touches`: a page has to be able to open on its own
+ *  drawings, and a seeded caret sits at the document's start, which is the first
+ *  fence when a page begins with one. The widget's own press moves the caret
+ *  inside, so the edges do not need to count. */
+function insideFence(entry: { from: number; to: number }, caret: number): boolean {
+  return caret > entry.from && caret < entry.to
 }
 
 /** A line range widened by one line each way, clamped to the document. */
@@ -657,17 +666,24 @@ class DiagramWidget extends WidgetType {
   private readonly source: string
   private readonly code: string
   private readonly diagrams: Diagrams
+  /** Where a press puts the caret: the first character of the fence's body, so
+   *  the source shows with the caret where the user would want to type. */
+  private readonly caret: number
 
-  constructor(source: string, code: string, diagrams: Diagrams) {
+  constructor(source: string, code: string, diagrams: Diagrams, caret: number) {
     super()
     this.source = source
     this.code = code
     this.diagrams = diagrams
+    this.caret = caret
   }
 
   eq(other: DiagramWidget): boolean {
     return (
-      other.source === this.source && other.code === this.code && other.diagrams === this.diagrams
+      other.source === this.source &&
+      other.code === this.code &&
+      other.diagrams === this.diagrams &&
+      other.caret === this.caret
     )
   }
 
@@ -681,6 +697,17 @@ class DiagramWidget extends WidgetType {
     box.className = DIAGRAM_CLASS
     box.dataset.state = 'waiting'
     this.diagrams.register(this.source, box, this.code)
+    // A press reveals the source, and it is the widget's own job: the fence is
+    // hidden only while the caret is *inside* it (so a page that opens on a
+    // fence shows its drawing), which means the press cannot be left to the
+    // editor's edge-of-widget placement.
+    box.addEventListener('mousedown', (event) => {
+      const view = EditorView.findFromDOM(box)
+      if (!view) return
+      event.preventDefault()
+      view.dispatch({ selection: { anchor: this.caret } })
+      view.focus()
+    })
     return box
   }
 
@@ -691,9 +718,10 @@ class DiagramWidget extends WidgetType {
   }
 
   ignoreEvent(): boolean {
-    // A press is the editor's: it places the caret on the fence, which shows the
-    // source so the diagram can be edited (spec: pressing a diagram reveals it).
-    return false
+    // The press is the widget's own (see `toDOM`): the editor must not also
+    // place the caret, which it would put on the fence's edge — a position the
+    // drawing still occupies.
+    return true
   }
 }
 
@@ -748,9 +776,12 @@ function diagramRanges(state: EditorState, entries: DiagramEntry[]): Range<Decor
     const fence = fenceAt(state, entry.from)
     const drawable = fence ? diagramSource(state, fence) : null
     if (!drawable) continue
+    // A press lands on the fence's first body line: the opening mark's line holds
+    // the info string, and typing there is not what a press means.
+    const bodyStart = Math.min(state.doc.lineAt(entry.from).to + 1, entry.to - 1)
     range.push(
       Decoration.replace({
-        widget: new DiagramWidget(drawable.source, drawable.code, diagrams),
+        widget: new DiagramWidget(drawable.source, drawable.code, diagrams, bodyStart),
         block: true,
       }).range(entry.from, entry.to),
     )
@@ -785,7 +816,7 @@ const diagramField = StateField.define<DiagramState>({
       // reads `shown`, so passing the entries the flip produced is what makes the
       // widget come back when the caret leaves the fence.
       const next = value.entries.map((entry) =>
-        moved.has(entry.from) ? { ...entry, shown: touches(entry, caret) } : entry,
+        moved.has(entry.from) ? { ...entry, shown: insideFence(entry, caret) } : entry,
       )
       return {
         entries: next,
@@ -842,7 +873,7 @@ function fencesIn(state: EditorState, from: number, to: number, caret: number): 
       entries.push({
         from: node.from,
         to: node.to,
-        shown: caret >= node.from && caret <= node.to,
+        shown: insideFence(node, caret),
       })
     },
   })

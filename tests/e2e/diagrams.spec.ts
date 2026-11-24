@@ -67,3 +67,21 @@ test('a source the engine refuses reads as its own text with a note', async ({ p
   await failed.click()
   await expect(editor(page)).toContainText('this is not a diagram')
 })
+
+// A page whose only content is the diagram, which is how a reader first meets
+// the feature: the seeded caret sits at the document start, on the fence's own
+// start, and the drawing must still appear with no click and no keypress.
+test('a page that opens on a diagram shows it without a click', async ({ page }) => {
+  await installVaultPicker(page)
+  await page.goto('/')
+  await seedVault(page, {
+    'pages/Only.md': '```mermaid\nflowchart TD\n  A[Open] --> B[Draw]\n```\n',
+  })
+  await openVault(page)
+  await page.getByRole('button', { name: 'Only' }).click()
+
+  const drawn = page.locator('figure.folio-diagram[data-state="drawn"]')
+  await expect(drawn).toBeVisible({ timeout: 20_000 })
+  await expect(drawn.locator('svg')).toBeVisible()
+  await expect(editor(page)).not.toContainText('flowchart TD')
+})

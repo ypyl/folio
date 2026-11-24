@@ -44,9 +44,11 @@ they render today.
 
 ### Requirement: A diagram shows its source at the selection
 
-While the selection touches a diagram's block, the surface SHALL show the
+While the selection is inside a diagram's block, the surface SHALL show the
 block's Markdown text instead of the diagram, and SHALL show the diagram again
-once the selection leaves it. The source SHALL be the block's text, editable as
+once the selection leaves it. A page whose block begins the document SHALL show
+its diagram on open, without a press, even though the seeded selection sits on
+that block's first character. The source SHALL be the block's text, editable as
 it is today.
 
 #### Scenario: The caret reveals the source
@@ -54,6 +56,12 @@ it is today.
 - **GIVEN** a page holding a rendered diagram
 - **WHEN** the user places the caret inside that block
 - **THEN** the block reads as its Markdown source
+
+#### Scenario: A page that opens on a fence shows its drawing
+
+- **GIVEN** a page whose only content is a mermaid fence
+- **WHEN** the user opens that page
+- **THEN** the diagram is drawn, with no press and no keypress
 
 #### Scenario: Leaving the block brings the diagram back
 
