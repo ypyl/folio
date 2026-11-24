@@ -129,6 +129,21 @@ vi.mock('./components/months', async (importOriginal) => {
   }
 })
 
+// The seed handed to the editor is normalized once per pane, not per keystroke
+// (AGENTS.md: the keystroke budget): normalizing copies and scans the whole
+// document, so counting the calls is the direct evidence that typing does not
+// pay for it.
+const trailingCalls = vi.hoisted(() => ({ count: 0 }))
+vi.mock('./vault/trailing', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./vault/trailing')>()
+  return {
+    withTrailingBlankLine: (text: string) => {
+      trailingCalls.count += 1
+      return actual.withTrailingBlankLine(text)
+    },
+  }
+})
+
 // The app-icon badge is a browser API with no observable DOM (add-reminders,
 // design D8), so the count it is handed is recorded here: the reminder badge's
 // behavior (hide-a-ticked-reminder-from-the-badge) is exactly that number.
@@ -777,6 +792,26 @@ describe('auto-save (page-editing spec)', () => {
     // The fresh Welcome editor mounts with the draft, not the indexed content.
     const reopened = editor()
     await waitFor(() => expect(reopened.setContents[0]).toBe('draft of welcome\n\n'))
+    vi.unstubAllGlobals()
+  })
+
+  it('does not re-normalize the seed on a keystroke (keystroke budget)', async () => {
+    render(<App />)
+    await openFixture()
+    fireEvent.click(await screen.findByRole('button', { name: 'Welcome' }))
+    await waitFor(() => expect(editor().content).toContain('This is Folio'))
+
+    const before = trailingCalls.count
+    await act(async () => {
+      editor().emitChange('a')
+    })
+    await act(async () => {
+      editor().emitChange('ab')
+    })
+    // The pump is App re-rendering for the indicator, which it must do: the seed
+    // is what must not be rebuilt, because the pane never reads it again.
+    await waitFor(() => expect(screen.getByText('Unsaved changes')).toBeTruthy())
+    expect(trailingCalls.count).toBe(before)
     vi.unstubAllGlobals()
   })
 

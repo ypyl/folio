@@ -936,17 +936,11 @@ function App() {
   }, [session])
 
   // The open page's draft feeds the editor's initial content (existing draft
-  // wins) and the indicator (dirty/saving/failed, else clean). `page` is
-  // `displayed ?? unmaterialized` (set above): a real graph page, a vanished
-  // page's last-known content, or the blank page for a not-yet-created path.
-  // The seed is normalized to end with one empty line (add-trailing-empty-line)
-  // so the editor shows it when a file that lacks one opens; the file is not
-  // written until the user edits. `openDraft.content` is already normalized
-  // once seeded, so re-normalizing is idempotent.
-  const initialContent = useMemo(
-    () => withTrailingBlankLine(openDraft?.content ?? page?.content ?? ''),
-    [openDraft?.content, page?.content],
-  )
+  // wins). `page` is `displayed ?? unmaterialized` (set above): a real graph
+  // page, a vanished page's last-known content, or a page the index does not
+  // list, synthesized from its draft. The seed is normalized to end with one
+  // empty line (add-trailing-empty-line) so the editor shows it when a file that
+  // lacks one opens; the file is not written until the user edits.
   const saveState = openDraft?.status ?? 'clean'
   // A page with no file yet is "new": its save indicator reads as creating it.
   const newPage = unmaterialized !== null && openDraft?.saved === ''
@@ -961,6 +955,24 @@ function App() {
   // is the reader's and is left alone, so their own text still wins.
   const diskContent = activePath === null ? undefined : graph?.pages.get(activePath)?.content
   const [seedVersion, setSeedVersion] = useState(0)
+  // The pane's identity: which page, and which seed. Changing either remounts
+  // the editor with the seed it is handed, and nothing else does.
+  const paneKey = `${page?.path ?? ''}#${seedVersion}`
+  // Read once per pane, not per keystroke (AGENTS.md: the keystroke budget). The
+  // pane takes its content at mount and never re-reads it, so this keys on the
+  // pane's identity and reads the draft through the store rather than through
+  // the live text, which would make it copy and scan the whole document on every
+  // key.
+  const initialContent = useMemo(
+    () => {
+      const draft = activePath === null ? undefined : drafts.get(activePath)
+      return withTrailingBlankLine(draft?.content ?? page?.content ?? '')
+    },
+    // Not the draft's text (that is every keystroke), and not the index's copy of
+    // the page (the pane keeps its own text then - see the re-seed effect).
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [paneKey],
+  )
   useEffect(() => {
     if (activePath === null || diskContent === undefined) return
     const draft = drafts.get(activePath)
@@ -1672,11 +1684,11 @@ function App() {
             )
           ) : (
             <EditorPane
-              // Keyed by path: each page gets a fresh editor seeded with its
-              // draft-or-index content; switching pages remounts it. The seed
-              // version remounts it too, when a refresh re-seeds the draft from
-              // an edit made outside the app.
-              key={`${page?.path ?? ''}#${seedVersion}`}
+              // Keyed by the pane's identity (see `paneKey`): each page gets a
+              // fresh editor seeded with its draft-or-index content; switching
+              // pages remounts it, and so does a refresh that re-seeds the draft
+              // from an edit made outside the app.
+              key={paneKey}
               ref={editorRef}
               page={page}
               initialContent={initialContent}
