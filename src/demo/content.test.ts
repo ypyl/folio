@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildIndex, journalDayName, resolveBoardPath } from '../vault/index'
 import { parseLinks } from '../vault/parse'
-import { matchingRules } from '../vault/reminders'
+import { ruleMatches } from '../vault/reminders'
 import { createDemoVault, DEMO_WELCOME_PATH } from './content'
 
 const TODAY = '2026-09-15'
@@ -90,13 +90,12 @@ describe('the guided demo seed', () => {
 
   it('matches the demo reminders on today', async () => {
     const index = await demoIndex()
-    expect(matchingRules(index.reminders, TODAY).map((rule) => rule.target)).toEqual([
-      'Water the plants',
-      'Weekly review',
-    ])
-    expect(matchingRules(index.reminders, '2026-09-16').map((rule) => rule.target)).toEqual([
-      'Water the plants',
-    ])
+    expect(
+      index.reminders.filter((rule) => ruleMatches(rule, TODAY)).map((rule) => rule.target),
+    ).toEqual(['Water the plants', 'Weekly review'])
+    expect(
+      index.reminders.filter((rule) => ruleMatches(rule, '2026-09-16')).map((rule) => rule.target),
+    ).toEqual(['Water the plants'])
   })
 
   it('leaves Standalone with no backlinks', async () => {

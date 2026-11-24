@@ -94,12 +94,6 @@ export function ruleMatches(rule: ReminderRule, day: string): boolean {
   }
 }
 
-/** The rules that match `day`, in file order (add-reminders, the calendar-day
- *  change): what a due day may materialize. */
-export function matchingRules(rules: readonly ReminderRule[], day: string): ReminderRule[] {
-  return rules.filter((rule) => ruleMatches(rule, day))
-}
-
 /** Whether a journal day other than `day`, on or after the rule's anchor,
  *  references the rule's page: the one-off's occurrence happened somewhere.
  *  Supplied by the caller, which owns the graph (rows.ts) — the day being

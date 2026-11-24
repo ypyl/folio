@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   doneTargets,
   dueRules,
-  matchingRules,
   parseReminders,
   renderReminders,
   ruleIsDue,
@@ -131,16 +130,6 @@ describe('ruleMatches (add-reminders)', () => {
     const r = rule('yearly', '2024-02-29')
     expect(ruleMatches(r, '2028-02-29')).toBe(true)
     expect(ruleMatches(r, '2026-02-28')).toBe(false)
-  })
-})
-
-describe('matchingRules (add-reminders)', () => {
-  it('keeps only the rules that match the day', () => {
-    const rules = [
-      rule('daily', '2026-10-16', 'Take pills'),
-      rule('weekly', '2026-10-15', 'Review inbox'),
-    ]
-    expect(matchingRules(rules, '2026-10-16').map((r) => r.target)).toEqual(['Take pills'])
   })
 })
 

@@ -274,6 +274,11 @@ function patchPage(graph: Graph, path: string, page: IndexPage): Graph {
   // owner and a new page only claims a free one.
   const name = page.title.toLowerCase()
   const byName = graph.byName.has(name) ? graph.byName : new Map(graph.byName).set(name, path)
+  // The file set grew (a new page), so the listings derived from it are rebuilt
+  // once: `listBoards` sorts the vault's files, and both the list and the name
+  // map come from it.
+  const gathered = files !== graph.files
+  const boards = gathered ? listBoards(files) : graph.boards
   return {
     pages,
     byName,
@@ -284,9 +289,9 @@ function patchPage(graph: Graph, path: string, page: IndexPage): Graph {
       pageLinkKeys(page, byName),
     ),
     files,
-    assets: files === graph.files ? graph.assets : listAssets(files),
-    boards: files === graph.files ? graph.boards : listBoards(files),
-    boardsByName: files === graph.files ? graph.boardsByName : boardNameMap(listBoards(files)),
+    assets: gathered ? listAssets(files) : graph.assets,
+    boards,
+    boardsByName: gathered ? boardNameMap(boards) : graph.boardsByName,
     boardReferrers: rewire(
       graph.boardReferrers,
       path,
