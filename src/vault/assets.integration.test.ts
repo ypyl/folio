@@ -26,6 +26,22 @@ describe('copyDroppedFiles', () => {
     expect(await storage.list('assets')).toEqual(['assets/photo-1.png', 'assets/photo.png'])
   })
 
+  it('treats a name that differs only in case as a collision (never overwrite)', async () => {
+    // Windows and a default macOS volume hold one `photo.png`, whatever case a
+    // name is written in, so a copy must not claim the same file under another
+    // spelling.
+    const storage = vault({ assets: { 'photo.png': 'x' } })
+    const landed = await copyDroppedFiles(storage, [file('Photo.PNG')])
+    expect(landed).toEqual(['assets/Photo-1.PNG'])
+    expect(await storage.list('assets')).toEqual(['assets/Photo-1.PNG', 'assets/photo.png'])
+  })
+
+  it('gives same-batch names that differ only in case distinct names', async () => {
+    const storage = vault({})
+    const landed = await copyDroppedFiles(storage, [file('a.png'), file('A.PNG')])
+    expect(landed).toEqual(['assets/a.png', 'assets/A-1.PNG'])
+  })
+
   it('gives same-batch duplicates distinct names', async () => {
     const storage = vault({})
     const landed = await copyDroppedFiles(storage, [file('a.png'), file('a.png'), file('a.png')])

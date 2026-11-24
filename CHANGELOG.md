@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.99.7 (2026-11-24)
+
+- a dropped file never replaces one that differs only in case
+
 ## v0.99.6 (2026-11-24)
 
 - an edit made outside the app is not overwritten
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.83.5 (2026-11-03)
 
 - restore the sidebar's column layout
-
-## v0.83.4 (2026-11-03)
-
-- even out the status bar's insets
