@@ -150,11 +150,18 @@ function resolveName(
 
 /** The page's text as the app holds it right now: the open document's draft when
  *  the page is open (which is the document the user is typing in), otherwise the
- *  file. Null means the page has no file yet, which is an empty page. */
+ *  file. Null means the page holds no text at all — no file, and nothing typed
+ *  into an open document — which is an empty page a create may write. */
 async function currentText(deps: AgentDeps, path: string): Promise<string | null> {
   if (path === deps.openPath) {
     const draft = deps.drafts.get(path)
-    if (draft) return draft.content
+    if (draft) {
+      // The index's file set is what says whether the folder holds a file for
+      // this path: a draft exists for a page opened from a reference too, seeded
+      // clean from nothing (agent-tools: create on the open page).
+      const typed = draft.content !== '' || draft.saved !== ''
+      return typed || deps.graph?.files.has(path) ? draft.content : null
+    }
   }
   if (!deps.storage) return null
   try {
@@ -282,11 +289,18 @@ export function agentActions(deps: AgentDeps) {
       if (existing !== null) {
         return fail('exists', 'the page has text already; append to it or edit it instead')
       }
-      const next = withTrailingBlankLine(text)
-      if (!(await deps.savePage(resolved.path, next))) {
-        return fail('save-failed', 'the page could not be written')
+      const added = lines(withTrailingBlankLine(text))
+      if (resolved.path === deps.openPath) {
+        // The open page is the editor's document (design D3): the create is one
+        // insert into it, and the pane's own save writes the file. Writing the
+        // file here would be overwritten by that save.
+        deps.appendOpen(text)
+      } else {
+        const next = withTrailingBlankLine(text)
+        if (!(await deps.savePage(resolved.path, next))) {
+          return fail('save-failed', 'the page could not be written')
+        }
       }
-      const added = lines(next)
       deps.record('create_note', resolved.path, added, 0)
       return { ok: true, path: resolved.path, name: resolved.title, added, removed: 0 }
     },

@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.99.11 (2026-11-24)
+
+- an agent can create the page that is open
+
 ## v0.99.10 (2026-11-24)
 
 - a keystroke no longer rebuilds the editor's seed
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.85.0 (2026-11-06)
 
 - record a session trace in the vault
-
-## v0.84.0 (2026-11-04)
-
-- carry a missed one-off to today and retire it when ticked

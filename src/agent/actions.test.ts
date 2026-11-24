@@ -236,6 +236,35 @@ describe('the agent actions: the two write shapes (agent-tools)', () => {
     })
     expect(writes).toHaveLength(0)
   })
+
+  it('creates the open page through the editor, not the file', async () => {
+    // The page is open from a reference and holds no text: a draft exists, but
+    // the folder has no file, so a create is allowed — and it goes into the
+    // document, because the pane's own save is what writes the file (design D3).
+    const drafts = new DraftStore()
+    const openPath = 'pages/Ideas.md'
+    drafts.open(openPath, '')
+    const appendOpen = vi.fn()
+    const { deps: d, writes, records } = deps({ drafts, openPath, appendOpen })
+    const result = await agentActions(d).create({ name: 'Ideas', text: 'Half-formed.' })
+    expect(result).toMatchObject({ ok: true, path: openPath, added: 3 })
+    expect(appendOpen).toHaveBeenCalledWith('Half-formed.')
+    expect(writes).toHaveLength(0)
+    expect(records[0]).toEqual({ tool: 'create_note', path: openPath, added: 3, removed: 0 })
+  })
+
+  it('still refuses an open page that has unsaved text in it', async () => {
+    const drafts = new DraftStore()
+    const openPath = 'pages/Ideas.md'
+    drafts.open(openPath, '')
+    drafts.edit(openPath, 'typed a moment ago')
+    const { deps: d, writes } = deps({ drafts, openPath })
+    expect(await agentActions(d).create({ name: 'Ideas', text: 'new' })).toMatchObject({
+      ok: false,
+      error: 'exists',
+    })
+    expect(writes).toHaveLength(0)
+  })
 })
 
 describe('the agent actions: reminders go through the app writer (agent-tools)', () => {
