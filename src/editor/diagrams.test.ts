@@ -4,7 +4,14 @@
 // browser, no layout, and no real mermaid are needed.
 
 import { describe, expect, it, vi } from 'vitest'
-import { createDiagrams, isDiagram, type Observatory } from './diagrams'
+import type { MermaidConfig } from 'mermaid'
+import {
+  createDiagrams,
+  diagramConfig,
+  isDiagram,
+  withDiagramPalette,
+  type Observatory,
+} from './diagrams'
 
 /** A stand-in engine that records what it was asked to draw and how many calls
  *  were in flight at once. */
@@ -291,5 +298,86 @@ describe('the deck pass', () => {
     expect(host.querySelectorAll('pre')).toHaveLength(2)
     expect(engine.calls).toEqual([])
     diagrams.release()
+  })
+})
+
+// keep-a-board-paste-out-of-the-page-palette: the app's palette is installed for
+// its own drawing and then put back, because the board editor's
+// mermaid-to-excalidraw conversion renders the same global configuration and
+// reads its shape colours from the SVG that was rendered under it.
+describe('the palette a drawing runs with', () => {
+  /** A mermaid-shaped object: the configuration is the fake's whole state. */
+  function fakeEngine() {
+    const installs: MermaidConfig[] = []
+    const engine = {
+      config: { startOnLoad: false, theme: 'default' } as MermaidConfig,
+      getConfig() {
+        return this.config
+      },
+      initialize(config: MermaidConfig) {
+        installs.push(config)
+        this.config = config
+      },
+    }
+    return { engine, installs }
+  }
+
+  it('installs the app’s palette for the drawing and restores what it found', async () => {
+    const { engine, installs } = fakeEngine()
+    const found = engine.getConfig()
+
+    const svg = await withDiagramPalette(engine, async () => '<svg id="drawn"></svg>')
+
+    expect(svg).toBe('<svg id="drawn"></svg>')
+    expect(installs).toEqual([diagramConfig(), found])
+    // The engine ends where it started, so the next renderer sees its own
+    // configuration rather than the app's palette.
+    expect(engine.getConfig()).toBe(found)
+  })
+
+  it('runs the drawing under the app’s palette', async () => {
+    const { engine } = fakeEngine()
+    let during: unknown = null
+    await withDiagramPalette(engine, async () => {
+      during = engine.getConfig()
+      return ''
+    })
+    expect(during).toEqual(diagramConfig())
+  })
+
+  it('restores the configuration after a refused drawing', async () => {
+    const { engine, installs } = fakeEngine()
+    const found = engine.getConfig()
+
+    await expect(
+      withDiagramPalette(engine, async () => {
+        throw new Error('refused')
+      }),
+    ).rejects.toThrow('refused')
+
+    expect(installs).toEqual([diagramConfig(), found])
+  })
+
+  it('draws even when the engine cannot report its configuration', async () => {
+    const { engine, installs } = fakeEngine()
+    engine.getConfig = () => {
+      throw new Error('no configuration')
+    }
+
+    await expect(withDiagramPalette(engine, async () => 'svg')).resolves.toBe('svg')
+    expect(installs).toEqual([diagramConfig()])
+  })
+
+  it('returns the drawing even when the restore is refused', async () => {
+    const { engine, installs } = fakeEngine()
+    const initialize = engine.initialize.bind(engine)
+    engine.initialize = (config) => {
+      // The second call is the restore.
+      if (installs.length === 1) throw new Error('cannot restore')
+      initialize(config)
+    }
+
+    await expect(withDiagramPalette(engine, async () => 'svg')).resolves.toBe('svg')
+    expect(installs).toHaveLength(1)
   })
 })

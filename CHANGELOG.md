@@ -5,6 +5,10 @@ Generated from the commit history by `npm run changelog`, so an entry exists for
 every `feat:` and `fix:` commit and for nothing else. The status bar's version
 badge reads this file.
 
+## v0.100.2 (2026-11-25)
+
+- a board paste no longer borrows a page's diagram palette
+
 ## v0.100.0 (2026-11-24)
 
 - mermaid diagrams ship in every build
@@ -160,7 +164,3 @@ badge reads this file.
 ## v0.85.6 (2026-11-10)
 
 - say what the experimental switch turns on
-
-## v0.85.4 (2026-11-10)
-
-- refuse a page name the folder cannot hold

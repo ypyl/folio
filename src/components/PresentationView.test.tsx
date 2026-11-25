@@ -11,6 +11,9 @@ const { drawMock } = vi.hoisted(() => ({ drawMock: vi.fn() }))
 vi.mock('mermaid', () => ({
   default: {
     initialize: () => {},
+    // The drawing wrapper snapshots the configuration before it draws and puts
+    // it back afterwards (keep-a-board-paste-out-of-the-page-palette).
+    mermaidAPI: { getConfig: () => ({ startOnLoad: false }) },
     render: (id: string, source: string) => drawMock(id, source),
   },
 }))

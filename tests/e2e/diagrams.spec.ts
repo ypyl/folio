@@ -35,6 +35,15 @@ test('a mermaid fence draws its diagram, and the source comes back at the caret'
   await expect(drawn.locator('svg')).toBeVisible()
   await expect(editor(page)).not.toContainText('flowchart TD')
 
+  // Drawn in the app's palette, not the engine's stock theme: the node's fill
+  // is --brand-tint and its stroke --brand (keep-a-board-paste-out-of-the-page-
+  // palette changed when the palette is installed, not what it is).
+  const paint = await drawn.evaluate((el) => {
+    const node = el.querySelector('.node rect, rect.basic') as SVGElement | null
+    return node === null ? null : { fill: getComputedStyle(node).fill, stroke: getComputedStyle(node).stroke }
+  })
+  expect(paint).toEqual({ fill: 'rgb(238, 242, 247)', stroke: 'rgb(27, 54, 93)' })
+
   // A press on the drawing places the caret in the fence, which shows its
   // source, as a table and an image already do.
   await drawn.click()
@@ -84,6 +93,15 @@ test('a page that opens on a diagram shows it without a click', async ({ page })
   await expect(drawn).toBeVisible({ timeout: 20_000 })
   await expect(drawn.locator('svg')).toBeVisible()
   await expect(editor(page)).not.toContainText('flowchart TD')
+
+  // Drawn in the app's palette, not the engine's stock theme: the node's fill
+  // is --brand-tint and its stroke --brand (keep-a-board-paste-out-of-the-page-
+  // palette changed when the palette is installed, not what it is).
+  const paint = await drawn.evaluate((el) => {
+    const node = el.querySelector('.node rect, rect.basic') as SVGElement | null
+    return node === null ? null : { fill: getComputedStyle(node).fill, stroke: getComputedStyle(node).stroke }
+  })
+  expect(paint).toEqual({ fill: 'rgb(238, 242, 247)', stroke: 'rgb(27, 54, 93)' })
 })
 
 // A drawing is filled in after its box is mounted, so the block grows without

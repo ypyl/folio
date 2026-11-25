@@ -91,9 +91,10 @@ const LOADING_LABEL = 'Drawing diagram'
  *  afterwards; `strict` sanitizes label text, since a drawing is generated markup
  *  and not escaped text.
  *
- *  Its own function, applied before every render: the board editor's paste path
- *  shares this global configuration (D7), so the configuration is set by whoever
- *  is about to draw rather than once at startup. */
+ *  Its own function, installed immediately before every drawing and taken back
+ *  afterwards (see `withDiagramPalette`): the configuration is a global the board
+ *  editor's mermaid-to-excalidraw conversion also renders with, so it is set per
+ *  drawing rather than once at startup, and never left behind. */
 export function diagramConfig(): MermaidConfig {
   return {
     startOnLoad: false,
@@ -136,18 +137,66 @@ function serialized<T>(job: () => Promise<T>): Promise<T> {
   return next
 }
 
+/** The one thing the palette helper needs from the engine: mermaid's global
+ *  configuration, and the call that replaces it. A seam, so the snapshot and
+ *  the restore are exercised without the library. */
+export type ConfigurableEngine = {
+  getConfig: () => MermaidConfig
+  initialize: (config: MermaidConfig) => void
+}
+
+/** Draw with the app's palette installed, then put the engine's configuration
+ *  back as it was found (keep-a-board-paste-out-of-the-page-palette).
+ *
+ *  Mermaid's configuration is a global, and the board editor's
+ *  mermaid-to-excalidraw conversion renders the same engine: it installs its own
+ *  configuration on its first conversion in a page load and skips its later
+ *  ones, so a palette left installed would colour the next paste by whatever
+ *  happened in the session. Restoring the snapshot hands the engine back in the
+ *  state that renderer expects, which is the only state this app can honestly
+ *  restore.
+ *
+ *  The snapshot is taken here rather than at startup because another renderer
+ *  may have set it since. The restore runs for a refusal too, and neither the
+ *  snapshot nor the restore can fail the drawing: a configuration the engine
+ *  cannot report is a drawing without a restore, and a restore it refuses leaves
+ *  its last configuration in place. The drawing is what the user asked for. */
+export function withDiagramPalette<T>(
+  engine: ConfigurableEngine,
+  job: () => Promise<T>,
+): Promise<T> {
+  let previous: MermaidConfig | null = null
+  try {
+    previous = engine.getConfig()
+  } catch {
+    // Nothing to put back; the drawing still runs in the app's palette.
+  }
+  engine.initialize(diagramConfig())
+  return job().finally(() => {
+    if (previous === null) return
+    try {
+      engine.initialize(previous)
+    } catch {
+      // The next drawing installs the palette again before it draws, so only a
+      // renderer outside this app can see the configuration left behind.
+    }
+  })
+}
+
 /** The real engine, fetched on first use. */
 let loading: Promise<DiagramEngine> | null = null
 
 function loadEngine(): Promise<DiagramEngine> {
   if (loading === null) {
     loading = import('mermaid').then(({ default: mermaid }) => ({
-      render: (id: string, source: string) => {
-        // Set by whoever is about to draw: the board editor's paste path writes
-        // the same global configuration (D7).
-        mermaid.initialize(diagramConfig())
-        return mermaid.render(id, source).then((result) => result.svg)
-      },
+      render: (id: string, source: string) =>
+        withDiagramPalette(
+          {
+            getConfig: () => mermaid.mermaidAPI.getConfig(),
+            initialize: (config) => mermaid.initialize(config),
+          },
+          () => mermaid.render(id, source),
+        ).then((result) => result.svg),
     }))
   }
   return loading
