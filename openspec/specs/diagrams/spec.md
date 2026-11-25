@@ -222,11 +222,13 @@ installing the app does not download a diagram renderer the vault may never use.
 
 ### Requirement: One engine configuration serves every renderer
 
-The app and the board editor SHALL share one diagram engine, and each renderer
-SHALL set the configuration it draws with immediately before it draws, so a
-diagram is drawn in the app's palette after a board has drawn one, and a board is
-drawn in its own after a page has drawn one. Renders SHALL be serialized so the
-engine is never asked to draw two diagrams at once.
+The app and the board editor SHALL share one diagram engine, whose configuration
+is global and mutable. A renderer SHALL set the configuration it draws with
+immediately before it draws, and SHALL restore the configuration it found once
+that drawing settles, whether it drew or was refused. Page and slide drawings
+SHALL be serialized, so the engine is never asked for two of them at once. The
+app's palette SHALL NOT outlive the drawing it was set for, so a diagram pasted
+into a board SHALL NOT be drawn in the app's palette.
 
 #### Scenario: A board render does not change the page's diagrams
 
@@ -241,6 +243,19 @@ engine is never asked to draw two diagrams at once.
 - **GIVEN** a page holding two diagrams, both on screen and not yet drawn
 - **WHEN** the pane draws them
 - **THEN** they are drawn one after the other and each is complete
+
+#### Scenario: A page's palette does not reach a board paste
+
+- **GIVEN** a page that has drawn a diagram
+- **WHEN** the user pastes mermaid text into a board and the board editor
+  converts it
+- **THEN** the converted elements do not use the app's palette
+
+#### Scenario: A refused drawing leaves the engine as it was found
+
+- **GIVEN** a fence the engine refuses, after a drawing in the app's palette
+- **WHEN** the refusal settles and the next renderer draws
+- **THEN** it finds the configuration that was in place before the app drew
 
 ### Requirement: A diagram fits the pane's width
 
